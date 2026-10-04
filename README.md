@@ -12,6 +12,7 @@ Open `index.html` in a browser (Chrome or Edge works best) and click **Drop in**
 | Mouse | Look |
 | Space | Jump / leave the bus / open glider |
 | Shift | Sprint |
+| V | Crouch |
 | Left click | Shoot, swing pickaxe, place builds |
 | Right click | Aim down sights |
 | 1–6 / wheel | Switch slots |
