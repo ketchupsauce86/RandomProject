@@ -125,6 +125,19 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 .statrow div{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:8px;padding:8px 14px;min-width:80px}
 .statrow b{display:block;font-family:var(--display);font-weight:400;font-size:28px;font-variant-numeric:tabular-nums}
 .statrow span{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.btnrow{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.btn2{font-family:var(--display);font-size:22px;color:var(--text);background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.5);border-radius:10px;padding:10px 22px 6px;cursor:pointer;transform:skewX(-6deg)}
+.btn2:hover{background:rgba(255,255,255,.2)}
+.btn2:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
+#armory{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;align-items:center;padding:28px 16px;box-sizing:border-box;background:radial-gradient(ellipse at center,transparent 35%,rgba(13,22,38,.75) 100%)}
+.armtop{display:flex;align-items:center;gap:24px;text-align:center}
+.armtop h2{font-family:var(--display);font-weight:400;font-size:clamp(30px,5vw,52px);margin:0;color:var(--sun);text-shadow:0 4px 0 #b3471f,0 8px 0 #1b2440}
+.armkick{font-size:16px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.btn2.arrow{font-size:34px;padding:2px 18px 0;line-height:1.2}
+#armLabels span{position:absolute;transform:translate(-50%,0);font-weight:800;font-size:16px;letter-spacing:.05em;text-transform:uppercase;text-shadow:0 2px 4px rgba(0,0,0,.8);white-space:nowrap}
+.armbottom{text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
+#armStats{font-size:20px;font-weight:700;margin:0;text-shadow:0 2px 6px rgba(0,0,0,.7)}
+.armbottom .note{margin:0 0 10px}
 #err{color:#ffb3bd;font-size:16px;margin-top:12px}
 @media (max-width:700px){#map{width:120px;height:120px}.slot{width:48px;height:48px}.slot .nm,.slot .sb{display:none}#vitals{width:40vw}}
 @media (prefers-reduced-motion:reduce){.btn,.slot{transition:none}}
@@ -165,7 +178,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
       <div class="hero">
         <h1 class="logo">Storm<span>Island</span></h1>
         <p class="tag">You and 19 bots drop onto the island. Loot chests, build fast, outrun the storm. Last one standing wins.</p>
-        <button class="btn" id="playBtn">Drop in</button>
+        <div class="btnrow"><button class="btn" id="playBtn">Drop in</button><button class="btn2" id="armoryBtn">Armory</button></div>
         <div class="note">Needs a keyboard and mouse. Click the game to lock your mouse.</div>
         <div id="err"></div>
       </div>
@@ -184,6 +197,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
           <dt>R</dt><dd>Reload</dd>
           <dt>Z / X / C</dt><dd>Build a wall / floor / ramp</dd>
           <dt>Q</dt><dd>Toggle build mode</dd>
+          <dt>G</dt><dd>Edit a build: click tiles, G to confirm</dd>
           <dt>F</dt><dd>Swap wood and stone</dd>
         </dl>
         <label class="sens" for="sens">Mouse speed <input type="range" id="sens" min="0.4" max="3" step="0.1" value="1"></label>
@@ -191,6 +205,11 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
     </div>
   </div>
 
+  <div id="armory" hidden>
+    <div class="armtop"><button class="btn2 arrow" id="armPrev" aria-label="Previous weapon">‹</button><div><div class="armkick">Armory</div><h2 id="armName">Assault Rifle</h2></div><button class="btn2 arrow" id="armNext" aria-label="Next weapon">›</button></div>
+    <div id="armLabels"></div>
+    <div class="armbottom"><p id="armStats"></p><p class="note">Higher rarities add attachments and a new finish: worn steel, camo, tech, energy and gold.</p><button class="btn" id="armBack">Back</button></div>
+  </div>
   <div class="overlay" id="pause" hidden>
     <div class="card panel">
       <h2>Paused</h2>
@@ -341,9 +360,38 @@ const GUN_PARTS={
 };
 const MUZZLE_Z={ar:-0.67,smg:-0.47,pump:-0.74,pistol:-0.26,sniper:-1.08};
 const gunGeoCache={};
+// ---- rarity finishes: every gun gets its own look at every rarity
+const camoTex=canvasTex(64,64,(g)=>{ g.fillStyle='#55703c'; g.fillRect(0,0,64,64); for(const [c,n] of [['#7a9450',9],['#2f4428',8],['#93a565',5]]) for(let i=0;i<n;i++){ g.fillStyle=c; g.beginPath(); g.ellipse(Math.random()*64,Math.random()*64,rnd(5,11),rnd(3,7),Math.random()*3,0,7); g.fill(); } });
+const wornTex=canvasTex(64,64,(g)=>{ g.fillStyle='#8f959d'; g.fillRect(0,0,64,64); g.strokeStyle='rgba(255,255,255,.25)'; for(let i=0;i<14;i++){ g.beginPath(); const x=Math.random()*64,y=Math.random()*64; g.moveTo(x,y); g.lineTo(x+rnd(-10,10),y+rnd(-4,4)); g.stroke(); } });
+const techTex=canvasTex(64,64,(g)=>{ g.fillStyle='#1c2c4a'; g.fillRect(0,0,64,64); g.strokeStyle='#4fb3ff'; g.lineWidth=2; g.beginPath(); g.moveTo(0,16); g.lineTo(24,16); g.lineTo(32,24); g.lineTo(64,24); g.moveTo(0,46); g.lineTo(40,46); g.lineTo(48,38); g.lineTo(64,38); g.stroke(); g.fillStyle='#8fd4ff'; g.fillRect(22,14,4,4); g.fillRect(38,44,4,4); });
+const energyTex=canvasTex(64,64,(g)=>{ g.fillStyle='#17121f'; g.fillRect(0,0,64,64); g.strokeStyle='#c77dff'; g.lineWidth=3; for(let i=-64;i<64;i+=22){ g.beginPath(); g.moveTo(i,64); g.lineTo(i+64,0); g.stroke(); } g.strokeStyle='#f1d4ff'; g.lineWidth=1; for(let i=-64;i<64;i+=22){ g.beginPath(); g.moveTo(i,64); g.lineTo(i+64,0); g.stroke(); } });
+const goldTex=canvasTex(64,64,(g)=>{ const gr=g.createLinearGradient(0,0,64,64); gr.addColorStop(0,'#ffe08a'); gr.addColorStop(0.5,'#e2a93a'); gr.addColorStop(1,'#ffd56a'); g.fillStyle=gr; g.fillRect(0,0,64,64); g.strokeStyle='rgba(120,70,0,.45)'; g.lineWidth=1.5; for(let i=0;i<4;i++){ g.beginPath(); g.arc(16+i*12,32+(i%2?8:-8),9,0,Math.PI*1.4); g.stroke(); } });
+const FIN=[
+  {body:Lam({map:wornTex}),body2:Lam({color:0x5a6068}),wood:Lam({color:0x8a5a32})},
+  {body:Lam({map:camoTex}),body2:Lam({color:0x34422c}),wood:Lam({color:0x6b5a3a})},
+  {body:Lam({map:techTex,emissive:0xffffff,emissiveMap:techTex,emissiveIntensity:0.35}),body2:Lam({color:0x22324f}),wood:Lam({color:0x2a3a5c})},
+  {body:Lam({map:energyTex,emissive:0xffffff,emissiveMap:energyTex,emissiveIntensity:0.6}),body2:Lam({color:0x1f1828}),wood:Lam({color:0x2a1f36})},
+  {body:new T.MeshPhongMaterial({map:goldTex,specular:0xfff0b0,shininess:90}),body2:new T.MeshPhongMaterial({color:0x2a2a2a,specular:0x888888,shininess:60}),wood:new T.MeshPhongMaterial({map:goldTex,specular:0xfff0b0,shininess:90})},
+];
+const laserMat=Lam({color:0xff3344,emissive:0xff2233});
+// extra attachments unlocked at higher rarities: [minimum rarity, ...parts]
+const EXTRA={
+  ar:[[2,[BX(0.05,0.14,0.06),'grip',0,-0.1,-0.36]],[3,[BX(0.05,0.05,0.16),'body2',0.075,0,-0.3],[BX(0.025,0.025,0.02),'laser',0.075,0,-0.39]],
+      [4,[BX(0.02,0.09,0.16),'accent',0.065,0.08,0.24],[BX(0.02,0.09,0.16),'accent',-0.065,0.08,0.24],[new T.TorusGeometry(0.05,0.012,6,16),'accent',0,0.17,-0.12]]],
+  smg:[[2,[BX(0.12,0.03,0.2),'body2',0,-0.02,-0.15]],[3,[BX(0.05,0.05,0.14),'body2',-0.075,0,-0.15],[BX(0.025,0.025,0.02),'laser',-0.075,0,-0.23]],
+      [4,[CY(0.055,0.14),'accent',0,0.01,-0.5],[BX(0.02,0.1,0.2),'accent',0,0.15,0]]],
+  pump:[[2,[CY(0.018,0.05),'laser',0.055,-0.02,0.3],[CY(0.018,0.05),'laser',0.055,-0.02,0.36],[CY(0.018,0.05),'laser',0.055,-0.02,0.42]],
+      [3,[BX(0.05,0.05,0.14),'body2',0.07,0.03,-0.2],[BX(0.025,0.025,0.02),'laser',0.07,0.03,-0.28]],[4,[CY(0.03,0.55),'body',0,0.1,-0.38],[CY(0.045,0.05),'accent',0,0.1,-0.66]]],
+  pistol:[[2,[BX(0.08,0.07,0.06),'body2',0,0.04,-0.23]],[3,[BX(0.04,0.04,0.1),'body2',0,-0.02,-0.16],[BX(0.02,0.02,0.02),'laser',0,-0.02,-0.22]],
+      [4,[BX(0.06,0.1,0.08),'accent',0,-0.22,0.07],[BX(0.03,0.05,0.12),'accent',0,0.13,-0.02]]],
+  sniper:[[2,[BX(0.02,0.24,0.02),'body2',0.05,-0.12,-0.5,0.4],[BX(0.02,0.24,0.02),'body2',-0.05,-0.12,-0.5,0.4]],[3,[BX(0.11,0.06,0.18),'accent',0,0.07,0.38],[BX(0.04,0.04,0.12),'body2',0.07,0,-0.3]],
+      [4,[CY(0.085,0.06),'accent',0,0.15,0.16],[BX(0.02,0.1,0.24),'accent',0.06,0.02,-0.3],[BX(0.02,0.1,0.24),'accent',-0.06,0.02,-0.3]]],
+};
+function partMat(mk,r){ const f=FIN[r]; return mk==='accent'?accentMats[r]:mk==='metal'||mk==='body'?f.body:mk==='metal2'||mk==='body2'?f.body2:mk==='wood'?(r>=2?f.body:f.wood):mk==='laser'?laserMat:GM[mk]; }
 function makeGunModel(id,r){
   const g=new T.Group(); if(!gunGeoCache[id]) gunGeoCache[id]=GUN_PARTS[id]();
-  for(const [geo,mk,x,y,z,rx] of gunGeoCache[id]){ const m=new T.Mesh(geo,mk==='accent'?accentMats[r]:GM[mk]); m.position.set(x,y,z); if(rx) m.rotation.x=rx; m.castShadow=true; g.add(m); if(id==='pump'&&mk==='wood'&&z<0) g.userData.pump=m; }
+  const parts=gunGeoCache[id].slice(); for(const [minR,...ps] of EXTRA[id]) if(r>=minR) parts.push(...ps);
+  for(const [geo,mk,x,y,z,rx] of parts){ const m=new T.Mesh(geo,partMat(mk,r)); m.position.set(x,y,z); if(rx) m.rotation.x=rx; if(geo.type==='TorusGeometry') m.rotation.y=Math.PI/2; m.castShadow=true; g.add(m); if(id==='pump'&&mk==='wood'&&z<0) g.userData.pump=m; }
   const mz=new T.Object3D(); mz.position.set(0,0.01,MUZZLE_Z[id]); g.add(mz); g.userData.muzzle=mz;
   return g;
 }
@@ -494,11 +542,11 @@ const tv1=new V(), tv2=new V(), tv3=new V(), tv4=new V();
 function refreshTargets(){ if(!targetsDirty) return; losTargets=structMeshes.concat(propMeshes); shotTargets=losTargets.concat(chestMeshes,charMeshes); targetsDirty=false; }
 
 // ================= pieces, props, chests =================
-function registerPiece(p){ p.etype='piece'; for(const m of p.meshes){ m.userData.ent=p; m.castShadow=true; m.receiveShadow=true; structMeshes.push(m); } if(p.box) colliders.add(p.box); if(p.key) pieceMap.set(p.key,p); if(p.ramp) ramps.push(p.ramp); targetsDirty=true; return p; }
+function registerPiece(p){ p.etype='piece'; for(const m of p.meshes){ m.userData.ent=p; m.castShadow=true; m.receiveShadow=true; structMeshes.push(m); } if(p.box) p.boxes=[p.box]; (p.boxes||[]).forEach(b=>colliders.add(b)); if(p.key) pieceMap.set(p.key,p); if(p.ramp) ramps.push(p.ramp); targetsDirty=true; return p; }
 function removePiece(p){
   if(p.dead) return; p.dead=true; world.remove(p.obj); if(p.extra) p.extra.forEach(o=>world.remove(o));
-  for(const m of p.meshes) removeFrom(structMeshes,m); if(p.box) colliders.delete(p.box); if(p.key) pieceMap.delete(p.key); if(p.ramp) removeFrom(ramps,p.ramp);
-  targetsDirty=true; const c=new V(); p.obj.getWorldPosition(c); debris(c,p.meshes[0].material); sfx('break',c);
+  for(const m of p.meshes) removeFrom(structMeshes,m); (p.boxes||[]).forEach(b=>colliders.delete(b)); if(p.key) pieceMap.delete(p.key); if(p.ramp) removeFrom(ramps,p.ramp);
+  targetsDirty=true; const c=new V(); p.meshes[0].getWorldPosition(c); debris(c,p.meshes[0].material); sfx('break',c);
 }
 function damagePiece(p,dmg,attacker,point){ if(p.dead) return; p.hp-=dmg; if(attacker===player&&point) showDmg(point,Math.round(dmg),'build'); if(p.hp<=0) removePiece(p); }
 function boxOf(cx,cy,cz,sx,sy,sz){ return {min:{x:cx-sx/2,y:cy-sy/2,z:cz-sz/2},max:{x:cx+sx/2,y:cy+sy/2,z:cz+sz/2}}; }
@@ -816,14 +864,93 @@ function placePiece(e,kind,free){
   const t=buildTarget(e,kind); if(pieceMap.has(t.key)) return false;
   let matName=e.buildMat||'wood';
   if(!free){ if(e.mats[matName]<10){ matName=matName==='wood'?'stone':'wood'; if(e.mats[matName]<10){ toast('Not enough materials. Hit trees and rocks with your pickaxe.'); return false; } } e.mats[matName]-=10; }
-  const xf=pieceXform(t), mat=M[matName]; let obj, mesh, rampData=null;
-  if(t.kind==='ramp'){ obj=new T.Group(); obj.position.set(xf.x,xf.y,xf.z); obj.rotation.y=xf.rotY; mesh=new T.Mesh(GEO.ramp,mat); mesh.rotation.x=-Math.PI/4; obj.add(mesh);
-    rampData={x0:t.i*G,z0:t.k*G,i:t.i,k:t.k,base:t.base,dir:t.dir}; }
-  else { mesh=new T.Mesh(GEO[xf.geo],mat); mesh.position.set(xf.x,xf.y,xf.z); obj=mesh; }
-  world.add(obj); obj.scale.setScalar(0.2);
   const hp=matName==='wood'?150:300;
-  const p=registerPiece({kind:t.kind,hp,maxHp:hp,obj,meshes:[mesh],box:xf.box||null,key:t.key,ramp:rampData,grow:0});
+  const p={kind:t.kind,t,matName,owner:e,edit:null,hp,maxHp:hp,key:t.key,grow:0};
+  const gm=pieceGeometry(p); Object.assign(p,{obj:gm.obj,meshes:gm.meshes,boxes:gm.boxes,ramp:gm.ramp||null});
+  world.add(p.obj); p.obj.scale.setScalar(0.2); registerPiece(p);
   anims.push(p); e.buildT=0.25; sfx('build',e.isPlayer?null:e.pos); return true;
+}
+// ================= build pieces & edit mode =================
+GEO.tileWZ=new T.BoxGeometry(G/3,(G+0.3)/3,0.3); GEO.tileWX=new T.BoxGeometry(0.3,(G+0.3)/3,G/3); GEO.tileF=new T.BoxGeometry(G/2,0.25,G/2);
+function tileLayout(t){
+  const out=[];
+  if(t.kind==='wall'){ const W=G/3, H=(G+0.3)/3, y0=t.base-0.3;
+    for(let r=0;r<3;r++) for(let c=0;c<3;c++){ const cy=y0+H*(r+0.5);
+      if(t.axis==='z') out.push({idx:r*3+c,x:t.ei*G+W*(c+0.5),y:cy,z:t.ek*G,sx:W,sy:H,sz:0.3,geo:'tileWZ'});
+      else out.push({idx:r*3+c,x:t.ei*G,y:cy,z:t.ek*G+W*(c+0.5),sx:0.3,sy:H,sz:W,geo:'tileWX'}); } }
+  else if(t.kind==='floor'){ const S=G/2;
+    for(let r=0;r<2;r++) for(let c=0;c<2;c++) out.push({idx:r*2+c,x:t.i*G+S*(c+0.5),y:t.base-0.125,z:t.k*G+S*(r+0.5),sx:S,sy:0.25,sz:S,geo:'tileF'}); }
+  return out;
+}
+function pieceGeometry(p){
+  const t=p.t, mat=M[p.matName], xf=pieceXform(t);
+  if(t.kind==='ramp'){ const obj=new T.Group(); obj.position.set(xf.x,xf.y,xf.z); obj.rotation.y=xf.rotY; const mesh=new T.Mesh(GEO.ramp,mat); mesh.rotation.x=-Math.PI/4; obj.add(mesh);
+    return {obj,meshes:[mesh],boxes:[],ramp:{x0:t.i*G,z0:t.k*G,i:t.i,k:t.k,base:t.base,dir:t.dir}}; }
+  if(!p.edit||!p.edit.size){ const mesh=new T.Mesh(GEO[xf.geo],mat); mesh.position.set(xf.x,xf.y,xf.z); return {obj:mesh,meshes:[mesh],boxes:[xf.box]}; }
+  const obj=new T.Group(), meshes=[], boxes=[];
+  for(const tl of tileLayout(t)){ if(p.edit.has(tl.idx)) continue; const m=new T.Mesh(GEO[tl.geo],mat); m.position.set(tl.x,tl.y,tl.z); obj.add(m); meshes.push(m); boxes.push(boxOf(tl.x,tl.y,tl.z,tl.sx,tl.sy,tl.sz)); }
+  return {obj,meshes,boxes};
+}
+function rebuildPiece(p){
+  world.remove(p.obj); for(const m of p.meshes) removeFrom(structMeshes,m); (p.boxes||[]).forEach(b=>colliders.delete(b)); if(p.ramp) removeFrom(ramps,p.ramp);
+  const gm=pieceGeometry(p); p.obj=gm.obj; p.meshes=gm.meshes; p.boxes=gm.boxes; p.ramp=gm.ramp||null; world.add(p.obj);
+  for(const m of p.meshes){ m.userData.ent=p; m.castShadow=true; m.receiveShadow=true; structMeshes.push(m); }
+  p.boxes.forEach(b=>colliders.add(b)); if(p.ramp) ramps.push(p.ramp); targetsDirty=true;
+}
+let editOverlay=null, editTiles=[];
+const editEdgeMat=new T.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.9});
+function editTarget(){
+  camera.getWorldDirection(tv1); ray.set(camera.position,tv1); ray.near=camDistNow; ray.far=camDistNow+7;
+  const h=ray.intersectObjects(structMeshes,false)[0]; if(!h) return null;
+  const p=h.object.userData.ent; return p&&p.owner===player&&!p.dead?p:null;
+}
+function startEdit(){
+  const p=player; if(p.phase!=='ground'||!p.alive) return;
+  const piece=editTarget(); if(!piece){ toast('Aim at one of your own builds to edit it'); return; }
+  cancelActions(); p.build=null; p.editing={piece,sel:new Set(piece.edit||[]),dir:piece.t.dir,paint:null};
+  buildEditOverlay(); sfx('build'); refreshHotbar(); hudTick();
+}
+function buildEditOverlay(){
+  if(editOverlay) scene.remove(editOverlay);
+  const ed=player.editing, t=ed.piece.t; editOverlay=new T.Group(); editTiles=[];
+  const tileMat=()=>new T.MeshBasicMaterial({color:0x5ab4ff,transparent:true,opacity:0.4,depthWrite:false});
+  if(t.kind==='ramp'){
+    const xf=pieceXform({...t,dir:ed.dir}), g=new T.Group(); g.position.set(xf.x,xf.y,xf.z); g.rotation.y=xf.rotY;
+    const m=new T.Mesh(GEO.ramp,tileMat()); m.rotation.x=-Math.PI/4; m.scale.set(1.03,2.2,1.03); m.userData.tile='rot'; g.add(m);
+    const e=new T.LineSegments(new T.EdgesGeometry(GEO.ramp),editEdgeMat); e.rotation.x=-Math.PI/4; e.scale.copy(m.scale); g.add(e);
+    editOverlay.add(g); editTiles.push(m);
+  } else {
+    for(const tl of tileLayout(t)){ const geo=new T.BoxGeometry(tl.sx*0.94+(tl.sx<0.5?0.14:0),tl.sy*0.94+(tl.sy<0.5?0.14:0),tl.sz*0.94+(tl.sz<0.5?0.14:0));
+      const m=new T.Mesh(geo,tileMat()); m.position.set(tl.x,tl.y,tl.z); m.userData.tile=tl.idx; editOverlay.add(m); editTiles.push(m);
+      const e=new T.LineSegments(new T.EdgesGeometry(geo),editEdgeMat); e.position.copy(m.position); editOverlay.add(e); }
+  }
+  scene.add(editOverlay); colorEditTiles();
+}
+function colorEditTiles(){ const ed=player.editing; for(const m of editTiles){ const on=ed.sel.has(m.userData.tile); m.material.color.setHex(on?0xff5468:0x5ab4ff); m.material.opacity=on?0.12:0.4; } }
+function editTileAt(){ camera.getWorldDirection(tv1); ray.set(camera.position,tv1); ray.near=camDistNow; ray.far=camDistNow+9; const h=ray.intersectObjects(editTiles,false)[0]; return h?h.object.userData.tile:null; }
+function editClick(){
+  const ed=player.editing, tile=editTileAt(); if(tile===null) return;
+  if(tile==='rot'){ ed.dir=(ed.dir+1)%4; buildEditOverlay(); sfx('reload'); return; }
+  ed.paint=!ed.sel.has(tile); editPaint(tile);
+}
+function editPaint(tile){ const ed=player.editing; if(tile===null||tile==='rot'||ed.paint===null) return; const had=ed.sel.has(tile); if(ed.paint&&!had){ ed.sel.add(tile); sfx('reload'); } else if(!ed.paint&&had){ ed.sel.delete(tile); sfx('reload'); } else return; colorEditTiles(); }
+function confirmEdit(){
+  const ed=player.editing, p=ed.piece;
+  if(!p.dead){
+    if(p.t.kind==='ramp') p.t.dir=ed.dir;
+    else { const n=p.t.kind==='wall'?9:4; if(ed.sel.size>=n){ toast('Keep at least one tile'); return; } p.edit=new Set(ed.sel); }
+    rebuildPiece(p); sfx('build');
+  }
+  endEdit();
+}
+function resetEdit(){ const ed=player.editing; ed.sel.clear(); ed.dir=ed.piece.t.dir; if(ed.piece.t.kind==='ramp') buildEditOverlay(); else colorEditTiles(); }
+function endEdit(){ if(editOverlay){ scene.remove(editOverlay); editOverlay.traverse(o=>{ if(o.isMesh){ if(o.geometry!==GEO.ramp) o.geometry.dispose(); o.material.dispose(); } }); editOverlay=null; } editTiles=[]; if(player) player.editing=null; }
+function updateEdit(){
+  const p=player, ed=p&&p.editing; if(!ed) return;
+  const c=new V(); ed.piece.meshes[0]&&ed.piece.meshes[0].getWorldPosition(c);
+  if(ed.piece.dead||!p.alive||p.phase!=='ground'||c.distanceTo(p.pos)>10){ endEdit(); refreshHotbar(); return; }
+  if(mouse.l&&ed.paint!==null) editPaint(editTileAt());
+  if(!mouse.l) ed.paint=null;
 }
 const ghosts={};
 ['wallZ','wallX','floor'].forEach(k=>{ ghosts[k]=new T.Mesh(GEO[k],ghostMat); ghosts[k].visible=false; scene.add(ghosts[k]); });
@@ -928,8 +1055,8 @@ function finishConsume(){ const p=player, it=p.consuming.it, c=CONS[it.id]; p.co
   if(c.heal) p.hp=Math.min(c.cap,p.hp+c.heal);
   if(c.shield) p.shield=Math.min(c.cap,p.shield+c.shield);
   sfx('heal'); it.count--; if(it.count<=0){ const i=p.slots.indexOf(it); if(i>0) p.slots[i]=null; } refreshHotbar(); }
-function selectSlot(n){ const p=player; if(p.build) p.build=null; if(p.sel!==n) cancelActions(); p.sel=n; refreshHotbar(); }
-function setBuild(k){ const p=player; if(p.phase!=='ground') return; cancelActions(); p.build=k; p.lastBuild=k; refreshHotbar(); }
+function selectSlot(n){ const p=player; if(p.editing) endEdit(); if(p.build) p.build=null; if(p.sel!==n) cancelActions(); p.sel=n; refreshHotbar(); }
+function setBuild(k){ const p=player; if(p.editing) endEdit(); if(p.phase!=='ground') return; cancelActions(); p.build=k; p.lastBuild=k; refreshHotbar(); }
 function toggleBuild(){ const p=player; if(p.build){ p.build=null; refreshHotbar(); } else setBuild(p.lastBuild||'wall'); }
 function interact(){ const t=interactTarget; if(!t) return; if(t.etype==='chest') openChest(t); else if(t.etype==='loot') pickupLoot(t); }
 function pickupLoot(l){
@@ -1061,8 +1188,9 @@ function updateActions(dt){
   if(p.reloading){ if(curItem()!==p.reloading.it) p.reloading=null; else { p.reloading.t+=dt; if(p.reloading.t>=p.reloading.dur) finishReload(); } }
   if(p.consuming){ if(curItem()!==p.consuming.it) p.consuming=null; else { p.consuming.t+=dt; if(p.consuming.t>=p.consuming.dur) finishConsume(); } }
   const it=curItem();
-  ads=state==='play'&&mouse.r&&!p.build&&p.phase==='ground'&&p.alive&&!!it&&it.kind==='gun';
+  ads=state==='play'&&mouse.r&&!p.build&&!p.editing&&p.phase==='ground'&&p.alive&&!!it&&it.kind==='gun';
   if(!p.alive||p.phase!=='ground'||state!=='play') return;
+  if(p.editing) return;
   if(mouse.l){
     if(p.build){ p.buildRepeat-=dt; if(p.buildRepeat<=0){ placePiece(p,p.build,false); p.buildRepeat=0.13; } }
     else if(!it||(it.kind==='gun'&&WEAP[it.id].auto)) playerFire();
@@ -1168,7 +1296,7 @@ function hudTick(){
   $('shNum').textContent=Math.ceil(p.shield); $('shFill').style.width=clamp(p.shield,0,100)+'%';
   $('woodN').textContent=p.mats.wood; $('stoneN').textContent=p.mats.stone;
   $('matWood').classList.toggle('on',p.buildMat==='wood'); $('matStone').classList.toggle('on',p.buildMat==='stone');
-  $('buildInfo').innerHTML=p.build?`Building <b>${p.build}</b> · 10 ${p.buildMat}`:'Z wall · X floor · C ramp';
+  $('buildInfo').innerHTML=p.editing?'<b>Editing</b> · click tiles · G confirm · right-click reset':p.build?`Building <b>${p.build}</b> · 10 ${p.buildMat}`:'Z wall · X floor · C ramp';
   $('aliveN').textContent=aliveCount; $('killN').textContent=p.kills;
   $('stormTxt').textContent=storm.stage==='wait'?'Storm in '+fmtTime(storm.t):storm.stage==='shrink'?'Storm closing '+fmtTime(storm.t):'Final storm';
   const it=curItem();
@@ -1185,7 +1313,7 @@ function hudFrame(dt){
   if(bannerT>0){ bannerT-=dt; if(bannerT<=0) $('banner').hidden=true; }
   if(toastT>0){ toastT-=dt; if(toastT<=0) $('toast').hidden=true; }
   const it=curItem();
-  $('xhair').className=p.build?'build':''; const bl=1+p.bloom*1.5+(ads?-0.4:0); $('xhair').style.transform=`translate(-50%,-50%) scale(${bl})`;
+  $('xhair').className=p.build||p.editing?'build':''; const bl=1+p.bloom*1.5+(ads?-0.4:0); $('xhair').style.transform=`translate(-50%,-50%) scale(${bl})`;
   $('xhair').hidden=!p.alive||p.phase==='bus';
   $('scope').hidden=!(ads&&it&&WEAP[it.id]&&WEAP[it.id].zoom);
   const busy=p.consuming||p.reloading;
@@ -1238,6 +1366,7 @@ function drawMap(){
 // ================= camera =================
 const camFwd=new V(), camRight=new V(); let camDist=4.2, camDistNow=4.2, fov=72;
 function updateCamera(dt){
+  if(state==='armory'){ updateArmory(dt); return; }
   if(state==='menu'||!player){ const t=performance.now()/1000*0.04; camera.position.set(Math.cos(t)*240,105,Math.sin(t)*240); camera.lookAt(0,5,0); if(camera.fov!==60){ camera.fov=60; camera.updateProjectionMatrix(); } return; }
   const p=player;
   if(!p.alive){ const a=matchTime*0.25; camera.position.set(p.pos.x+Math.cos(a)*14,p.pos.y+7,p.pos.z+Math.sin(a)*14); camera.lookAt(p.pos.x,p.pos.y+1,p.pos.z); return; }
@@ -1258,8 +1387,34 @@ function updateCamera(dt){
 }
 function updateSun(){ const f=(state==='menu'||!player)?tv4.set(0,0,0):(player.phase==='bus'?bus.pos:player.pos); sun.position.copy(f).addScaledVector(SUN_DIR,200); sun.target.position.copy(f); sky.position.copy(camera.position); }
 
+// ================= armory (gun showcase) =================
+const ARM_IDS=['ar','smg','pump','pistol','sniper'], ARM_Y=420;
+let armIdx=0, armGroup=null, armGuns=[];
+function buildArmory(){
+  if(armGroup) scene.remove(armGroup);
+  armGroup=new T.Group(); armGroup.position.set(0,ARM_Y,0); armGuns=[];
+  const id=ARM_IDS[armIdx];
+  for(let r=0;r<5;r++){ const holder=new T.Group(); holder.position.x=(r-2)*(id==='sniper'?2.15:1.65); const gm=makeGunModel(id,r); gm.scale.setScalar(id==='pistol'?2:id==='sniper'?1.05:1.3); holder.add(gm);
+    const halo=new T.Sprite(auraMats(RAR[r].c).halo); halo.scale.setScalar(1.6+r*0.25); halo.position.z=-0.6; holder.add(halo);
+    armGroup.add(holder); armGuns.push(holder); }
+  scene.add(armGroup);
+  const w=WEAP[id]; $('armName').textContent=w.name;
+  $('armStats').textContent=`Damage ${w.dmg*w.pellets>w.dmg?w.dmg+' × '+w.pellets:w.dmg} · Magazine ${w.mag} · Reload ${w.reload}s · ${w.auto?'Full auto':'Single shot'}`;
+  $('armLabels').innerHTML=RAR.map(r=>`<span style="color:${r.c}">${r.n}</span>`).join('');
+}
+function openArmory(){ state='armory'; if(world) world.visible=false; $('menu').hidden=true; $('armory').hidden=false; buildArmory(); $('armNext').focus(); }
+function closeArmory(){ state='menu'; if(world) world.visible=true; $('armory').hidden=true; $('menu').hidden=false; if(armGroup){ scene.remove(armGroup); armGroup=null; } $('armoryBtn').focus(); }
+function updateArmory(dt){
+  const t=performance.now()/1000;
+  armGuns.forEach((h,i)=>{ h.rotation.y=Math.PI/2+Math.sin(t*0.8+i*0.5)*0.55; h.position.y=Math.sin(t*1.6+i)*0.06; });
+  const dist=Math.max(6,(ARM_IDS[armIdx]==='sniper'?13:10.5)/camera.aspect);
+  camera.position.set(0,ARM_Y+0.2,dist); camera.lookAt(0,ARM_Y,0); if(camera.fov!==50){ camera.fov=50; camera.updateProjectionMatrix(); }
+  const labels=$('armLabels').children;
+  armGuns.forEach((h,i)=>{ h.getWorldPosition(tv1); tv1.y-=0.75; tv1.project(camera); const el=labels[i]; if(el){ el.style.left=((tv1.x+1)/2*innerWidth)+'px'; el.style.top=((1-tv1.y)/2*innerHeight)+'px'; } });
+}
 // ================= match flow =================
 function newMatch(){
+  if(player&&player.editing) endEdit();
   if(world) scene.remove(world);
   world=new T.Group(); scene.add(world);
   colliders=new Set(); structMeshes=[]; propMeshes=[]; chestMeshes=[]; charMeshes=[]; ramps=[]; pieceMap=new Map(); props=[]; chests=[]; loots=[]; combatants=[]; bots=[]; effects=[]; anims=[]; housePos=[]; clouds=[];
@@ -1322,6 +1477,9 @@ const sensInputs=[$('sens'),$('sens2')];
 try{ const s=parseFloat(localStorage.getItem('stormIslandSens')); if(s>0){ sens=s; } }catch(e){}
 sensInputs.forEach(inp=>{ inp.value=sens; inp.addEventListener('input',()=>{ sens=parseFloat(inp.value)||1; sensInputs.forEach(o=>{ if(o!==inp) o.value=sens; }); try{ localStorage.setItem('stormIslandSens',String(sens)); }catch(e){} }); });
 $('playBtn').addEventListener('click',startMatch);
+$('armoryBtn').addEventListener('click',openArmory); $('armBack').addEventListener('click',closeArmory);
+$('armPrev').addEventListener('click',()=>{ armIdx=(armIdx+4)%5; buildArmory(); }); $('armNext').addEventListener('click',()=>{ armIdx=(armIdx+1)%5; buildArmory(); });
+addEventListener('keydown',ev=>{ if(state!=='armory') return; if(ev.key==='ArrowRight'){ armIdx=(armIdx+1)%5; buildArmory(); } else if(ev.key==='ArrowLeft'){ armIdx=(armIdx+4)%5; buildArmory(); } else if(ev.key==='Escape') closeArmory(); });
 $('againBtn').addEventListener('click',startMatch);
 $('resumeBtn').addEventListener('click',resumeGame);
 canvas.addEventListener('click',()=>{ if(state==='play'&&!locked&&!fallbackLook) requestLock(); });
@@ -1343,10 +1501,12 @@ document.addEventListener('keydown',ev=>{
   keys[c]=true; if(ev.repeat) return;
   if(p.phase==='bus'&&['KeyW','KeyA','KeyS','KeyD','Space'].includes(c)){ p.wantJump=true; return; }
   if(c==='Escape'&&fallbackLook){ pauseGame(); return; }
+  if(p.editing&&(c==='KeyQ'||c==='KeyZ'||c==='KeyX'||c==='KeyC'||c.startsWith('Digit'))) endEdit();
   if(c.startsWith('Digit')){ const n=+c.slice(5); if(n>=1&&n<=6) selectSlot(n-1); }
   else if(c==='KeyQ') toggleBuild();
   else if(c==='KeyZ') setBuild('wall'); else if(c==='KeyX') setBuild('floor'); else if(c==='KeyC') setBuild('ramp');
   else if(c==='KeyF'){ p.buildMat=p.buildMat==='wood'?'stone':'wood'; hudTick(); }
+  else if(c==='KeyG'){ if(p.editing) confirmEdit(); else startEdit(); }
   else if(c==='KeyV'){ if(p.phase==='ground') p.crouch=!p.crouch; }
   else if(c==='KeyR') startReload();
   else if(c==='KeyE') interact();
@@ -1354,7 +1514,7 @@ document.addEventListener('keydown',ev=>{
 },true);
 document.addEventListener('keyup',ev=>{ keys[keyCode(ev)]=false; },true);
 addEventListener('blur',()=>{ for(const k in keys) keys[k]=false; mouse.l=mouse.r=false; });
-canvas.addEventListener('mousedown',ev=>{ canvas.focus(); if(state!=='play') return; if(ev.button===0){ mouse.l=true; onPrimaryDown(); } else if(ev.button===2) mouse.r=true; });
+canvas.addEventListener('mousedown',ev=>{ canvas.focus(); if(state!=='play') return; if(ev.button===0){ mouse.l=true; if(player.editing) editClick(); else onPrimaryDown(); } else if(ev.button===2){ mouse.r=true; if(player.editing) resetEdit(); } });
 addEventListener('mouseup',ev=>{ if(ev.button===0) mouse.l=false; else if(ev.button===2) mouse.r=false; });
 canvas.addEventListener('contextmenu',ev=>ev.preventDefault());
 addEventListener('mousemove',ev=>{
@@ -1376,6 +1536,7 @@ function update(dt){
   updateLoot(dt);
   updateEffects(dt);
   updateInteract();
+  updateEdit();
   M.chest.emissiveIntensity=0.6+Math.sin(matchTime*4)*0.4;
   const glow=0.75+Math.sin(matchTime*3)*0.35; for(const am of accentMats) am.emissiveIntensity=glow;
 }
@@ -1392,11 +1553,11 @@ function loop(now){
   if(water) water.position.y=WATER_Y+Math.sin(now/900)*0.06;
   for(const c of clouds) c.position.x=((c.position.x+dt*3+500)%1000)-500;
   updateCamera(dt); updateSun(); updateGhost();
-  if(state!=='menu'&&player){ hudAcc+=dt; if(hudAcc>0.1){ hudAcc=0; hudTick(); } hudFrame(dt); drawMap(); }
+  if(state!=='menu'&&state!=='armory'&&player){ hudAcc+=dt; if(hudAcc>0.1){ hudAcc=0; hudTick(); } hudFrame(dt); drawMap(); }
   renderer.render(scene,camera);
 }
 newMatch();
 requestAnimationFrame(loop);
-window.__game={debugLoot:(x,y,z)=>{ spawnLoot({kind:'gun',id:'sniper',r:4,ammo:1},x,y,z); spawnLoot({kind:'gun',id:'smg',r:3,ammo:30},x+1.6,y,z+0.4); spawnLoot({kind:'cons',id:'big',count:1},x-1.5,y,z+0.3); },get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},startMatch,update,setState:s=>state=s};
+window.__game={th:terrainHeight,get editing(){return player.editing;},startEdit,confirmEdit,editClick,openArmory,setArm:i=>{armIdx=i;buildArmory();},pieces:()=>[...pieceMap.values()],colliderCount:()=>colliders.size,debugLoot:(x,y,z)=>{ spawnLoot({kind:'gun',id:'sniper',r:4,ammo:1},x,y,z); spawnLoot({kind:'gun',id:'smg',r:3,ammo:30},x+1.6,y,z+0.4); spawnLoot({kind:'cons',id:'big',count:1},x-1.5,y,z+0.3); },get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},startMatch,update,setState:s=>state=s};
 })();
 </script>

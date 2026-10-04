@@ -20,6 +20,7 @@ Open `index.html` in a browser (Chrome or Edge works best) and click **Drop in**
 | R | Reload |
 | Z / X / C | Build wall / floor / ramp |
 | Q | Toggle build mode |
+| G | Edit a build (click tiles, G to confirm, right-click to reset) |
 | F | Swap wood and stone |
 
 Built with [three.js](https://threejs.org/) (r128, loaded from cdnjs). Everything else is in `index.html`.
