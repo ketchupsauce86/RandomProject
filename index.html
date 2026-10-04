@@ -23,7 +23,7 @@
 [hidden]{display:none!important}
 html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var(--text);font-family:var(--ui)}
 #app{position:fixed;inset:0;overflow:hidden;user-select:none;-webkit-user-select:none}
-#c{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
+#c{outline:none;position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
 .layer{position:absolute;inset:0;pointer-events:none}
 #hurt{background:radial-gradient(ellipse at center,transparent 45%,rgba(255,40,60,.75) 100%);opacity:0}
 #stormfx{background:radial-gradient(ellipse at center,rgba(120,60,220,.18) 30%,rgba(110,40,210,.7) 100%);opacity:0;transition:opacity .4s}
@@ -130,7 +130,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 </style>
 
 <div id="app">
-  <canvas id="c"></canvas>
+  <canvas id="c" tabindex="0" aria-label="Storm Island game view"></canvas>
   <div class="layer" id="stormfx"></div>
   <div class="layer" id="hurt"></div>
   <div class="layer" id="scope" hidden></div>
@@ -234,7 +234,7 @@ const fmtTime=s=>{s=Math.max(0,Math.ceil(s));return Math.floor(s/60)+':'+String(
 function angLerp(a,b,t){ let d=((b-a+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI; return a+d*t; }
 
 // ================= constants =================
-const G=4, GRAV=30, STEP=0.7, WORLD=640, N=200, CELL=WORLD/N, ISLAND_R=255, WATER_Y=-0.8, BOT_DMG=0.55, BOTS=19;
+const BUS_OPEN=5, G=4, GRAV=30, STEP=0.7, WORLD=640, N=200, CELL=WORLD/N, ISLAND_R=255, WATER_Y=-0.8, BOT_DMG=0.55, BOTS=19;
 const RAR=[{n:'Common',c:'#a4abb5',m:1},{n:'Uncommon',c:'#55c95f',m:1.05},{n:'Rare',c:'#3fa0f5',m:1.1},{n:'Epic',c:'#b866f5',m:1.16},{n:'Legendary',c:'#f5a83b',m:1.22}];
 const WEAP={
   ar:{name:'Assault Rifle',short:'AR',dmg:30,rate:0.16,mag:30,reload:2.2,spread:0.012,bloom:0.035,auto:true,ammo:'medium',range:320,pellets:1,head:1.5,recoil:0.006,pref:24},
@@ -734,7 +734,7 @@ function pickupLoot(l){
 // ================= bots =================
 function makeBot(i){
   const b=makeCombatant(NAMES[i%NAMES.length],false,randPal());
-  Object.assign(b,{gun:null,armedAt:1e9,think:0,fireCd:0,buildCd:0,enemy:null,seenAt:0,react:rnd(0.5,1.1),skill:rnd(0.7,1.4),seed:Math.random()*10,mag:0,goal:null,stuckT:0,lastPos:new V(),jumpAt:rnd(2,bus.dur-1.5),deployAt:rnd(28,45),buildMat:'wood'});
+  Object.assign(b,{gun:null,armedAt:1e9,think:0,fireCd:0,buildCd:0,enemy:null,seenAt:0,react:rnd(0.5,1.1),skill:rnd(0.7,1.4),seed:Math.random()*10,mag:0,goal:null,stuckT:0,lastPos:new V(),jumpAt:rnd(BUS_OPEN,bus.dur-1.5),deployAt:rnd(28,45),buildMat:'wood'});
   if(Math.random()<0.6&&housePos.length){ const h=pick(housePos); b.landX=h.x+rnd(-12,12); b.landZ=h.z+rnd(-12,12); }
   else { const a=Math.random()*Math.PI*2, r=Math.sqrt(Math.random())*200; b.landX=Math.cos(a)*r; b.landZ=Math.sin(a)*r; }
   return b;
@@ -805,7 +805,7 @@ function updateBot(b,dt){
 // ================= player =================
 function updatePlayer(dt){
   const p=player; if(!p.alive){ p.wantJump=false; return; }
-  if(p.phase==='bus'){ p.pos.copy(bus.pos); p.pos.y-=3; if((p.wantJump&&bus.t>1)||bus.done){ leaveBus(p); banner('Skydiving','Your glider opens automatically',2.5); } p.wantJump=false; return; }
+  if(p.phase==='bus'){ p.pos.copy(bus.pos); p.pos.y-=3; if((p.wantJump&&bus.t>BUS_OPEN)||bus.done){ leaveBus(p); banner('Skydiving','Steer with W A S D · glider opens automatically',3); } p.wantJump=false; return; }
   const fx=-Math.sin(p.yaw), fz=-Math.cos(p.yaw), rx=Math.cos(p.yaw), rz=-Math.sin(p.yaw);
   let mx=(keys.KeyD?1:0)-(keys.KeyA?1:0), mz=(keys.KeyW?1:0)-(keys.KeyS?1:0); const len=Math.hypot(mx,mz); if(len>0){ mx/=len; mz/=len; }
   let speed=p.phase==='ground'?((keys.ShiftLeft||keys.ShiftRight)&&mz>0&&!ads?11:7.5):p.phase==='glide'?15:20;
@@ -965,8 +965,8 @@ function hudFrame(dt){
 function updateInteract(){
   interactTarget=null; const p=player;
   if(state!=='play'||!p.alive){ setPrompt(''); return; }
-  if(p.phase==='bus'){ setPrompt(bus.t>1?'<kbd>SPACE</kbd>Jump from the bus':'Get ready to drop…'); return; }
-  if(p.phase==='fall'){ setPrompt('<kbd>SPACE</kbd>Open glider early'); return; }
+  if(p.phase==='bus'){ setPrompt(bus.t>BUS_OPEN?'<kbd>SPACE</kbd> or <kbd>W</kbd> Jump from the bus':'Bus doors open in '+Math.ceil(BUS_OPEN-bus.t)+'…'); return; }
+  if(p.phase==='fall'||p.phase==='glide'){ setPrompt('<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>Steer toward land'+(p.phase==='fall'?' · <kbd>SPACE</kbd>Open glider':'')); return; }
   if(p.phase!=='ground'){ setPrompt(''); return; }
   let best=2.6, txt='';
   for(const c of chests){ if(c.opened) continue; const d=Math.hypot(c.pos.x-p.pos.x,c.pos.z-p.pos.z); if(d<best&&Math.abs(c.pos.y-p.pos.y)<2){ best=d; interactTarget=c; txt='<kbd>E</kbd>Open chest'; } }
@@ -1068,9 +1068,11 @@ function endMatch(win,killer){
 function pauseGame(){ if(state!=='play') return; state='paused'; for(const k in keys) keys[k]=false; mouse.l=mouse.r=false; $('pause').hidden=false; }
 function resumeGame(){ if(state!=='paused') return; $('pause').hidden=true; state='play'; initAudio(); requestLock(); }
 function requestLock(){
-  if(fallbackLook) return;
-  try{ const r=canvas.requestPointerLock(); if(r&&r.catch) r.catch(()=>{ fallbackLook=true; toast('Mouse lock is unavailable here, so the camera follows your mouse'); }); }
+  wasLocked=false;
+  try{ canvas.focus(); window.focus(); }catch(e){}
+  try{ const r=canvas.requestPointerLock(); if(r&&r.catch) r.catch(()=>{ fallbackLook=true; }); }
   catch(e){ fallbackLook=true; }
+  setTimeout(()=>{ if(state==='play'&&!locked) fallbackLook=true; },900);
 }
 
 // ================= input =================
@@ -1081,14 +1083,23 @@ $('playBtn').addEventListener('click',startMatch);
 $('againBtn').addEventListener('click',startMatch);
 $('resumeBtn').addEventListener('click',resumeGame);
 canvas.addEventListener('click',()=>{ if(state==='play'&&!locked&&!fallbackLook) requestLock(); });
-document.addEventListener('pointerlockchange',()=>{ locked=document.pointerLockElement===canvas; if(!locked&&state==='play'&&!fallbackLook) pauseGame(); });
+let wasLocked=false;
+document.addEventListener('pointerlockchange',()=>{ locked=document.pointerLockElement===canvas; if(locked){ wasLocked=true; fallbackLook=false; } else if(wasLocked&&state==='play') pauseGame(); });
 document.addEventListener('pointerlockerror',()=>{ fallbackLook=true; if(state==='play') toast('Mouse lock is unavailable here, so the camera follows your mouse'); });
-addEventListener('keydown',ev=>{
-  if(['Space','Tab','ArrowUp','ArrowDown'].includes(ev.code)&&state==='play') ev.preventDefault();
-  if(state==='paused'&&(ev.code==='Enter'||ev.code==='Space')){ resumeGame(); return; }
+const KEY_ALIAS={ArrowUp:'KeyW',ArrowLeft:'KeyA',ArrowDown:'KeyS',ArrowRight:'KeyD'};
+function keyCode(ev){
+  let c=ev.code||'';
+  if(KEY_ALIAS[c]) return KEY_ALIAS[c];
+  if(!c||c==='Unidentified'){ const k=(ev.key||'').toLowerCase(); if(KEY_ALIAS[ev.key]) return KEY_ALIAS[ev.key]; if(k===' ') return 'Space'; if(k==='shift') return 'ShiftLeft'; if(k==='escape') return 'Escape'; if(/^[a-z]$/.test(k)) return 'Key'+k.toUpperCase(); if(/^[0-9]$/.test(k)) return 'Digit'+k; }
+  return c;
+}
+document.addEventListener('keydown',ev=>{
+  const c=keyCode(ev), p=player;
+  if(['Space','Tab','KeyW','KeyA','KeyS','KeyD'].includes(c)&&state==='play') ev.preventDefault();
+  if(state==='paused'&&(c==='Enter'||c==='Space')){ resumeGame(); return; }
   if(state!=='play') return;
-  keys[ev.code]=true; if(ev.repeat) return;
-  const c=ev.code, p=player;
+  keys[c]=true; if(ev.repeat) return;
+  if(p.phase==='bus'&&['KeyW','KeyA','KeyS','KeyD','Space'].includes(c)){ p.wantJump=true; return; }
   if(c==='Escape'&&fallbackLook){ pauseGame(); return; }
   if(c.startsWith('Digit')){ const n=+c.slice(5); if(n>=1&&n<=6) selectSlot(n-1); }
   else if(c==='KeyQ') toggleBuild();
@@ -1097,10 +1108,10 @@ addEventListener('keydown',ev=>{
   else if(c==='KeyR') startReload();
   else if(c==='KeyE') interact();
   else if(c==='Space') p.wantJump=true;
-});
-addEventListener('keyup',ev=>{ keys[ev.code]=false; });
+},true);
+document.addEventListener('keyup',ev=>{ keys[keyCode(ev)]=false; },true);
 addEventListener('blur',()=>{ for(const k in keys) keys[k]=false; mouse.l=mouse.r=false; });
-canvas.addEventListener('mousedown',ev=>{ if(state!=='play') return; if(ev.button===0){ mouse.l=true; onPrimaryDown(); } else if(ev.button===2) mouse.r=true; });
+canvas.addEventListener('mousedown',ev=>{ canvas.focus(); if(state!=='play') return; if(ev.button===0){ mouse.l=true; onPrimaryDown(); } else if(ev.button===2) mouse.r=true; });
 addEventListener('mouseup',ev=>{ if(ev.button===0) mouse.l=false; else if(ev.button===2) mouse.r=false; });
 canvas.addEventListener('contextmenu',ev=>ev.preventDefault());
 addEventListener('mousemove',ev=>{
@@ -1127,12 +1138,13 @@ function update(dt){
 let lastT=performance.now(), hudAcc=0, perfStage=0, perfFrames=0, perfTime=0;
 function loop(now){
   requestAnimationFrame(loop);
-  const dt=Math.min(0.05,Math.max(0,(now-lastT)/1000)); lastT=now;
-  if(state==='play'||state==='over') update(dt);
-  if(state==='play'&&perfStage<2){ perfFrames++; perfTime+=dt; if(perfTime>4){ const f=perfFrames/perfTime; perfFrames=0; perfTime=0;
-    if(f<45&&perfStage===0){ perfStage=1; renderer.setPixelRatio(1); resize(); }
-    else if(f<45){ perfStage=2; sun.shadow.mapSize.set(1024,1024); if(sun.shadow.map){ sun.shadow.map.dispose(); sun.shadow.map=null; } scene.fog.far=480; camera.far=900; }
-    else perfStage=2; } }
+  const dt=Math.min(0.15,Math.max(0,(now-lastT)/1000)); lastT=now;
+  if(state==='play'||state==='over'){ const n=Math.ceil(dt/0.034); for(let i=0;i<n;i++) update(dt/n); }
+  if(state==='play'&&perfStage<3){ perfFrames++; perfTime+=dt; if(perfTime>4){ const f=perfFrames/perfTime; perfFrames=0; perfTime=0;
+    if(f>=45) perfStage=3;
+    else if(perfStage===0){ perfStage=1; renderer.setPixelRatio(1); resize(); }
+    else if(perfStage===1){ perfStage=2; sun.shadow.mapSize.set(1024,1024); if(sun.shadow.map){ sun.shadow.map.dispose(); sun.shadow.map=null; } scene.fog.far=480; camera.far=900; }
+    else { perfStage=3; if(f<30) sun.castShadow=false; } } }
   if(water) water.position.y=WATER_Y+Math.sin(now/900)*0.06;
   for(const c of clouds) c.position.x=((c.position.x+dt*3+500)%1000)-500;
   updateCamera(dt); updateSun(); updateGhost();
