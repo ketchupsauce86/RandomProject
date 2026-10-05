@@ -1,6 +1,6 @@
 # Storm Island
 
-A 3D battle royale that runs in the browser. You and 19 bots drop from a flying bus onto an island, loot chests, harvest materials, build walls, floors and ramps, and outlast the shrinking storm.
+A 3D battle royale that runs in the browser. You and 19 bots are flying over an island in a private jet when an engine catches fire and the jet explodes, throwing everyone clear to glide down. Then you loot chests, harvest materials, build walls, floors and ramps, and outlast the shrinking storm.
 
 Open `index.html` in a browser (Chrome or Edge works best), pick a bot difficulty, and click **Drop in**. Needs a keyboard and mouse. The **Armory** button shows every gun design.
 
@@ -10,8 +10,8 @@ Open `index.html` in a browser (Chrome or Edge works best), pick a bot difficult
 | --- | --- |
 | WASD | Move |
 | Mouse | Look |
-| Space | Jump / leave the bus / open glider |
-| Shift | Sprint |
+| Space | Jump / bail out of the jet early / open glider |
+| Shift | Sprint / dive while gliding |
 | V | Crouch |
 | Left click | Shoot, swing pickaxe, place builds |
 | Right click | Aim down sights |
