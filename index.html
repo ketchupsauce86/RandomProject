@@ -575,6 +575,8 @@ const SFX={
   land:(v,o)=>{ const k=clamp((o.v||10)/18,0.3,1.3); nz(v,{brown:true,type:'lowpass',f:320,dur:0.14,g:k}); tn(v,{f:90,f1:42,dur:0.12,g:0.7*k}); if(FOOT[o.surf]) FOOT[o.surf](v,1.2); },
   step:(v,o)=>{ (FOOT[o.surf]||FOOT.grass)(v,o.g||1); },
   glider:v=>{ nz(v,{type:'bandpass',f:450,f1:1500,q:1,dur:0.32,g:1.1,a:0.03}); for(let i=0;i<4;i++) nz(v,{at:0.05+i*0.06,type:'lowpass',f:700,dur:0.05,g:1-i*0.18}); },
+  splash:(v,o)=>{ const b=o.big?1.6:1; nz(v,{type:'lowpass',f:2200,f1:500,dur:0.35*b,g:0.9*b,a:0.005}); nz(v,{type:'bandpass',f:1200,f1:500,q:1,dur:0.5*b,g:0.5,a:0.02}); for(let i=0;i<5;i++) tn(v,{at:0.05+rnd(0,0.3),f:rnd(400,700),f1:rnd(900,1500),dur:0.05,g:0.08}); },
+  swim:v=>{ nz(v,{type:'bandpass',f:rnd(900,1300),f1:450,q:0.9,dur:0.24,g:0.45,a:0.02}); tn(v,{at:0.08,f:rnd(450,600),f1:rnd(900,1200),dur:0.05,g:0.06}); },
   whiz:v=>{ nz(v,{type:'bandpass',f:3800,f1:1100,q:3,dur:0.17,g:0.9,a:0.03}); tn(v,{f:1500,f1:600,dur:0.15,g:0.07}); },
   impact:(v,o)=>{ const m=o.mat;
     if(m==='wood'){ nz(v,{type:'bandpass',f:620,q:2,dur:0.06,g:0.8}); tn(v,{f:230,f1:140,dur:0.05,g:0.35}); }
@@ -594,7 +596,7 @@ const SFX={
 };
 // range is how far away a sound carries; wet is how much reverb it gets
 const SFX_OPT={ar:{range:320},smg:{range:260},pistol:{range:280},pump:{range:300,wet:0.15},sniper:{range:600,wet:0.25},
-  step:{range:40,wet:0.03},impact:{range:70},whiz:{range:20,wet:0},build:{range:90},break:{range:110},chop:{range:80},boom:{range:700,wet:0.5},bang:{range:300,wet:0.3},
+  step:{range:40,wet:0.03},swim:{range:40,wet:0.05},splash:{range:60,wet:0.08},impact:{range:70},whiz:{range:20,wet:0},build:{range:90},break:{range:110},chop:{range:80},boom:{range:700,wet:0.5},bang:{range:300,wet:0.3},
   thunder:{wet:0.6},stormWarn:{wet:0.5},chest:{wet:0.35},victory:{wet:0.3},defeat:{wet:0.3},bird:{range:60,wet:0.25},land:{wet:0.03}};
 const SFX_GAP={impact:0.03,whiz:0.08,hit:0.035,head:0.035,shield:0.035,step:0.02,tick:0.03};
 function sfx(kind,pos,o){
@@ -634,11 +636,13 @@ function surfaceAt(e){
 }
 function footsteps(dt){
   for(const e of combatants){
-    if(!e.alive||e.phase!=='ground'||!e.onGround){ e.stepD=0; continue; }
+    if(!e.alive||e.phase!=='ground'||!e.onGround||e.swim){ e.stepD=0; continue; }
     const s=Math.hypot(e.vel.x,e.vel.z); if(s<1){ e.stepD=0; continue; }
     e.stepD=(e.stepD||0)+s*dt; const stride=e.crouch?1.5:s>9?2.3:1.85;
     if(e.stepD<stride) continue; e.stepD-=stride;
-    const g=(e.crouch?0.35:s>9?1.25:0.9)*(e.isPlayer?0.6:1.3);
+    const g=(e.crouch?0.35:s>9?1.25:0.9)*(e.isPlayer?0.6:1.3), surf=surfaceAt(e);
+    if(s>9&&DUST[surf]&&surf!=='wood'&&e.pos.distanceTo(camera.position)<45) dustPuff(e.pos.x+rnd(-0.2,0.2),e.pos.y+0.1,e.pos.z+rnd(-0.2,0.2),DUST[surf],0.7,new V(-e.vel.x*0.12,0.8,-e.vel.z*0.12));
+    if(surf==='water'&&e.pos.distanceTo(camera.position)<45) splash(e.pos,0.35);
     if(e.isPlayer) sfx('step',null,{surf:surfaceAt(e),g}); else if(e.pos.distanceTo(camera.position)<40) sfx('step',e.pos,{surf:surfaceAt(e),g});
   }
 }
@@ -947,63 +951,161 @@ function makeCharacterGLB(pal){
   return {glb:true,g,model,bones,mixer,act,gunMount,pick:pickG,glider,flash,hb,parts:[hb.head,hb.chest,hb.legs],head:hb.head,heldKey:'',held:null,w:{Idle:1,Walk:0,Run:0,TPose:0}};
 }
 const UP=new V(0,1,0);
-// tumbling after the blast spins the body around its middle; the glider unfolds when it opens
-const _pc=new V();
-function airPose(e,g,glider,a,dt){
-  if(e.phase==='fall'&&e.tumble>0){ e.spinA+=dt*e.spinS; g.rotation.x=((e.spinA%(Math.PI*2))+Math.PI*3)%(Math.PI*2)-Math.PI; g.rotation.z=Math.sin(e.spinA*0.63+e.spinZ)*0.9; }
-  else D(g.rotation,'z',0,a*0.5);
-  if(e.phase==='fall'||e.phase==='glide'){ _pc.set(0,1,0).applyEuler(g.rotation); g.position.set(e.pos.x-_pc.x,e.pos.y+1-_pc.y,e.pos.z-_pc.z); }
+// Whole-body motion shared by both character styles: bail-out trick routines, sprint front flips, the
+// chaotic tumble after the blast, leaning into turns, glider banking, skydive and swim posture. Spins
+// pivot around the hips. e.tuckK tells the limb code how tightly to tuck.
+const _pc=new V(), TAU=Math.PI*2;
+const easeIO=k=>k<0.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+const wrapPi=a=>((a%TAU)+TAU*1.5)%TAU-Math.PI;
+function makeRoutine(){
+  // a random string of back flips, front flips and twisting layouts, ending upright
+  const n=Math.random()<0.5?3:4, list=[];
+  for(let i=0;i<n;i++){ const back=Math.random()<0.6, tw=Math.random()<0.4, lay=!tw&&Math.random()<0.3;
+    list.push({flip:back?TAU:-TAU,twist:tw?(Math.random()<0.5?TAU:-TAU):0,tuck:lay?0.25:1,dur:tw?0.62:0.5}); }
+  return list;
+}
+function bodyPose(e,g,glider,twistObj,a,dt){
+  const A=e.anim; let tx=0, tz=e.bankT||0, set=false, tuck=0, twist=0, pivot=e.phase==='fall'||e.phase==='glide';
+  if(e.phase==='fall') tx=-1.25-0.25*clamp(e.steerF||0,-1,1);
+  else if(e.phase==='glide') tx=e.dive?-0.55:-0.12;
+  else if(e.swim) tx=-1.42*A.swimK;
+  if(e.phase==='fall'&&e.tricks){
+    e.trickT+=dt; let t=e.trickT, ang=0;
+    for(const tr of e.tricks){ const k=clamp(t/tr.dur,0,1), q=easeIO(k); ang+=tr.flip*q; twist+=tr.twist*q; if(t<tr.dur){ tuck=tr.tuck*Math.sin(k*Math.PI); break; } t-=tr.dur; }
+    if(e.trickT>=e.trickDur){ e.tricks=null; g.rotation.x=0; twist=0; } else { g.rotation.x=ang; set=true; }
+    g.rotation.z=0;
+  } else if(e.phase==='fall'&&e.tumble>0&&e.blastTumble){ e.spinA+=dt*e.spinS; g.rotation.x=wrapPi(e.spinA); g.rotation.z=Math.sin(e.spinA*0.63+e.spinZ)*0.9; set=true; }
+  else if(e.flipT!=null){
+    e.flipT+=dt; const k=e.flipT/0.58;
+    if(k>=1||(e.onGround&&e.flipT>0.12)){ g.rotation.x=wrapPi(g.rotation.x); e.flipT=null; }
+    else { g.rotation.x=-TAU*easeIO(k); tuck=Math.sin(k*Math.PI); set=true; pivot=true; }
+  }
+  if(!set){ D(g.rotation,'x',tx,a*0.5); D(g.rotation,'z',tz,a*0.4); }
+  twistObj.rotation.y=twist; e.tuckK=tuck;
+  if(pivot||Math.abs(g.rotation.x)>0.02){ _pc.set(0,1,0).applyEuler(g.rotation); g.position.set(e.pos.x-_pc.x,e.pos.y+1-_pc.y,e.pos.z-_pc.z); }
+  if(e.swim){ const hy=lerp(WATER_Y-0.42,WATER_Y-0.06,A.swimK)+Math.sin(matchTime*2.3+e.walkT)*0.05; _pc.set(0,1,0).applyEuler(g.rotation); g.position.set(e.pos.x-_pc.x,hy-_pc.y,e.pos.z-_pc.z); }
   e.gk=e.phase==='glide'?Math.min(1,(e.gk||0)+dt*3.5):0;
   const q=e.gk, pop=q<1?1+Math.sin(q*Math.PI)*0.25-(1-q)*0.9:1; glider.scale.set(Math.max(0.05,pop),1,Math.max(0.3,q));
+  glider.rotation.z=-(g.rotation.z)*0.6*q;
+}
+// per-frame motion inputs both animators share
+function motionState(e,dt){
+  const A=e.anim, fx=-Math.sin(e.yaw), fz=-Math.cos(e.yaw), fwd=e.vel.x*fx+e.vel.z*fz, side=-e.vel.x*fz+e.vel.z*fx, speed=Math.hypot(e.vel.x,e.vel.z);
+  const yr=wrapPi(e.yaw-(A.lastYaw==null?e.yaw:A.lastYaw))/Math.max(dt,1e-3); A.lastYaw=e.yaw;
+  const land=e.phase==='ground'&&!e.swim;
+  e.bankT=e.phase==='glide'?clamp(-side*0.035+yr*0.06,-0.55,0.55):land&&e.onGround?clamp(yr*0.03,-0.22,0.22)*smooth(4,10,speed):0;
+  e.steerF=fwd/20;
+  const aS=1-Math.exp(-7*dt);
+  D(A,'sprint',land&&e.onGround?smooth(8.6,10.6,speed):0,aS);
+  D(A,'swimK',e.swim&&speed>0.8?1:0,1-Math.exp(-3*dt));
+  A.land=Math.max(0,(A.land||0)-dt*3.2); A.hit=Math.max(0,(A.hit||0)-dt*5); A.draw=Math.min(1,(A.draw==null?1:A.draw)+dt*3.5);
+  if(e.swim){ const prev=A.stroke||0; A.stroke=prev+dt*(2.2+speed*0.55); A.kick=(A.kick||0)+dt*(7+speed);
+    // a splash each time a hand enters the water
+    for(const off of [0,Math.PI]){ if(Math.floor((prev+off)/TAU)!==Math.floor((A.stroke+off)/TAU)&&A.swimK>0.4&&e.pos.distanceTo(camera.position)<55){ const h=tv4.set(e.pos.x+fx*1.2,WATER_Y,e.pos.z+fz*1.2); splash(h,0.55); sfx('swim',e===player?null:e.pos); } }
+    A.wakeT=(A.wakeT||0)-dt; if(A.wakeT<=0&&e.pos.distanceTo(camera.position)<55){ A.wakeT=speed>0.8?0.14:0.5; wake(e,speed); } }
+  return {fx,fz,fwd,side,speed,land};
 }
 function toLocal(g,v){ return g.worldToLocal(v); }
+// knees buckle, then the body topples (forward or back, picked at elimination) with a small bounce
+const bounceOut=k=>k<0.72?Math.pow(k/0.72,2):1-Math.sin((k-0.72)/0.28*Math.PI)*0.07;
+function deathPose(e,g,body,dt){
+  e.deadT+=dt; const k=clamp((e.deadT-0.1)/0.6,0,1);
+  g.rotation.x=(e.deathDir||1)*Math.PI/2*bounceOut(k); g.rotation.z=(e.deathRoll||0)*k;
+  body.position.y=-0.32*Math.sin(clamp(e.deadT/0.22,0,1)*Math.PI/2)*(1-k);
+  if(e.deadT>2.8) g.visible=false;
+}
+const _qm=new T.Quaternion();
 function animateGLB(e,dt){
   const c=e.ch, A=e.anim, B=c.bones, g=c.g; g.position.copy(e.pos); g.rotation.y=e.yaw;
   const a=1-Math.exp(-14*dt), aS=1-Math.exp(-7*dt);
-  if(!e.alive){ e.deadT+=dt; g.rotation.x=Math.min(Math.PI/2,e.deadT*e.deadT*6); c.flash.visible=false; if(e.deadT<0.6) c.mixer.update(dt*0.3); if(e.deadT>2.8) g.visible=false; return; }
+  if(!e.alive){ c.flash.visible=false; if(e.deadT<0.6) c.mixer.update(dt*0.3); deathPose(e,g,c.model,dt); return; }
   const hide=e.phase==='jet'||(e.isPlayer&&ads&&isScoped());
   g.visible=!hide; c.glider.visible=e.phase==='glide'; if(e.phase==='jet') return;
+  const {fx,fz,fwd,side,speed,land}=motionState(e,dt), swim=e.phase==='ground'&&e.swim;
   let held=null, pickaxe=false;
-  if(e.isPlayer){ const it=curItem(); if(!e.build&&!e.editing&&e.phase==='ground'){ if(it&&it.kind==='gun') held=it; else if(!it) pickaxe=true; } }
-  else if(e.phase==='ground') held=e.gun;
-  setHeld(e,held); c.pick.visible=pickaxe;
-  const fx=-Math.sin(e.yaw), fz=-Math.cos(e.yaw), fwd=e.vel.x*fx+e.vel.z*fz, side=-e.vel.x*fz+e.vel.z*fx, speed=Math.hypot(e.vel.x,e.vel.z), ground=e.phase==='ground';
-  D(A,'crouch',e.crouch&&ground?1:0,a*0.7); D(A,'air',ground&&!e.onGround?1:0,a);
+  if(e.isPlayer){ const it=curItem(); if(!e.build&&!e.editing&&land){ if(it&&it.kind==='gun') held=it; else if(!it) pickaxe=true; } }
+  else if(land) held=e.gun;
+  setHeld(e,held);
+  D(A,'crouch',e.crouch&&land?1:0,a*0.7); D(A,'air',land&&!e.onGround?1:0,a);
   A.recoil=Math.max(0,A.recoil-dt*8); A.flash-=dt; c.flash.visible=A.flash>0; A.pumpT+=dt; if(e.buildT>0) e.buildT-=dt;
-  // --- clip blending
-  const s=ground&&e.onGround?speed:0, back=fwd<-0.5?-1:1;
+  const aiming=e.isPlayer?(ads||mouse.l||!!e.reloading):(A.recoil>0.05||!!e.enemy);
+  D(A,'sprPose',held&&!aiming?A.sprint:0,aS);
+  // --- clip blending (the soldier ships with Idle, Walk, Run and T-pose; everything else is layered on top)
+  const s=land&&e.onGround?speed:0, back=fwd<-0.5?-1:1;
   let wRun=smooth(3.5,6.5,s), wWalk=smooth(0.3,2,s)*(1-wRun), wT=0;
-  if(e.phase==='fall'){ wT=1; wRun=0; wWalk=0; } else if(e.phase==='glide'){ wT=0.5; wRun=0; wWalk=0; }
+  if(e.phase==='fall'&&!e.tricks){ wT=1; wRun=0; wWalk=0; } else if(e.phase==='glide'){ wT=0.5; wRun=0; wWalk=0; }
+  if(swim||e.tricks){ wRun=0; wWalk=0; wT=0; }
   const wIdle=Math.max(0,1-wRun-wWalk-wT), W=c.w;
   D(W,'Idle',wIdle,aS); D(W,'Walk',wWalk,aS); D(W,'Run',wRun,aS); D(W,'TPose',wT,aS);
   for(const n in c.act) c.act[n].setEffectiveWeight(W[n]);
-  c.act.Walk.setEffectiveTimeScale(back*clamp(s/1.8,0.7,1.6)); c.act.Run.setEffectiveTimeScale(back*clamp(s/5.5,0.8,1.9));
+  c.act.Walk.setEffectiveTimeScale(back*clamp(s/1.8,0.7,1.6)); c.act.Run.setEffectiveTimeScale(back*clamp(s/5.5,0.8,2.15));
   const near=!player||e===player||e.pos.distanceTo(camera.position)<70;
   c.mixer.update(dt);
-  D(g.rotation,'x',e.phase==='fall'?-1.25:0,a*0.5); airPose(e,g,c.glider,a,dt);
+  bodyPose(e,g,c.glider,c.model,a,dt);
   c.model.position.y=0; g.updateMatrixWorld(true);
-  // --- legs: remember animated feet, then crouch and pin feet back down (two-bone IK)
-  const cr=A.crouch, right=_v1.set(Math.cos(e.yaw),0,-Math.sin(e.yaw)).clone(), fwdV=new V(fx,0,fz);
+  // body-relative axes (they follow flips, twists and swimming)
+  c.model.getWorldQuaternion(_qm);
+  const rightB=new V(1,0,0).applyQuaternion(_qm), fwdB=new V(0,0,-1).applyQuaternion(_qm), upB=new V(0,1,0).applyQuaternion(_qm);
+  const bend=(sd,th,kn)=>{ rotateBoneWorld(B[sd+'UpLeg'],rightB,th); rotateBoneWorld(B[sd+'Leg'],rightB,kn); };
+  // --- legs: crouch and the squash after a landing lower the body while IK keeps the feet planted
+  const cr=A.crouch, crE=Math.max(cr,land&&e.onGround?A.land*0.75:0), right=_v1.set(Math.cos(e.yaw),0,-Math.sin(e.yaw)).clone(), fwdV=new V(fx,0,fz);
   let feet=null;
-  if(near&&ground&&cr>0.01){ feet=[B.LeftFoot.getWorldPosition(new V()),B.RightFoot.getWorldPosition(new V())]; if(A.air>0.5){ feet[0].y+=0.25*A.air; feet[1].y+=0.4*A.air; } }
-  c.model.position.y=-0.48*cr; g.updateMatrixWorld(true);
+  if(near&&land&&crE>0.01){ feet=[B.LeftFoot.getWorldPosition(new V()),B.RightFoot.getWorldPosition(new V())]; if(A.air>0.5){ feet[0].y+=0.25*A.air; feet[1].y+=0.4*A.air; } }
+  c.model.position.y=-0.48*crE; g.updateMatrixWorld(true);
   if(feet){ for(const [i,sd] of [[0,'Left'],[1,'Right']]){ const hip=B[sd+'UpLeg'].getWorldPosition(new V()); const pole=hip.clone().addScaledVector(fwdV,1.2).add(new V(0,-0.4,0)); solveIK(B[sd+'UpLeg'],B[sd+'Leg'],B[sd+'Foot'],feet[i],pole); } }
-  // --- upper body: strafe twist, crouch lean, aim pitch
-  const twist=speed>1.2&&ground?clamp(Math.atan2(side,Math.abs(fwd))*back,-0.85,0.85):0; D(A,'twist',twist,aS);
-  if(near&&ground){ rotateBoneWorld(B.Hips,UP,A.twist); rotateBoneWorld(B.Spine,UP,-A.twist*0.5); rotateBoneWorld(B.Spine1,UP,-A.twist*0.5); }
-  const pitch=e.isPlayer?e.pitch:(e.aimPitch||0);
-  if(near&&ground){ const lean=-0.28*cr-(held?0.06:0)*Math.min(1,s/4); rotateBoneWorld(B.Spine,right,lean);
-    if(held){ for(const n of ['Spine','Spine1','Spine2']) rotateBoneWorld(B[n],right,pitch/3); } else rotateBoneWorld(B.Neck,right,pitch*0.5);
+  const tuck=e.tuckK||0;
+  if(near){
+    if(tuck>0.02){ bend('Left',2.0*tuck,-2.3*tuck); bend('Right',2.0*tuck,-2.3*tuck); rotateBoneWorld(B.Spine1,rightB,-0.45*tuck); rotateBoneWorld(B.Neck,rightB,-0.4*tuck); }
+    else if(land&&A.air>0.02){
+      // jump: knees tuck on the way up, legs reach down for the landing, arms swing up then out for balance
+      const up=clamp(e.vel.y/10.5,-1,1), tk=smooth(-0.5,0.6,up)*A.air;
+      bend('Left',0.35*A.air+0.95*tk,-(0.35*A.air+1.35*tk)); bend('Right',0.12*A.air+0.5*tk,-(0.55*A.air+0.95*tk));
+      if(!held&&!(pickaxe&&e.swingT>0)){ const lift=tk*1.9+A.air*0.25, out=Math.max(0,A.air-tk)*0.85;
+        rotateBoneWorld(B.LeftArm,rightB,lift); rotateBoneWorld(B.RightArm,rightB,lift); rotateBoneWorld(B.LeftArm,fwdB,out); rotateBoneWorld(B.RightArm,fwdB,-out); }
+    } else if(swim){
+      // freestyle: the body rolls with each stroke, head lifted, flutter kick; treading water when still
+      const sk=A.swimK; rotateBoneWorld(B.Hips,upB,Math.sin(A.stroke)*0.38*sk); rotateBoneWorld(B.Neck,rightB,0.6*sk);
+      for(const [i,sd] of [[0,'Left'],[1,'Right']]){ const ph=A.kick+(i?Math.PI:0), tp=A.kick*0.55+(i?Math.PI:0);
+        bend(sd,sk*Math.sin(ph)*0.32+(1-sk)*(0.55+Math.sin(tp)*0.25),-(sk*(0.15+0.25*(Math.sin(ph)+1)/2)+(1-sk)*(1.1+Math.cos(tp)*0.35))); }
+    } else if(e.phase==='fall'&&!e.tricks){
+      const t=matchTime*13+e.walkT; bend('Left',0.25+Math.sin(t)*0.05,-0.6); bend('Right',0.4+Math.sin(t+2)*0.05,-0.85);
+      rotateBoneWorld(B.LeftForeArm,fwdB,Math.sin(t*1.1)*0.1); rotateBoneWorld(B.RightForeArm,fwdB,Math.sin(t*0.9+1)*0.1);
+    } else if(e.phase==='glide'){
+      const t=matchTime*1.8+e.walkT, dv=e.dive?-0.35:0; bend('Left',0.15+Math.sin(t)*0.12+dv,-0.35-Math.max(0,Math.sin(t))*0.2); bend('Right',0.2+Math.sin(t+1.7)*0.12+dv,-0.4-Math.max(0,Math.sin(t+1.7))*0.2);
+    }
+  }
+  // --- upper body: strafe twist, crouch and sprint lean, aim pitch, flinch when hit
+  const twist=speed>1.2&&land?clamp(Math.atan2(side,Math.abs(fwd))*back,-0.85,0.85):0; D(A,'twist',twist,aS);
+  if(near&&land){ rotateBoneWorld(B.Hips,UP,A.twist); rotateBoneWorld(B.Spine,UP,-A.twist*0.5); rotateBoneWorld(B.Spine1,UP,-A.twist*0.5); }
+  const pitch=e.isPlayer?e.pitch:(e.aimPitch||0), sp=A.sprPose, pE=pitch*(1-sp);
+  if(near&&land){ const lean=-0.28*cr-(held?0.06:0)*Math.min(1,s/4)-0.22*A.sprint; rotateBoneWorld(B.Spine,right,lean);
+    if(held){ for(const n of ['Spine','Spine1','Spine2']) rotateBoneWorld(B[n],right,pE/3); } else rotateBoneWorld(B.Neck,right,pitch*0.5);
+    if(A.hit>0.01){ rotateBoneWorld(B.Spine1,right,0.32*A.hit); rotateBoneWorld(B.Neck,right,0.25*A.hit); }
     if(e.swingT>0){ const k=1-e.swingT/0.3; rotateBoneWorld(B.Spine1,UP,-0.5*Math.sin(k*Math.PI)); } }
-  // --- weapon placement and hands
-  if(held){
+  // --- hands
+  c.pick.visible=pickaxe&&tuck<0.3;
+  if(tuck>0.25&&near){
+    // hug the shins during flips
+    for(const [sd,sx] of [['Left',-1],['Right',1]]){ const t=B[sd+'Leg'].getWorldPosition(new V()).addScaledVector(fwdB,0.14).addScaledVector(upB,-0.12); const sh=B[sd+'Arm'].getWorldPosition(new V());
+      solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],t,sh.addScaledVector(rightB,sx*0.5).addScaledVector(upB,0.15)); }
+  } else if(swim&&near){
+    const sk=A.swimK, tt=matchTime*3+e.walkT;
+    for(const [sd,sx,off] of [['Left',-1,0],['Right',1,Math.PI]]){
+      const th=A.stroke+off, sh=B[sd+'Arm'].getWorldPosition(new V()), sn=Math.sin(th);
+      const crawl=sh.clone().addScaledVector(upB,0.62*Math.cos(th)).addScaledVector(fwdB,sn>0?0.42*sn:0.3*sn).addScaledVector(rightB,sx*0.08);
+      const tread=sh.clone().addScaledVector(rightB,sx*(0.3+0.14*Math.sin(tt+off))).addScaledVector(upB,-0.38).addScaledVector(fwdB,0.3+0.08*Math.cos(tt+off));
+      const pole=sh.clone().addScaledVector(rightB,sx*0.7).addScaledVector(fwdB,-0.35*sk).addScaledVector(upB,-0.2);
+      solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],tread.lerp(crawl,sk),pole);
+    }
+  } else if(held){
     const H=HOLD[held.id]; D(A,'reload',(e.isPlayer?!!e.reloading:e.reloadT>0)?1:0,a);
     const sh=B.RightArm.getWorldPosition(new V()); g.worldToLocal(sh);
-    const adsK=e.isPlayer&&ads?1:0, cp=Math.cos(pitch), sp=Math.sin(pitch);
-    const o=new V(H.o[0]-0.08*adsK,H.o[1]+0.04*adsK,H.o[2]+A.recoil*0.09);
-    const oy=o.y*cp-o.z*sp, oz=o.y*sp+o.z*cp;
+    const adsK=e.isPlayer&&ads?1:0, cp=Math.cos(pE), sn=Math.sin(pE), dk=Math.pow(1-A.draw,2);
+    // sprinting carries the gun low and canted; switching weapons raises the new one into place
+    const o=new V(H.o[0]-0.08*adsK-0.06*sp,H.o[1]+0.04*adsK-0.12*sp-0.35*dk,H.o[2]+A.recoil*0.09+0.06*sp);
+    const oy=o.y*cp-o.z*sn, oz=o.y*sn+o.z*cp;
     c.gunMount.position.set(sh.x+o.x,sh.y+oy,sh.z+oz);
-    c.gunMount.rotation.set(pitch+A.recoil*0.22-0.45*A.reload,0,0.6*A.reload);
+    c.gunMount.rotation.set(pE+A.recoil*0.22-0.45*A.reload-0.5*sp-1.0*dk,0.35*sp,0.6*A.reload+0.45*sp);
     if(near&&c.held){ c.gunMount.updateMatrixWorld(true);
       const rt=c.gunMount.localToWorld(new V(...H.r)), lt=c.gunMount.localToWorld(new V(...H.l));
       if(A.reload>0.05){ lt.lerp(c.gunMount.localToWorld(new V(0,-0.32,-0.05)),A.reload*(0.5+0.5*Math.sin(matchTime*8))); }
@@ -1015,7 +1117,7 @@ function animateGLB(e,dt){
     const k=e.swingT>0?1-e.swingT/0.3:-1, sw=k<0?0.35:(k<0.3?lerp(0.35,-1.6,k/0.3):lerp(-1.6,1.5,(k-0.3)/0.7));
     const sh=B.RightArm.getWorldPosition(new V()); const hand=new V(0.12,-0.28+Math.cos(sw)*0.05,-0.38-Math.sin(sw)*0.1).applyAxisAngle(new V(1,0,0),-sw*0.6);
     const tgt=g.localToWorld(g.worldToLocal(sh.clone()).add(hand));
-    solveIK(B.RightArm,B.RightForeArm,B.RightHand,tgt,sh.clone().addScaledVector(right,0.6).add(new V(0,-0.5,0)));
+    if(A.air<0.02||e.swingT>0) solveIK(B.RightArm,B.RightForeArm,B.RightHand,tgt,sh.clone().addScaledVector(right,0.6).add(new V(0,-0.5,0)));
     B.RightHand.getWorldPosition(_v2); g.worldToLocal(_v2); c.pick.position.copy(_v2); c.pick.rotation.set(-0.9+sw*0.9,0,0);
   } else if(e.phase==='glide'&&near){
     for(const [sd,x] of [['Left',-0.45],['Right',0.45]]){ const t=g.localToWorld(new V(x,2.6,0)); solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],t,g.localToWorld(new V(x*2.5,1.6,0.3))); }
@@ -1067,14 +1169,14 @@ function makeCharacter(pal){
 function makeCombatant(name,isPlayer,pal){
   const ch=SOLDIER?makeCharacterGLB(pal):makeCharacter(pal); world.add(ch.g);
   const e={etype:'char',name,isPlayer,ch,pos:new V(),vel:new V(),yaw:0,pitch:0,hp:100,shield:0,alive:true,onGround:false,phase:'jet',kills:0,radius:0.45,height:2.0,walkT:Math.random()*6,swingT:0,deadT:0,crouch:false,buildT:0,reloadT:0,
-    anim:{move:0,crouch:0,air:0,phase:Math.random()*6,recoil:0,flash:0,reload:0,pumpT:9}};
+    anim:{move:0,crouch:0,air:0,phase:Math.random()*6,recoil:0,flash:0,reload:0,pumpT:9,twist:0,sprint:0,sprPose:0,swimK:0,land:0,hit:0,draw:1,stroke:0,kick:0}};
   ch.parts.forEach(m=>{ m.userData.ent=e; m.userData.part=(m===ch.head)?'head':'body'; charMeshes.push(m); });
   combatants.push(e); targetsDirty=true; return e;
 }
 function setHeld(e,it){
   const c=e.ch, key=it?it.id+':'+it.r:''; if(c.heldKey===key) return; c.heldKey=key;
   if(c.held){ c.gunMount.remove(c.held); c.held=null; }
-  if(it){ const m=makeGunModel(it.id,it.r); c.gunMount.add(m); c.held=m; m.userData.muzzle.add(c.flash); }
+  if(it){ const m=makeGunModel(it.id,it.r); c.gunMount.add(m); c.held=m; m.userData.muzzle.add(c.flash); e.anim.draw=0; }
 }
 function muzzlePos(e,out){ const c=e.ch; if(c.held) return c.held.userData.muzzle.getWorldPosition(out); return out.set(e.pos.x,e.pos.y+1.5,e.pos.z); }
 const KICK={ar:0.55,smg:0.35,pump:1,pistol:0.6,sniper:1};
@@ -1092,43 +1194,50 @@ function animateChar(e,dt){
   if(e.ch.glb) return animateGLB(e,dt);
   const c=e.ch, A=e.anim; c.g.position.copy(e.pos); c.g.rotation.y=e.yaw;
   const a=1-Math.exp(-16*dt), aS=1-Math.exp(-8*dt);
-  if(!e.alive){ e.deadT+=dt; c.g.rotation.x=Math.min(Math.PI/2,e.deadT*3.2); c.flash.visible=false;
-    D(c.legs[0].knee.rotation,'x',-1.3,a); D(c.legs[1].knee.rotation,'x',-0.5,a); D(c.arms[0].sh.rotation,'z',-1.4,a); D(c.arms[1].sh.rotation,'z',1.4,a);
-    if(e.deadT>2.8) c.g.visible=false; return; }
+  if(!e.alive){ deathPose(e,c.g,c.rig,dt); c.flash.visible=false;
+    D(c.legs[0].knee.rotation,'x',-1.3,a); D(c.legs[1].knee.rotation,'x',-0.5,a); D(c.arms[0].sh.rotation,'z',-1.4,a); D(c.arms[1].sh.rotation,'z',1.4,a); return; }
   const hide=e.phase==='jet'||(e.isPlayer&&ads&&isScoped());
   c.g.visible=!hide; c.glider.visible=e.phase==='glide';
   if(e.phase==='jet') return;
+  const {fwd,side,speed,land}=motionState(e,dt), ground=land, swim=e.phase==='ground'&&e.swim;
   let held=null, pickaxe=false;
-  if(e.isPlayer){ const it=curItem(); if(!e.build&&e.phase==='ground'){ if(it&&it.kind==='gun') held=it; else if(!it) pickaxe=true; } }
-  else if(e.phase==='ground') held=e.gun;
-  setHeld(e,held); c.pick.visible=pickaxe;
-  const fx=-Math.sin(e.yaw), fz=-Math.cos(e.yaw), fwd=e.vel.x*fx+e.vel.z*fz, side=-e.vel.x*fz+e.vel.z*fx, speed=Math.hypot(e.vel.x,e.vel.z), ground=e.phase==='ground';
+  if(e.isPlayer){ const it=curItem(); if(!e.build&&land){ if(it&&it.kind==='gun') held=it; else if(!it) pickaxe=true; } }
+  else if(land) held=e.gun;
+  setHeld(e,held); c.pick.visible=pickaxe&&!(e.tuckK>0.3);
   D(A,'move',ground&&e.onGround?Math.min(1,speed/6.5):0,aS);
   D(A,'crouch',e.crouch&&ground?1:0,a*0.7);
   D(A,'air',ground&&!e.onGround?1:0,a);
   const back=fwd<-0.5?-1:1; A.phase+=dt*speed*1.45*back;
   A.recoil=Math.max(0,A.recoil-dt*8); A.flash-=dt; c.flash.visible=A.flash>0; A.pumpT+=dt;
   if(e.buildT>0) e.buildT-=dt;
-  D(c.g.rotation,'x',e.phase==='fall'?-1.15:0,a*0.5); airPose(e,c.g,c.glider,a,dt);
-  const cr=A.crouch, mv=A.move*(1-cr*0.45), air=A.air;
+  bodyPose(e,c.g,c.glider,c.rig,a,dt);
+  const cr=Math.max(A.crouch,ground&&e.onGround?A.land*0.7:0), mv=A.move*(1-cr*0.45), air=A.air, tuck=e.tuckK||0, sk=A.swimK, up=clamp(e.vel.y/10.5,-1,1), tk=smooth(-0.5,0.6,up)*air;
   const twist=speed>1.2&&ground?clamp(Math.atan2(side,Math.abs(fwd))*back,-0.9,0.9):0;
   D(c.hips.rotation,'y',twist,aS);
   D(c.hips.position,'y',1.02-0.36*cr+Math.abs(Math.sin(A.phase))*0.07*mv,a);
   for(let i=0;i<2;i++){ const L=c.legs[i], ph=A.phase+(i?Math.PI:0);
     let th=Math.sin(ph)*0.8*mv+0.95*cr, kn=-(0.1+Math.max(0,-Math.cos(ph))*1.15)*mv-1.7*cr;
-    if(e.phase==='fall'){ th=i?-0.25:0.35; kn=-0.5; }
-    else if(e.phase==='glide'){ th=Math.sin(matchTime*2+i*2)*0.15; kn=-0.25; }
-    else if(air>0.01){ th=lerp(th,i?0.6:-0.1,air); kn=lerp(kn,i?-1.2:-0.4,air); }
+    if(tuck>0.02){ th=1.9*tuck; kn=-2.2*tuck; }
+    else if(swim){ const k=A.kick+(i?Math.PI:0), tp=A.kick*0.55+(i?Math.PI:0); th=sk*Math.sin(k)*0.32+(1-sk)*(0.55+Math.sin(tp)*0.25); kn=-(sk*0.25+(1-sk)*(1.1+Math.cos(tp)*0.35)); }
+    else if(e.phase==='fall'){ th=i?-0.25:0.35; kn=-0.5; }
+    else if(e.phase==='glide'){ th=Math.sin(matchTime*2+i*2)*0.15+(e.dive?-0.3:0); kn=-0.25; }
+    else if(air>0.01){ th=lerp(th,i?0.15+0.5*tk:0.35+0.95*tk,air); kn=lerp(kn,i?-(0.55+0.95*tk):-(0.35+1.35*tk),air); }
     D(L.thigh.rotation,'x',th,a); D(L.knee.rotation,'x',kn,a); }
   const pitch=e.isPlayer?e.pitch:(e.aimPitch||0), air2=e.phase==='fall'||e.phase==='glide';
-  let sx=-0.14*mv-0.3*cr+Math.sin(matchTime*2.2+e.walkT)*0.015, sy=-c.hips.rotation.y;
+  let sx=-0.14*mv-0.3*cr-0.2*A.sprint+0.3*A.hit+Math.sin(matchTime*2.2+e.walkT)*0.015, sy=-c.hips.rotation.y;
   if(held) sx+=pitch*0.45;
   if(e.swingT>0){ const k=1-e.swingT/0.3; sy-=0.45*Math.sin(k*Math.PI); sx-=0.2*Math.sin(k*Math.PI); }
   if(air2){ sx=0; sy=0; }
   D(c.spine.rotation,'x',sx,a); D(c.spine.rotation,'y',sy,a);
   D(c.neck.rotation,'x',ground?(held?pitch*0.35:pitch*0.6):0,a);
   let lx,lz,lel,rx,rz,rel, armA=a;
-  if(e.phase==='fall'){ lx=-0.2; lz=-1.35; lel=0.2; rx=-0.2; rz=1.35; rel=0.2; }
+  if(tuck>0.25){ lx=1.3; lz=-0.2; lel=1.3; rx=1.3; rz=0.2; rel=1.3; armA=0.5; }
+  else if(swim){
+    // windmill arms for freestyle, sculling while treading water
+    const st=A.stroke, ts=Math.sin(matchTime*3+e.walkT);
+    lx=sk*(Math.PI-st%TAU)+(1-sk)*(1.1+ts*0.3); rx=sk*(Math.PI-(st+Math.PI)%TAU)+(1-sk)*(1.1-ts*0.3); lz=-0.25-(1-sk)*0.3; rz=0.25+(1-sk)*0.3; lel=0.3+(1-sk)*0.6; rel=lel; armA=sk>0.5?1:a;
+  }
+  else if(e.phase==='fall'){ lx=-0.2; lz=-1.35; lel=0.2; rx=-0.2; rz=1.35; rel=0.2; }
   else if(e.phase==='glide'){ lx=Math.PI-0.15; lz=-0.25; lel=0; rx=Math.PI-0.15; rz=0.25; rel=0; }
   else if(held){
     D(A,'reload',(e.isPlayer?!!e.reloading:e.reloadT>0)?1:0,a);
@@ -1142,6 +1251,7 @@ function animateChar(e,dt){
     if(e.swingT>0){ const k=1-e.swingT/0.3; rx=k<0.3?lerp(0.6,2.9,k/0.3):lerp(2.9,0.1,(k-0.3)/0.7); armA=0.75; } else rx=0.55+Math.sin(A.phase)*0.3*mv;
   } else {
     lx=-Math.sin(A.phase)*0.75*mv; rx=Math.sin(A.phase)*0.75*mv; lz=-0.1; rz=0.1; lel=0.25+0.6*mv; rel=0.25+0.6*mv;
+    if(air>0.02){ const lift=tk*2.4, out=Math.max(0,air-tk)*1.1; lx=lerp(lx,lift,air); rx=lerp(rx,lift,air); lz=-0.1-out; rz=0.1+out; }
     if(e.buildT>0){ rx=1.45; rel=0.15; armA=0.6; }
   }
   if(cr>0.01&&!held&&ground){ lel+=0.4*cr; rel+=0.4*cr; }
@@ -1166,15 +1276,16 @@ function collideH(e){
   }
 }
 function rampH(r,x,z){ const u=(x-r.x0)/G, v=(z-r.z0)/G; const t=r.dir===0?v:r.dir===1?u:r.dir===2?1-v:1-u; return r.base+clamp(t,0,1)*G; }
+const SWIM_Y=WATER_Y-1.45, SWIM_DEPTH=WATER_Y-1.3;
 function supportAt(x,z,y,r){
-  let g=Math.max(terrainHeight(x,z),WATER_Y-0.3); const rs=r*0.6;
+  let g=Math.max(terrainHeight(x,z),SWIM_Y); const rs=r*0.6;
   for(const b of colliders){ if(b.max.y>y+STEP||b.max.y<=g) continue; if(x+rs<b.min.x||x-rs>b.max.x||z+rs<b.min.z||z-rs>b.max.z) continue; g=b.max.y; }
   for(const rp of ramps){ if(x<rp.x0||x>rp.x0+G||z<rp.z0||z>rp.z0+G) continue; const h=rampH(rp,x,z); if(h<=y+1.0&&h>g) g=h; }
   return g;
 }
 function moveEntity(e,dt){
-  const p=e.pos, wasGround=e.onGround, vy0=e.vel.y;
-  p.x+=e.vel.x*dt; p.z+=e.vel.z*dt;
+  const p=e.pos, wasGround=e.onGround, vy0=e.vel.y, sm=e.swim&&!e.isPlayer?0.5:1;
+  p.x+=e.vel.x*dt*sm; p.z+=e.vel.z*dt*sm;
   collideH(e);
   const R=WORLD/2-6; p.x=clamp(p.x,-R,R); p.z=clamp(p.z,-R,R);
   if(e.phase==='glide') e.vel.y=lerp(e.vel.y,e.dive?-17:-8,1-Math.exp(-4*dt)); else e.vel.y-=GRAV*dt;
@@ -1183,10 +1294,13 @@ function moveEntity(e,dt){
   if(e.vel.y>0){ const rs=e.radius*0.6;
     for(const b of colliders){ if(b.min.y<p.y+e.height-0.3||b.min.y>ny+e.height) continue; if(p.x+rs<b.min.x||p.x-rs>b.max.x||p.z+rs<b.min.z||p.z-rs>b.max.z) continue; ny=b.min.y-e.height; e.vel.y=0; } }
   const sup=supportAt(p.x,p.z,p.y,e.radius);
-  if(ny<=sup){ ny=sup; if(e.vel.y<0) e.vel.y=0; e.onGround=true; if(e===player&&!wasGround&&vy0<-7) sfx('land',null,{v:-vy0,surf:surfaceAt(e)}); }
+  if(ny<=sup){ ny=sup; if(e.vel.y<0) e.vel.y=0; e.onGround=true;
+    if(!wasGround&&vy0<-6){ e.anim.land=clamp(-vy0/20,0.3,1); if(e===player) sfx('land',null,{v:-vy0,surf:surfaceAt(e)}); if(-vy0>13) landDust(e); } }
   else if(e.onGround&&e.vel.y<=0&&ny-sup<0.45&&e.phase==='ground'){ ny=sup; e.vel.y=0; e.onGround=true; }
   else e.onGround=false;
   p.y=ny;
+  const wasSwim=e.swim; e.swim=e.phase==='ground'&&terrainHeight(p.x,p.z)<SWIM_DEPTH&&sup<SWIM_Y+0.05;
+  if(e.swim!==wasSwim){ if(e.swim){ e.crouch=false; e.build=null; if(e===player) cancelActions(); } if(e.pos.distanceTo(camera.position)<60){ splash(tv4.set(p.x,WATER_Y,p.z),e.swim&&vy0<-6?1.6:0.9); sfx('splash',e===player?null:e.pos,{big:vy0<-6}); } }
   if(e.onGround&&(e.phase==='fall'||e.phase==='glide')){ e.phase='ground'; e.ch.glider.visible=false; if(!e.isPlayer) e.armedAt=matchTime+rnd(3,8); }
 }
 function airDrag(e,dt){ const f=1-0.9*dt; e.vel.x*=f; e.vel.z*=f; }
@@ -1368,7 +1482,7 @@ function hurt(t,amt,src,info){
   if(!t.alive||t.phase==='jet') return; info=info||{};
   amt=Math.max(1,Math.round(amt)); let left=amt, sh=0;
   if(t.shield>0&&!info.storm){ sh=Math.min(t.shield,left); t.shield-=sh; left-=sh; }
-  t.hp-=left;
+  t.hp-=left; t.anim.hit=Math.min(1,(t.anim.hit||0)+0.35+amt/50);
   if(src===player&&t!==player){ player.dmgDealt+=amt; showDmg(info.point||t.pos.clone().add(new V(0,1.4,0)),amt,info.head?'head':(sh>0?'shield':'')); hitMarker(info.head); sfx(sh>0&&t.shield<=0?'shieldBreak':info.head?'head':(sh>0?'shield':'hit')); }
   if(t===player){ hurtFlash=Math.min(1,hurtFlash+0.3+amt/90); sfx(info.storm?'stormHurt':'hurt'); }
   if(!t.isPlayer&&src&&src!==t&&src.alive){ t.healT=0; if(t.enemy!==src){ t.enemy=src; t.seenAt=matchTime-0.2; } t.lastSeen=src.pos.clone(); t.lastSeenT=matchTime; if(t.buildCd<=0&&t.onGround&&Math.random()<DIFF[diff].cover) botCover(t,src); }
@@ -1376,7 +1490,7 @@ function hurt(t,amt,src,info){
 }
 function eliminate(t,killer,weapon){
   if(!t.alive) return;
-  t.alive=false; t.hp=0; t.deadT=0; aliveCount--;
+  t.alive=false; t.hp=0; t.deadT=0; aliveCount--; t.deathDir=Math.random()<0.5?1:-1; t.deathRoll=rnd(-0.4,0.4); t.flipT=null; t.tricks=null;
   charMeshes=charMeshes.filter(m=>m.userData.ent!==t); targetsDirty=true;
   feed(killer?`${killer.name} eliminated ${t.name}${weapon?' · '+weapon:''}`:`${t.name} was lost in the storm`,killer===player||t===player);
   if(killer){ killer.kills++; if(killer===player){ sfx('elim'); banner('Eliminated',t.name+' · '+(aliveCount)+' left',2); } }
@@ -1430,7 +1544,7 @@ function finishConsume(){ const p=player, it=p.consuming.it, c=CONS[it.id]; p.co
   if(c.shield) p.shield=Math.min(c.cap,p.shield+c.shield);
   sfx('healDone',null,{id:it.id}); it.count--; if(it.count<=0){ const i=p.slots.indexOf(it); if(i>0) p.slots[i]=null; } refreshHotbar(); }
 function selectSlot(n){ const p=player; if(p.editing) endEdit(); if(p.build) p.build=null; if(p.sel!==n) cancelActions(); p.sel=n; refreshHotbar(); }
-function setBuild(k){ const p=player; if(p.editing) endEdit(); if(p.phase!=='ground') return; cancelActions(); p.build=k; p.lastBuild=k; refreshHotbar(); }
+function setBuild(k){ const p=player; if(p.editing) endEdit(); if(p.phase!=='ground'||p.swim) return; cancelActions(); p.build=k; p.lastBuild=k; refreshHotbar(); }
 function toggleBuild(){ const p=player; if(p.build){ p.build=null; refreshHotbar(); } else setBuild(p.lastBuild||'wall'); }
 function interact(){ const t=interactTarget; if(!t) return; if(t.etype==='chest') openChest(t); else if(t.etype==='loot') pickupLoot(t); }
 function pickupLoot(l){
@@ -1485,8 +1599,13 @@ function botShoot(b,e,d){
 function leaveJet(e,blast){
   e.phase='fall'; e.onGround=false; e.dive=false; e.spinA=0; e.spinZ=rnd(0,6);
   e.pos.copy(jet.pos).addScaledVector(jet.dir,rnd(-5,5)); e.pos.y-=1;
+  e.tricks=null; e.blastTumble=!!blast;
   if(blast){ const a=Math.random()*Math.PI*2, hs=rnd(14,26); e.vel.set(Math.cos(a)*hs+jet.vel.x*0.3,rnd(4,10),Math.sin(a)*hs+jet.vel.z*0.3); e.tumble=e.isPlayer?1.3:rnd(1,1.7); e.spinS=rnd(7,11)*(Math.random()<0.5?-1:1); }
-  else { const sd=Math.random()<0.5?-1:1; e.vel.set(jet.dir.x*14-jet.dir.z*sd*6,-2,jet.dir.z*14+jet.dir.x*sd*6); e.tumble=0.7; e.spinS=rnd(4,6); }
+  else {
+    // bailing out on purpose: leap clear and throw a string of flips and twists before the skydive
+    const sd=Math.random()<0.5?-1:1; e.vel.set(jet.dir.x*14-jet.dir.z*sd*6,4,jet.dir.z*14+jet.dir.x*sd*6);
+    e.tricks=makeRoutine(); e.trickT=0; e.trickDur=e.tricks.reduce((t,r)=>t+r.dur,0); e.tumble=e.trickDur+0.35;
+  }
 }
 function updateBot(b,dt){
   if(!b.alive) return;
@@ -1535,7 +1654,7 @@ function updateBot(b,dt){
     const pref=WEAP[b.gun.id].pref, fwd=d>pref+4?1:d<pref-3?-0.6:0;
     mx=dx/d*fwd+(-dz/d)*b.strafe*0.9; mz=dz/d*fwd+(dx/d)*b.strafe*0.9;
     if(b.crouch) speed*=0.55;
-    if(matchTime-b.seenAt>b.react&&b.fireCd<=0&&b.reloadT<=0) botShoot(b,e,d);
+    if(matchTime-b.seenAt>b.react&&b.fireCd<=0&&b.reloadT<=0&&!b.swim) botShoot(b,e,d);
     if(b.onGround&&!b.crouch&&Math.random()<dt*0.7) b.vel.y=10.5;
   } else {
     b.crouch=false; b.aimPitch=0;
@@ -1559,14 +1678,17 @@ function updatePlayer(dt){
   let mx=(keys.KeyD?1:0)-(keys.KeyA?1:0), mz=(keys.KeyW?1:0)-(keys.KeyS?1:0); const len=Math.hypot(mx,mz); if(len>0){ mx/=len; mz/=len; }
   const sprint=(keys.ShiftLeft||keys.ShiftRight)&&mz>0&&!ads;
   if(sprint||p.phase!=='ground') p.crouch=false;
-  p.dive=p.phase==='glide'&&!!(keys.ShiftLeft||keys.ShiftRight);
-  let speed=p.phase==='ground'?(p.crouch?4.2:sprint?11:7.5):p.phase==='glide'?(p.dive?24:15):20;
+  p.dive=p.phase==='glide'&&!!(keys.ShiftLeft||keys.ShiftRight); p.sprinting=sprint&&p.phase==='ground'&&p.onGround&&!p.swim;
+  let speed=p.phase==='ground'?(p.swim?(sprint?7:4.8):p.crouch?4.2:sprint?11:7.5):p.phase==='glide'?(p.dive?24:15):20;
+  const wade=WATER_Y-terrainHeight(p.pos.x,p.pos.z); if(p.phase==='ground'&&!p.swim&&wade>0.4&&p.pos.y<WATER_Y) speed*=clamp(1-(wade-0.4)*0.3,0.65,1);
   p.height=p.crouch?1.45:2.0;
   if(p.phase==='ground'&&(ads||p.consuming)) speed*=0.6;
   const tx=(fx*mz+rx*mx)*speed, tz=(fz*mz+rz*mx)*speed, acc=p.phase==='ground'?(p.onGround?14:4):3, k=1-Math.exp(-acc*dt);
   if(p.phase==='fall') airDrag(p,dt); else { p.vel.x=lerp(p.vel.x,tx,k); p.vel.z=lerp(p.vel.z,tz,k); }
-  if(p.phase==='ground'&&p.onGround&&p.wantJump){ p.vel.y=10.5; p.onGround=false; p.crouch=false; sfx('jump'); }
-  if(p.phase==='fall'){ p.tumble-=dt; const agl=p.pos.y-supportAt(p.pos.x,p.pos.z,p.pos.y,p.radius); if(p.tumble<=0||agl<25||(p.wantJump&&p.tumble<0.8)){ p.phase='glide'; p.ch.glider.visible=true; sfx('glider'); banner('Glider out!','Steer with W A S D · hold SHIFT to dive',2.5); } }
+  if(p.phase==='ground'&&p.onGround&&p.wantJump&&!p.swim){ p.vel.y=10.5; p.onGround=false; p.crouch=false; sfx('jump');
+    // sprinting with empty hands or the pickaxe turns the jump into a front flip
+    if(sprint&&!p.build){ const it=curItem(); if(!it||it.kind!=='gun') p.flipT=0; } }
+  if(p.phase==='fall'){ p.tumble-=dt; const agl=p.pos.y-supportAt(p.pos.x,p.pos.z,p.pos.y,p.radius); if(p.tumble<=0||agl<25||(p.wantJump&&p.tumble<0.8&&!p.tricks)){ p.phase='glide'; p.ch.glider.visible=true; sfx('glider'); banner('Glider out!','Steer with W A S D · hold SHIFT to dive',2.5); } }
   p.wantJump=false;
   moveEntity(p,dt);
 }
@@ -1575,8 +1697,8 @@ function updateActions(dt){
   if(p.reloading){ const r=p.reloading; if(curItem()!==r.it) p.reloading=null; else { r.t+=dt; const st=RELOAD_STEPS[r.it.id]; while(st&&r.step<st.length&&r.t>=st[r.step][0]*r.dur){ sfx('reloadStep',null,{step:st[r.step][1]}); r.step++; } if(r.t>=r.dur) finishReload(); } }
   if(p.consuming){ if(curItem()!==p.consuming.it) p.consuming=null; else { p.consuming.t+=dt; if(p.consuming.t>=p.consuming.dur) finishConsume(); } }
   const it=curItem();
-  ads=state==='play'&&mouse.r&&!p.build&&!p.editing&&p.phase==='ground'&&p.alive&&!!it&&it.kind==='gun';
-  if(!p.alive||p.phase!=='ground'||state!=='play') return;
+  ads=state==='play'&&mouse.r&&!p.build&&!p.editing&&p.phase==='ground'&&!p.swim&&p.alive&&!!it&&it.kind==='gun';
+  if(!p.alive||p.phase!=='ground'||p.swim||state!=='play') return;
   if(p.editing) return;
   if(mouse.l){
     if(p.build){ p.buildRepeat-=dt; if(p.buildRepeat<=0){ placePiece(p,p.build,false); p.buildRepeat=0.13; } }
@@ -1584,7 +1706,7 @@ function updateActions(dt){
   }
 }
 function onPrimaryDown(){
-  const p=player; if(!p.alive||p.phase!=='ground') return;
+  const p=player; if(!p.alive||p.phase!=='ground'||p.swim) return;
   if(p.build){ placePiece(p,p.build,false); p.buildRepeat=0.22; return; }
   const it=curItem(); if(it&&it.kind==='cons') startConsume(it); else playerFire();
 }
@@ -1761,6 +1883,36 @@ function smokePuff(p,size,life,col,drift,delay){
 function tracer(a,b){ const geo=new T.BufferGeometry().setFromPoints([a.clone(),b.clone()]); const mat=tracerMat.clone(); const l=new T.Line(geo,mat); world.add(l); effects.push({t:0,dur:0.07,obj:l,upd:(e,k)=>{ mat.opacity=0.9*(1-k); },done:()=>{ geo.dispose(); mat.dispose(); }}); }
 function puff(p,col){ const mat=new T.MeshBasicMaterial({color:col,transparent:true,opacity:0.8}); const m=new T.Mesh(GEO.puff,mat); m.position.copy(p); world.add(m); effects.push({t:0,dur:0.3,obj:m,upd:(e,k)=>{ m.scale.setScalar(1+k*2.5); mat.opacity=0.8*(1-k); },done:()=>mat.dispose()}); }
 function debris(p,mat){ for(let i=0;i<7;i++){ const m=new T.Mesh(GEO.debris,mat); m.position.copy(p).add(new V(rnd(-1,1),rnd(-1,1),rnd(-1,1))); const v=new V(rnd(-4,4),rnd(3,8),rnd(-4,4)); world.add(m); effects.push({t:0,dur:0.9,obj:m,upd:(e,k,dt)=>{ v.y-=GRAV*dt; m.position.addScaledVector(v,dt); m.rotation.x+=dt*6; m.scale.setScalar(1-k); }}); } }
+// water splashes, swimming wake and ground dust
+const foamMat=()=>new T.MeshBasicMaterial({map:ringTex,color:0xffffff,transparent:true,opacity:0.8,depthWrite:false});
+function ripple(x,z,size,life){ const mat=foamMat(), m=new T.Mesh(GEO.ringPlane,mat); m.rotation.x=-Math.PI/2; m.position.set(x,WATER_Y+0.04,z); world.add(m);
+  effects.push({t:0,dur:life,obj:m,upd:(e,k)=>{ m.scale.setScalar(size*(0.4+k*1.6)); mat.opacity=0.75*(1-k); },done:()=>mat.dispose()}); }
+function splash(p,size){
+  const mat=new T.MeshBasicMaterial({color:0xf2fbff,transparent:true,opacity:0.9}), n=Math.round(7*size), ms=[];
+  for(let i=0;i<n;i++){ const m=new T.Mesh(GEO.puff,mat); m.position.set(p.x+rnd(-0.4,0.4)*size,WATER_Y,p.z+rnd(-0.4,0.4)*size); m.scale.setScalar(rnd(0.3,0.7)*size); world.add(m);
+    const v=new V(rnd(-1.6,1.6)*size,rnd(2.5,5.5)*Math.sqrt(size),rnd(-1.6,1.6)*size);
+    effects.push({t:0,dur:0.8,obj:m,upd:(e,k,dt)=>{ v.y-=GRAV*0.7*dt; m.position.addScaledVector(v,dt); if(m.position.y<WATER_Y) m.visible=false; mat.opacity=0.9*(1-k); }}); }
+  effects.push({t:0,dur:0.8,obj:new T.Object3D(),upd:()=>{},done:()=>mat.dispose()});
+  ripple(p.x,p.z,size*1.6,1.1);
+}
+function wake(e,speed){
+  const fx=-Math.sin(e.yaw), fz=-Math.cos(e.yaw);
+  if(speed<0.8){ ripple(e.pos.x,e.pos.z,1.2,1.4); return; }
+  const mat=new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.6,depthWrite:false}), m=new T.Mesh(GEO.puff,mat);
+  m.position.set(e.pos.x-fx*0.9+rnd(-0.2,0.2),WATER_Y+0.02,e.pos.z-fz*0.9+rnd(-0.2,0.2)); m.scale.set(1.2,0.25,1.2); world.add(m);
+  effects.push({t:0,dur:1.3,obj:m,upd:(ef,k)=>{ m.scale.set(1.2+k*3,0.25,1.2+k*3); mat.opacity=0.55*(1-k); },done:()=>mat.dispose()});
+  if(Math.random()<0.25) ripple(e.pos.x-fx*1.5,e.pos.z-fz*1.5,1.6,1.2);
+}
+const DUST={sand:0xdccb9c,grass:0xa9b48c,rock:0xb5b2ab,wood:0xb8955e};
+function dustPuff(x,y,z,col,size,v){
+  const mat=new T.MeshLambertMaterial({color:col,transparent:true,opacity:0.55,depthWrite:false}), m=new T.Mesh(GEO.puff,mat); m.position.set(x,y,z); world.add(m);
+  effects.push({t:0,dur:0.7,obj:m,upd:(e,k,dt)=>{ if(v){ m.position.addScaledVector(v,dt); v.multiplyScalar(1-3*dt); } m.scale.setScalar(size*(1+k*3)); mat.opacity=0.5*(1-k); },done:()=>mat.dispose()});
+}
+function landDust(e){
+  if(e.pos.distanceTo(camera.position)>50) return; const surf=surfaceAt(e);
+  if(surf==='water'){ splash(e.pos,1.2); return; }
+  const col=DUST[surf]||DUST.grass; for(let i=0;i<8;i++){ const a=i/8*TAU; dustPuff(e.pos.x+Math.cos(a)*0.3,e.pos.y+0.1,e.pos.z+Math.sin(a)*0.3,col,0.9,new V(Math.cos(a)*4,0.6,Math.sin(a)*4)); }
+}
 function updateEffects(dt){
   for(let i=effects.length-1;i>=0;i--){ const e=effects[i]; e.t+=dt; const k=Math.min(1,e.t/e.dur); e.upd(e,k,dt); if(k>=1){ world.remove(e.obj); if(e.done) e.done(); effects.splice(i,1); } }
   for(let i=anims.length-1;i>=0;i--){ const a=anims[i];
@@ -1844,7 +1996,7 @@ function updateInteract(){
   interactTarget=null; const p=player;
   if(state!=='play'||!p.alive){ setPrompt(''); return; }
   if(p.phase==='jet'){ setPrompt(jet.warned?'<kbd>SPACE</kbd>Bail out now · Jet explodes in '+Math.max(1,Math.ceil(jet.boomT-jet.t)):'Cruising over Storm Island…'); return; }
-  if(p.phase==='fall'){ setPrompt(p.tumble<0.8?'<kbd>SPACE</kbd>Open glider':''); return; }
+  if(p.phase==='fall'){ setPrompt(p.tumble<0.8&&!p.tricks?'<kbd>SPACE</kbd>Open glider':''); return; }
   if(p.phase==='glide'){ setPrompt('<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>Steer toward land · <kbd>SHIFT</kbd>Dive'); return; }
   if(p.phase!=='ground'){ setPrompt(''); return; }
   let best=2.6, txt='';
@@ -1896,7 +2048,12 @@ function updateCamera(dt){
   const cp=Math.cos(p.pitch); camFwd.set(-Math.sin(p.yaw)*cp,Math.sin(p.pitch),-Math.cos(p.yaw)*cp); camRight.set(Math.cos(p.yaw),0,-Math.sin(p.yaw));
   let dist, side; const pivot=tv1;
   if(p.phase==='jet'){ pivot.copy(jet.pos); dist=34; side=0; }
-  else { pivot.set(p.pos.x,p.pos.y+1.7-0.5*p.anim.crouch,p.pos.z); if(p.phase==='ground'){ dist=ads?2.0:3.7; side=ads?0.8:1.3; pivot.y+=ads?0.05:0.3; } else { dist=9; side=0; } }
+  else { pivot.set(p.pos.x,p.pos.y+1.7-0.5*p.anim.crouch,p.pos.z);
+    if(p.swim){ pivot.y=WATER_Y+1.1; dist=4.6; side=0.6; }
+    else if(p.phase==='ground'){ dist=ads?2.0:3.7; side=ads?0.8:1.3; pivot.y+=ads?0.05:0.3;
+      // sprinting: a little head bob and the camera eases back
+      const sp=p.anim.sprint||0; pivot.y+=Math.abs(Math.sin(matchTime*8.5))*0.07*sp-(p.anim.land||0)*0.25; dist+=0.45*sp; }
+    else { dist=9; side=0; } }
   camDist=lerp(camDist,dist,1-Math.exp(-12*dt));
   const start=tv2.copy(pivot).addScaledVector(camRight,side); let d=camDist;
   if(p.phase==='ground'){ tv3.copy(camFwd).negate(); ray.set(start,tv3); ray.near=0; ray.far=camDist; const h=ray.intersectObjects(structMeshes,false); if(h.length) d=Math.max(0.4,h[0].distance-0.25); }
@@ -1906,7 +2063,7 @@ function updateCamera(dt){
   const th=Math.max(terrainHeight(camera.position.x,camera.position.z),WATER_Y)+0.5; if(camera.position.y<th) camera.position.y=th;
   camera.lookAt(start.x+camFwd.x*60,start.y+camFwd.y*60,start.z+camFwd.z*60);
   if(camShake>0){ camShake=Math.max(0,camShake-dt*(camShake>0.3?1.1:0.5)); const s=camShake*camShake*0.9+camShake*0.15; camera.position.x+=rnd(-s,s); camera.position.y+=rnd(-s,s); camera.position.z+=rnd(-s,s); camera.rotation.z+=rnd(-s,s)*0.04; }
-  const it=curItem(), tf=ads?(it&&WEAP[it.id].zoom?20:52):(p.phase==='fall'?82:72);
+  const it=curItem(), tf=ads?(it&&WEAP[it.id].zoom?20:52):(p.phase==='fall'?82:p.phase==='glide'&&p.dive?80:72+7*(p.anim.sprint||0));
   fov=lerp(fov,tf,1-Math.exp(-14*dt)); camera.fov=fov; camera.updateProjectionMatrix();
 }
 function updateSun(){ const f=(state==='menu'||!player)?tv4.set(0,0,0):(player.phase==='jet'?jet.pos:player.pos); sun.position.copy(f).addScaledVector(SUN_DIR,200); sun.target.position.copy(f); sky.position.copy(camera.position); }
@@ -2040,7 +2197,7 @@ document.addEventListener('keydown',ev=>{
   else if(c==='KeyZ') setBuild('wall'); else if(c==='KeyX') setBuild('floor'); else if(c==='KeyC') setBuild('ramp');
   else if(c==='KeyF'){ p.buildMat=p.buildMat==='wood'?'stone':'wood'; hudTick(); }
   else if(c==='KeyG'){ if(p.editing) confirmEdit(); else startEdit(); }
-  else if(c==='KeyV'){ if(p.phase==='ground') p.crouch=!p.crouch; }
+  else if(c==='KeyV'){ if(p.phase==='ground'&&!p.swim) p.crouch=!p.crouch; }
   else if(c==='KeyR') startReload();
   else if(c==='KeyE') interact();
   else if(c==='Space') p.wantJump=true;
@@ -2092,6 +2249,6 @@ function loop(now){
 $('playBtn').disabled=true; $('playBtn').textContent='Loading…';
 loadSoldier(ok=>{ newMatch(); $('playBtn').disabled=false; $('playBtn').textContent='Drop in'; if(!ok) console.warn('Character model unavailable; using simple characters'); });
 requestAnimationFrame(loop);
-window.__game={sfx:(k,o)=>sfx(k,null,o),get audioOk(){return !!(AC&&bus&&AMB);},setCam:(p,l)=>{ camOverride=p?{pos:new V(...p),look:new V(...l)}:null; },th:terrainHeight,get editing(){return player.editing;},startEdit,confirmEdit,editClick,openArmory,setArm:i=>{armIdx=i;buildArmory();},pieces:()=>[...pieceMap.values()],colliderCount:()=>colliders.size,debugLoot:(x,y,z)=>{ spawnLoot({kind:'gun',id:'sniper',r:4,ammo:1},x,y,z); spawnLoot({kind:'gun',id:'smg',r:3,ammo:30},x+1.6,y,z+0.4); spawnLoot({kind:'cons',id:'big',count:1},x-1.5,y,z+0.3); },get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},startMatch,update,setState:s=>state=s};
+window.__game={keys,camera,sfx:(k,o)=>sfx(k,null,o),get audioOk(){return !!(AC&&bus&&AMB);},setCam:(p,l)=>{ camOverride=p?{pos:new V(...p),look:new V(...l)}:null; },th:terrainHeight,get editing(){return player.editing;},startEdit,confirmEdit,editClick,openArmory,setArm:i=>{armIdx=i;buildArmory();},pieces:()=>[...pieceMap.values()],colliderCount:()=>colliders.size,debugLoot:(x,y,z)=>{ spawnLoot({kind:'gun',id:'sniper',r:4,ammo:1},x,y,z); spawnLoot({kind:'gun',id:'smg',r:3,ammo:30},x+1.6,y,z+0.4); spawnLoot({kind:'cons',id:'big',count:1},x-1.5,y,z+0.3); },get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},startMatch,update,setState:s=>state=s};
 })();
 </script>
