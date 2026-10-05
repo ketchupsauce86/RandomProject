@@ -26,6 +26,8 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 #app{position:fixed;inset:0;overflow:hidden;user-select:none;-webkit-user-select:none}
 #c{outline:none;position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
 .layer{position:absolute;inset:0;pointer-events:none}
+#boom{background:radial-gradient(ellipse at center,rgba(255,250,230,.95) 20%,rgba(255,170,70,.85) 100%);opacity:0}
+#alarm{background:radial-gradient(ellipse at center,transparent 50%,rgba(255,30,30,.55) 100%);opacity:0}
 #hurt{background:radial-gradient(ellipse at center,transparent 45%,rgba(255,40,60,.75) 100%);opacity:0}
 #stormfx{background:radial-gradient(ellipse at center,rgba(120,60,220,.18) 30%,rgba(110,40,210,.7) 100%);opacity:0;transition:opacity .4s}
 #scope{background:radial-gradient(circle at center,transparent 0 32vmin,#000 32.4vmin)}
@@ -154,6 +156,8 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
   <canvas id="c" tabindex="0" aria-label="Storm Island game view"></canvas>
   <div class="layer" id="stormfx"></div>
   <div class="layer" id="hurt"></div>
+  <div class="layer" id="alarm"></div>
+  <div class="layer" id="boom"></div>
   <div class="layer" id="scope" hidden></div>
   <div class="layer" id="dmg"></div>
   <div class="layer" id="hud" hidden>
@@ -195,8 +199,8 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
         <dl>
           <dt>WASD</dt><dd>Move</dd>
           <dt>Mouse</dt><dd>Look around</dd>
-          <dt>Space</dt><dd>Jump / leave the bus / open glider</dd>
-          <dt>Shift</dt><dd>Sprint</dd>
+          <dt>Space</dt><dd>Jump / bail out of the jet / open glider</dd>
+          <dt>Shift</dt><dd>Sprint / dive while gliding</dd>
           <dt>V</dt><dd>Crouch (steadier aim)</dd>
           <dt>Left click</dt><dd>Shoot, swing pickaxe, place builds</dd>
           <dt>Right click</dt><dd>Aim down sights</dd>
@@ -268,7 +272,7 @@ function angLerp(a,b,t){ let d=((b-a+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)
 // ================= constants =================
 const DIFF={easy:{dmg:0.28,spread:1.7,react:[0.9,1.5],cad:2.6,head:0.04,range:65,cover:0.2},normal:{dmg:0.4,spread:1.15,react:[0.6,1.1],cad:2.0,head:0.08,range:80,cover:0.4},hard:{dmg:0.62,spread:0.7,react:[0.3,0.6],cad:1.45,head:0.15,range:100,cover:0.6}};
 let diff='normal';
-const BUS_OPEN=5, G=4, GRAV=30, STEP=0.7, WORLD=640, N=240, CELL=WORLD/N, ISLAND_R=255, WATER_Y=-0.8, BOT_DMG=0.75, BOTS=19;
+const G=4, GRAV=30, STEP=0.7, WORLD=640, N=240, CELL=WORLD/N, ISLAND_R=255, WATER_Y=-0.8, BOT_DMG=0.75, BOTS=19;
 const RAR=[{n:'Common',c:'#a4abb5',m:1},{n:'Uncommon',c:'#55c95f',m:1.05},{n:'Rare',c:'#3fa0f5',m:1.1},{n:'Epic',c:'#b866f5',m:1.16},{n:'Legendary',c:'#f5a83b',m:1.22}];
 const WEAP={
   ar:{name:'Assault Rifle',short:'AR',dmg:30,rate:0.16,mag:30,reload:2.2,spread:0.012,bloom:0.035,auto:true,ammo:'medium',range:320,pellets:1,head:1.5,recoil:0.006,pref:24},
@@ -348,7 +352,7 @@ const GEO={
   gun:new T.BoxGeometry(0.12,0.17,0.85), handle:new T.CylinderGeometry(0.04,0.04,0.95,6), pickHead:new T.BoxGeometry(0.7,0.1,0.1),
   glider:new T.BoxGeometry(3.2,0.08,1.3), rod:new T.BoxGeometry(0.04,1.1,0.04),
   debris:new T.BoxGeometry(0.35,0.35,0.35), puff:new T.SphereGeometry(0.22,6,4),
-  bus:new T.BoxGeometry(3.4,3,9), busStripe:new T.BoxGeometry(3.5,0.7,9.1), balloon:new T.SphereGeometry(5,16,12), cloud:new T.IcosahedronGeometry(10,1),
+  smoke:new T.IcosahedronGeometry(1,1), cloud:new T.IcosahedronGeometry(10,1),
 };
 
 // ================= glow textures, gun & item models =================
@@ -461,6 +465,10 @@ function sfx(kind,pos){
     case 'reload': env(0.15,0.08); osc('square',300,200,0.08); break;
     case 'heal': env(0.2,0.3); osc('sine',440,880,0.3); break;
     case 'empty': env(0.12,0.05); osc('square',200,180,0.05); break;
+    case 'alarm': env(0.14,0.16); osc('square',880,870,0.16); break;
+    case 'bang': env(0.5,0.6); noise(900,0.6); osc('sine',160,50,0.4); break;
+    case 'boom': { env(1,3.2); noise(260,3.2); const g2=AC.createGain(); g2.connect(master); g2.gain.setValueAtTime(0.9,t); g2.gain.exponentialRampToValueAtTime(0.0001,t+2.4); const o=AC.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(70,t); o.frequency.exponentialRampToValueAtTime(18,t+2.4); o.connect(g2); o.start(t); o.stop(t+2.5); break; }
+    case 'glider': env(0.25,0.4); noise(1400,0.4,'bandpass'); break;
   }
 }
 
@@ -550,7 +558,7 @@ function scatterFoliage(){
 // ================= world state =================
 let state='menu', fallbackLook=false, locked=false, matchUsed=false, sens=1;
 let foliage=[], groundTex=null;
-let world=null, water=null, clouds=[], colliders, structMeshes, propMeshes, chestMeshes, charMeshes, ramps, pieceMap, props, chests, loots, combatants, bots, player=null, storm, bus, effects, anims, housePos;
+let world=null, water=null, clouds=[], colliders, structMeshes, propMeshes, chestMeshes, charMeshes, ramps, pieceMap, props, chests, loots, combatants, bots, player=null, storm, jet, effects, anims, housePos;
 let matchTime=0, aliveCount=0, targetsDirty=true, shotTargets=[], losTargets=[], ads=false, hurtFlash=0, hitT=0, bannerT=0, toastT=0, interactTarget=null, stormTick=1;
 const keys={}, mouse={l:false,r:false};
 const ray=new T.Raycaster();
@@ -735,13 +743,22 @@ function makeCharacterGLB(pal){
   return {glb:true,g,model,bones,mixer,act,gunMount,pick:pickG,glider,flash,hb,parts:[hb.head,hb.chest,hb.legs],head:hb.head,heldKey:'',held:null,w:{Idle:1,Walk:0,Run:0,TPose:0}};
 }
 const UP=new V(0,1,0);
+// tumbling after the blast spins the body around its middle; the glider unfolds when it opens
+const _pc=new V();
+function airPose(e,g,glider,a,dt){
+  if(e.phase==='fall'&&e.tumble>0){ e.spinA+=dt*e.spinS; g.rotation.x=((e.spinA%(Math.PI*2))+Math.PI*3)%(Math.PI*2)-Math.PI; g.rotation.z=Math.sin(e.spinA*0.63+e.spinZ)*0.9; }
+  else D(g.rotation,'z',0,a*0.5);
+  if(e.phase==='fall'||e.phase==='glide'){ _pc.set(0,1,0).applyEuler(g.rotation); g.position.set(e.pos.x-_pc.x,e.pos.y+1-_pc.y,e.pos.z-_pc.z); }
+  e.gk=e.phase==='glide'?Math.min(1,(e.gk||0)+dt*3.5):0;
+  const q=e.gk, pop=q<1?1+Math.sin(q*Math.PI)*0.25-(1-q)*0.9:1; glider.scale.set(Math.max(0.05,pop),1,Math.max(0.3,q));
+}
 function toLocal(g,v){ return g.worldToLocal(v); }
 function animateGLB(e,dt){
   const c=e.ch, A=e.anim, B=c.bones, g=c.g; g.position.copy(e.pos); g.rotation.y=e.yaw;
   const a=1-Math.exp(-14*dt), aS=1-Math.exp(-7*dt);
   if(!e.alive){ e.deadT+=dt; g.rotation.x=Math.min(Math.PI/2,e.deadT*e.deadT*6); c.flash.visible=false; if(e.deadT<0.6) c.mixer.update(dt*0.3); if(e.deadT>2.8) g.visible=false; return; }
-  const hide=e.phase==='bus'||(e.isPlayer&&ads&&isScoped());
-  g.visible=!hide; c.glider.visible=e.phase==='glide'; if(e.phase==='bus') return;
+  const hide=e.phase==='jet'||(e.isPlayer&&ads&&isScoped());
+  g.visible=!hide; c.glider.visible=e.phase==='glide'; if(e.phase==='jet') return;
   let held=null, pickaxe=false;
   if(e.isPlayer){ const it=curItem(); if(!e.build&&!e.editing&&e.phase==='ground'){ if(it&&it.kind==='gun') held=it; else if(!it) pickaxe=true; } }
   else if(e.phase==='ground') held=e.gun;
@@ -759,7 +776,7 @@ function animateGLB(e,dt){
   c.act.Walk.setEffectiveTimeScale(back*clamp(s/1.8,0.7,1.6)); c.act.Run.setEffectiveTimeScale(back*clamp(s/5.5,0.8,1.9));
   const near=!player||e===player||e.pos.distanceTo(camera.position)<70;
   c.mixer.update(dt);
-  D(g.rotation,'x',e.phase==='fall'?-1.25:0,a*0.5);
+  D(g.rotation,'x',e.phase==='fall'?-1.25:0,a*0.5); airPose(e,g,c.glider,a,dt);
   c.model.position.y=0; g.updateMatrixWorld(true);
   // --- legs: remember animated feet, then crouch and pin feet back down (two-bone IK)
   const cr=A.crouch, right=_v1.set(Math.cos(e.yaw),0,-Math.sin(e.yaw)).clone(), fwdV=new V(fx,0,fz);
@@ -845,7 +862,7 @@ function makeCharacter(pal){
 }
 function makeCombatant(name,isPlayer,pal){
   const ch=SOLDIER?makeCharacterGLB(pal):makeCharacter(pal); world.add(ch.g);
-  const e={etype:'char',name,isPlayer,ch,pos:new V(),vel:new V(),yaw:0,pitch:0,hp:100,shield:0,alive:true,onGround:false,phase:'bus',kills:0,radius:0.45,height:2.0,walkT:Math.random()*6,swingT:0,deadT:0,crouch:false,buildT:0,reloadT:0,
+  const e={etype:'char',name,isPlayer,ch,pos:new V(),vel:new V(),yaw:0,pitch:0,hp:100,shield:0,alive:true,onGround:false,phase:'jet',kills:0,radius:0.45,height:2.0,walkT:Math.random()*6,swingT:0,deadT:0,crouch:false,buildT:0,reloadT:0,
     anim:{move:0,crouch:0,air:0,phase:Math.random()*6,recoil:0,flash:0,reload:0,pumpT:9}};
   ch.parts.forEach(m=>{ m.userData.ent=e; m.userData.part=(m===ch.head)?'head':'body'; charMeshes.push(m); });
   combatants.push(e); targetsDirty=true; return e;
@@ -874,9 +891,9 @@ function animateChar(e,dt){
   if(!e.alive){ e.deadT+=dt; c.g.rotation.x=Math.min(Math.PI/2,e.deadT*3.2); c.flash.visible=false;
     D(c.legs[0].knee.rotation,'x',-1.3,a); D(c.legs[1].knee.rotation,'x',-0.5,a); D(c.arms[0].sh.rotation,'z',-1.4,a); D(c.arms[1].sh.rotation,'z',1.4,a);
     if(e.deadT>2.8) c.g.visible=false; return; }
-  const hide=e.phase==='bus'||(e.isPlayer&&ads&&isScoped());
+  const hide=e.phase==='jet'||(e.isPlayer&&ads&&isScoped());
   c.g.visible=!hide; c.glider.visible=e.phase==='glide';
-  if(e.phase==='bus') return;
+  if(e.phase==='jet') return;
   let held=null, pickaxe=false;
   if(e.isPlayer){ const it=curItem(); if(!e.build&&e.phase==='ground'){ if(it&&it.kind==='gun') held=it; else if(!it) pickaxe=true; } }
   else if(e.phase==='ground') held=e.gun;
@@ -888,7 +905,7 @@ function animateChar(e,dt){
   const back=fwd<-0.5?-1:1; A.phase+=dt*speed*1.45*back;
   A.recoil=Math.max(0,A.recoil-dt*8); A.flash-=dt; c.flash.visible=A.flash>0; A.pumpT+=dt;
   if(e.buildT>0) e.buildT-=dt;
-  D(c.g.rotation,'x',e.phase==='fall'?-1.15:0,a*0.5);
+  D(c.g.rotation,'x',e.phase==='fall'?-1.15:0,a*0.5); airPose(e,c.g,c.glider,a,dt);
   const cr=A.crouch, mv=A.move*(1-cr*0.45), air=A.air;
   const twist=speed>1.2&&ground?clamp(Math.atan2(side,Math.abs(fwd))*back,-0.9,0.9):0;
   D(c.hips.rotation,'y',twist,aS);
@@ -956,7 +973,7 @@ function moveEntity(e,dt){
   p.x+=e.vel.x*dt; p.z+=e.vel.z*dt;
   collideH(e);
   const R=WORLD/2-6; p.x=clamp(p.x,-R,R); p.z=clamp(p.z,-R,R);
-  if(e.phase==='glide') e.vel.y=-8; else e.vel.y-=GRAV*dt;
+  if(e.phase==='glide') e.vel.y=lerp(e.vel.y,e.dive?-17:-8,1-Math.exp(-4*dt)); else e.vel.y-=GRAV*dt;
   if(e.phase==='fall') e.vel.y=Math.max(e.vel.y,-38);
   let ny=p.y+e.vel.y*dt;
   if(e.vel.y>0){ const rs=e.radius*0.6;
@@ -968,6 +985,7 @@ function moveEntity(e,dt){
   p.y=ny;
   if(e.onGround&&(e.phase==='fall'||e.phase==='glide')){ e.phase='ground'; e.ch.glider.visible=false; if(!e.isPlayer) e.armedAt=matchTime+rnd(3,8); }
 }
+function airDrag(e,dt){ const f=1-0.9*dt; e.vel.x*=f; e.vel.z*=f; }
 function terrainRay(o,d,far){ const step=1.5; for(let t=step;t<far;t+=step){ const x=o.x+d.x*t, y=o.y+d.y*t, z=o.z+d.z*t; if(y<terrainHeight(x,z)) return t; } return Infinity; }
 function hasLOS(a,b){
   tv3.subVectors(b,a); const dist=tv3.length(); if(dist<0.01) return true; tv3.divideScalar(dist);
@@ -1137,7 +1155,7 @@ function fireRay(shooter,origin,dir,w,rar,mult,muzzle,near){
   tracer(muzzle,end);
 }
 function hurt(t,amt,src,info){
-  if(!t.alive||t.phase==='bus') return; info=info||{};
+  if(!t.alive||t.phase==='jet') return; info=info||{};
   amt=Math.max(1,Math.round(amt)); let left=amt, sh=0;
   if(t.shield>0&&!info.storm){ sh=Math.min(t.shield,left); t.shield-=sh; left-=sh; }
   t.hp-=left;
@@ -1219,7 +1237,7 @@ function pickupLoot(l){
 function makeBot(i){
   const b=makeCombatant(NAMES[i%NAMES.length],false,randPal());
   Object.assign(b,{gun:null,inv:[],armedAt:1e9,think:0,fireCd:0,buildCd:0,enemy:null,seenAt:0,lastSeen:null,lastSeenT:-99,react:rnd(...DIFF[diff].react),skill:rnd(0.8,1.2),seed:Math.random()*10,mag:0,goal:null,stuckT:0,lastPos:new V(),
-    jumpAt:rnd(BUS_OPEN,bus.dur-1.5),deployAt:rnd(28,45),buildMat:'wood',strafe:1,strafeT:0,heals:2,healT:0,calmT:0,swapT:0,aimPitch:0});
+    bailAt:Math.random()<0.25?rnd(jet.warnT+0.6,jet.boomT-0.4):1e9,buildMat:'wood',strafe:1,strafeT:0,heals:2,healT:0,calmT:0,swapT:0,aimPitch:0});
   if(Math.random()<0.6&&housePos.length){ const h=pick(housePos); b.landX=h.x+rnd(-12,12); b.landZ=h.z+rnd(-12,12); }
   else { const a=Math.random()*Math.PI*2, r=Math.sqrt(Math.random())*200; b.landX=Math.cos(a)*r; b.landZ=Math.sin(a)*r; }
   return b;
@@ -1231,7 +1249,7 @@ function armBot(b){
 }
 function findEnemy(b){
   const cands=[];
-  for(const o of combatants){ if(o===b||!o.alive||o.phase==='bus') continue; const d=Math.hypot(o.pos.x-b.pos.x,o.pos.z-b.pos.z); const R=DIFF[diff].range; if(d<(o.isPlayer?R+10:R)&&(o.phase==='ground'||d<45)) cands.push([d,o]); }
+  for(const o of combatants){ if(o===b||!o.alive||o.phase==='jet') continue; const d=Math.hypot(o.pos.x-b.pos.x,o.pos.z-b.pos.z); const R=DIFF[diff].range; if(d<(o.isPlayer?R+10:R)&&(o.phase==='ground'||d<45)) cands.push([d,o]); }
   cands.sort((a,c)=>a[0]-c[0]);
   tv1.set(b.pos.x,b.pos.y+1.7,b.pos.z);
   for(let i=0;i<Math.min(3,cands.length);i++){ const o=cands[i][1]; tv2.set(o.pos.x,o.pos.y+(o.crouch?0.9:1.3),o.pos.z); if(hasLOS(tv1,tv2)) return o; }
@@ -1254,14 +1272,20 @@ function botShoot(b,e,d){
   for(let i=0;i<w.pellets;i++){ jitter(dir,s,out); fireRay(b,origin,out,w,RAR[b.gun.r],Df.dmg,origin,0.3); }
   fireFx(b,w,b.gun.id); sfx(b.gun.id,b.pos);
 }
-function leaveBus(e){ e.phase='fall'; e.pos.copy(bus.pos); e.pos.y-=4; e.vel.set(bus.dir.x*10,-2,bus.dir.z*10); e.onGround=false; }
+function leaveJet(e,blast){
+  e.phase='fall'; e.onGround=false; e.dive=false; e.spinA=0; e.spinZ=rnd(0,6);
+  e.pos.copy(jet.pos).addScaledVector(jet.dir,rnd(-5,5)); e.pos.y-=1;
+  if(blast){ const a=Math.random()*Math.PI*2, hs=rnd(14,26); e.vel.set(Math.cos(a)*hs+jet.vel.x*0.3,rnd(4,10),Math.sin(a)*hs+jet.vel.z*0.3); e.tumble=e.isPlayer?1.3:rnd(1,1.7); e.spinS=rnd(7,11)*(Math.random()<0.5?-1:1); }
+  else { const sd=Math.random()<0.5?-1:1; e.vel.set(jet.dir.x*14-jet.dir.z*sd*6,-2,jet.dir.z*14+jet.dir.x*sd*6); e.tumble=0.7; e.spinS=rnd(4,6); }
+}
 function updateBot(b,dt){
   if(!b.alive) return;
-  if(b.phase==='bus'){ b.pos.copy(bus.pos); b.pos.y-=3; if(bus.t>=b.jumpAt||bus.done) leaveBus(b); return; }
-  if(b.phase==='fall'||b.phase==='glide'){
-    const dx=b.landX-b.pos.x, dz=b.landZ-b.pos.z, d=Math.hypot(dx,dz), sp=b.phase==='glide'?14:18;
-    if(d>2){ b.vel.x=dx/d*sp; b.vel.z=dz/d*sp; b.yaw=Math.atan2(-dx,-dz); } else { b.vel.x*=0.9; b.vel.z*=0.9; }
-    if(b.phase==='fall'&&b.pos.y-terrainHeight(b.pos.x,b.pos.z)<b.deployAt) b.phase='glide';
+  if(b.phase==='jet'){ b.pos.copy(jet.pos); b.pos.y-=1; if(jet.t>=b.bailAt) leaveJet(b,false); return; }
+  if(b.phase==='fall'){ airDrag(b,dt); b.tumble-=dt; if(b.tumble<=0||b.pos.y-terrainHeight(b.pos.x,b.pos.z)<25) b.phase='glide'; moveEntity(b,dt); return; }
+  if(b.phase==='glide'){
+    const dx=b.landX-b.pos.x, dz=b.landZ-b.pos.z, d=Math.hypot(dx,dz), agl=b.pos.y-terrainHeight(b.pos.x,b.pos.z);
+    b.dive=d<agl*1.1; const sp=b.dive?20:14, k=1-Math.exp(-3*dt);
+    if(d>2){ b.vel.x=lerp(b.vel.x,dx/d*sp,k); b.vel.z=lerp(b.vel.z,dz/d*sp,k); b.yaw=angLerp(b.yaw,Math.atan2(-dx,-dz),k); } else { b.vel.x*=0.9; b.vel.z*=0.9; }
     moveEntity(b,dt); return;
   }
   b.think-=dt; b.fireCd-=dt; b.buildCd-=dt; b.reloadT-=dt; b.swapT-=dt;
@@ -1319,18 +1343,20 @@ function updateBot(b,dt){
 // ================= player =================
 function updatePlayer(dt){
   const p=player; if(!p.alive){ p.wantJump=false; return; }
-  if(p.phase==='bus'){ p.pos.copy(bus.pos); p.pos.y-=3; if((p.wantJump&&bus.t>BUS_OPEN)||bus.done){ leaveBus(p); banner('Skydiving','Steer with W A S D · glider opens automatically',3); } p.wantJump=false; return; }
+  if(p.phase==='jet'){ p.pos.copy(jet.pos); p.pos.y-=1; if(p.wantJump&&jet.warned&&!jet.done){ leaveJet(p,false); p.blastMsg=true; banner('You bailed out!','Steer with W A S D · glider opens in a moment',3); } p.wantJump=false; return; }
+  if(p.phase==='fall'&&p.tumble>0&&!p.blastMsg&&jet.done){ p.blastMsg=true; banner('The jet exploded!','Hold on — your glider is opening',2.5); }
   const fx=-Math.sin(p.yaw), fz=-Math.cos(p.yaw), rx=Math.cos(p.yaw), rz=-Math.sin(p.yaw);
   let mx=(keys.KeyD?1:0)-(keys.KeyA?1:0), mz=(keys.KeyW?1:0)-(keys.KeyS?1:0); const len=Math.hypot(mx,mz); if(len>0){ mx/=len; mz/=len; }
   const sprint=(keys.ShiftLeft||keys.ShiftRight)&&mz>0&&!ads;
   if(sprint||p.phase!=='ground') p.crouch=false;
-  let speed=p.phase==='ground'?(p.crouch?4.2:sprint?11:7.5):p.phase==='glide'?15:20;
+  p.dive=p.phase==='glide'&&!!(keys.ShiftLeft||keys.ShiftRight);
+  let speed=p.phase==='ground'?(p.crouch?4.2:sprint?11:7.5):p.phase==='glide'?(p.dive?24:15):20;
   p.height=p.crouch?1.45:2.0;
   if(p.phase==='ground'&&(ads||p.consuming)) speed*=0.6;
   const tx=(fx*mz+rx*mx)*speed, tz=(fz*mz+rz*mx)*speed, acc=p.phase==='ground'?(p.onGround?14:4):3, k=1-Math.exp(-acc*dt);
-  p.vel.x=lerp(p.vel.x,tx,k); p.vel.z=lerp(p.vel.z,tz,k);
+  if(p.phase==='fall') airDrag(p,dt); else { p.vel.x=lerp(p.vel.x,tx,k); p.vel.z=lerp(p.vel.z,tz,k); }
   if(p.phase==='ground'&&p.onGround&&p.wantJump){ p.vel.y=10.5; p.onGround=false; p.crouch=false; }
-  if(p.phase==='fall'){ const agl=p.pos.y-supportAt(p.pos.x,p.pos.z,p.pos.y,p.radius); if(agl<32||(p.wantJump&&agl<110)){ p.phase='glide'; p.ch.glider.visible=true; } }
+  if(p.phase==='fall'){ p.tumble-=dt; const agl=p.pos.y-supportAt(p.pos.x,p.pos.z,p.pos.y,p.radius); if(p.tumble<=0||agl<25||(p.wantJump&&p.tumble<0.8)){ p.phase='glide'; p.ch.glider.visible=true; sfx('glider'); banner('Glider out!','Steer with W A S D · hold SHIFT to dive',2.5); } }
   p.wantJump=false;
   moveEntity(p,dt);
 }
@@ -1353,7 +1379,7 @@ function onPrimaryDown(){
   const it=curItem(); if(it&&it.kind==='cons') startConsume(it); else playerFire();
 }
 
-// ================= storm & bus =================
+// ================= storm & jet =================
 function pickCircle(c,r){ const max=Math.max(0,c.r-r); for(let i=0;i<40;i++){ const a=Math.random()*Math.PI*2, d=Math.sqrt(Math.random())*max, x=c.x+Math.cos(a)*d, z=c.z+Math.sin(a)*d; if(Math.hypot(x,z)+r*0.3<200) return {x,z,r}; } return {x:c.x,z:c.z,r}; }
 let stormMesh=null;
 function initStorm(){
@@ -1373,24 +1399,153 @@ function updateStorm(dt){
   stormMesh.position.set(storm.cur.x,150,storm.cur.z); stormMesh.scale.set(Math.max(0.5,storm.cur.r),1,Math.max(0.5,storm.cur.r));
   stormTick-=dt;
   if(stormTick<=0){ stormTick=1;
-    for(const e of combatants){ if(!e.alive||e.phase==='bus') continue; if(Math.hypot(e.pos.x-storm.cur.x,e.pos.z-storm.cur.z)>storm.cur.r) hurt(e,S.dps,null,{storm:true}); } }
+    for(const e of combatants){ if(!e.alive||e.phase==='jet') continue; if(Math.hypot(e.pos.x-storm.cur.x,e.pos.z-storm.cur.z)>storm.cur.r) hurt(e,S.dps,null,{storm:true}); } }
 }
-function makeBusMesh(){
-  const g=new T.Group();
-  const body=new T.Mesh(GEO.bus,colorMat(0x2d6fd8)); const stripe=new T.Mesh(GEO.busStripe,colorMat(0xffd23f)); stripe.position.y=0.2;
-  const balloon=new T.Mesh(GEO.balloon,colorMat(0xff7a3d)); balloon.position.y=9; balloon.scale.set(1,1.15,1.3);
-  g.add(body,stripe,balloon);
-  for(const [x,z] of [[-1.5,-4],[1.5,-4],[-1.5,4],[1.5,4]]){ const r=new T.Mesh(GEO.rod,colorMat(0x333333)); r.scale.y=4.5; r.position.set(x,4,z); r.lookAt(0,9,0); r.rotateX(Math.PI/2); g.add(r); }
-  return g;
+// The match starts aboard a private jet. One engine catches fire, then the jet explodes over the
+// island and everyone is thrown clear; gliders open after a short tumble. You can bail out early
+// once the engine fails.
+const JET_Y=150, JET_SPEED=42, JET_WARN=5;
+const JM={white:Lam({color:0xf3f5f9}),navy:Lam({color:0x1d2c4f}),gold:Lam({color:0xd8a93a,emissive:0x2a1c00}),glass:Lam({color:0x14202e,emissive:0x0a1a2a}),
+  metal:Lam({color:0x9aa3ad}),dark:Lam({color:0x23272e}),char:Lam({color:0x2a2622}),win:Lam({color:0x1a2533,emissive:0x3a5a7a})};
+const fireMat=new T.SpriteMaterial({map:glowTex,color:0xff7a2a,blending:T.AdditiveBlending,depthWrite:false,transparent:true,fog:false});
+const boomLight=new T.PointLight(0xffa050,0,320,1); scene.add(boomLight);
+let camShake=0, boomFlash=0;
+function navLight(c){ const s=new T.Sprite(new T.SpriteMaterial({map:glowTex,color:c,blending:T.AdditiveBlending,depthWrite:false,transparent:true,fog:false})); s.scale.setScalar(1.6); return s; }
+function tube(r0,r1,len,mat,seg){ const m=new T.Mesh(new T.CylinderGeometry(r0,r1,len,seg||20),mat); m.rotation.x=Math.PI/2; return m; }
+function wingGeo(flip){
+  // swept wing outline in the xz plane (x outward, -z toward the tail), extruded for thickness
+  const s=new T.Shape(); s.moveTo(0,1.6); s.lineTo(7.6,-2.9); s.lineTo(7.6,-4.1); s.lineTo(0,-2.2); s.closePath();
+  const g=new T.ExtrudeGeometry(s,{depth:0.22,bevelEnabled:false}); g.rotateX(Math.PI/2); g.translate(0,0.11,0); if(flip) g.scale(-1,1,1);
+  g.computeVertexNormals(); return g;
 }
-function initBus(){
-  const a=Math.random()*Math.PI*2, dir=new V(Math.cos(a),0,Math.sin(a)), perp=new V(-dir.z,0,dir.x), off=rnd(-90,90);
-  const from=dir.clone().multiplyScalar(-330).addScaledVector(perp,off); from.y=115;
-  const to=dir.clone().multiplyScalar(330).addScaledVector(perp,off); to.y=115;
-  bus={from,to,dir,t:0,dur:30,pos:from.clone(),mesh:makeBusMesh(),done:false};
-  bus.mesh.rotation.y=Math.atan2(dir.x,dir.z); bus.mesh.position.copy(from); world.add(bus.mesh);
+function makeJetMesh(){
+  const root=new T.Group(), body=new T.Group(); root.add(body);
+  const R=1.3, parts={};
+  const part=(name,...objs)=>{ const g=new T.Group(); objs.forEach(o=>g.add(o)); body.add(g); parts[name]=g; return g; };
+  // fuselage in three sections so it can break apart
+  const noseCone=new T.Mesh(new T.SphereGeometry(R,20,14,0,Math.PI*2,0,Math.PI/2),JM.white); noseCone.rotation.x=Math.PI/2; noseCone.scale.set(1,2.3,1); noseCone.position.z=5;
+  const front=tube(R,R,5,JM.white); front.position.z=2.5;
+  const shield=new T.Mesh(new T.SphereGeometry(R*1.01,16,8,-0.9,1.8,0.55,0.55),JM.glass); shield.rotation.x=Math.PI/2; shield.scale.set(1,2.3,1); shield.position.set(0,0.12,5);
+  const nose=part('nose',noseCone,front,shield);
+  const mid=tube(R,R,5.4,JM.white); mid.position.z=-2.7;
+  const midG=part('mid',mid);
+  const tailT=tube(R,0.42,6.2,JM.white); tailT.position.set(0,0.35,-8.5); tailT.rotation.x=Math.PI/2-0.11;
+  const tail=part('tail',tailT);
+  // cabin windows, cheat lines and belly
+  for(const sd of [-1,1]){
+    for(let i=0;i<7;i++){ const w=new T.Mesh(new T.BoxGeometry(0.06,0.42,0.34),JM.win); w.position.set(sd*R*0.98,0.32,3.2-i*1.25); (i<3?nose:midG).add(w); }
+    for(const [g,z,l] of [[nose,2.5,5],[midG,-2.7,5.4]]){ const st=new T.Mesh(new T.BoxGeometry(0.05,0.12,l),JM.gold); st.position.set(sd*R*0.99,-0.12,z); g.add(st); const nv=new T.Mesh(new T.BoxGeometry(0.05,0.32,l),JM.navy); nv.position.set(sd*R*0.97,-0.42,z); g.add(nv); }
+  }
+  const door=new T.Mesh(new T.BoxGeometry(0.07,1.5,0.9),JM.navy); door.position.set(-R*0.99,0.05,4.6); nose.add(door);
+  // swept wings with winglets and nav lights
+  for(const [name,sd] of [['wingL',-1],['wingR',1]]){
+    const w=new T.Mesh(wingGeo(sd<0),JM.white); w.position.set(sd*R*0.6,-0.75,0);
+    const tip=new T.Mesh(new T.BoxGeometry(0.12,1.4,1.1),JM.navy); tip.position.set(sd*(R*0.6+7.6),-0.1,-3.4); tip.rotation.z=-sd*0.25;
+    const lt=navLight(sd<0?0xff3030:0x30ff60); lt.position.set(sd*(R*0.6+7.7),-0.6,-2.9);
+    const g=part(name,w,tip,lt); g.userData.light=lt;
+  }
+  // rear-mounted engines on pylons
+  for(const [name,sd] of [['engL',-1],['engR',1]]){
+    const nac=tube(0.62,0.5,3.4,JM.metal), lip=tube(0.66,0.66,0.3,JM.white), fan=new T.Mesh(new T.CircleGeometry(0.55,16),JM.dark), ex=tube(0.42,0.36,0.4,JM.char);
+    lip.position.z=1.7; fan.position.z=1.86; ex.position.z=-1.85;
+    const pyl=new T.Mesh(new T.BoxGeometry(0.9,0.2,1.4),JM.white); pyl.position.x=-sd*0.85;
+    const g=part(name,nac,lip,fan,ex,pyl); g.position.set(sd*2.25,0.65,-7.2);
+  }
+  // T-tail
+  const finShape=new T.Shape(); finShape.moveTo(0,0); finShape.lineTo(2.6,0); finShape.lineTo(4.4,3.6); finShape.lineTo(3.0,3.6); finShape.closePath();
+  const finGeo=new T.ExtrudeGeometry(finShape,{depth:0.2,bevelEnabled:false}); finGeo.rotateY(Math.PI/2); finGeo.translate(0.1,0,0);
+  const fin=new T.Mesh(finGeo,JM.navy); fin.position.set(0,0.9,-8.2);
+  const stab=new T.Mesh(new T.BoxGeometry(6.2,0.16,1.4),JM.white); stab.position.set(0,4.45,-11.8);
+  const stabTip=new T.Mesh(new T.BoxGeometry(6.3,0.18,0.3),JM.gold); stabTip.position.set(0,4.45,-11.15);
+  const strobe=navLight(0xffffff); strobe.position.set(0,4.7,-12.5);
+  const finG=part('fin',fin,stab,stabTip,strobe); finG.userData.light=strobe;
+  body.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+  // engine fire (hidden until the engine fails)
+  const fire=new T.Sprite(fireMat); fire.position.set(0,0,-2.3); fire.visible=false; parts.engR.add(fire);
+  return {root,body,parts,fire};
 }
-function updateBus(dt){ if(bus.done) return; bus.t+=dt; const k=Math.min(1,bus.t/bus.dur); bus.pos.lerpVectors(bus.from,bus.to,k); bus.mesh.position.copy(bus.pos); if(k>=1){ bus.done=true; world.remove(bus.mesh); } }
+function initJet(){
+  const a=Math.random()*Math.PI*2, dir=new V(Math.cos(a),0,Math.sin(a)), perp=new V(-dir.z,0,dir.x), off=rnd(-70,70);
+  const from=dir.clone().multiplyScalar(-340).addScaledVector(perp,off); from.y=JET_Y;
+  const to=dir.clone().multiplyScalar(340).addScaledVector(perp,off); to.y=JET_Y;
+  const boomT=(340+rnd(-50,50))/JET_SPEED;
+  const m=makeJetMesh();
+  jet={from,to,dir,t:0,boomT,warnT:boomT-JET_WARN,pos:from.clone(),vel:dir.clone().multiplyScalar(JET_SPEED),mesh:m.root,body:m.body,parts:m.parts,fire:m.fire,done:false,warned:false,smokeT:0,beepT:0};
+  jet.boomPos=from.clone().addScaledVector(dir,boomT*JET_SPEED);
+  jet.mesh.rotation.y=Math.atan2(dir.x,dir.z); jet.mesh.position.copy(from); world.add(jet.mesh);
+  boomLight.intensity=0; camShake=0; boomFlash=0;
+}
+function updateJet(dt){
+  if(jet.done) return;
+  jet.t+=dt; const tt=jet.t;
+  jet.pos.addScaledVector(jet.vel,dt);
+  const blink=(tt*1.2)%1<0.12; jet.parts.wingL.userData.light.visible=jet.parts.wingR.userData.light.visible=blink||tt%1>0.5; jet.parts.fin.userData.light.visible=blink;
+  if(tt>=jet.warnT){
+    if(!jet.warned){ jet.warned=true; jet.fire.visible=true; banner('Engine failure!','The jet is going down — bail out or brace yourself',3); sfx('bang'); }
+    const k=(tt-jet.warnT)/JET_WARN;
+    jet.pos.y-=dt*(2+k*6);
+    jet.body.rotation.z=Math.sin(tt*3.1)*0.06*(1+k*3)+k*0.25; jet.body.rotation.x=Math.sin(tt*4.7)*0.02*(1+k*2)+k*0.06;
+    jet.fire.scale.setScalar(rnd(2.2,3.2)*(1+k)); jet.fire.material.color.setHSL(0.06+Math.random()*0.04,1,0.55);
+    jet.smokeT-=dt*JET_SPEED; if(jet.smokeT<=0){ jet.smokeT=1.1; jet.fire.getWorldPosition(tv4); smokePuff(tv4,2+k*1.5,2.4,0x3a3430,new V(rnd(-1,1),rnd(0,1.5),rnd(-1,1))); }
+    jet.beepT-=dt; if(jet.beepT<=0&&player.phase==='jet'){ jet.beepT=k>0.6?0.3:0.55; sfx('alarm'); }
+    camShake=Math.max(camShake,player.phase==='jet'?0.06+k*0.18:0);
+  }
+  jet.mesh.position.copy(jet.pos);
+  if(tt>=jet.boomT) explodeJet();
+}
+function explodeJet(){
+  jet.done=true; jet.fire.visible=false; const c=jet.pos.clone();
+  jet.mesh.updateMatrixWorld(true);
+  // the airframe breaks into its sections, which tumble down trailing fire and smoke
+  for(const name in jet.parts){
+    const g=jet.parts[name]; world.attach(g); g.traverse(o=>{ if(o.isSprite) o.visible=false; });
+    g.getWorldPosition(tv4); const out=tv4.clone().sub(c); out.y=0; if(out.lengthSq()<0.01) out.set(rnd(-1,1),0,rnd(-1,1)); out.normalize();
+    const v=jet.vel.clone().multiplyScalar(0.35).addScaledVector(out,rnd(8,18)); v.y=rnd(2,9);
+    const spin=new V(rnd(-2.5,2.5),rnd(-2,2),rnd(-2.5,2.5)), burning=name!=='wingL'||Math.random()<0.5;
+    let fl=null; if(burning){ fl=new T.Sprite(fireMat.clone()); fl.scale.setScalar(4); g.add(fl); }
+    let st=0;
+    effects.push({t:0,dur:12,obj:g,upd:(e,k,dt)=>{
+      v.y=Math.max(v.y-GRAV*0.55*dt,-45); v.x*=1-0.15*dt; v.z*=1-0.15*dt; g.position.addScaledVector(v,dt);
+      g.rotation.x+=spin.x*dt; g.rotation.y+=spin.y*dt; g.rotation.z+=spin.z*dt;
+      if(fl){ fl.scale.setScalar(rnd(3,4.5)*(1-k*0.6)); fl.material.color.setHSL(0.05+Math.random()*0.05,1,0.55); }
+      st-=dt*Math.hypot(v.x,v.y,v.z); if(st<=0&&burning&&e.t<5){ st=1.7; smokePuff(g.position,3.2,2.4,0x2e2926,new V(rnd(-0.5,0.5),1,rnd(-0.5,0.5))); }
+      if(g.position.y<Math.max(terrainHeight(g.position.x,g.position.z),WATER_Y)+0.5){ smokePuff(g.position,3,3,0x4a4540,new V(0,3,0)); if(fl) fl.visible=false; e.t=e.dur; }
+    },done:()=>{ if(fl) fl.material.dispose(); }});
+  }
+  world.remove(jet.mesh);
+  blastFx(c);
+  for(const e of combatants) if(e.alive&&e.phase==='jet') leaveJet(e,true);
+  if(player.alive){ const d=player.pos.distanceTo(c); camShake=Math.max(camShake,clamp(1.6-d/120,0.15,1.2)); boomFlash=clamp(1.1-d/200,0.1,1); }
+  sfx('boom');
+}
+function blastFx(c){
+  boomLight.position.copy(c); boomLight.intensity=7;
+  effects.push({t:0,dur:1.6,obj:new T.Object3D(),upd:(e,k)=>{ boomLight.intensity=7*(1-k)*(1-k); }});
+  // fireball: layered additive glows that swell and cool from white to deep orange
+  for(let i=0;i<11;i++){
+    const mat=fireMat.clone(), s=new T.Sprite(mat), off=new V(rnd(-1,1),rnd(-0.6,1),rnd(-1,1)).multiplyScalar(i<2?0:rnd(2,6));
+    s.position.copy(c).add(off); world.add(s); const size=rnd(11,19)*(i<2?1.5:1), dur=rnd(1.4,2.3), dl=i<2?0:rnd(0,0.3);
+    effects.push({t:0,dur:dur+dl,obj:s,upd:(e,k,dt)=>{ const q=clamp((e.t-dl)/dur,0,1); s.visible=e.t>=dl; s.scale.setScalar(size*(0.25+Math.sqrt(q))); s.position.y+=dt*3*q;
+      const near=clamp(camera.position.distanceTo(s.position)/(size*0.8),0.25,1);
+      mat.color.setHSL(0.1-q*0.08,1,q<0.1?0.8:0.55-q*0.2); mat.opacity=(q<0.15?0.75:Math.min(0.75,(1-q)*1.3))*near; },done:()=>mat.dispose()});
+  }
+  // shockwave ring
+  const rm=new T.SpriteMaterial({map:ringTex,color:0xfff0d0,blending:T.AdditiveBlending,depthWrite:false,transparent:true,fog:false}), ring=new T.Sprite(rm); ring.position.copy(c); world.add(ring);
+  effects.push({t:0,dur:0.8,obj:ring,upd:(e,k)=>{ ring.scale.setScalar(8+k*110); rm.opacity=(1-k)*0.9; },done:()=>rm.dispose()});
+  // embers
+  for(let i=0;i<40;i++){
+    const mat=fireMat.clone(), s=new T.Sprite(mat); s.position.copy(c); world.add(s);
+    const v=new V(rnd(-1,1),rnd(-0.4,1),rnd(-1,1)).normalize().multiplyScalar(rnd(15,40)), dur=rnd(1.2,2.6);
+    effects.push({t:0,dur,obj:s,upd:(e,k,dt)=>{ v.y-=GRAV*0.4*dt; v.multiplyScalar(1-1.2*dt); s.position.addScaledVector(v,dt); s.scale.setScalar(0.9*(1-k)+0.2); mat.color.setHSL(0.1-k*0.08,1,0.6); mat.opacity=1-k; },done:()=>mat.dispose()});
+  }
+  // the smoke cloud that hangs where the jet was
+  for(let i=0;i<18;i++) smokePuff(c.clone().add(new V(rnd(-5,5),rnd(-3,4),rnd(-5,5))),rnd(3.5,5.5),rnd(4,6),i%3?0x3a332e:0x524840,new V(rnd(-3,3),rnd(0.5,2.5),rnd(-3,3)),0.35);
+}
+function smokePuff(p,size,life,col,drift,delay){
+  const mat=new T.MeshLambertMaterial({color:col,transparent:true,opacity:0,depthWrite:false}), m=new T.Mesh(GEO.smoke,mat), dl=delay||0;
+  m.position.copy(p); m.rotation.set(rnd(0,6),rnd(0,6),0); m.scale.setScalar(size*0.5); world.add(m);
+  effects.push({t:0,dur:life+dl,obj:m,upd:(e,k,dt)=>{ if(e.t<dl) return; const q=(e.t-dl)/life; if(drift) m.position.addScaledVector(drift,dt); m.scale.setScalar(size*(0.5+q*1.1)); mat.opacity=0.8*Math.min(1,q*8)*(1-q)*(1-q*0.3); },done:()=>mat.dispose()});
+}
 
 // ================= effects =================
 function tracer(a,b){ const geo=new T.BufferGeometry().setFromPoints([a.clone(),b.clone()]); const mat=tracerMat.clone(); const l=new T.Line(geo,mat); world.add(l); effects.push({t:0,dur:0.07,obj:l,upd:(e,k)=>{ mat.opacity=0.9*(1-k); },done:()=>{ geo.dispose(); mat.dispose(); }}); }
@@ -1458,14 +1613,16 @@ function hudTick(){
 function hudFrame(dt){
   const p=player;
   hurtFlash=Math.max(0,hurtFlash-dt*1.5); $('hurt').style.opacity=hurtFlash;
-  const inStorm=p.alive&&p.phase!=='bus'&&Math.hypot(p.pos.x-storm.cur.x,p.pos.z-storm.cur.z)>storm.cur.r;
+  boomFlash=Math.max(0,boomFlash-dt*1.4); $('boom').style.opacity=boomFlash*boomFlash;
+  $('alarm').style.opacity=p.phase==='jet'&&jet.warned&&!jet.done?0.5+0.5*Math.sin(jet.t*Math.PI*2*(jet.t>jet.boomT-2?3:1.6)):0;
+  const inStorm=p.alive&&p.phase!=='jet'&&Math.hypot(p.pos.x-storm.cur.x,p.pos.z-storm.cur.z)>storm.cur.r;
   $('stormfx').style.opacity=inStorm?1:0;
   hitT-=dt; $('hitmark').style.opacity=hitT>0?1:0;
   if(bannerT>0){ bannerT-=dt; if(bannerT<=0) $('banner').hidden=true; }
   if(toastT>0){ toastT-=dt; if(toastT<=0) $('toast').hidden=true; }
   const it=curItem();
   $('xhair').className=p.build||p.editing?'build':''; const bl=1+p.bloom*1.5+(ads?-0.4:0); $('xhair').style.transform=`translate(-50%,-50%) scale(${bl})`;
-  $('xhair').hidden=!p.alive||p.phase==='bus';
+  $('xhair').hidden=!p.alive||p.phase==='jet';
   $('scope').hidden=!(ads&&it&&WEAP[it.id]&&WEAP[it.id].zoom);
   const busy=p.consuming||p.reloading;
   if(p.consuming){ $('usebar').hidden=false; $('uselabel').textContent='Using '+CONS[p.consuming.it.id].name; $('usefill').style.width=(p.consuming.t/p.consuming.dur*100)+'%'; }
@@ -1476,8 +1633,9 @@ function hudFrame(dt){
 function updateInteract(){
   interactTarget=null; const p=player;
   if(state!=='play'||!p.alive){ setPrompt(''); return; }
-  if(p.phase==='bus'){ setPrompt(bus.t>BUS_OPEN?'<kbd>SPACE</kbd> or <kbd>W</kbd> Jump from the bus':'Bus doors open in '+Math.ceil(BUS_OPEN-bus.t)+'…'); return; }
-  if(p.phase==='fall'||p.phase==='glide'){ setPrompt('<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>Steer toward land'+(p.phase==='fall'?' · <kbd>SPACE</kbd>Open glider':'')); return; }
+  if(p.phase==='jet'){ setPrompt(jet.warned?'<kbd>SPACE</kbd>Bail out now · Jet explodes in '+Math.max(1,Math.ceil(jet.boomT-jet.t)):'Cruising over Storm Island…'); return; }
+  if(p.phase==='fall'){ setPrompt(p.tumble<0.8?'<kbd>SPACE</kbd>Open glider':''); return; }
+  if(p.phase==='glide'){ setPrompt('<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>Steer toward land · <kbd>SHIFT</kbd>Dive'); return; }
   if(p.phase!=='ground'){ setPrompt(''); return; }
   let best=2.6, txt='';
   for(const c of chests){ if(c.opened) continue; const d=Math.hypot(c.pos.x-p.pos.x,c.pos.z-p.pos.z); if(d<best&&Math.abs(c.pos.y-p.pos.y)<2){ best=d; interactTarget=c; txt='<kbd>E</kbd>Open chest'; } }
@@ -1509,7 +1667,9 @@ function drawMap(){
   const g=mctx; g.drawImage(mapBase,0,0); const sc=MAPS/MAPW;
   g.beginPath(); g.rect(0,0,MAPS,MAPS); g.arc(toMap(storm.cur.x),toMap(storm.cur.z),storm.cur.r*sc,0,Math.PI*2,true); g.fillStyle='rgba(120,55,220,.45)'; g.fill('evenodd');
   if(storm.next&&storm.stage!=='final'){ g.beginPath(); g.arc(toMap(storm.next.x),toMap(storm.next.z),Math.max(1,storm.next.r*sc),0,Math.PI*2); g.strokeStyle='#fff'; g.lineWidth=1.5; g.stroke(); }
-  if(!bus.done){ g.beginPath(); g.moveTo(toMap(bus.from.x),toMap(bus.from.z)); g.lineTo(toMap(bus.to.x),toMap(bus.to.z)); g.strokeStyle='rgba(255,210,63,.9)'; g.setLineDash([4,3]); g.stroke(); g.setLineDash([]); }
+  if(!jet.done){ g.beginPath(); g.moveTo(toMap(jet.pos.x),toMap(jet.pos.z)); g.lineTo(toMap(jet.to.x),toMap(jet.to.z)); g.strokeStyle=jet.warned?'rgba(255,90,60,.95)':'rgba(255,210,63,.9)'; g.setLineDash([4,3]); g.stroke(); g.setLineDash([]);
+    g.save(); g.translate(toMap(jet.pos.x),toMap(jet.pos.z)); g.rotate(Math.atan2(jet.dir.z,jet.dir.x)); g.fillStyle='#fff'; g.strokeStyle='#1b2440'; g.lineWidth=1; g.beginPath(); g.moveTo(6,0); g.lineTo(-4,-5); g.lineTo(-2,0); g.lineTo(-4,5); g.closePath(); g.fill(); g.stroke(); g.restore(); }
+  else if(matchTime<jet.boomT+12){ const x=toMap(jet.boomPos.x), z=toMap(jet.boomPos.z), r=3+Math.sin(matchTime*8)*1.2; g.beginPath(); g.arc(x,z,r+2,0,Math.PI*2); g.fillStyle='rgba(255,120,40,.85)'; g.fill(); }
   const p=player, px=toMap(p.pos.x), pz=toMap(p.pos.z), a=Math.atan2(-Math.cos(p.yaw),-Math.sin(p.yaw));
   g.save(); g.translate(px,pz); g.rotate(a); g.beginPath(); g.moveTo(7,0); g.lineTo(-5,4.5); g.lineTo(-2.5,0); g.lineTo(-5,-4.5); g.closePath(); g.fillStyle='#ffd23f'; g.strokeStyle='#1b2440'; g.lineWidth=1.5; g.fill(); g.stroke(); g.restore();
 }
@@ -1525,7 +1685,7 @@ function updateCamera(dt){
   if(!p.alive){ const a=matchTime*0.25; camera.position.set(p.pos.x+Math.cos(a)*14,p.pos.y+7,p.pos.z+Math.sin(a)*14); camera.lookAt(p.pos.x,p.pos.y+1,p.pos.z); return; }
   const cp=Math.cos(p.pitch); camFwd.set(-Math.sin(p.yaw)*cp,Math.sin(p.pitch),-Math.cos(p.yaw)*cp); camRight.set(Math.cos(p.yaw),0,-Math.sin(p.yaw));
   let dist, side; const pivot=tv1;
-  if(p.phase==='bus'){ pivot.copy(bus.pos); dist=30; side=0; }
+  if(p.phase==='jet'){ pivot.copy(jet.pos); dist=34; side=0; }
   else { pivot.set(p.pos.x,p.pos.y+1.7-0.5*p.anim.crouch,p.pos.z); if(p.phase==='ground'){ dist=ads?2.0:3.7; side=ads?0.8:1.3; pivot.y+=ads?0.05:0.3; } else { dist=9; side=0; } }
   camDist=lerp(camDist,dist,1-Math.exp(-12*dt));
   const start=tv2.copy(pivot).addScaledVector(camRight,side); let d=camDist;
@@ -1535,10 +1695,11 @@ function updateCamera(dt){
   camera.position.copy(start).addScaledVector(camFwd,-d);
   const th=Math.max(terrainHeight(camera.position.x,camera.position.z),WATER_Y)+0.5; if(camera.position.y<th) camera.position.y=th;
   camera.lookAt(start.x+camFwd.x*60,start.y+camFwd.y*60,start.z+camFwd.z*60);
+  if(camShake>0){ camShake=Math.max(0,camShake-dt*(camShake>0.3?1.1:0.5)); const s=camShake*camShake*0.9+camShake*0.15; camera.position.x+=rnd(-s,s); camera.position.y+=rnd(-s,s); camera.position.z+=rnd(-s,s); camera.rotation.z+=rnd(-s,s)*0.04; }
   const it=curItem(), tf=ads?(it&&WEAP[it.id].zoom?20:52):(p.phase==='fall'?82:72);
   fov=lerp(fov,tf,1-Math.exp(-14*dt)); camera.fov=fov; camera.updateProjectionMatrix();
 }
-function updateSun(){ const f=(state==='menu'||!player)?tv4.set(0,0,0):(player.phase==='bus'?bus.pos:player.pos); sun.position.copy(f).addScaledVector(SUN_DIR,200); sun.target.position.copy(f); sky.position.copy(camera.position); }
+function updateSun(){ const f=(state==='menu'||!player)?tv4.set(0,0,0):(player.phase==='jet'?jet.pos:player.pos); sun.position.copy(f).addScaledVector(SUN_DIR,200); sun.target.position.copy(f); sky.position.copy(camera.position); }
 
 // ================= armory (gun showcase) =================
 const ARM_IDS=['ar','smg','pump','pistol','sniper'], ARM_Y=420;
@@ -1588,10 +1749,10 @@ function newMatch(){
   while(n<30&&tries<2000){ tries++; const a=Math.random()*Math.PI*2, r=Math.sqrt(Math.random())*220, x=Math.cos(a)*r, z=Math.sin(a)*r, h=terrainHeight(x,z); if(h<1.2) continue;
     const it=Math.random()<0.65?randomGun(0):randomCons(); spawnLoot(it,x,h,z); if(it.kind==='gun') spawnLoot({kind:'ammo',type:WEAP[it.id].ammo,count:AMMO_GIVE[WEAP[it.id].ammo]},x+1.2,h,z+0.6); n++; }
   scatterFoliage();
-  initBus(); initStorm();
+  initJet(); initStorm();
   player=makeCombatant('You',true,{skin:0xf1c9a5,shirt:0xff7f2a,pants:0x2b3a55,hair:0x2a1b12});
   Object.assign(player,{slots:[null,null,null,null,null,null],sel:0,ammo:{light:0,medium:0,heavy:0,shells:0},mats:{wood:0,stone:0},buildMat:'wood',build:null,lastBuild:'wall',fireCd:0,bloom:0,reloading:null,consuming:null,buildRepeat:0,dmgDealt:0,wantJump:false});
-  player.yaw=Math.atan2(-bus.dir.x,-bus.dir.z); player.pitch=-0.25;
+  player.yaw=Math.atan2(-jet.dir.x,-jet.dir.z); player.pitch=-0.25;
   for(let i=0;i<BOTS;i++) bots.push(makeBot(i));
   aliveCount=combatants.length;
   renderMapBase();
@@ -1601,7 +1762,7 @@ function startMatch(){
   if(matchUsed) newMatch(); matchUsed=true;
   $('menu').hidden=true; $('over').hidden=true; $('pause').hidden=true; $('hud').hidden=false; $('feed').innerHTML='';
   state='play'; refreshHotbar(); hudTick();
-  banner('Storm Island','Press SPACE to jump from the bus',3.5);
+  banner('Storm Island','Sit back and enjoy the flight…',3);
   requestLock();
 }
 function endMatch(win,killer){
@@ -1656,7 +1817,7 @@ document.addEventListener('keydown',ev=>{
   if(state==='paused'&&(c==='Enter'||c==='Space')){ resumeGame(); return; }
   if(state!=='play') return;
   keys[c]=true; if(ev.repeat) return;
-  if(p.phase==='bus'&&['KeyW','KeyA','KeyS','KeyD','Space'].includes(c)){ p.wantJump=true; return; }
+  if(p.phase==='jet'&&['KeyW','KeyA','KeyS','KeyD','Space'].includes(c)){ p.wantJump=true; return; }
   if(c==='Escape'&&fallbackLook){ pauseGame(); return; }
   if(p.editing&&(c==='KeyQ'||c==='KeyZ'||c==='KeyX'||c==='KeyC'||c.startsWith('Digit'))) endEdit();
   if(c.startsWith('Digit')){ const n=+c.slice(5); if(n>=1&&n<=6) selectSlot(n-1); }
@@ -1684,7 +1845,7 @@ addEventListener('wheel',ev=>{ if(state!=='play'||!player) return; selectSlot((p
 // ================= main loop =================
 function update(dt){
   matchTime+=dt;
-  updateBus(dt);
+  updateJet(dt);
   updatePlayer(dt);
   updateActions(dt);
   for(const b of bots) updateBot(b,dt);
