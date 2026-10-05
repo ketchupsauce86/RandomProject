@@ -2,7 +2,9 @@
 
 A 3D battle royale that runs in the browser. You and 19 bots are flying over an island in a private jet when an engine catches fire and the jet explodes, throwing everyone clear to glide down. Then you loot chests, harvest materials, build walls, floors and ramps, and outlast the shrinking storm.
 
-Open `index.html` in a browser (Chrome or Edge works best), pick a bot difficulty, and click **Drop in**. Needs a keyboard and mouse. The **Armory** button shows every gun design.
+**Play online:** https://ketchupsauce86.github.io/RandomProject/ (updates automatically about a minute after `main` changes; hard refresh with Ctrl+Shift+R to get the newest version).
+
+Or open `index.html` in a browser (Chrome or Edge works best), pick a bot difficulty, and click **Drop in**. Needs a keyboard and mouse. The **Armory** button shows every gun design.
 
 ## Controls
 
