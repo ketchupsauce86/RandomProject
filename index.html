@@ -1006,6 +1006,18 @@ const hitMat=new T.MeshBasicMaterial({visible:false});
 // gun hold points in gun space: right-hand grip and left-hand support
 const HOLD={ar:{r:[0,-0.12,0.07],l:[0,-0.07,-0.25],o:[0.1,-0.16,-0.3]},smg:{r:[0,-0.1,0.08],l:[0,-0.14,-0.08],o:[0.1,-0.16,-0.3]},pump:{r:[0,-0.1,0.14],l:[0,-0.07,-0.32],o:[0.1,-0.16,-0.24]},
   pistol:{r:[0,-0.08,0.06],l:[-0.03,-0.1,0.07],o:[-0.06,-0.08,-0.48]},sniper:{r:[0,-0.1,0.14],l:[0,-0.07,-0.3],o:[0.1,-0.16,-0.24]}};
+// Fortnite-style pickaxe: rests on the shoulder, winds up high, chops diagonally across the body with a
+// torso twist, and alternates forehand and backhand swings. Keys: [t, hand x,y,z from the shoulder, pick tilt, pick roll, twist, lean]
+const SWING_T=0.42, PICK_REST=[0,0.08,-0.3,-0.2,0.75,-0.15,0,0];
+const PICK_KEYS=[
+  [PICK_REST,[0.28,0.24,0.12,0.02,2.15,-0.45,-0.42,-0.05],[0.5,-0.14,-0.44,-0.5,-1.3,0.38,0.48,0.28],[0.72,-0.2,-0.5,-0.32,-1.0,0.42,0.32,0.18],[1,...PICK_REST.slice(1)]],
+  [PICK_REST,[0.28,-0.16,0.06,-0.08,1.85,0.5,0.38,-0.05],[0.5,0.28,-0.4,-0.46,-1.2,-0.4,-0.45,0.26],[0.72,0.32,-0.48,-0.3,-0.9,-0.38,-0.3,0.16],[1,...PICK_REST.slice(1)]]];
+function pickPose(e){
+  const keys=PICK_KEYS[e.swingSide||0], k=e.swingT>0?clamp(1-e.swingT/SWING_T,0,1):0;
+  let i=0; while(i<keys.length-2&&k>keys[i+1][0]) i++;
+  const a=keys[i], b=keys[i+1], u=clamp((k-a[0])/(b[0]-a[0]),0,1), f=u*u*(3-2*u), m=j=>a[j]+(b[j]-a[j])*f;
+  return {h:new V(m(1),m(2),m(3)),rx:m(4),rz:m(5),tw:m(6),ln:m(7)};
+}
 function makeCharacterGLB(pal){
   const g=new T.Group(); g.rotation.order='YXZ';
   const spin=new T.Group(); g.add(spin);
@@ -1162,7 +1174,7 @@ function animateGLB(e,dt){
   if(near&&land){ const lean=-0.28*cr-(held?0.06:0)*Math.min(1,s/4)-0.22*A.sprint; rotateBoneWorld(B.Spine,right,lean);
     if(held){ for(const n of ['Spine','Spine1','Spine2']) rotateBoneWorld(B[n],right,pE/3); } else rotateBoneWorld(B.Neck,right,pitch*0.5);
     if(A.hit>0.01){ rotateBoneWorld(B.Spine1,right,0.32*A.hit); rotateBoneWorld(B.Neck,right,0.25*A.hit); }
-    if(e.swingT>0){ const k=1-e.swingT/0.3; rotateBoneWorld(B.Spine1,UP,-0.5*Math.sin(k*Math.PI)); } }
+    if(pickaxe&&e.swingT>0){ const P=pickPose(e); rotateBoneWorld(B.Spine1,UP,P.tw); rotateBoneWorld(B.Spine2,UP,P.tw*0.5); rotateBoneWorld(B.Spine1,right,P.ln); } }
   // --- hands
   c.pick.visible=pickaxe&&tuck<0.3;
   if(tuck>0.25&&near&&!held){
@@ -1195,11 +1207,10 @@ function animateGLB(e,dt){
       solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,lt,lS.clone().addScaledVector(right,-0.5).add(new V(0,-0.7,0)));
     }
   } else if(pickaxe&&near){
-    const k=e.swingT>0?1-e.swingT/0.3:-1, sw=k<0?0.35:(k<0.3?lerp(0.35,-1.6,k/0.3):lerp(-1.6,1.5,(k-0.3)/0.7));
-    const sh=B.RightArm.getWorldPosition(new V()); const hand=new V(0.12,-0.28+Math.cos(sw)*0.05,-0.38-Math.sin(sw)*0.1).applyAxisAngle(new V(1,0,0),-sw*0.6);
-    const tgt=g.localToWorld(g.worldToLocal(sh.clone()).add(hand));
+    const P=pickPose(e), sh=B.RightArm.getWorldPosition(new V());
+    const tgt=g.localToWorld(g.worldToLocal(sh.clone()).add(P.h));
     if(A.air<0.02||e.swingT>0) solveIK(B.RightArm,B.RightForeArm,B.RightHand,tgt,sh.clone().addScaledVector(right,0.6).add(new V(0,-0.5,0)));
-    B.RightHand.getWorldPosition(_v2); g.worldToLocal(_v2); c.pick.position.copy(_v2); c.pick.rotation.set(-0.9+sw*0.9,0,0);
+    B.RightHand.getWorldPosition(_v2); g.worldToLocal(_v2); c.pick.position.copy(_v2); c.pick.rotation.set(P.rx,0,P.rz);
   } else if(e.phase==='glide'&&near){
     // both hands grip the glider's base bar
     c.glider.updateMatrixWorld(true);
@@ -1309,7 +1320,7 @@ function animateChar(e,dt){
   const pitch=e.isPlayer?e.pitch:(e.aimPitch||0), air2=e.phase==='fall'||e.phase==='glide';
   let sx=-0.14*mv-0.3*cr-0.2*A.sprint+0.3*A.hit+Math.sin(matchTime*2.2+e.walkT)*0.015, sy=-c.hips.rotation.y;
   if(held) sx+=pitch*0.45;
-  if(e.swingT>0){ const k=1-e.swingT/0.3; sy-=0.45*Math.sin(k*Math.PI); sx-=0.2*Math.sin(k*Math.PI); }
+  if(e.swingT>0){ const k=1-e.swingT/SWING_T; sy-=0.45*Math.sin(k*Math.PI); sx-=0.2*Math.sin(k*Math.PI); }
   if(air2){ sx=0; sy=0; }
   D(c.spine.rotation,'x',sx,a); D(c.spine.rotation,'y',sy,a);
   D(c.neck.rotation,'x',ground?(held?pitch*0.35:pitch*0.6):0,a);
@@ -1332,7 +1343,7 @@ function animateChar(e,dt){
     D(c.gunMount.rotation,'x',A.recoil*0.3-0.5*rl,0.6); D(c.gunMount.rotation,'z',0.7*rl,a);
   } else if(pickaxe){
     lx=-Math.sin(A.phase)*0.7*mv; lz=-0.08; lel=0.25+0.5*mv; rz=0.1; rel=0.6;
-    if(e.swingT>0){ const k=1-e.swingT/0.3; rx=k<0.3?lerp(0.6,2.9,k/0.3):lerp(2.9,0.1,(k-0.3)/0.7); armA=0.75; } else rx=0.55+Math.sin(A.phase)*0.3*mv;
+    if(e.swingT>0){ const k=1-e.swingT/SWING_T; rx=k<0.3?lerp(0.6,2.9,k/0.3):lerp(2.9,0.1,(k-0.3)/0.7); armA=0.75; } else rx=0.55+Math.sin(A.phase)*0.3*mv;
   } else {
     lx=-Math.sin(A.phase)*0.75*mv; rx=Math.sin(A.phase)*0.75*mv; lz=-0.1; rz=0.1; lel=0.25+0.6*mv; rel=0.25+0.6*mv;
     if(air>0.02){ const lift=tk*2.4, out=Math.max(0,air-tk)*1.1; lx=lerp(lx,lift,air); rx=lerp(rx,lift,air); lz=-0.1-out; rz=0.1+out; }
@@ -1593,21 +1604,29 @@ function playerFire(){
   const p=player; if(p.phase!=='ground'||p.consuming) return;
   const it=curItem();
   if(!it){
-    if(p.fireCd>0) return; p.fireCd=0.42; p.swingT=0.3; sfx('swing');
-    refreshTargets(); camera.getWorldDirection(tv1); ray.set(camera.position,tv1); ray.near=camDistNow; ray.far=camDistNow+4.2;
-    const hits=ray.intersectObjects(shotTargets,false); const h=hits.find(x=>x.object.userData.ent!==p);
-    if(h){ const ent=h.object.userData.ent;
-      if(ent.etype==='prop'||ent.etype==='piece'){
-        // Fortnite-style weak spot: hitting the glowing ring doubles damage, then it jumps somewhere new
-        const crit=weak.ent===ent&&h.point.distanceTo(weak.pos)<0.55;
-        if(ent.etype==='prop') damageProp(ent,crit?50:25,p,true,h.point,crit);
-        else { damagePiece(ent,crit?100:50,p,h.point,crit); sfx('chop',null,{mat:ent.matName}); }
-        if(crit) sfx('crit');
-        if(ent.dead) clearWeakSpot(); else if(crit||weak.ent!==ent) placeWeakSpot(ent,h); }
-      else if(ent.etype==='char') hurt(ent,20,p,{point:h.point,weapon:'Pickaxe'}); }
+    if(p.fireCd>0) return; p.fireCd=0.42; p.swingSide=p.swingT>0||p.comboT>0?1-(p.swingSide||0):0; p.swingT=SWING_T; p.comboT=SWING_T+0.3; p.hitT=SWING_T*0.42; sfx('swing');
     return;
   }
   if(it.kind==='cons') return startConsume(it);
+  gunFire(it);
+}
+// the pickaxe connects partway through the swing, when the head comes down
+function pickaxeHit(){
+  const p=player; if(curItem()||p.phase!=='ground') return;
+  refreshTargets(); camera.getWorldDirection(tv1); ray.set(camera.position,tv1); ray.near=camDistNow; ray.far=camDistNow+4.2;
+  const hits=ray.intersectObjects(shotTargets,false); const h=hits.find(x=>x.object.userData.ent!==p);
+  if(h){ const ent=h.object.userData.ent;
+    if(ent.etype==='prop'||ent.etype==='piece'){
+      // Fortnite-style weak spot: hitting the glowing ring doubles damage, then it jumps somewhere new
+      const crit=weak.ent===ent&&h.point.distanceTo(weak.pos)<0.55;
+      if(ent.etype==='prop') damageProp(ent,crit?50:25,p,true,h.point,crit);
+      else { damagePiece(ent,crit?100:50,p,h.point,crit); sfx('chop',null,{mat:ent.matName}); }
+      if(crit) sfx('crit');
+      if(ent.dead) clearWeakSpot(); else if(crit||weak.ent!==ent) placeWeakSpot(ent,h); }
+    else if(ent.etype==='char') hurt(ent,20,p,{point:h.point,weapon:'Pickaxe'}); }
+}
+function gunFire(it){
+  const p=player;
   const w=WEAP[it.id];
   if(p.reloading||p.fireCd>0) return;
   if(it.ammo<=0){ if(p.ammo[w.ammo]>0) startReload(); else { toast('Out of ammo'); sfx('empty'); p.fireCd=0.3; } return; }
@@ -1798,7 +1817,7 @@ function updatePlayer(dt){
   moveEntity(p,dt);
 }
 function updateActions(dt){
-  const p=player; p.fireCd-=dt; p.bloom=Math.max(0,p.bloom-dt*2.2); if(p.swingT>0) p.swingT-=dt; updateWeakSpot(dt);
+  const p=player; p.fireCd-=dt; p.bloom=Math.max(0,p.bloom-dt*2.2); if(p.swingT>0) p.swingT-=dt; if(p.comboT>0) p.comboT-=dt; if(p.hitT>0){ p.hitT-=dt; if(p.hitT<=0) pickaxeHit(); } updateWeakSpot(dt);
   if(p.reloading){ const r=p.reloading; if(curItem()!==r.it) p.reloading=null; else { r.t+=dt; const st=RELOAD_STEPS[r.it.id]; while(st&&r.step<st.length&&r.t>=st[r.step][0]*r.dur){ sfx('reloadStep',null,{step:st[r.step][1]}); r.step++; } if(r.t>=r.dur) finishReload(); } }
   if(p.consuming){ if(curItem()!==p.consuming.it) p.consuming=null; else { p.consuming.t+=dt; if(p.consuming.t>=p.consuming.dur) finishConsume(); } }
   const it=curItem();
