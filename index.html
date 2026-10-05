@@ -983,7 +983,7 @@ function bodyPose(e,g,glider,twistObj,a,dt){
   if(!set){ D(g.rotation,'x',tx,a*0.5); D(g.rotation,'z',tz,a*0.4); }
   twistObj.rotation.y=twist; e.tuckK=tuck;
   if(pivot||Math.abs(g.rotation.x)>0.02){ _pc.set(0,1,0).applyEuler(g.rotation); g.position.set(e.pos.x-_pc.x,e.pos.y+1-_pc.y,e.pos.z-_pc.z); }
-  if(e.swim){ const hy=lerp(WATER_Y-0.45,WATER_Y-0.2,A.swimK)+Math.sin(matchTime*2.3+e.walkT)*0.05; _pc.set(0,1,0).applyEuler(g.rotation); g.position.set(e.pos.x-_pc.x,hy-_pc.y,e.pos.z-_pc.z); }
+  if(e.swim){ const hy=lerp(WATER_Y-0.42,WATER_Y-0.06,A.swimK)+Math.sin(matchTime*2.3+e.walkT)*0.05; _pc.set(0,1,0).applyEuler(g.rotation); g.position.set(e.pos.x-_pc.x,hy-_pc.y,e.pos.z-_pc.z); }
   e.gk=e.phase==='glide'?Math.min(1,(e.gk||0)+dt*3.5):0;
   const q=e.gk, pop=q<1?1+Math.sin(q*Math.PI)*0.25-(1-q)*0.9:1; glider.scale.set(Math.max(0.05,pop),1,Math.max(0.3,q));
   glider.rotation.z=-(g.rotation.z)*0.6*q;
