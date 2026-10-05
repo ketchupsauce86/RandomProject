@@ -199,8 +199,9 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
         <dl>
           <dt>WASD</dt><dd>Move</dd>
           <dt>Mouse</dt><dd>Look around</dd>
-          <dt>Space</dt><dd>Jump / bail out of the jet / open glider</dd>
-          <dt>Shift</dt><dd>Sprint / dive while gliding</dd>
+          <dt>Space</dt><dd>Jump / bail out of the jet / open or close glider</dd>
+          <dt>Shift</dt><dd>Sprint</dd>
+          <dt>W / S in the air</dt><dd>Dive / brake while gliding</dd>
           <dt>V</dt><dd>Crouch (steadier aim)</dd>
           <dt>Left click</dt><dd>Shoot, swing pickaxe, place builds</dd>
           <dt>Right click</dt><dd>Aim down sights</dd>
@@ -894,6 +895,65 @@ function spawnLoot(it,x,y,z){
 }
 function removeLoot(l){ world.remove(l.obj); removeFrom(loots,l); }
 
+// ================= hang glider =================
+// A delta-wing hang glider: billowing patterned sail, glowing leading edges, keel, kingpost and flying
+// wires, and an A-frame whose base bar the pilot grips with both hands. Unfolds on deploy, folds on landing.
+const GL={bar:2.12,barZ:-0.2,grip:0.4,wingY:3.2};
+const glFrame=Lam({color:0x2a2e36}), glWire=new T.LineBasicMaterial({color:0x1b1e24,transparent:true,opacity:0.7});
+function tubeBetween(a,b,r,mat){ const d=new V().subVectors(b,a), m=new T.Mesh(new T.CylinderGeometry(r,r,d.length(),6),mat); m.position.copy(a).addScaledVector(d,0.5); m.quaternion.setFromUnitVectors(UP,d.normalize()); return m; }
+function sailTexture(base,accent){
+  const b=new T.Color(base), dark=b.clone().multiplyScalar(0.55), ac=new T.Color(accent);
+  return canvasTex(256,256,(g,w,h)=>{
+    const gr=g.createLinearGradient(0,0,0,h); gr.addColorStop(0,'#'+b.getHexString()); gr.addColorStop(1,'#'+dark.getHexString()); g.fillStyle=gr; g.fillRect(0,0,w,h);
+    // chevrons pointing at the nose
+    g.lineCap='round'; for(let i=0;i<3;i++){ g.strokeStyle=i===1?'#ffffff':'#'+ac.getHexString(); g.lineWidth=i===1?7:13; g.beginPath(); const y=92+i*30; g.moveTo(12,y+70); g.lineTo(w/2,y); g.lineTo(w-12,y+70); g.stroke(); }
+    // emblem
+    g.fillStyle='rgba(255,255,255,.9)'; g.beginPath(); const cx=w/2, cy=58; for(let i=0;i<10;i++){ const r=i%2?9:22, a=-Math.PI/2+i*Math.PI/5; g.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r); } g.fill();
+    g.fillStyle='rgba(0,0,0,.25)'; g.fillRect(0,h-10,w,10);
+  });
+}
+function makeGlider(pal){
+  const root=new T.Group(), wing=new T.Group(); wing.position.y=GL.wingY; root.add(wing);
+  const base=pal.shirt, accent=pal.glow||new T.Color(base).offsetHSL(0.45,0,0.05).getHex();
+  // sail: nose, mid leading edge, tips, billowed trailing edge and keel tail
+  const P=[[0,0.05,-1.7],[-1.4,0.12,-0.42],[1.4,0.12,-0.42],[-2.8,-0.12,0.72],[2.8,-0.12,0.72],[-1.3,0.34,1.0],[1.3,0.34,1.0],[0,0.12,1.18]];
+  const pos=new Float32Array(P.flat()), uv=new Float32Array(P.flatMap(p=>[(p[0]+2.8)/5.6,(p[2]+1.7)/2.9]));
+  const geo=new T.BufferGeometry(); geo.setAttribute('position',new T.BufferAttribute(pos,3)); geo.setAttribute('uv',new T.BufferAttribute(uv,2));
+  geo.setIndex([0,1,5, 1,3,5, 0,5,7, 0,6,2, 2,6,4, 0,7,6]); geo.computeVertexNormals();
+  const sail=new T.Mesh(geo,new T.MeshLambertMaterial({map:sailTexture(base,accent),side:T.DoubleSide})); sail.castShadow=true; wing.add(sail);
+  const V3=i=>new V(...P[i]), glow=new T.MeshBasicMaterial({color:accent});
+  for(const [i,j] of [[0,1],[1,3],[0,2],[2,4]]) wing.add(tubeBetween(V3(i),V3(j),0.05,glow));
+  wing.add(tubeBetween(V3(0),V3(7),0.04,glFrame), tubeBetween(V3(1),V3(2),0.03,glFrame));
+  const kp=new V(0,0.75,0.1); wing.add(tubeBetween(new V(0,0.08,0.1),kp,0.03,glFrame));
+  // A-frame and base bar (in glider space; the wing sits GL.wingY above the feet)
+  const hang=new V(0,GL.wingY+0.05,0.1), bl=new V(-0.55,GL.bar,GL.barZ), br=new V(0.55,GL.bar,GL.barZ);
+  root.add(tubeBetween(hang,bl,0.03,glFrame),tubeBetween(hang,br,0.03,glFrame),tubeBetween(bl,br,0.035,glFrame));
+  // flying wires from the kingpost and the base bar to the nose, tips and tail
+  const wp=[]; const W=v=>v.clone().add(new V(0,GL.wingY,0));
+  for(const k of [0,3,4,7]){ wp.push(W(kp),W(V3(k)),bl.clone(),W(V3(k)),br.clone(),W(V3(k))); }
+  root.add(new T.LineSegments(new T.BufferGeometry().setFromPoints(wp),glWire));
+  // glowing wingtips
+  const tm=new T.SpriteMaterial({map:glowTex,color:accent,blending:T.AdditiveBlending,depthWrite:false,transparent:true,fog:false});
+  const tips=[3,4].map(i=>{ const s=new T.Sprite(tm); s.scale.setScalar(0.9); s.position.copy(V3(i)); wing.add(s); return s; });
+  root.visible=false;
+  root.userData={wing,pos,geo,tips,tipMat:tm,grips:[new V(-GL.grip,GL.bar,GL.barZ),new V(GL.grip,GL.bar,GL.barZ)]};
+  return root;
+}
+// unfold/fold, nose up or down with speed, sail flutter and wingtip sparkle trails
+function updateGlider(e,glider,dt){
+  const U=glider.userData, tgt=e.phase==='glide'?1:0;
+  e.gk=clamp((e.gk||0)+(tgt?dt*3:-dt*3.5),0,1); const q=e.gk; glider.visible=q>0.02; if(!glider.visible) return;
+  const pop=q<1?1+Math.sin(q*Math.PI)*0.22-(1-q)*0.92:1;
+  U.wing.scale.set(Math.max(0.06,pop),1,Math.max(0.35,q)); glider.position.y=-(1-q)*0.9;
+  D(glider.rotation,'x',e.dive?-0.22:e.brake?0.22:0,1-Math.exp(-5*dt));
+  const sp=Math.hypot(e.vel.x,e.vel.z), t=matchTime*9+e.walkT, f=0.03+Math.min(0.08,sp*0.003);
+  U.pos[3*3+1]=-0.12+Math.sin(t)*f; U.pos[4*3+1]=-0.12+Math.sin(t+2)*f; U.pos[5*3+1]=0.34+Math.sin(t*1.3+1)*f*1.4; U.pos[6*3+1]=0.34+Math.sin(t*1.3+3)*f*1.4; U.pos[7*3+1]=0.12+Math.sin(t*1.1)*f;
+  U.geo.attributes.position.needsUpdate=true;
+  if(e.phase==='glide'&&q>0.9&&sp>14&&e.pos.distanceTo(camera.position)<60){ e.trailT=(e.trailT||0)-dt;
+    if(e.trailT<=0){ e.trailT=0.035; for(const tip of U.tips){ const s=new T.Sprite(U.tipMat); tip.getWorldPosition(s.position); s.scale.setScalar(0.7); world.add(s);
+      effects.push({t:0,dur:0.55,obj:s,upd:(ef,k)=>{ s.scale.setScalar(0.7*(1-k)+0.05); }}); } } }
+}
+
 // ================= realistic characters (skinned model + motion-captured clips + procedural IK) =================
 let SOLDIER=null; const MODEL_SCALE=1.1;
 const _ikA=new V(),_ikB=new V(),_ikC=new V(),_ikT=new V(),_v1=new V(),_v2=new V(),_v3=new V(),_v4=new V(),_qP=new T.Quaternion(),_qD=new T.Quaternion(),_qI=new T.Quaternion();
@@ -935,7 +995,8 @@ const HOLD={ar:{r:[0,-0.12,0.07],l:[0,-0.07,-0.25],o:[0.1,-0.16,-0.3]},smg:{r:[0
   pistol:{r:[0,-0.08,0.06],l:[-0.03,-0.1,0.07],o:[-0.06,-0.08,-0.48]},sniper:{r:[0,-0.1,0.14],l:[0,-0.07,-0.3],o:[0.1,-0.16,-0.24]}};
 function makeCharacterGLB(pal){
   const g=new T.Group(); g.rotation.order='YXZ';
-  const model=T.SkeletonUtils.clone(SOLDIER.scene); model.scale.setScalar(MODEL_SCALE); g.add(model);
+  const spin=new T.Group(); g.add(spin);
+  const model=T.SkeletonUtils.clone(SOLDIER.scene); model.scale.setScalar(MODEL_SCALE); spin.add(model);
   const bones={}, tint=new T.Color(pal.shirt).lerp(new T.Color(0xffffff),0.45);
   model.traverse(o=>{ if(o.isBone) bones[o.name.replace(/^mixamorig:?/,'')]=o;
     if(o.isMesh){ o.castShadow=true; o.frustumCulled=false; if(/Body/i.test(o.material.name)){ o.material=o.material.clone(); o.material.color.copy(tint); } } });
@@ -943,57 +1004,56 @@ function makeCharacterGLB(pal){
   for(const n of ['Idle','Walk','Run','TPose']){ const a=mixer.clipAction(SOLDIER.clips[n]); a.play(); a.setEffectiveWeight(n==='Idle'?1:0); a.time=Math.random()*a.getClip().duration; act[n]=a; }
   const gunMount=new T.Group(); gunMount.scale.setScalar(1.2); g.add(gunMount);
   const pickG=new T.Group(); const handle=new T.Mesh(GEO.handle,colorMat(0x6b4a2a)); handle.position.y=0.35; const ph=new T.Mesh(GEO.pickHead,colorMat(0xb8c4d6)); ph.position.set(0,0.78,-0.12); ph.rotation.x=Math.PI/2; pickG.add(handle,ph); pickG.visible=false; g.add(pickG);
-  const glider=new T.Group(); const wing=new T.Mesh(GEO.glider,colorMat(pal.shirt)); wing.position.y=3.0; glider.add(wing);
-  for(const sx of [-0.5,0.5]){ const r=new T.Mesh(GEO.rod,colorMat(0x222222)); r.position.set(sx,2.45,0); glider.add(r); }
-  glider.visible=false; g.add(glider);
+  const glider=makeGlider(pal); g.add(glider);
   const flash=new T.Sprite(flashMat); flash.scale.setScalar(0.8); flash.visible=false;
   const hb={head:new T.Mesh(HIT_GEO.head,hitMat),chest:new T.Mesh(HIT_GEO.chest,hitMat),legs:new T.Mesh(HIT_GEO.legs,hitMat)}; g.add(hb.head,hb.chest,hb.legs);
-  return {glb:true,g,model,bones,mixer,act,gunMount,pick:pickG,glider,flash,hb,parts:[hb.head,hb.chest,hb.legs],head:hb.head,heldKey:'',held:null,w:{Idle:1,Walk:0,Run:0,TPose:0}};
+  return {glb:true,g,spin,model,bones,mixer,act,gunMount,pick:pickG,glider,flash,hb,parts:[hb.head,hb.chest,hb.legs],head:hb.head,heldKey:'',held:null,w:{Idle:1,Walk:0,Run:0,TPose:0}};
 }
 const UP=new V(0,1,0);
-// Whole-body motion shared by both character styles: bail-out trick routines, sprint front flips, the
-// chaotic tumble after the blast, leaning into turns, glider banking, skydive and swim posture. Spins
-// pivot around the hips. e.tuckK tells the limb code how tightly to tuck.
+// Whole-body motion shared by both character styles: the out-of-control tumble of the drop, sprint
+// front flips, leaning into turns, glider banking, skydive and swim posture. Spins pivot around the
+// hips. e.tuckK tells the limb code how tightly to tuck.
 const _pc=new V(), TAU=Math.PI*2;
 const easeIO=k=>k<0.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
 const wrapPi=a=>((a%TAU)+TAU*1.5)%TAU-Math.PI;
-function makeRoutine(){
-  // a random string of back flips, front flips and twisting layouts, ending upright
-  const n=Math.random()<0.5?3:4, list=[];
-  for(let i=0;i<n;i++){ const back=Math.random()<0.6, tw=Math.random()<0.4, lay=!tw&&Math.random()<0.3;
-    list.push({flip:back?TAU:-TAU,twist:tw?(Math.random()<0.5?TAU:-TAU):0,tuck:lay?0.25:1,dur:tw?0.62:0.5}); }
-  return list;
+const IDQ=new T.Quaternion(), _q1=new T.Quaternion(), _v5=new V(), _v6=new V();
+// The drop: an out-of-control tumble on every axis. A body-local spin keeps getting random kicks
+// (clamped between a minimum and maximum rate) until the glider opens; then the body rights itself.
+function startTumble(e,hard){
+  e.tumbling=true; e.fallT=0;
+  e.angVel=new V((Math.random()<0.5?-1:1)*rnd(6,10),rnd(-3,3),rnd(-5,5)); e.spinMin=hard?6:5; e.spinMax=hard?13:11;
 }
-function bodyPose(e,g,glider,twistObj,a,dt){
-  const A=e.anim; let tx=0, tz=e.bankT||0, set=false, tuck=0, twist=0, pivot=e.phase==='fall'||e.phase==='glide';
-  if(e.phase==='fall') tx=-1.25-0.25*clamp(e.steerF||0,-1,1);
-  else if(e.phase==='glide') tx=e.dive?-0.55:-0.12;
+function bodyPose(e,g,c,a,dt){
+  const A=e.anim, spin=c.spin; let tx=0, tz=e.bankT||0, set=false, tuck=0, pivot=e.phase==='fall'||e.phase==='glide';
+  if(e.phase==='fall') tx=e.tumbling?0:-1.25-0.25*clamp(e.steerF||0,-1,1);
+  else if(e.phase==='glide') tx=e.dive?-0.5:e.brake?0.1:-0.12;
   else if(e.swim) tx=-1.42*A.swimK;
-  if(e.phase==='fall'&&e.tricks){
-    e.trickT+=dt; let t=e.trickT, ang=0;
-    for(const tr of e.tricks){ const k=clamp(t/tr.dur,0,1), q=easeIO(k); ang+=tr.flip*q; twist+=tr.twist*q; if(t<tr.dur){ tuck=tr.tuck*Math.sin(k*Math.PI); break; } t-=tr.dur; }
-    if(e.trickT>=e.trickDur){ e.tricks=null; g.rotation.x=0; twist=0; } else { g.rotation.x=ang; set=true; }
-    g.rotation.z=0;
-  } else if(e.phase==='fall'&&e.tumble>0&&e.blastTumble){ e.spinA+=dt*e.spinS; g.rotation.x=wrapPi(e.spinA); g.rotation.z=Math.sin(e.spinA*0.63+e.spinZ)*0.9; set=true; }
-  else if(e.flipT!=null){
+  if(e.phase==='fall'&&e.tumbling){
+    const w=e.angVel; w.x+=rnd(-1,1)*dt*34; w.y+=rnd(-1,1)*dt*20; w.z+=rnd(-1,1)*dt*30;
+    const m=w.length(); if(m>e.spinMax) w.multiplyScalar(e.spinMax/m); else if(m<e.spinMin) w.multiplyScalar(e.spinMin/Math.max(m,0.01));
+    _q1.setFromAxisAngle(_v5.copy(w).normalize(),w.length()*dt); spin.quaternion.multiply(_q1);
+    D(g.rotation,'x',0,a); D(g.rotation,'z',0,a); set=true;
+  } else if(spin.quaternion.w<0.99999){ spin.quaternion.slerp(IDQ,1-Math.exp(-6*dt)); if(spin.quaternion.w>0.99995) spin.quaternion.identity(); }
+  // spin about the middle of the body, not the feet
+  _v6.set(0,1,0).applyQuaternion(spin.quaternion); spin.position.set(-_v6.x,1-_v6.y,-_v6.z);
+  if(!set&&e.flipT!=null){
     e.flipT+=dt; const k=e.flipT/0.58;
     if(k>=1||(e.onGround&&e.flipT>0.12)){ g.rotation.x=wrapPi(g.rotation.x); e.flipT=null; }
     else { g.rotation.x=-TAU*easeIO(k); tuck=Math.sin(k*Math.PI); set=true; pivot=true; }
   }
   if(!set){ D(g.rotation,'x',tx,a*0.5); D(g.rotation,'z',tz,a*0.4); }
-  twistObj.rotation.y=twist; e.tuckK=tuck;
+  e.tuckK=tuck;
   if(pivot||Math.abs(g.rotation.x)>0.02){ _pc.set(0,1,0).applyEuler(g.rotation); g.position.set(e.pos.x-_pc.x,e.pos.y+1-_pc.y,e.pos.z-_pc.z); }
   if(e.swim){ const hy=lerp(WATER_Y-0.42,WATER_Y-0.06,A.swimK)+Math.sin(matchTime*2.3+e.walkT)*0.05; _pc.set(0,1,0).applyEuler(g.rotation); g.position.set(e.pos.x-_pc.x,hy-_pc.y,e.pos.z-_pc.z); }
-  e.gk=e.phase==='glide'?Math.min(1,(e.gk||0)+dt*3.5):0;
-  const q=e.gk, pop=q<1?1+Math.sin(q*Math.PI)*0.25-(1-q)*0.9:1; glider.scale.set(Math.max(0.05,pop),1,Math.max(0.3,q));
-  glider.rotation.z=-(g.rotation.z)*0.6*q;
+  updateGlider(e,c.glider,dt);
 }
+const faceYaw=e=>e.phase==='glide'&&e.glHead!=null?e.glHead:e.yaw;
 // per-frame motion inputs both animators share
 function motionState(e,dt){
-  const A=e.anim, fx=-Math.sin(e.yaw), fz=-Math.cos(e.yaw), fwd=e.vel.x*fx+e.vel.z*fz, side=-e.vel.x*fz+e.vel.z*fx, speed=Math.hypot(e.vel.x,e.vel.z);
+  const A=e.anim, Y=faceYaw(e), fx=-Math.sin(Y), fz=-Math.cos(Y), fwd=e.vel.x*fx+e.vel.z*fz, side=-e.vel.x*fz+e.vel.z*fx, speed=Math.hypot(e.vel.x,e.vel.z);
   const yr=wrapPi(e.yaw-(A.lastYaw==null?e.yaw:A.lastYaw))/Math.max(dt,1e-3); A.lastYaw=e.yaw;
   const land=e.phase==='ground'&&!e.swim;
-  e.bankT=e.phase==='glide'?clamp(-side*0.035+yr*0.06,-0.55,0.55):land&&e.onGround?clamp(yr*0.03,-0.22,0.22)*smooth(4,10,speed):0;
+  e.bankT=e.phase==='glide'?clamp((e.glTurn!=null?e.glTurn*0.36:yr*0.06),-0.6,0.6):land&&e.onGround?clamp(yr*0.03,-0.22,0.22)*smooth(4,10,speed):0;
   e.steerF=fwd/20;
   const aS=1-Math.exp(-7*dt);
   D(A,'sprint',land&&e.onGround?smooth(8.6,10.6,speed):0,aS);
@@ -1016,11 +1076,11 @@ function deathPose(e,g,body,dt){
 }
 const _qm=new T.Quaternion();
 function animateGLB(e,dt){
-  const c=e.ch, A=e.anim, B=c.bones, g=c.g; g.position.copy(e.pos); g.rotation.y=e.yaw;
+  const c=e.ch, A=e.anim, B=c.bones, g=c.g; g.position.copy(e.pos); g.rotation.y=faceYaw(e);
   const a=1-Math.exp(-14*dt), aS=1-Math.exp(-7*dt);
-  if(!e.alive){ c.flash.visible=false; if(e.deadT<0.6) c.mixer.update(dt*0.3); deathPose(e,g,c.model,dt); return; }
+  if(!e.alive){ c.flash.visible=false; c.glider.visible=false; if(e.deadT<0.6) c.mixer.update(dt*0.3); deathPose(e,g,c.model,dt); return; }
   const hide=e.phase==='jet'||(e.isPlayer&&ads&&isScoped());
-  g.visible=!hide; c.glider.visible=e.phase==='glide'; if(e.phase==='jet') return;
+  g.visible=!hide; if(e.phase==='jet') return;
   const {fx,fz,fwd,side,speed,land}=motionState(e,dt), swim=e.phase==='ground'&&e.swim;
   let held=null, pickaxe=false;
   if(e.isPlayer){ const it=curItem(); if(!e.build&&!e.editing&&land){ if(it&&it.kind==='gun') held=it; else if(!it) pickaxe=true; } }
@@ -1033,15 +1093,15 @@ function animateGLB(e,dt){
   // --- clip blending (the soldier ships with Idle, Walk, Run and T-pose; everything else is layered on top)
   const s=land&&e.onGround?speed:0, back=fwd<-0.5?-1:1;
   let wRun=smooth(3.5,6.5,s), wWalk=smooth(0.3,2,s)*(1-wRun), wT=0;
-  if(e.phase==='fall'&&!e.tricks){ wT=1; wRun=0; wWalk=0; } else if(e.phase==='glide'){ wT=0.5; wRun=0; wWalk=0; }
-  if(swim||e.tricks){ wRun=0; wWalk=0; wT=0; }
+  if(e.phase==='fall'){ wT=1; wRun=0; wWalk=0; } else if(e.phase==='glide'){ wT=0.5; wRun=0; wWalk=0; }
+  if(swim){ wRun=0; wWalk=0; wT=0; }
   const wIdle=Math.max(0,1-wRun-wWalk-wT), W=c.w;
   D(W,'Idle',wIdle,aS); D(W,'Walk',wWalk,aS); D(W,'Run',wRun,aS); D(W,'TPose',wT,aS);
   for(const n in c.act) c.act[n].setEffectiveWeight(W[n]);
   c.act.Walk.setEffectiveTimeScale(back*clamp(s/1.8,0.7,1.6)); c.act.Run.setEffectiveTimeScale(back*clamp(s/5.5,0.8,2.15));
   const near=!player||e===player||e.pos.distanceTo(camera.position)<70;
   c.mixer.update(dt);
-  bodyPose(e,g,c.glider,c.model,a,dt);
+  bodyPose(e,g,c,a,dt);
   c.model.position.y=0; g.updateMatrixWorld(true);
   // body-relative axes (they follow flips, twists and swimming)
   c.model.getWorldQuaternion(_qm);
@@ -1067,7 +1127,15 @@ function animateGLB(e,dt){
       const sk=A.swimK; rotateBoneWorld(B.Hips,upB,Math.sin(A.stroke)*0.38*sk); rotateBoneWorld(B.Neck,rightB,0.6*sk);
       for(const [i,sd] of [[0,'Left'],[1,'Right']]){ const ph=A.kick+(i?Math.PI:0), tp=A.kick*0.55+(i?Math.PI:0);
         bend(sd,sk*Math.sin(ph)*0.32+(1-sk)*(0.55+Math.sin(tp)*0.25),-(sk*(0.15+0.25*(Math.sin(ph)+1)/2)+(1-sk)*(1.1+Math.cos(tp)*0.35))); }
-    } else if(e.phase==='fall'&&!e.tricks){
+    } else if(e.phase==='fall'&&e.tumbling){
+      // flailing: arms windmill and grab at the air, legs kick
+      const t=matchTime+e.walkT*3;
+      for(const [sd,sx] of [['Left',-1],['Right',1]]){
+        rotateBoneWorld(B[sd+'Arm'],rightB,Math.sin(t*9.3+sx*1.3)*1.4); rotateBoneWorld(B[sd+'Arm'],fwdB,sx*(0.5+Math.sin(t*6.1+sx*2)*0.9));
+        rotateBoneWorld(B[sd+'ForeArm'],rightB,-0.3-Math.max(0,Math.sin(t*11.7+sx))*1.2);
+        bend(sd,0.35+Math.sin(t*8.1+sx*1.9)*0.95,-0.4-Math.max(0,Math.sin(t*7.3+sx*2.4))*1.4); }
+      rotateBoneWorld(B.Spine1,rightB,Math.sin(t*5.2)*0.35); rotateBoneWorld(B.Neck,rightB,Math.sin(t*6.7+1)*0.4);
+    } else if(e.phase==='fall'){
       const t=matchTime*13+e.walkT; bend('Left',0.25+Math.sin(t)*0.05,-0.6); bend('Right',0.4+Math.sin(t+2)*0.05,-0.85);
       rotateBoneWorld(B.LeftForeArm,fwdB,Math.sin(t*1.1)*0.1); rotateBoneWorld(B.RightForeArm,fwdB,Math.sin(t*0.9+1)*0.1);
     } else if(e.phase==='glide'){
@@ -1120,7 +1188,9 @@ function animateGLB(e,dt){
     if(A.air<0.02||e.swingT>0) solveIK(B.RightArm,B.RightForeArm,B.RightHand,tgt,sh.clone().addScaledVector(right,0.6).add(new V(0,-0.5,0)));
     B.RightHand.getWorldPosition(_v2); g.worldToLocal(_v2); c.pick.position.copy(_v2); c.pick.rotation.set(-0.9+sw*0.9,0,0);
   } else if(e.phase==='glide'&&near){
-    for(const [sd,x] of [['Left',-0.45],['Right',0.45]]){ const t=g.localToWorld(new V(x,2.6,0)); solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],t,g.localToWorld(new V(x*2.5,1.6,0.3))); }
+    // both hands grip the glider's base bar
+    c.glider.updateMatrixWorld(true);
+    c.glider.userData.grips.forEach((gp,i)=>{ const sd=i?'Right':'Left', t=c.glider.localToWorld(gp.clone()); solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],t,B[sd+'Arm'].getWorldPosition(new V()).addScaledVector(rightB,(i?1:-1)*0.6).addScaledVector(fwdB,-0.2)); });
   } else if(e.buildT>0&&near){
     const t=g.localToWorld(new V(0.25,1.35,-0.62)); solveIK(B.RightArm,B.RightForeArm,B.RightHand,t,B.RightArm.getWorldPosition(new V()).addScaledVector(right,0.5).add(new V(0,-0.5,0)));
   }
@@ -1135,7 +1205,8 @@ function makeCharacter(pal){
   const g=new T.Group(); g.rotation.order='YXZ';
   const mats={skin:Lam({color:pal.skin}),shirt:Lam({color:pal.shirt}),pants:Lam({color:pal.pants}),hair:Lam({color:pal.hair}),dark:colorMat(0x23262c)};
   const mk=(geo,mat,parent,x,y,z)=>{ const m=new T.Mesh(geo,mat); m.position.set(x,y,z); m.castShadow=true; parent.add(m); return m; };
-  const rig=new T.Group(); rig.scale.setScalar(0.92); g.add(rig);
+  const spin=new T.Group(); g.add(spin);
+  const rig=new T.Group(); rig.scale.setScalar(0.92); spin.add(rig);
   const hips=new T.Group(); hips.position.y=1.02; rig.add(hips);
   const pelvis=mk(GEO.pelvis,mats.pants,hips,0,0,0);
   const legs=[];
@@ -1159,12 +1230,10 @@ function makeCharacter(pal){
   const gunMount=new T.Group(); gunMount.position.set(0.36,0.42,-0.4); spine.add(gunMount);
   const pickG=new T.Group(); pickG.position.y=-0.4; const handle=new T.Mesh(GEO.handle,colorMat(0x6b4a2a)); handle.rotation.x=Math.PI/2; handle.position.z=-0.3;
   const ph=new T.Mesh(GEO.pickHead,colorMat(0xb8c4d6)); ph.position.z=-0.75; ph.rotation.y=Math.PI/2; pickG.add(handle,ph); arms[1].el.add(pickG); pickG.visible=false;
-  const glider=new T.Group(); const wing=new T.Mesh(GEO.glider,colorMat(pal.shirt)); wing.position.y=3.05; glider.add(wing);
-  for(const sx of [-0.5,0.5]){ const r=new T.Mesh(GEO.rod,colorMat(0x222222)); r.position.set(sx,2.45,0); glider.add(r); }
-  glider.visible=false; g.add(glider);
+  const glider=makeGlider(pal); g.add(glider);
   const flash=new T.Sprite(flashMat); flash.scale.setScalar(0.8); flash.visible=false;
   const parts=[pelvis,torso,head,...legs.flatMap(l=>l.meshes),...arms.flatMap(a=>a.meshes)];
-  return {g,rig,hips,spine,neck,head,legs,arms,gunMount,pick:pickG,glider,flash,parts,heldKey:'',held:null};
+  return {g,spin,rig,hips,spine,neck,head,legs,arms,gunMount,pick:pickG,glider,flash,parts,heldKey:'',held:null};
 }
 function makeCombatant(name,isPlayer,pal){
   const ch=SOLDIER?makeCharacterGLB(pal):makeCharacter(pal); world.add(ch.g);
@@ -1192,12 +1261,12 @@ function isScoped(){ const it=curItem(); return !!(it&&it.kind==='gun'&&WEAP[it.
 function D(o,k,t,a){ o[k]+=(t-o[k])*a; }
 function animateChar(e,dt){
   if(e.ch.glb) return animateGLB(e,dt);
-  const c=e.ch, A=e.anim; c.g.position.copy(e.pos); c.g.rotation.y=e.yaw;
+  const c=e.ch, A=e.anim; c.g.position.copy(e.pos); c.g.rotation.y=faceYaw(e);
   const a=1-Math.exp(-16*dt), aS=1-Math.exp(-8*dt);
   if(!e.alive){ deathPose(e,c.g,c.rig,dt); c.flash.visible=false;
     D(c.legs[0].knee.rotation,'x',-1.3,a); D(c.legs[1].knee.rotation,'x',-0.5,a); D(c.arms[0].sh.rotation,'z',-1.4,a); D(c.arms[1].sh.rotation,'z',1.4,a); return; }
   const hide=e.phase==='jet'||(e.isPlayer&&ads&&isScoped());
-  c.g.visible=!hide; c.glider.visible=e.phase==='glide';
+  c.g.visible=!hide;
   if(e.phase==='jet') return;
   const {fwd,side,speed,land}=motionState(e,dt), ground=land, swim=e.phase==='ground'&&e.swim;
   let held=null, pickaxe=false;
@@ -1210,7 +1279,7 @@ function animateChar(e,dt){
   const back=fwd<-0.5?-1:1; A.phase+=dt*speed*1.45*back;
   A.recoil=Math.max(0,A.recoil-dt*8); A.flash-=dt; c.flash.visible=A.flash>0; A.pumpT+=dt;
   if(e.buildT>0) e.buildT-=dt;
-  bodyPose(e,c.g,c.glider,c.rig,a,dt);
+  bodyPose(e,c.g,c,a,dt);
   const cr=Math.max(A.crouch,ground&&e.onGround?A.land*0.7:0), mv=A.move*(1-cr*0.45), air=A.air, tuck=e.tuckK||0, sk=A.swimK, up=clamp(e.vel.y/10.5,-1,1), tk=smooth(-0.5,0.6,up)*air;
   const twist=speed>1.2&&ground?clamp(Math.atan2(side,Math.abs(fwd))*back,-0.9,0.9):0;
   D(c.hips.rotation,'y',twist,aS);
@@ -1219,6 +1288,7 @@ function animateChar(e,dt){
     let th=Math.sin(ph)*0.8*mv+0.95*cr, kn=-(0.1+Math.max(0,-Math.cos(ph))*1.15)*mv-1.7*cr;
     if(tuck>0.02){ th=1.9*tuck; kn=-2.2*tuck; }
     else if(swim){ const k=A.kick+(i?Math.PI:0), tp=A.kick*0.55+(i?Math.PI:0); th=sk*Math.sin(k)*0.32+(1-sk)*(0.55+Math.sin(tp)*0.25); kn=-(sk*0.25+(1-sk)*(1.1+Math.cos(tp)*0.35)); }
+    else if(e.phase==='fall'&&e.tumbling){ const t=matchTime+e.walkT*3+i*2; th=0.35+Math.sin(t*8.1)*0.95; kn=-0.4-Math.max(0,Math.sin(t*7.3))*1.4; }
     else if(e.phase==='fall'){ th=i?-0.25:0.35; kn=-0.5; }
     else if(e.phase==='glide'){ th=Math.sin(matchTime*2+i*2)*0.15+(e.dive?-0.3:0); kn=-0.25; }
     else if(air>0.01){ th=lerp(th,i?0.15+0.5*tk:0.35+0.95*tk,air); kn=lerp(kn,i?-(0.55+0.95*tk):-(0.35+1.35*tk),air); }
@@ -1237,6 +1307,7 @@ function animateChar(e,dt){
     const st=A.stroke, ts=Math.sin(matchTime*3+e.walkT);
     lx=sk*(Math.PI-st%TAU)+(1-sk)*(1.1+ts*0.3); rx=sk*(Math.PI-(st+Math.PI)%TAU)+(1-sk)*(1.1-ts*0.3); lz=-0.25-(1-sk)*0.3; rz=0.25+(1-sk)*0.3; lel=0.3+(1-sk)*0.6; rel=lel; armA=sk>0.5?1:a;
   }
+  else if(e.phase==='fall'&&e.tumbling){ const t=matchTime+e.walkT*3; lx=Math.sin(t*9.3)*2; rx=Math.sin(t*8.7+2)*2; lz=-0.9-Math.sin(t*6.1)*0.8; rz=0.9+Math.sin(t*5.7+1)*0.8; lel=0.3+Math.max(0,Math.sin(t*11.7))*1.2; rel=0.3+Math.max(0,Math.sin(t*10.9+1))*1.2; armA=0.6; }
   else if(e.phase==='fall'){ lx=-0.2; lz=-1.35; lel=0.2; rx=-0.2; rz=1.35; rel=0.2; }
   else if(e.phase==='glide'){ lx=Math.PI-0.15; lz=-0.25; lel=0; rx=Math.PI-0.15; rz=0.25; rel=0; }
   else if(held){
@@ -1284,11 +1355,11 @@ function supportAt(x,z,y,r){
   return g;
 }
 function moveEntity(e,dt){
-  const p=e.pos, wasGround=e.onGround, vy0=e.vel.y, sm=e.swim&&!e.isPlayer?0.5:1;
+  const p=e.pos, wasGround=e.onGround, vy0=e.vel.y, sm=e.swim&&!e.isPlayer?0.85:1;
   p.x+=e.vel.x*dt*sm; p.z+=e.vel.z*dt*sm;
   collideH(e);
   const R=WORLD/2-6; p.x=clamp(p.x,-R,R); p.z=clamp(p.z,-R,R);
-  if(e.phase==='glide') e.vel.y=lerp(e.vel.y,e.dive?-17:-8,1-Math.exp(-4*dt)); else e.vel.y-=GRAV*dt;
+  if(e.phase==='glide') e.vel.y=lerp(e.vel.y,-(e.glSink==null?8:e.glSink),1-Math.exp(-3*dt)); else e.vel.y-=GRAV*dt;
   if(e.phase==='fall') e.vel.y=Math.max(e.vel.y,-38);
   let ny=p.y+e.vel.y*dt;
   if(e.vel.y>0){ const rs=e.radius*0.6;
@@ -1301,7 +1372,7 @@ function moveEntity(e,dt){
   p.y=ny;
   const wasSwim=e.swim; e.swim=e.phase==='ground'&&terrainHeight(p.x,p.z)<SWIM_DEPTH&&sup<SWIM_Y+0.05;
   if(e.swim!==wasSwim){ if(e.swim){ e.crouch=false; e.build=null; if(e===player) cancelActions(); } if(e.pos.distanceTo(camera.position)<60){ splash(tv4.set(p.x,WATER_Y,p.z),e.swim&&vy0<-6?1.6:0.9); sfx('splash',e===player?null:e.pos,{big:vy0<-6}); } }
-  if(e.onGround&&(e.phase==='fall'||e.phase==='glide')){ e.phase='ground'; e.ch.glider.visible=false; if(!e.isPlayer) e.armedAt=matchTime+rnd(3,8); }
+  if(e.onGround&&(e.phase==='fall'||e.phase==='glide')){ e.phase='ground'; e.tumbling=false; if(!e.isPlayer) e.armedAt=matchTime+rnd(3,8); }
 }
 function airDrag(e,dt){ const f=1-0.9*dt; e.vel.x*=f; e.vel.z*=f; }
 function terrainRay(o,d,far){ const step=1.5; for(let t=step;t<far;t+=step){ const x=o.x+d.x*t, y=o.y+d.y*t, z=o.z+d.z*t; if(y<terrainHeight(x,z)) return t; } return Infinity; }
@@ -1490,7 +1561,7 @@ function hurt(t,amt,src,info){
 }
 function eliminate(t,killer,weapon){
   if(!t.alive) return;
-  t.alive=false; t.hp=0; t.deadT=0; aliveCount--; t.deathDir=Math.random()<0.5?1:-1; t.deathRoll=rnd(-0.4,0.4); t.flipT=null; t.tricks=null;
+  t.alive=false; t.hp=0; t.deadT=0; aliveCount--; t.deathDir=Math.random()<0.5?1:-1; t.deathRoll=rnd(-0.4,0.4); t.flipT=null; t.tumbling=false;
   charMeshes=charMeshes.filter(m=>m.userData.ent!==t); targetsDirty=true;
   feed(killer?`${killer.name} eliminated ${t.name}${weapon?' · '+weapon:''}`:`${t.name} was lost in the storm`,killer===player||t===player);
   if(killer){ killer.kills++; if(killer===player){ sfx('elim'); banner('Eliminated',t.name+' · '+(aliveCount)+' left',2); } }
@@ -1597,24 +1668,35 @@ function botShoot(b,e,d){
   fireFx(b,w,b.gun.id); sfx(b.gun.id,b.pos);
 }
 function leaveJet(e,blast){
-  e.phase='fall'; e.onGround=false; e.dive=false; e.spinA=0; e.spinZ=rnd(0,6);
+  e.phase='fall'; e.onGround=false; e.dive=false; e.brake=false; e.glHead=null; e.glTurn=null;
   e.pos.copy(jet.pos).addScaledVector(jet.dir,rnd(-5,5)); e.pos.y-=1;
-  e.tricks=null; e.blastTumble=!!blast;
-  if(blast){ const a=Math.random()*Math.PI*2, hs=rnd(14,26); e.vel.set(Math.cos(a)*hs+jet.vel.x*0.3,rnd(4,10),Math.sin(a)*hs+jet.vel.z*0.3); e.tumble=e.isPlayer?1.3:rnd(1,1.7); e.spinS=rnd(7,11)*(Math.random()<0.5?-1:1); }
-  else {
-    // bailing out on purpose: leap clear and throw a string of flips and twists before the skydive
-    const sd=Math.random()<0.5?-1:1; e.vel.set(jet.dir.x*14-jet.dir.z*sd*6,4,jet.dir.z*14+jet.dir.x*sd*6);
-    e.tricks=makeRoutine(); e.trickT=0; e.trickDur=e.tricks.reduce((t,r)=>t+r.dur,0); e.tumble=e.trickDur+0.35;
-  }
+  if(blast){ const a=Math.random()*Math.PI*2, hs=rnd(14,26); e.vel.set(Math.cos(a)*hs+jet.vel.x*0.3,rnd(4,10),Math.sin(a)*hs+jet.vel.z*0.3); }
+  else { const sd=Math.random()<0.5?-1:1; e.vel.set(jet.dir.x*14-jet.dir.z*sd*6,4,jet.dir.z*14+jet.dir.x*sd*6); }
+  // either way you go spinning out of control until the glider opens
+  startTumble(e,blast);
+  if(!e.isPlayer) e.deployH=rnd(48,85);
+}
+// glider: heading, airspeed and sink rate (diving builds speed that pulling out turns back into lift)
+function deployGlider(e){
+  e.phase='glide'; e.tumbling=false; const h=Math.hypot(e.vel.x,e.vel.z);
+  e.glHead=h>2?Math.atan2(-e.vel.x,-e.vel.z):e.yaw; e.glSpeed=clamp(h,14,26); e.glTurn=0; e.dive=false; e.brake=false;
+  if(e===player){ sfx('glider'); banner('Glider out!','Mouse to steer · W dive · S brake · A / D carve',2.5); }
+  else if(e.pos.distanceTo(camera.position)<80) sfx('glider',e.pos);
+}
+function glideFly(e,want,dive,brake,dt){
+  const d=wrapPi(want-e.glHead), rate=clamp(d*2.4,-1.9,1.9); e.glHead+=rate*dt; e.glTurn=rate; e.dive=dive; e.brake=brake&&!dive;
+  const tgt=dive?31:e.brake?10:18; e.glSpeed+=(tgt-e.glSpeed)*(1-Math.exp(-(dive?1.1:0.8)*dt));
+  e.glSink=dive?17:clamp((e.brake?4.5:7)-(e.glSpeed-18)*0.45,-1.5,9);
+  e.vel.x=-Math.sin(e.glHead)*e.glSpeed; e.vel.z=-Math.cos(e.glHead)*e.glSpeed;
 }
 function updateBot(b,dt){
   if(!b.alive) return;
   if(b.phase==='jet'){ b.pos.copy(jet.pos); b.pos.y-=1; if(jet.t>=b.bailAt) leaveJet(b,false); return; }
-  if(b.phase==='fall'){ airDrag(b,dt); b.tumble-=dt; if(b.tumble<=0||b.pos.y-terrainHeight(b.pos.x,b.pos.z)<25) b.phase='glide'; moveEntity(b,dt); return; }
+  if(b.phase==='fall'){ airDrag(b,dt); b.fallT+=dt; if(b.pos.y-terrainHeight(b.pos.x,b.pos.z)<b.deployH) deployGlider(b); moveEntity(b,dt); return; }
   if(b.phase==='glide'){
     const dx=b.landX-b.pos.x, dz=b.landZ-b.pos.z, d=Math.hypot(dx,dz), agl=b.pos.y-terrainHeight(b.pos.x,b.pos.z);
-    b.dive=d<agl*1.1; const sp=b.dive?20:14, k=1-Math.exp(-3*dt);
-    if(d>2){ b.vel.x=lerp(b.vel.x,dx/d*sp,k); b.vel.z=lerp(b.vel.z,dz/d*sp,k); b.yaw=angLerp(b.yaw,Math.atan2(-dx,-dz),k); } else { b.vel.x*=0.9; b.vel.z*=0.9; }
+    // fly toward the landing spot, dive once it is within reach, brake over it
+    glideFly(b,d>2?Math.atan2(-dx,-dz):b.glHead,d<agl*1.1&&d>6,d<6,dt); b.yaw=b.glHead;
     moveEntity(b,dt); return;
   }
   b.think-=dt; b.fireCd-=dt; b.buildCd-=dt; b.reloadT-=dt; b.swapT-=dt;
@@ -1672,23 +1754,28 @@ function updateBot(b,dt){
 // ================= player =================
 function updatePlayer(dt){
   const p=player; if(!p.alive){ p.wantJump=false; return; }
-  if(p.phase==='jet'){ p.pos.copy(jet.pos); p.pos.y-=1; if(p.wantJump&&jet.warned&&!jet.done){ leaveJet(p,false); p.blastMsg=true; banner('You bailed out!','Steer with W A S D · glider opens in a moment',3); } p.wantJump=false; return; }
-  if(p.phase==='fall'&&p.tumble>0&&!p.blastMsg&&jet.done){ p.blastMsg=true; banner('The jet exploded!','Hold on — your glider is opening',2.5); }
+  if(p.phase==='jet'){ p.pos.copy(jet.pos); p.pos.y-=1; if(p.wantJump&&jet.warned&&!jet.done){ leaveJet(p,false); p.blastMsg=true; banner('You bailed out!','Spinning out of control — SPACE opens your glider',3); } p.wantJump=false; return; }
+  if(p.phase==='fall'&&p.tumbling&&!p.blastMsg&&jet.done){ p.blastMsg=true; banner('The jet exploded!','Spinning out of control — SPACE opens your glider',2.5); }
   const fx=-Math.sin(p.yaw), fz=-Math.cos(p.yaw), rx=Math.cos(p.yaw), rz=-Math.sin(p.yaw);
   let mx=(keys.KeyD?1:0)-(keys.KeyA?1:0), mz=(keys.KeyW?1:0)-(keys.KeyS?1:0); const len=Math.hypot(mx,mz); if(len>0){ mx/=len; mz/=len; }
   const sprint=(keys.ShiftLeft||keys.ShiftRight)&&mz>0&&!ads;
   if(sprint||p.phase!=='ground') p.crouch=false;
-  p.dive=p.phase==='glide'&&!!(keys.ShiftLeft||keys.ShiftRight); p.sprinting=sprint&&p.phase==='ground'&&p.onGround&&!p.swim;
-  let speed=p.phase==='ground'?(p.swim?(sprint?7:4.8):p.crouch?4.2:sprint?11:7.5):p.phase==='glide'?(p.dive?24:15):20;
+  p.sprinting=sprint&&p.phase==='ground'&&p.onGround&&!p.swim;
+  let speed=p.phase==='ground'?(p.swim?(sprint?10.5:7.5):p.crouch?4.2:sprint?11:7.5):22;
   const wade=WATER_Y-terrainHeight(p.pos.x,p.pos.z); if(p.phase==='ground'&&!p.swim&&wade>0.4&&p.pos.y<WATER_Y) speed*=clamp(1-(wade-0.4)*0.3,0.65,1);
   p.height=p.crouch?1.45:2.0;
   if(p.phase==='ground'&&(ads||p.consuming)) speed*=0.6;
   const tx=(fx*mz+rx*mx)*speed, tz=(fz*mz+rz*mx)*speed, acc=p.phase==='ground'?(p.onGround?14:4):3, k=1-Math.exp(-acc*dt);
-  if(p.phase==='fall') airDrag(p,dt); else { p.vel.x=lerp(p.vel.x,tx,k); p.vel.z=lerp(p.vel.z,tz,k); }
+  if(p.phase==='fall'&&p.tumbling) airDrag(p,dt);
+  else if(p.phase==='glide') glideFly(p,p.yaw-mx*0.75,mz>0||!!(keys.ShiftLeft||keys.ShiftRight),mz<0,dt);
+  else { p.vel.x=lerp(p.vel.x,tx,k); p.vel.z=lerp(p.vel.z,tz,k); }
   if(p.phase==='ground'&&p.onGround&&p.wantJump&&!p.swim){ p.vel.y=10.5; p.onGround=false; p.crouch=false; sfx('jump');
     // sprinting with empty hands or the pickaxe turns the jump into a front flip
     if(sprint&&!p.build){ const it=curItem(); if(!it||it.kind!=='gun') p.flipT=0; } }
-  if(p.phase==='fall'){ p.tumble-=dt; const agl=p.pos.y-supportAt(p.pos.x,p.pos.z,p.pos.y,p.radius); if(p.tumble<=0||agl<25||(p.wantJump&&p.tumble<0.8&&!p.tricks)){ p.phase='glide'; p.ch.glider.visible=true; sfx('glider'); banner('Glider out!','Steer with W A S D · hold SHIFT to dive',2.5); } }
+  if(p.phase==='fall'||p.phase==='glide'){ const agl=p.pos.y-supportAt(p.pos.x,p.pos.z,p.pos.y,p.radius);
+    // SPACE opens the glider (after a moment of tumbling) and closes it again for a fast skydive; it opens on its own near the ground
+    if(p.phase==='fall'){ p.fallT+=dt; if(agl<55||(p.wantJump&&p.fallT>0.6)) deployGlider(p); }
+    else if(p.wantJump&&agl>35){ p.phase='fall'; p.tumbling=false; p.fallT=1; p.dive=false; p.brake=false; sfx('glider'); } }
   p.wantJump=false;
   moveEntity(p,dt);
 }
@@ -1734,8 +1821,8 @@ function updateStorm(dt){
     for(const e of combatants){ if(!e.alive||e.phase==='jet') continue; if(Math.hypot(e.pos.x-storm.cur.x,e.pos.z-storm.cur.z)>storm.cur.r) hurt(e,S.dps,null,{storm:true}); } }
 }
 // The match starts aboard a private jet. One engine catches fire, then the jet explodes over the
-// island and everyone is thrown clear; gliders open after a short tumble. You can bail out early
-// once the engine fails.
+// island and everyone is thrown clear, tumbling out of control until they open their gliders. You can
+// bail out early once the engine fails.
 const JET_Y=150, JET_SPEED=42, JET_WARN=5;
 const JM={white:Lam({color:0xf3f5f9}),navy:Lam({color:0x1d2c4f}),gold:Lam({color:0xd8a93a,emissive:0x2a1c00}),glass:Lam({color:0x14202e,emissive:0x0a1a2a}),
   metal:Lam({color:0x9aa3ad}),dark:Lam({color:0x23272e}),char:Lam({color:0x2a2622}),win:Lam({color:0x1a2533,emissive:0x3a5a7a})};
@@ -1996,8 +2083,8 @@ function updateInteract(){
   interactTarget=null; const p=player;
   if(state!=='play'||!p.alive){ setPrompt(''); return; }
   if(p.phase==='jet'){ setPrompt(jet.warned?'<kbd>SPACE</kbd>Bail out now · Jet explodes in '+Math.max(1,Math.ceil(jet.boomT-jet.t)):'Cruising over Storm Island…'); return; }
-  if(p.phase==='fall'){ setPrompt(p.tumble<0.8&&!p.tricks?'<kbd>SPACE</kbd>Open glider':''); return; }
-  if(p.phase==='glide'){ setPrompt('<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>Steer toward land · <kbd>SHIFT</kbd>Dive'); return; }
+  if(p.phase==='fall'){ setPrompt(p.tumbling?(p.fallT>0.6?'<kbd>SPACE</kbd>Open glider':''):'<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>Steer · <kbd>SPACE</kbd>Open glider'); return; }
+  if(p.phase==='glide'){ setPrompt('Mouse steers · <kbd>W</kbd>Dive · <kbd>S</kbd>Brake · <kbd>A</kbd><kbd>D</kbd>Carve · <kbd>SPACE</kbd>Close glider'); return; }
   if(p.phase!=='ground'){ setPrompt(''); return; }
   let best=2.6, txt='';
   for(const c of chests){ if(c.opened) continue; const d=Math.hypot(c.pos.x-p.pos.x,c.pos.z-p.pos.z); if(d<best&&Math.abs(c.pos.y-p.pos.y)<2){ best=d; interactTarget=c; txt='<kbd>E</kbd>Open chest'; } }

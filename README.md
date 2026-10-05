@@ -12,8 +12,9 @@ Or open `index.html` in a browser (Chrome or Edge works best), pick a bot diffic
 | --- | --- |
 | WASD | Move |
 | Mouse | Look |
-| Space | Jump / bail out of the jet early / open glider |
-| Shift | Sprint / dive while gliding |
+| Space | Jump / bail out of the jet early / open or close the glider |
+| Shift | Sprint |
+| W / S while gliding | Dive / brake (the glider follows your mouse; A / D carve) |
 | V | Crouch |
 | Left click | Shoot, swing pickaxe, place builds |
 | Right click | Aim down sights |
