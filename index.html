@@ -213,6 +213,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
           <dt>F</dt><dd>Swap wood and stone</dd>
         </dl>
         <label class="sens" for="sens">Mouse speed <input type="range" id="sens" min="0.4" max="3" step="0.1" value="1"></label>
+        <label class="sens" for="vol">Volume <input type="range" id="vol" min="0" max="1" step="0.05" value="0.8"></label>
       </div>
     </div>
   </div>
@@ -228,6 +229,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
       <p class="tag" style="margin:6px auto 18px">Your match is frozen until you come back.</p>
       <button class="btn" id="resumeBtn">Resume</button>
       <label class="sens" for="sens2">Mouse speed <input type="range" id="sens2" min="0.4" max="3" step="0.1" value="1"></label>
+      <label class="sens" for="vol2">Volume <input type="range" id="vol2" min="0" max="1" step="0.05" value="0.8"></label>
     </div>
   </div>
 
@@ -439,37 +441,239 @@ M.rockRed=Lam({color:0xb7714e}); M.cactus=Lam({color:0x4f8a3a}); M.bush=Lam({col
 M.water=new T.MeshPhongMaterial({color:0x2a8fd6,specular:0xbfe8ff,shininess:80,transparent:true,opacity:0.84});
 
 // ================= audio =================
-let AC=null,NB=null,master=null;
-function initAudio(){ try{ if(!AC){ AC=new (window.AudioContext||window.webkitAudioContext)(); master=AC.createGain(); master.gain.value=0.45; master.connect(AC.destination); NB=AC.createBuffer(1,(AC.sampleRate*0.7)|0,AC.sampleRate); const d=NB.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; } if(AC.state==='suspended') AC.resume(); }catch(e){ AC=null; } }
-const GUNSND={ar:[2400,0.13,0.5],smg:[3200,0.08,0.4],pistol:[2800,0.1,0.45],pump:[1300,0.32,0.7],sniper:[1800,0.55,0.8]};
-function sfx(kind,pos){
-  if(!AC) return; let vol=1;
-  if(pos&&player){ const d=pos.distanceTo(player.pos); if(d>140) return; vol=Math.max(0.04,1-d/140)*0.6; }
-  const t=AC.currentTime, g=AC.createGain(); g.connect(master);
-  const env=(peak,dur)=>{ g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002,peak*vol),t+0.005); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); };
-  const osc=(type,f0,f1,dur)=>{ const o=AC.createOscillator(); o.type=type; o.frequency.setValueAtTime(f0,t); o.frequency.exponentialRampToValueAtTime(f1,t+dur); o.connect(g); o.start(t); o.stop(t+dur+0.02); };
-  const noise=(freq,dur,type)=>{ const s=AC.createBufferSource(); s.buffer=NB; const f=AC.createBiquadFilter(); f.type=type||'lowpass'; f.frequency.value=freq; s.connect(f); f.connect(g); s.start(t); s.stop(t+dur+0.02); };
-  if(GUNSND[kind]){ const [f,d,p]=GUNSND[kind]; env(p,d); noise(f,d); if(kind==='pump'||kind==='sniper') osc('sine',120,40,d); return; }
-  switch(kind){
-    case 'swing': env(0.15,0.12); noise(900,0.12,'bandpass'); break;
-    case 'chop': env(0.35,0.12); osc('triangle',220,90,0.12); break;
-    case 'build': env(0.16,0.09); osc('square',480,220,0.09); break;
-    case 'hit': env(0.22,0.06); osc('sine',1500,1300,0.06); break;
-    case 'head': env(0.3,0.1); osc('sine',2100,1800,0.1); break;
-    case 'shield': env(0.2,0.08); osc('sine',900,1250,0.08); break;
-    case 'hurt': env(0.4,0.18); noise(500,0.18); break;
-    case 'pickup': env(0.2,0.12); osc('sine',700,1400,0.12); break;
-    case 'chest': env(0.25,0.5); osc('triangle',523,1046,0.5); break;
-    case 'elim': env(0.3,0.4); osc('square',660,1320,0.4); break;
-    case 'break': env(0.3,0.25); noise(700,0.25); break;
-    case 'reload': env(0.15,0.08); osc('square',300,200,0.08); break;
-    case 'heal': env(0.2,0.3); osc('sine',440,880,0.3); break;
-    case 'empty': env(0.12,0.05); osc('square',200,180,0.05); break;
-    case 'alarm': env(0.14,0.16); osc('square',880,870,0.16); break;
-    case 'bang': env(0.5,0.6); noise(900,0.6); osc('sine',160,50,0.4); break;
-    case 'boom': { env(1,3.2); noise(260,3.2); const g2=AC.createGain(); g2.connect(master); g2.gain.setValueAtTime(0.9,t); g2.gain.exponentialRampToValueAtTime(0.0001,t+2.4); const o=AC.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(70,t); o.frequency.exponentialRampToValueAtTime(18,t+2.4); o.connect(g2); o.start(t); o.stop(t+2.5); break; }
-    case 'glider': env(0.25,0.4); noise(1400,0.4,'bandpass'); break;
+// Every sound is synthesized live with the Web Audio API: layers of filtered noise and oscillators
+// shaped by envelopes. Sounds in the world are placed in 3D (quieter, muffled and later with distance,
+// panned left/right) and share a reverb. Looping ambience (wind, waves, storm, jet engine, chest hum)
+// follows what is happening around you.
+let AC=null,NB=null,BB=null,master=null,bus=null,verb=null,AMB=null,volume=0.8;
+const lastSfx={};
+try{ const v=parseFloat(localStorage.getItem('stormIslandVol')); if(v>=0&&v<=1) volume=v; }catch(e){}
+function noiseBuf(brown,sec){
+  const b=AC.createBuffer(1,(AC.sampleRate*sec)|0,AC.sampleRate), d=b.getChannelData(0); let last=0;
+  for(let i=0;i<d.length;i++){ const w=Math.random()*2-1; if(brown){ last=(last+0.02*w)/1.02; d[i]=last*3.5; } else d[i]=w; }
+  return b;
+}
+function makeIR(sec){
+  const len=(AC.sampleRate*sec)|0, b=AC.createBuffer(2,len,AC.sampleRate);
+  for(let c=0;c<2;c++){ const d=b.getChannelData(c); for(let i=0;i<len;i++){ const k=i/len; d[i]=(Math.random()*2-1)*Math.pow(1-k,3.2)*(i<AC.sampleRate*0.012?0:1); } }
+  return b;
+}
+function initAudio(){
+  try{
+    if(!AC){
+      const ctx=new (window.AudioContext||window.webkitAudioContext)(); AC=ctx;
+      const comp=AC.createDynamicsCompressor(); comp.threshold.value=-16; comp.knee.value=10; comp.ratio.value=5; comp.attack.value=0.002; comp.release.value=0.25; comp.connect(AC.destination);
+      master=AC.createGain(); master.gain.value=volume; master.connect(comp);
+      bus=AC.createGain(); bus.gain.value=0.5; bus.connect(master);
+      verb=AC.createConvolver(); verb.buffer=makeIR(2.6); const vg=AC.createGain(); vg.gain.value=0.45; verb.connect(vg); vg.connect(master);
+      NB=noiseBuf(false,2); BB=noiseBuf(true,4);
+      initAmbience();
+    }
+    if(AC.state==='suspended') AC.resume();
+  }catch(e){ AC=null; }
+}
+function setVolume(v){ volume=v; if(master) master.gain.setTargetAtTime(v,AC.currentTime,0.05); try{ localStorage.setItem('stormIslandVol',String(v)); }catch(e){} }
+// --- one sound = a voice (position, pan, distance filter, reverb send) holding several layers
+function voice(pos,o){
+  let vol=o.gain==null?1:o.gain, pan=0, cut=0, delay=0, wet=o.wet==null?0.1:o.wet;
+  if(pos&&player){
+    const d=pos.distanceTo(camera.position), R=o.range||120; if(d>R) return null;
+    vol*=Math.pow(1-d/R,1.4)/(1+d/50);
+    if(d>8){ cut=clamp(15000*Math.exp(-d/60),450,15000); wet+=Math.min(0.4,d/300); }
+    if(d>35) delay=Math.min(0.8,d/343);
+    const rx=Math.cos(player.yaw), rz=-Math.sin(player.yaw), dx=pos.x-camera.position.x, dz=pos.z-camera.position.z, h=Math.hypot(dx,dz)||1;
+    pan=clamp((dx*rx+dz*rz)/h,-1,1)*0.85;
   }
+  if(vol<0.003) return null;
+  const out=AC.createGain(); out.gain.value=vol; let n=out;
+  if(cut){ const f=AC.createBiquadFilter(); f.type='lowpass'; f.frequency.value=cut; n.connect(f); n=f; }
+  if(pan&&AC.createStereoPanner){ const sp=AC.createStereoPanner(); sp.pan.value=pan; n.connect(sp); n=sp; }
+  n.connect(bus); if(wet>0){ const s=AC.createGain(); s.gain.value=wet; n.connect(s); s.connect(verb); }
+  return {out,t:AC.currentTime+0.004+delay,end:0};
+}
+function env(p,t,a,dur,g){ p.setValueAtTime(0.0001,t); p.exponentialRampToValueAtTime(Math.max(0.0002,g),t+a); p.exponentialRampToValueAtTime(0.0001,t+Math.max(dur,a+0.01)); }
+// filtered noise layer
+function nz(v,o){
+  const t=v.t+(o.at||0), dur=o.dur||0.1, s=AC.createBufferSource(), f=AC.createBiquadFilter(), g=AC.createGain();
+  s.buffer=o.brown?BB:NB; s.loop=true; if(o.rate) s.playbackRate.value=o.rate;
+  f.type=o.type||'lowpass'; f.frequency.setValueAtTime(o.f||1000,t); if(o.f1) f.frequency.exponentialRampToValueAtTime(o.f1,t+dur); f.Q.value=o.q==null?0.7:o.q;
+  env(g.gain,t,o.a||0.002,dur,o.g==null?1:o.g);
+  s.connect(f); f.connect(g); g.connect(v.out); s.start(t,Math.random()*1.5); s.stop(t+dur+0.05);
+  v.end=Math.max(v.end,(o.at||0)+dur);
+}
+// oscillator layer, optionally low-passed
+function tn(v,o){
+  const t=v.t+(o.at||0), dur=o.dur||0.1, s=AC.createOscillator(), g=AC.createGain();
+  s.type=o.type||'sine'; s.frequency.setValueAtTime(o.f||440,t); if(o.f1) s.frequency.exponentialRampToValueAtTime(o.f1,t+dur); if(o.det) s.detune.value=o.det;
+  env(g.gain,t,o.a||0.002,dur,o.g==null?1:o.g);
+  if(o.lp){ const f=AC.createBiquadFilter(); f.type='lowpass'; f.frequency.value=o.lp; s.connect(f); f.connect(g); } else s.connect(g);
+  g.connect(v.out); s.start(t); s.stop(t+dur+0.05);
+  v.end=Math.max(v.end,(o.at||0)+dur);
+}
+function done(v){ const ms=(v.t-AC.currentTime+v.end+0.4)*1000; setTimeout(()=>{ try{ v.out.disconnect(); }catch(e){} },ms); }
+const chk=(v,at,f,g)=>{ nz(v,{at,type:'bandpass',f:f||2600,q:2.5,dur:0.03,g:g||0.7}); nz(v,{at,type:'lowpass',f:500,dur:0.04,g:(g||0.7)*0.6}); };
+// --- guns: crack + body + thump + tail, with a little random pitch so no two shots sound alike
+const GUN_SFX={
+  ar:(v,p)=>{ nz(v,{type:'highpass',f:2600,dur:0.045,g:0.9}); nz(v,{type:'bandpass',f:950*p,q:0.9,dur:0.13,g:1.2}); tn(v,{f:150*p,f1:48,dur:0.1,g:0.9}); nz(v,{brown:true,type:'lowpass',f:1300,f1:250,dur:0.42,g:0.45,a:0.008}); },
+  smg:(v,p)=>{ nz(v,{type:'highpass',f:3400,dur:0.03,g:0.8}); nz(v,{type:'bandpass',f:1700*p,q:1.1,dur:0.07,g:1}); tn(v,{f:210*p,f1:90,dur:0.05,g:0.6}); nz(v,{type:'lowpass',f:1800,f1:400,dur:0.2,g:0.25,a:0.005}); },
+  pistol:(v,p)=>{ nz(v,{type:'highpass',f:3000,dur:0.035,g:0.9}); nz(v,{type:'bandpass',f:1250*p,q:1,dur:0.1,g:1}); tn(v,{type:'triangle',f:1850*p,f1:1700,dur:0.09,g:0.12}); tn(v,{f:170*p,f1:60,dur:0.08,g:0.7}); nz(v,{brown:true,type:'lowpass',f:1500,f1:300,dur:0.3,g:0.3,a:0.006}); },
+  pump:(v,p)=>{ nz(v,{type:'highpass',f:2000,dur:0.05,g:1}); nz(v,{brown:true,type:'lowpass',f:1100*p,f1:200,dur:0.32,g:1.6}); tn(v,{f:95*p,f1:34,dur:0.35,g:1.3}); nz(v,{brown:true,type:'lowpass',f:600,f1:120,dur:0.8,g:0.5,a:0.02});
+    chk(v,0.42,2200,0.6); chk(v,0.55,1800,0.7); nz(v,{at:0.43,type:'bandpass',f:900,f1:1600,q:1.5,dur:0.1,g:0.25}); },
+  sniper:(v,p)=>{ nz(v,{type:'highpass',f:4200,dur:0.06,g:1.3}); nz(v,{type:'bandpass',f:700*p,q:0.8,dur:0.25,g:1.4}); tn(v,{f:80*p,f1:28,dur:0.6,g:1.4}); nz(v,{brown:true,type:'lowpass',f:500,f1:90,dur:1.5,g:0.7,a:0.03});
+    chk(v,0.75,2400,0.6); nz(v,{at:0.86,type:'bandpass',f:1400,f1:3000,q:2,dur:0.09,g:0.35}); chk(v,1.0,2000,0.7); },
+};
+// reload steps play as the reload progresses, so swapping weapons cuts them off naturally
+const RELOAD_STEPS={ar:[[0.12,'magOut'],[0.62,'magIn'],[0.88,'charge']],smg:[[0.12,'magOut'],[0.6,'magIn'],[0.86,'charge']],pistol:[[0.1,'magOut'],[0.62,'magIn'],[0.88,'slide']],
+  pump:[[0.15,'shell'],[0.33,'shell'],[0.51,'shell'],[0.69,'shell'],[0.9,'pump']],sniper:[[0.14,'boltUp'],[0.5,'round'],[0.84,'boltDown']]};
+const STEP_SFX={
+  magOut:v=>{ chk(v,0,3000,0.5); nz(v,{at:0.02,type:'bandpass',f:1200,f1:700,q:1.5,dur:0.09,g:0.35}); },
+  magIn:v=>{ nz(v,{type:'bandpass',f:1700,q:2,dur:0.035,g:1}); tn(v,{type:'triangle',f:620,f1:300,dur:0.05,g:0.35}); nz(v,{type:'lowpass',f:350,dur:0.07,g:0.6}); },
+  charge:v=>{ chk(v,0,2800,0.7); nz(v,{at:0.03,type:'bandpass',f:1600,f1:3200,q:2,dur:0.06,g:0.3}); chk(v,0.09,3200,0.8); tn(v,{at:0.09,type:'triangle',f:2300,dur:0.1,g:0.08}); },
+  slide:v=>{ nz(v,{type:'bandpass',f:2000,f1:3600,q:2,dur:0.06,g:0.35}); chk(v,0.07,3400,0.8); },
+  shell:v=>{ nz(v,{type:'bandpass',f:1400,q:2,dur:0.04,g:0.6}); tn(v,{f:420,f1:250,dur:0.04,g:0.3}); },
+  pump:v=>{ chk(v,0,2200,0.7); chk(v,0.13,1800,0.8); },
+  boltUp:v=>{ chk(v,0,2600,0.6); nz(v,{at:0.03,type:'bandpass',f:1500,f1:900,q:2,dur:0.08,g:0.35}); },
+  round:v=>{ nz(v,{type:'bandpass',f:2400,q:3,dur:0.03,g:0.6}); tn(v,{type:'triangle',f:3100,dur:0.06,g:0.08}); },
+  boltDown:v=>{ nz(v,{type:'bandpass',f:900,f1:1700,q:2,dur:0.08,g:0.35}); chk(v,0.09,2200,0.9); },
+};
+const FOOT={
+  grass:(v,g)=>{ nz(v,{type:'lowpass',f:1300,dur:0.08,g:0.4*g,a:0.006}); nz(v,{type:'highpass',f:4200,dur:0.04,g:0.08*g}); },
+  sand:(v,g)=>{ nz(v,{type:'bandpass',f:2300,q:0.8,dur:0.11,g:0.3*g,a:0.012}); },
+  rock:(v,g)=>{ nz(v,{type:'highpass',f:1800,dur:0.025,g:0.35*g}); nz(v,{type:'lowpass',f:260,dur:0.06,g:0.5*g}); },
+  wood:(v,g)=>{ nz(v,{type:'bandpass',f:480,q:2,dur:0.07,g:0.6*g}); tn(v,{f:170,f1:115,dur:0.05,g:0.3*g}); },
+  water:(v,g)=>{ nz(v,{type:'bandpass',f:1100,f1:550,q:1,dur:0.2,g:0.45*g,a:0.01}); tn(v,{at:0.05,f:480,f1:950,dur:0.05,g:0.08*g}); },
+};
+const PICK_NOTES=[784,988,1175,1568,1976];
+const SFX={
+  swing:v=>{ nz(v,{type:'bandpass',f:500,f1:2600,q:1.2,dur:0.17,g:0.55,a:0.04}); },
+  chop:(v,o)=>{ if(o.mat==='stone'){ nz(v,{type:'highpass',f:2500,dur:0.04,g:0.9}); tn(v,{type:'triangle',f:1300*rnd(0.95,1.05),dur:0.22,g:0.2}); tn(v,{type:'triangle',f:1870*rnd(0.95,1.05),dur:0.16,g:0.14}); tn(v,{f:260,f1:140,dur:0.08,g:0.6}); }
+    else { nz(v,{type:'highpass',f:3000,dur:0.02,g:0.6}); nz(v,{type:'bandpass',f:520*rnd(0.9,1.1),q:2.5,dur:0.08,g:1.2}); tn(v,{f:220*rnd(0.9,1.1),f1:110,dur:0.09,g:0.7}); } },
+  break:v=>{ nz(v,{type:'lowpass',f:1800,f1:250,dur:0.42,g:1.1}); tn(v,{f:120,f1:45,dur:0.25,g:0.8}); for(let i=0;i<7;i++) nz(v,{at:rnd(0,0.3),type:'bandpass',f:rnd(800,2600),q:3,dur:0.03,g:0.6}); },
+  build:(v,o)=>{ if(o.mat==='stone'){ nz(v,{brown:true,type:'lowpass',f:520,dur:0.15,g:1.4}); tn(v,{f:130,f1:60,dur:0.15,g:0.8}); nz(v,{type:'highpass',f:2000,dur:0.05,g:0.25}); }
+    else { for(const at of [0,0.055]){ nz(v,{at,type:'bandpass',f:700*rnd(0.9,1.1),q:3,dur:0.05,g:0.9}); tn(v,{at,f:240,f1:160,dur:0.06,g:0.45}); } } },
+  tick:v=>{ tn(v,{type:'triangle',f:1800,dur:0.03,g:0.3}); },
+  empty:v=>{ nz(v,{type:'bandpass',f:3000,q:4,dur:0.02,g:0.6}); tn(v,{type:'square',f:220,dur:0.02,g:0.12,lp:1500}); },
+  hit:v=>{ tn(v,{f:1250,dur:0.05,g:0.45}); tn(v,{type:'triangle',f:2500,dur:0.04,g:0.2}); nz(v,{type:'lowpass',f:400,dur:0.06,g:0.5}); },
+  head:v=>{ tn(v,{f:2093,dur:0.42,g:0.4}); tn(v,{f:3136,dur:0.3,g:0.22}); tn(v,{f:4186,dur:0.18,g:0.12}); nz(v,{type:'highpass',f:6000,dur:0.03,g:0.4}); nz(v,{type:'lowpass',f:400,dur:0.06,g:0.5}); },
+  shield:v=>{ tn(v,{f:1500,f1:2300,dur:0.1,g:0.3}); nz(v,{type:'bandpass',f:5000,q:6,dur:0.1,g:0.6}); },
+  shieldBreak:v=>{ for(let i=0;i<9;i++) nz(v,{at:i*0.02,type:'highpass',f:rnd(4000,8000),dur:0.05,g:0.6}); tn(v,{type:'triangle',f:2400,f1:500,dur:0.32,g:0.3}); tn(v,{f:300,f1:120,dur:0.15,g:0.5}); },
+  hurt:v=>{ nz(v,{type:'lowpass',f:350,dur:0.16,g:1.2}); tn(v,{f:110,f1:48,dur:0.14,g:0.9}); nz(v,{type:'bandpass',f:900,q:1,dur:0.08,g:0.3}); },
+  stormHurt:v=>{ nz(v,{type:'bandpass',f:2600,q:1.5,dur:0.16,g:0.6}); tn(v,{type:'sawtooth',f:115,dur:0.18,g:0.3,lp:1800}); tn(v,{type:'square',f:58,dur:0.16,g:0.2,lp:600}); },
+  elim:v=>{ tn(v,{type:'triangle',f:659,dur:0.13,g:0.4}); tn(v,{at:0.07,type:'triangle',f:988,dur:0.15,g:0.4}); tn(v,{at:0.14,type:'triangle',f:1319,dur:0.42,g:0.45}); tn(v,{at:0.14,f:2637,dur:0.3,g:0.08}); tn(v,{f:130,f1:55,dur:0.28,g:0.8}); nz(v,{at:0.14,type:'highpass',f:5000,dur:0.25,g:0.18}); },
+  pickup:(v,o)=>{ const it=o.item||{};
+    if(it.kind==='gun'){ chk(v,0,1900,0.6); chk(v,0.06,2400,0.5); const n=(it.r||0)+1; for(let i=0;i<n;i++) tn(v,{at:0.06+i*0.055,type:'triangle',f:PICK_NOTES[i],dur:0.2,g:0.2}); if(it.r>=3) nz(v,{at:0.12,type:'highpass',f:7000,dur:0.35,g:0.12,a:0.05}); }
+    else if(it.kind==='cons'){ tn(v,{f:1700,dur:0.14,g:0.22}); tn(v,{at:0.01,f:2550,dur:0.1,g:0.12}); nz(v,{type:'bandpass',f:3000,q:3,dur:0.03,g:0.3}); }
+    else { tn(v,{f:520,f1:950,dur:0.06,g:0.3}); nz(v,{type:'bandpass',f:2000,q:2,dur:0.03,g:0.3}); } },
+  chest:v=>{ nz(v,{type:'bandpass',f:300,f1:850,q:4,dur:0.35,g:0.45,a:0.05}); [523,659,784,1047,1319].forEach((f,i)=>{ tn(v,{at:0.15+i*0.06,type:'triangle',f,dur:0.65,g:0.18}); tn(v,{at:0.15+i*0.06,f:f*2,dur:0.4,g:0.05}); }); nz(v,{at:0.2,type:'highpass',f:6500,dur:0.7,g:0.14,a:0.1}); },
+  useStart:(v,o)=>{ const id=o.id;
+    if(id==='bandage') nz(v,{type:'bandpass',f:2600,f1:1400,q:1,dur:0.28,g:0.45,a:0.01});
+    else if(id==='medkit') for(let i=0;i<7;i++) nz(v,{at:i*0.03,type:'bandpass',f:3000+i*120,q:2,dur:0.022,g:0.35});
+    else { tn(v,{f:400,f1:1300,dur:0.04,g:0.4}); nz(v,{type:'highpass',f:3000,dur:0.02,g:0.4}); for(let i=0;i<4;i++) tn(v,{at:0.25+i*0.2,f:rnd(240,380),f1:rnd(500,700),dur:0.07,g:0.22}); } },
+  healDone:(v,o)=>{ if(o.id==='mini'||o.id==='big'){ tn(v,{type:'triangle',f:880,f1:1760,dur:0.35,g:0.25}); tn(v,{at:0.1,f:1320,dur:0.45,g:0.14}); nz(v,{type:'highpass',f:6000,dur:0.4,g:0.12,a:0.05}); }
+    else [523,659,784].forEach((f,i)=>tn(v,{at:i*0.08,f,dur:0.45,g:0.2,a:0.02})); },
+  jump:v=>{ nz(v,{type:'bandpass',f:800,f1:1700,q:1,dur:0.13,g:0.22,a:0.02}); },
+  land:(v,o)=>{ const k=clamp((o.v||10)/18,0.3,1.3); nz(v,{brown:true,type:'lowpass',f:320,dur:0.14,g:k}); tn(v,{f:90,f1:42,dur:0.12,g:0.7*k}); if(FOOT[o.surf]) FOOT[o.surf](v,1.2); },
+  step:(v,o)=>{ (FOOT[o.surf]||FOOT.grass)(v,o.g||1); },
+  glider:v=>{ nz(v,{type:'bandpass',f:450,f1:1500,q:1,dur:0.32,g:1.1,a:0.03}); for(let i=0;i<4;i++) nz(v,{at:0.05+i*0.06,type:'lowpass',f:700,dur:0.05,g:1-i*0.18}); },
+  whiz:v=>{ nz(v,{type:'bandpass',f:3800,f1:1100,q:3,dur:0.17,g:0.9,a:0.03}); tn(v,{f:1500,f1:600,dur:0.15,g:0.07}); },
+  impact:(v,o)=>{ const m=o.mat;
+    if(m==='wood'){ nz(v,{type:'bandpass',f:620,q:2,dur:0.06,g:0.8}); tn(v,{f:230,f1:140,dur:0.05,g:0.35}); }
+    else if(m==='stone'){ nz(v,{type:'highpass',f:2200,dur:0.04,g:0.7}); if(Math.random()<0.25) tn(v,{f:rnd(2200,3000),f1:1000,dur:0.25,g:0.12}); }
+    else if(m==='flesh') nz(v,{type:'lowpass',f:320,dur:0.08,g:0.7});
+    else { nz(v,{type:'lowpass',f:900,dur:0.08,g:0.55}); nz(v,{type:'highpass',f:3500,dur:0.02,g:0.2}); } },
+  alarm:(v,o)=>{ tn(v,{type:'square',f:o.hi?960:720,dur:0.17,g:0.26,lp:2600,a:0.01}); },
+  bang:v=>{ nz(v,{brown:true,type:'lowpass',f:1400,f1:180,dur:0.6,g:1.4}); tn(v,{f:130,f1:38,dur:0.45,g:1}); for(let i=0;i<6;i++) nz(v,{at:rnd(0,0.4),type:'bandpass',f:rnd(1200,3000),q:3,dur:0.03,g:0.5}); },
+  boom:v=>{ nz(v,{type:'highpass',f:1500,dur:0.12,g:1.4}); nz(v,{brown:true,type:'lowpass',f:900,f1:110,dur:2.8,g:1.8,a:0.01}); tn(v,{f:62,f1:20,dur:2.3,g:1.5}); tn(v,{f:41,f1:18,dur:2.6,g:0.9});
+    for(let i=0;i<14;i++) nz(v,{at:rnd(0.15,2.2),type:'bandpass',f:rnd(700,2800),q:3,dur:rnd(0.02,0.06),g:rnd(0.3,0.7)}); },
+  thunder:v=>{ for(let i=0;i<5;i++) nz(v,{at:i*rnd(0.03,0.08),type:'highpass',f:2500,dur:0.05,g:0.5}); nz(v,{brown:true,type:'lowpass',f:380,f1:70,dur:rnd(2,3.2),g:1.6,a:0.04}); tn(v,{f:55,f1:25,dur:1.6,g:0.5}); },
+  stormWarn:v=>{ tn(v,{type:'sawtooth',f:98,dur:1.2,g:0.28,a:0.25,lp:700}); tn(v,{type:'sawtooth',f:98,det:14,dur:1.2,g:0.2,a:0.25,lp:700}); tn(v,{at:1.0,type:'sawtooth',f:73,dur:1.6,g:0.3,a:0.25,lp:600}); tn(v,{at:1.0,type:'sawtooth',f:73,det:-12,dur:1.6,g:0.22,a:0.25,lp:600}); },
+  bird:v=>{ const n=2+(Math.random()*4|0), b=rnd(2400,3800); for(let i=0;i<n;i++){ const f=b*rnd(0.85,1.15); tn(v,{at:i*rnd(0.09,0.15),f,f1:f*rnd(0.7,1.4),dur:rnd(0.05,0.1),g:0.16,a:0.01}); } },
+  victory:v=>{ [523,659,784,1047,1319].forEach((f,i)=>{ tn(v,{at:i*0.12,type:'triangle',f,dur:0.3,g:0.3}); tn(v,{at:i*0.12,f:f/2,dur:0.3,g:0.12}); }); [523,659,784,1047].forEach(f=>tn(v,{at:0.66,type:'triangle',f,dur:1.6,g:0.16,a:0.03})); nz(v,{at:0.66,type:'highpass',f:6000,dur:1.2,g:0.12,a:0.1}); },
+  defeat:v=>{ [392,311,262].forEach((f,i)=>tn(v,{at:i*0.28,type:'triangle',f,dur:i===2?1.3:0.35,g:0.3,lp:1600})); tn(v,{at:0.56,f:131,dur:1.4,g:0.25}); },
+  ui:v=>{ tn(v,{type:'triangle',f:1200,f1:1500,dur:0.05,g:0.18}); },
+};
+// range is how far away a sound carries; wet is how much reverb it gets
+const SFX_OPT={ar:{range:320},smg:{range:260},pistol:{range:280},pump:{range:300,wet:0.15},sniper:{range:600,wet:0.25},
+  step:{range:40,wet:0.03},impact:{range:70},whiz:{range:20,wet:0},build:{range:90},break:{range:110},chop:{range:80},boom:{range:700,wet:0.5},bang:{range:300,wet:0.3},
+  thunder:{wet:0.6},stormWarn:{wet:0.5},chest:{wet:0.35},victory:{wet:0.3},defeat:{wet:0.3},bird:{range:60,wet:0.25},land:{wet:0.03}};
+const SFX_GAP={impact:0.03,whiz:0.08,hit:0.035,head:0.035,shield:0.035,step:0.02,tick:0.03};
+function sfx(kind,pos,o){
+  if(!AC||!bus) return; o=o||{};
+  const gap=SFX_GAP[kind], now=AC.currentTime; if(gap&&kind!=='step'||gap&&!pos){ if(lastSfx[kind]!=null&&now-lastSfx[kind]<gap) return; lastSfx[kind]=now; }
+  const opt=SFX_OPT[kind]||{}, v=voice(pos,{range:opt.range,wet:opt.wet,gain:o.gain}); if(!v) return;
+  if(GUN_SFX[kind]) GUN_SFX[kind](v,rnd(0.94,1.06)); else if(kind==='reloadStep') STEP_SFX[o.step](v); else if(SFX[kind]) SFX[kind](v,o);
+  done(v);
+}
+// --- looping ambience
+function loopSrc(brown,rate){ const s=AC.createBufferSource(); s.buffer=brown?BB:NB; s.loop=true; s.playbackRate.value=rate||1; s.start(); return s; }
+function chain(...n){ for(let i=0;i<n.length-1;i++) n[i].connect(n[i+1]); return n[n.length-1]; }
+function filt(type,f,q){ const b=AC.createBiquadFilter(); b.type=type; b.frequency.value=f; b.Q.value=q==null?0.7:q; return b; }
+function gainN(v){ const g=AC.createGain(); g.gain.value=v||0; return g; }
+function initAmbience(){
+  const out=gainN(0.9); out.connect(master);
+  const A={out,birdT:4,thunderT:8};
+  A.windF=filt('bandpass',500,0.6); A.wind=gainN(); chain(loopSrc(true,1),A.windF,A.wind,out);
+  A.ocean=gainN(); chain(loopSrc(true,0.55),filt('lowpass',480),A.ocean,out);
+  A.storm=gainN(); chain(loopSrc(true,0.5),filt('lowpass',150),A.storm,out);
+  A.crackle=gainN(); chain(loopSrc(false,1),filt('highpass',3500),A.crackle,out);
+  A.eng=gainN(); A.engF=filt('lowpass',520,1.5); chain(A.engF,A.eng,out);
+  A.engO=[82,82.7,123].map(f=>{ const o=AC.createOscillator(); o.type='sawtooth'; o.frequency.value=f; o.connect(A.engF); o.start(); return o; });
+  A.whine=gainN(); chain(loopSrc(false,1),filt('bandpass',2700,4),A.whine,out);
+  A.hum=gainN(); const trem=gainN(0.5); chain(trem,A.hum,out);
+  for(const f of [880,1318.5,1760]){ const o=AC.createOscillator(); o.frequency.value=f; o.connect(trem); o.start(); }
+  const lfo=AC.createOscillator(), lg=gainN(0.35); lfo.frequency.value=5.5; chain(lfo,lg,trem.gain); lfo.start();
+  AMB=A;
+}
+function surfaceAt(e){
+  const th=terrainHeight(e.pos.x,e.pos.z);
+  if(e.pos.y>th+0.35) return 'wood';
+  if(e.pos.y<WATER_Y+0.45) return 'water';
+  if(th<2.2||biomeAt(e.pos.x,e.pos.z)>0.6) return 'sand';
+  if(th>20||slopeAt(e.pos.x,e.pos.z)>0.9) return 'rock';
+  return 'grass';
+}
+function footsteps(dt){
+  for(const e of combatants){
+    if(!e.alive||e.phase!=='ground'||!e.onGround){ e.stepD=0; continue; }
+    const s=Math.hypot(e.vel.x,e.vel.z); if(s<1){ e.stepD=0; continue; }
+    e.stepD=(e.stepD||0)+s*dt; const stride=e.crouch?1.5:s>9?2.3:1.85;
+    if(e.stepD<stride) continue; e.stepD-=stride;
+    const g=(e.crouch?0.35:s>9?1.25:0.9)*(e.isPlayer?0.6:1.3);
+    if(e.isPlayer) sfx('step',null,{surf:surfaceAt(e),g}); else if(e.pos.distanceTo(camera.position)<40) sfx('step',e.pos,{surf:surfaceAt(e),g});
+  }
+}
+function updateAudio(dt){
+  if(!AC||!AMB) return; const A=AMB, t=AC.currentTime, p=player, T=(par,v,k)=>par.setTargetAtTime(v,t,k||0.15);
+  const live=state==='play'&&p;
+  T(A.out.gain,state==='paused'?0.25:1,0.2);
+  if(state==='paused') return;
+  if(!live){ for(const n of [A.ocean,A.storm,A.crackle,A.eng,A.whine,A.hum]) T(n.gain,0,0.3); T(A.wind.gain,state==='menu'?0.05:0.02,0.5); return; }
+  const sp=Math.hypot(p.vel.x,p.vel.y,p.vel.z), gust=0.75+0.25*Math.sin(t*0.37)*Math.sin(t*0.71+1);
+  // wind: muffled in the jet, roaring in freefall, rushing while gliding, a breeze on the ground
+  let w=0.05*gust, wf=450;
+  if(p.phase==='jet'){ w=0.04; wf=300; }
+  else if(p.phase==='fall'){ w=0.3+Math.min(0.35,sp/80); wf=700+sp*25; }
+  else if(p.phase==='glide'){ w=0.14+(p.dive?0.16:0)+Math.min(0.1,sp/200); wf=550+sp*20; }
+  else if(p.pos.y-terrainHeight(p.pos.x,p.pos.z)>8) w=0.1*gust;
+  T(A.wind.gain,p.alive?w:0.03,0.25); T(A.windF.frequency,wf,0.3);
+  // waves near the shore
+  const th=terrainHeight(p.pos.x,p.pos.z), shore=p.phase==='ground'?clamp(1-(th-1.5)/6,0,1):0;
+  T(A.ocean.gain,shore*0.22*(0.55+0.45*Math.sin(t*0.6)),0.4);
+  // storm rumble grows as you get close to the wall and crackles inside it
+  const edge=Math.hypot(p.pos.x-storm.cur.x,p.pos.z-storm.cur.z)-storm.cur.r, inside=edge>0&&p.phase!=='jet';
+  T(A.storm.gain,p.phase==='jet'?0:clamp(1+edge/45,0,1)*0.45,0.3);
+  T(A.crackle.gain,inside&&Math.random()<0.15?rnd(0.02,0.08):0,0.02);
+  // jet engine hum, which sputters and sags once the engine fails
+  const onJet=p.phase==='jet'&&!jet.done, k=jet.warned?(jet.t-jet.warnT)/JET_WARN:0;
+  T(A.eng.gain,onJet?(jet.warned&&Math.random()<0.25?0.06:0.2):0,onJet?0.04:0.08);
+  T(A.whine.gain,onJet?0.03+k*0.05:0,0.1); A.engO.forEach((o,i)=>T(o.frequency,[82,82.7,123][i]*(1-k*0.3),0.3));
+  // unopened chests hum when you are near them
+  let cd=1e9; if(p.phase==='ground') for(const c of chests){ if(c.opened) continue; const d=c.pos.distanceTo(p.pos); if(d<cd) cd=d; }
+  T(A.hum.gain,cd<14?Math.pow(1-cd/14,2)*0.06:0,0.2);
+  // birds in calm places, thunder inside the storm
+  A.birdT-=dt; if(A.birdT<=0){ A.birdT=rnd(3,9); if(p.phase==='ground'&&!inside&&edge<-30&&biomeAt(p.pos.x,p.pos.z)<0.6){ const a=Math.random()*6.28, r=rnd(12,35); sfx('bird',new V(p.pos.x+Math.cos(a)*r,p.pos.y+rnd(4,10),p.pos.z+Math.sin(a)*r)); } }
+  A.thunderT-=dt; if(A.thunderT<=0){ A.thunderT=rnd(5,13); if(inside||(storm.stage==='shrink'&&edge>-25)) sfx('thunder',null,{gain:inside?1:0.5}); }
+  footsteps(dt);
 }
 
 // ================= terrain =================
@@ -578,7 +782,7 @@ function addBlock(cx,cy,cz,sx,sy,sz,mat,hp){ const m=new T.Mesh(new T.BoxGeometr
 function addProp(obj,meshes,box,res,hp){ const p={etype:'prop',obj,meshes,box,res,hp,maxHp:hp,shake:0}; meshes.forEach(m=>{ m.userData.ent=p; propMeshes.push(m); }); if(box) colliders.add(box); props.push(p); world.add(obj); return p; }
 function damageProp(p,dmg,attacker,pickaxe,point){
   if(p.dead) return; p.hp-=dmg; p.shake=0.3; if(!anims.includes(p)) anims.push(p);
-  if(pickaxe&&attacker===player){ const amt=p.res==='wood'?12:10; player.mats[p.res]=Math.min(999,player.mats[p.res]+amt); if(point) showDmg(point,'+'+amt,'build'); sfx('chop'); }
+  if(pickaxe&&attacker===player){ const amt=p.res==='wood'?12:10; player.mats[p.res]=Math.min(999,player.mats[p.res]+amt); if(point) showDmg(point,'+'+amt,'build'); sfx('chop',null,{mat:p.res}); }
   if(p.hp<=0){ p.dead=true; world.remove(p.obj); for(const m of p.meshes) removeFrom(propMeshes,m); if(p.box) colliders.delete(p.box); targetsDirty=true; debris(p.obj.position.clone().add(new V(0,1.5,0)),p.meshes[0].material); sfx('break',p.obj.position); }
 }
 function makeTree(x,z,forest){
@@ -969,7 +1173,7 @@ function supportAt(x,z,y,r){
   return g;
 }
 function moveEntity(e,dt){
-  const p=e.pos;
+  const p=e.pos, wasGround=e.onGround, vy0=e.vel.y;
   p.x+=e.vel.x*dt; p.z+=e.vel.z*dt;
   collideH(e);
   const R=WORLD/2-6; p.x=clamp(p.x,-R,R); p.z=clamp(p.z,-R,R);
@@ -979,7 +1183,7 @@ function moveEntity(e,dt){
   if(e.vel.y>0){ const rs=e.radius*0.6;
     for(const b of colliders){ if(b.min.y<p.y+e.height-0.3||b.min.y>ny+e.height) continue; if(p.x+rs<b.min.x||p.x-rs>b.max.x||p.z+rs<b.min.z||p.z-rs>b.max.z) continue; ny=b.min.y-e.height; e.vel.y=0; } }
   const sup=supportAt(p.x,p.z,p.y,e.radius);
-  if(ny<=sup){ ny=sup; if(e.vel.y<0) e.vel.y=0; e.onGround=true; }
+  if(ny<=sup){ ny=sup; if(e.vel.y<0) e.vel.y=0; e.onGround=true; if(e===player&&!wasGround&&vy0<-7) sfx('land',null,{v:-vy0,surf:surfaceAt(e)}); }
   else if(e.onGround&&e.vel.y<=0&&ny-sup<0.45&&e.phase==='ground'){ ny=sup; e.vel.y=0; e.onGround=true; }
   else e.onGround=false;
   p.y=ny;
@@ -1032,7 +1236,7 @@ function placePiece(e,kind,free){
   const p={kind:t.kind,t,matName,owner:e,edit:null,hp,maxHp:hp,key:t.key,grow:0};
   const gm=pieceGeometry(p); Object.assign(p,{obj:gm.obj,meshes:gm.meshes,boxes:gm.boxes,ramp:gm.ramp||null});
   world.add(p.obj); p.obj.scale.setScalar(0.2); registerPiece(p);
-  anims.push(p); e.buildT=0.25; sfx('build',e.isPlayer?null:e.pos); return true;
+  anims.push(p); e.buildT=0.25; sfx('build',e.isPlayer?null:e.pos,{mat:matName}); return true;
 }
 // ================= build pieces & edit mode =================
 GEO.tileWZ=new T.BoxGeometry(G/3,(G+0.3)/3,0.3); GEO.tileWX=new T.BoxGeometry(0.3,(G+0.3)/3,G/3); GEO.tileF=new T.BoxGeometry(G/2,0.25,G/2);
@@ -1094,10 +1298,10 @@ function colorEditTiles(){ const ed=player.editing; for(const m of editTiles){ c
 function editTileAt(){ camera.getWorldDirection(tv1); ray.set(camera.position,tv1); ray.near=camDistNow; ray.far=camDistNow+9; const h=ray.intersectObjects(editTiles,false)[0]; return h?h.object.userData.tile:null; }
 function editClick(){
   const ed=player.editing, tile=editTileAt(); if(tile===null) return;
-  if(tile==='rot'){ ed.dir=(ed.dir+1)%4; buildEditOverlay(); sfx('reload'); return; }
+  if(tile==='rot'){ ed.dir=(ed.dir+1)%4; buildEditOverlay(); sfx('tick'); return; }
   ed.paint=!ed.sel.has(tile); editPaint(tile);
 }
-function editPaint(tile){ const ed=player.editing; if(tile===null||tile==='rot'||ed.paint===null) return; const had=ed.sel.has(tile); if(ed.paint&&!had){ ed.sel.add(tile); sfx('reload'); } else if(!ed.paint&&had){ ed.sel.delete(tile); sfx('reload'); } else return; colorEditTiles(); }
+function editPaint(tile){ const ed=player.editing; if(tile===null||tile==='rot'||ed.paint===null) return; const had=ed.sel.has(tile); if(ed.paint&&!had){ ed.sel.add(tile); sfx('tick'); } else if(!ed.paint&&had){ ed.sel.delete(tile); sfx('reload'); } else return; colorEditTiles(); }
 function confirmEdit(){
   const ed=player.editing, p=ed.piece;
   if(!p.dead){
@@ -1143,15 +1347,21 @@ function fireRay(shooter,origin,dir,w,rar,mult,muzzle,near){
   let hit=null; for(const h of hits){ if(h.object.userData.ent===shooter) continue; hit=h; break; }
   const hd=hit?hit.distance:w.range, td=terrainRay(origin,dir,hd);
   const end=new V();
-  if(td<hd){ end.copy(origin).addScaledVector(dir,td); puff(end,0xb8a77a); }
+  if(td<hd){ end.copy(origin).addScaledVector(dir,td); puff(end,0xb8a77a); sfx('impact',end,{mat:'dirt'}); }
   else if(hit){
     end.copy(hit.point); const ent=hit.object.userData.ent;
     let dmg=w.dmg*rar.m*mult; if(w.falloff) dmg*=clamp(1-(hit.distance-8)/30,0.25,1);
-    if(ent.etype==='char'){ const head=hit.object.userData.part==='head'; if(head) dmg*=w.head; hurt(ent,dmg,shooter,{head,point:hit.point,weapon:w.name}); }
-    else if(ent.etype==='piece'){ damagePiece(ent,dmg,shooter,hit.point); puff(end,0xdddddd); }
-    else if(ent.etype==='prop'){ damageProp(ent,dmg*0.5,shooter,false,hit.point); puff(end,0xdddddd); }
+    if(ent.etype==='char'){ const head=hit.object.userData.part==='head'; if(head) dmg*=w.head; hurt(ent,dmg,shooter,{head,point:hit.point,weapon:w.name}); if(ent!==player&&shooter!==player) sfx('impact',end,{mat:'flesh'}); }
+    else if(ent.etype==='piece'){ damagePiece(ent,dmg,shooter,hit.point); puff(end,0xdddddd); sfx('impact',end,{mat:ent.matName}); }
+    else if(ent.etype==='prop'){ damageProp(ent,dmg*0.5,shooter,false,hit.point); puff(end,0xdddddd); sfx('impact',end,{mat:ent.res}); }
     else puff(end,0xdddddd);
   } else end.copy(origin).addScaledVector(dir,Math.min(w.range,250));
+  // bullets that just miss your head whiz past
+  if(shooter!==player&&player.alive&&player.phase==='ground'&&!(hit&&hit.object.userData.ent===player)){
+    const hx=player.pos.x-origin.x, hy=player.pos.y+1.5-origin.y, hz=player.pos.z-origin.z, len=origin.distanceTo(end);
+    const k=clamp(hx*dir.x+hy*dir.y+hz*dir.z,0,len), cx=origin.x+dir.x*k, cy=origin.y+dir.y*k, cz=origin.z+dir.z*k;
+    if(k>2&&Math.hypot(player.pos.x-cx,player.pos.y+1.5-cy,player.pos.z-cz)<3) sfx('whiz',new V(cx,cy,cz));
+  }
   tracer(muzzle,end);
 }
 function hurt(t,amt,src,info){
@@ -1159,8 +1369,8 @@ function hurt(t,amt,src,info){
   amt=Math.max(1,Math.round(amt)); let left=amt, sh=0;
   if(t.shield>0&&!info.storm){ sh=Math.min(t.shield,left); t.shield-=sh; left-=sh; }
   t.hp-=left;
-  if(src===player&&t!==player){ player.dmgDealt+=amt; showDmg(info.point||t.pos.clone().add(new V(0,1.4,0)),amt,info.head?'head':(sh>0?'shield':'')); hitMarker(info.head); sfx(info.head?'head':(sh>0?'shield':'hit')); }
-  if(t===player){ hurtFlash=Math.min(1,hurtFlash+0.3+amt/90); sfx('hurt'); }
+  if(src===player&&t!==player){ player.dmgDealt+=amt; showDmg(info.point||t.pos.clone().add(new V(0,1.4,0)),amt,info.head?'head':(sh>0?'shield':'')); hitMarker(info.head); sfx(sh>0&&t.shield<=0?'shieldBreak':info.head?'head':(sh>0?'shield':'hit')); }
+  if(t===player){ hurtFlash=Math.min(1,hurtFlash+0.3+amt/90); sfx(info.storm?'stormHurt':'hurt'); }
   if(!t.isPlayer&&src&&src!==t&&src.alive){ t.healT=0; if(t.enemy!==src){ t.enemy=src; t.seenAt=matchTime-0.2; } t.lastSeen=src.pos.clone(); t.lastSeenT=matchTime; if(t.buildCd<=0&&t.onGround&&Math.random()<DIFF[diff].cover) botCover(t,src); }
   if(t.hp<=0) eliminate(t,src,info.weapon);
 }
@@ -1190,7 +1400,7 @@ function playerFire(){
     const hits=ray.intersectObjects(shotTargets,false); const h=hits.find(x=>x.object.userData.ent!==p);
     if(h){ const ent=h.object.userData.ent;
       if(ent.etype==='prop') damageProp(ent,25,p,true,h.point);
-      else if(ent.etype==='piece'){ damagePiece(ent,50,p,h.point); sfx('chop'); }
+      else if(ent.etype==='piece'){ damagePiece(ent,50,p,h.point); sfx('chop',null,{mat:ent.matName}); }
       else if(ent.etype==='char') hurt(ent,20,p,{point:h.point,weapon:'Pickaxe'}); }
     return;
   }
@@ -1209,16 +1419,16 @@ function playerFire(){
 }
 function startReload(){ const p=player, it=curItem(); if(!it||it.kind!=='gun'||p.reloading) return; const w=WEAP[it.id];
   if(it.ammo>=w.mag) return; if(p.ammo[w.ammo]<=0){ toast('No '+AMMO_NAMES[w.ammo].toLowerCase()+' left'); return; }
-  p.consuming=null; p.reloading={it,t:0,dur:w.reload}; sfx('reload'); }
+  p.consuming=null; p.reloading={it,t:0,dur:w.reload,step:0}; }
 function finishReload(){ const p=player, r=p.reloading; p.reloading=null; const w=WEAP[r.it.id]; const take=Math.min(w.mag-r.it.ammo,p.ammo[w.ammo]); r.it.ammo+=take; p.ammo[w.ammo]-=take; }
 function startConsume(it){ const p=player, c=CONS[it.id];
   if(c.heal&&p.hp>=c.cap) return toast(c.cap===100?'Health is already full':'Bandages only heal up to 75');
   if(c.shield&&p.shield>=c.cap) return toast(c.cap===100?'Shield is already full':'Small shields only stack to 50');
-  p.reloading=null; p.consuming={it,t:0,dur:c.time}; }
+  p.reloading=null; p.consuming={it,t:0,dur:c.time}; sfx('useStart',null,{id:it.id}); }
 function finishConsume(){ const p=player, it=p.consuming.it, c=CONS[it.id]; p.consuming=null;
   if(c.heal) p.hp=Math.min(c.cap,p.hp+c.heal);
   if(c.shield) p.shield=Math.min(c.cap,p.shield+c.shield);
-  sfx('heal'); it.count--; if(it.count<=0){ const i=p.slots.indexOf(it); if(i>0) p.slots[i]=null; } refreshHotbar(); }
+  sfx('healDone',null,{id:it.id}); it.count--; if(it.count<=0){ const i=p.slots.indexOf(it); if(i>0) p.slots[i]=null; } refreshHotbar(); }
 function selectSlot(n){ const p=player; if(p.editing) endEdit(); if(p.build) p.build=null; if(p.sel!==n) cancelActions(); p.sel=n; refreshHotbar(); }
 function setBuild(k){ const p=player; if(p.editing) endEdit(); if(p.phase!=='ground') return; cancelActions(); p.build=k; p.lastBuild=k; refreshHotbar(); }
 function toggleBuild(){ const p=player; if(p.build){ p.build=null; refreshHotbar(); } else setBuild(p.lastBuild||'wall'); }
@@ -1226,11 +1436,11 @@ function interact(){ const t=interactTarget; if(!t) return; if(t.etype==='chest'
 function pickupLoot(l){
   const p=player, it=l.item;
   if(it.kind==='cons'){ for(let i=1;i<6;i++){ const s=p.slots[i]; if(s&&s.kind==='cons'&&s.id===it.id&&s.count<CONS[it.id].stack){ const add=Math.min(it.count,CONS[it.id].stack-s.count); s.count+=add; it.count-=add; } }
-    if(it.count<=0){ removeLoot(l); sfx('pickup'); refreshHotbar(); return; } }
+    if(it.count<=0){ removeLoot(l); sfx('pickup',null,{item:it}); refreshHotbar(); return; } }
   let slot=-1; for(let i=1;i<6;i++) if(!p.slots[i]){ slot=i; break; }
   if(slot<0){ slot=p.sel>0?p.sel:1; const old=p.slots[slot]; spawnLoot(old,p.pos.x+rnd(-0.8,0.8),p.pos.y,p.pos.z+rnd(-0.8,0.8)); }
   if(p.sel===slot) cancelActions();
-  p.slots[slot]=it; removeLoot(l); sfx('pickup'); refreshHotbar();
+  p.slots[slot]=it; removeLoot(l); sfx('pickup',null,{item:it}); refreshHotbar();
 }
 
 // ================= bots =================
@@ -1355,14 +1565,14 @@ function updatePlayer(dt){
   if(p.phase==='ground'&&(ads||p.consuming)) speed*=0.6;
   const tx=(fx*mz+rx*mx)*speed, tz=(fz*mz+rz*mx)*speed, acc=p.phase==='ground'?(p.onGround?14:4):3, k=1-Math.exp(-acc*dt);
   if(p.phase==='fall') airDrag(p,dt); else { p.vel.x=lerp(p.vel.x,tx,k); p.vel.z=lerp(p.vel.z,tz,k); }
-  if(p.phase==='ground'&&p.onGround&&p.wantJump){ p.vel.y=10.5; p.onGround=false; p.crouch=false; }
+  if(p.phase==='ground'&&p.onGround&&p.wantJump){ p.vel.y=10.5; p.onGround=false; p.crouch=false; sfx('jump'); }
   if(p.phase==='fall'){ p.tumble-=dt; const agl=p.pos.y-supportAt(p.pos.x,p.pos.z,p.pos.y,p.radius); if(p.tumble<=0||agl<25||(p.wantJump&&p.tumble<0.8)){ p.phase='glide'; p.ch.glider.visible=true; sfx('glider'); banner('Glider out!','Steer with W A S D · hold SHIFT to dive',2.5); } }
   p.wantJump=false;
   moveEntity(p,dt);
 }
 function updateActions(dt){
   const p=player; p.fireCd-=dt; p.bloom=Math.max(0,p.bloom-dt*2.2); if(p.swingT>0) p.swingT-=dt;
-  if(p.reloading){ if(curItem()!==p.reloading.it) p.reloading=null; else { p.reloading.t+=dt; if(p.reloading.t>=p.reloading.dur) finishReload(); } }
+  if(p.reloading){ const r=p.reloading; if(curItem()!==r.it) p.reloading=null; else { r.t+=dt; const st=RELOAD_STEPS[r.it.id]; while(st&&r.step<st.length&&r.t>=st[r.step][0]*r.dur){ sfx('reloadStep',null,{step:st[r.step][1]}); r.step++; } if(r.t>=r.dur) finishReload(); } }
   if(p.consuming){ if(curItem()!==p.consuming.it) p.consuming=null; else { p.consuming.t+=dt; if(p.consuming.t>=p.consuming.dur) finishConsume(); } }
   const it=curItem();
   ads=state==='play'&&mouse.r&&!p.build&&!p.editing&&p.phase==='ground'&&p.alive&&!!it&&it.kind==='gun';
@@ -1390,7 +1600,7 @@ function initStorm(){
 }
 function updateStorm(dt){
   storm.t-=dt; const S=STORM[Math.min(storm.phase,STORM.length-1)];
-  if(storm.stage==='wait'&&storm.t<=0){ storm.stage='shrink'; storm.t=S.shrink; storm.from={...storm.cur}; banner('The storm is closing in','Get inside the white circle on your map',3); }
+  if(storm.stage==='wait'&&storm.t<=0){ storm.stage='shrink'; storm.t=S.shrink; storm.from={...storm.cur}; sfx('stormWarn'); banner('The storm is closing in','Get inside the white circle on your map',3); }
   else if(storm.stage==='shrink'){
     const k=1-Math.max(0,storm.t)/S.shrink, f=storm.from, n=storm.next;
     storm.cur.x=lerp(f.x,n.x,k); storm.cur.z=lerp(f.z,n.z,k); storm.cur.r=lerp(f.r,n.r,k);
@@ -1487,7 +1697,7 @@ function updateJet(dt){
     jet.body.rotation.z=Math.sin(tt*3.1)*0.06*(1+k*3)+k*0.25; jet.body.rotation.x=Math.sin(tt*4.7)*0.02*(1+k*2)+k*0.06;
     jet.fire.scale.setScalar(rnd(2.2,3.2)*(1+k)); jet.fire.material.color.setHSL(0.06+Math.random()*0.04,1,0.55);
     jet.smokeT-=dt*JET_SPEED; if(jet.smokeT<=0){ jet.smokeT=1.1; jet.fire.getWorldPosition(tv4); smokePuff(tv4,2+k*1.5,2.4,0x3a3430,new V(rnd(-1,1),rnd(0,1.5),rnd(-1,1))); }
-    jet.beepT-=dt; if(jet.beepT<=0&&player.phase==='jet'){ jet.beepT=k>0.6?0.3:0.55; sfx('alarm'); }
+    jet.beepT-=dt; if(jet.beepT<=0&&player.phase==='jet'){ jet.beepT=k>0.6?0.3:0.55; jet.beepHi=!jet.beepHi; sfx('alarm',null,{hi:jet.beepHi}); }
     camShake=Math.max(camShake,player.phase==='jet'?0.06+k*0.18:0);
   }
   jet.mesh.position.copy(jet.pos);
@@ -1516,7 +1726,7 @@ function explodeJet(){
   blastFx(c);
   for(const e of combatants) if(e.alive&&e.phase==='jet') leaveJet(e,true);
   if(player.alive){ const d=player.pos.distanceTo(c); camShake=Math.max(camShake,clamp(1.6-d/120,0.15,1.2)); boomFlash=clamp(1.1-d/200,0.1,1); }
-  sfx('boom');
+  sfx('boom',c);
 }
 function blastFx(c){
   boomLight.position.copy(c); boomLight.intensity=7;
@@ -1649,7 +1859,7 @@ function updateLoot(dt){
       for(const sp of l.sparks){ const u=sp.userData, k=(l.t*0.45*u.sp+u.ph)%1; sp.position.set(Math.cos(u.a+l.t*u.sp)*0.6,0.2+k*1.9,Math.sin(u.a+l.t*u.sp)*0.6); sp.scale.setScalar(0.24*Math.sin(k*Math.PI)+0.02); } }
     if((l.item.kind==='ammo'||l.item.kind==='mat')&&p.alive&&p.phase==='ground'&&Math.hypot(l.pos.x-p.pos.x,l.pos.z-p.pos.z)<1.8&&Math.abs(l.pos.y-p.pos.y)<2){
       if(l.item.kind==='ammo') p.ammo[l.item.type]+=l.item.count; else p.mats[l.item.type]=Math.min(999,p.mats[l.item.type]+l.item.count);
-      feed('+ '+itemName(l.item),false); removeLoot(l); sfx('pickup'); } }
+      feed('+ '+itemName(l.item),false); sfx('pickup',null,{item:l.item}); removeLoot(l); } }
 }
 
 // ================= minimap =================
@@ -1773,7 +1983,7 @@ function endMatch(win,killer){
   $('overTitle').textContent=win?'Victory!':'Eliminated';
   $('overSub').textContent=win?'Last one standing on Storm Island':(killer?'Eliminated by '+killer.name:'Lost in the storm');
   $('stElims').textContent=player.kills; $('stDmg').textContent=Math.round(player.dmgDealt); $('stTime').textContent=fmtTime(matchTime);
-  if(win){ banner('Victory!','#1 of 20',4); sfx('chest'); }
+  if(win){ banner('Victory!','#1 of 20',4); sfx('victory'); } else sfx('defeat');
   setTimeout(()=>{ if(document.pointerLockElement) document.exitPointerLock(); $('over').hidden=false; $('againBtn').focus(); },win?1800:1400);
 }
 function pauseGame(){ if(state!=='play') return; state='paused'; for(const k in keys) keys[k]=false; mouse.l=mouse.r=false; $('pause').hidden=false; }
@@ -1790,6 +2000,11 @@ function requestLock(){
 const sensInputs=[$('sens'),$('sens2')];
 try{ const s=parseFloat(localStorage.getItem('stormIslandSens')); if(s>0){ sens=s; } }catch(e){}
 sensInputs.forEach(inp=>{ inp.value=sens; inp.addEventListener('input',()=>{ sens=parseFloat(inp.value)||1; sensInputs.forEach(o=>{ if(o!==inp) o.value=sens; }); try{ localStorage.setItem('stormIslandSens',String(sens)); }catch(e){} }); });
+const volInputs=[$('vol'),$('vol2')];
+volInputs.forEach(inp=>{ inp.value=volume; inp.addEventListener('input',()=>{ initAudio(); setVolume(parseFloat(inp.value)); volInputs.forEach(o=>{ if(o!==inp) o.value=volume; }); }); inp.addEventListener('change',()=>sfx('ui')); });
+// audio can only start after a click; menu buttons also get a soft click
+addEventListener('pointerdown',()=>initAudio());
+addEventListener('click',ev=>{ if(ev.target.closest&&ev.target.closest('button')) sfx('ui'); });
 $('playBtn').addEventListener('click',startMatch);
 try{ const d=localStorage.getItem('stormIslandDiff'); if(DIFF[d]) diff=d; }catch(e){}
 const diffBtns=[...document.querySelectorAll('.diff button')];
@@ -1870,13 +2085,13 @@ function loop(now){
     else { perfStage=3; if(f<30){ sun.castShadow=false; foliage.forEach(m=>m.visible=false); } } } }
   if(water) water.position.y=WATER_Y+Math.sin(now/900)*0.06;
   for(const c of clouds) c.position.x=((c.position.x+dt*3+500)%1000)-500;
-  updateCamera(dt); updateSun(); updateGhost();
+  updateCamera(dt); updateSun(); updateGhost(); updateAudio(dt);
   if(state!=='menu'&&state!=='armory'&&player){ hudAcc+=dt; if(hudAcc>0.1){ hudAcc=0; hudTick(); } hudFrame(dt); drawMap(); }
   renderer.render(scene,camera);
 }
 $('playBtn').disabled=true; $('playBtn').textContent='Loading…';
 loadSoldier(ok=>{ newMatch(); $('playBtn').disabled=false; $('playBtn').textContent='Drop in'; if(!ok) console.warn('Character model unavailable; using simple characters'); });
 requestAnimationFrame(loop);
-window.__game={setCam:(p,l)=>{ camOverride=p?{pos:new V(...p),look:new V(...l)}:null; },th:terrainHeight,get editing(){return player.editing;},startEdit,confirmEdit,editClick,openArmory,setArm:i=>{armIdx=i;buildArmory();},pieces:()=>[...pieceMap.values()],colliderCount:()=>colliders.size,debugLoot:(x,y,z)=>{ spawnLoot({kind:'gun',id:'sniper',r:4,ammo:1},x,y,z); spawnLoot({kind:'gun',id:'smg',r:3,ammo:30},x+1.6,y,z+0.4); spawnLoot({kind:'cons',id:'big',count:1},x-1.5,y,z+0.3); },get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},startMatch,update,setState:s=>state=s};
+window.__game={sfx:(k,o)=>sfx(k,null,o),get audioOk(){return !!(AC&&bus&&AMB);},setCam:(p,l)=>{ camOverride=p?{pos:new V(...p),look:new V(...l)}:null; },th:terrainHeight,get editing(){return player.editing;},startEdit,confirmEdit,editClick,openArmory,setArm:i=>{armIdx=i;buildArmory();},pieces:()=>[...pieceMap.values()],colliderCount:()=>colliders.size,debugLoot:(x,y,z)=>{ spawnLoot({kind:'gun',id:'sniper',r:4,ammo:1},x,y,z); spawnLoot({kind:'gun',id:'smg',r:3,ammo:30},x+1.6,y,z+0.4); spawnLoot({kind:'cons',id:'big',count:1},x-1.5,y,z+0.3); },get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},startMatch,update,setState:s=>state=s};
 })();
 </script>

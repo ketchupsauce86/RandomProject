@@ -23,6 +23,8 @@ Open `index.html` in a browser (Chrome or Edge works best), pick a bot difficult
 | G | Edit a build (click tiles, G to confirm, right-click to reset) |
 | F | Swap wood and stone |
 
+All sound is synthesized live in the browser with the Web Audio API, so there are no audio files. Each gun has its own layered shot, plus reload steps, distant echoes and bullet whizzes. Footsteps change with the ground under you (grass, sand, rock, wood and water), and wind, waves, birds, the storm, the jet engine and nearby chests all have their own ambience. Sounds in the world are panned left and right, muffled with distance, and arrive later from far away. The menu and pause screen have a volume slider.
+
 Built with [three.js](https://threejs.org/) r128 plus its GLTFLoader and SkeletonUtils (loaded from cdnjs and jsDelivr).
 
 Characters use the Soldier model and its Idle, Walk, Run and T-Pose motion-capture clips from the three.js examples (animations from Mixamo), packed into `soldier.js`. Arm, leg and spine poses for aiming, crouching, recoil and gliding are solved live with two-bone inverse kinematics. If `soldier.js` is missing, the game falls back to simple block characters.
