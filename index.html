@@ -1419,7 +1419,7 @@ function collideH(e){
   }
 }
 function rampH(r,x,z){ const u=(x-r.x0)/G, v=(z-r.z0)/G; const t=r.dir===0?v:r.dir===1?u:r.dir===2?1-v:1-u; return r.base+clamp(t,0,1)*G; }
-const SWIM_Y=WATER_Y-1.45, SWIM_DEPTH=WATER_Y-1.3;
+const SWIM_Y=WATER_Y-1.45;
 function supportAt(x,z,y,r){
   let g=Math.max(terrainHeight(x,z),SWIM_Y); const rs=r*0.6;
   for(const b of colliders){ if(b.max.y>y+STEP||b.max.y<=g) continue; if(x+rs<b.min.x||x-rs>b.max.x||z+rs<b.min.z||z-rs>b.max.z) continue; g=b.max.y; }
@@ -1442,7 +1442,8 @@ function moveEntity(e,dt){
   else if(e.onGround&&e.vel.y<=0&&ny-sup<0.45&&e.phase==='ground'){ ny=sup; e.vel.y=0; e.onGround=true; }
   else e.onGround=false;
   p.y=ny;
-  const wasSwim=e.swim; e.swim=e.phase==='ground'&&terrainHeight(p.x,p.z)<SWIM_DEPTH&&sup<SWIM_Y+0.05;
+  // any water deeper than the knees means swimming (a little hysteresis so the shoreline doesn't flicker)
+  const wasSwim=e.swim, deep=WATER_Y-(wasSwim?0.42:0.55); e.swim=e.phase==='ground'&&terrainHeight(p.x,p.z)<deep&&sup<deep;
   if(e.swim!==wasSwim){ if(e.swim){ e.crouch=false; e.build=null; if(e===player) cancelActions(); } if(e.pos.distanceTo(camera.position)<60){ splash(tv4.set(p.x,WATER_Y,p.z),e.swim&&vy0<-6?1.6:0.9); sfx('splash',e===player?null:e.pos,{big:vy0<-6}); } }
   if(e.onGround&&(e.phase==='fall'||e.phase==='glide')){ e.phase='ground'; e.tumbling=false; if(!e.isPlayer) e.armedAt=matchTime+rnd(3,8); }
 }
