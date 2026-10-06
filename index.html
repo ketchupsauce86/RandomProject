@@ -230,7 +230,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 
   <div id="armory" hidden>
     <div class="armhead"><div class="armtop"><button class="btn2 arrow" id="armPrev" aria-label="Previous">‹</button><div><div class="armkick" id="armKick">Armory</div><h2 id="armName">Assault Rifle</h2></div><button class="btn2 arrow" id="armNext" aria-label="Next">›</button></div>
-    <div class="armtabs" role="group" aria-label="Show"><button id="armGunsTab" aria-pressed="true">Guns</button><button id="armPicksTab" aria-pressed="false">Pickaxes</button></div>
+    <div class="armtabs" role="group" aria-label="Show"><button id="armGunsTab" aria-pressed="true">Guns</button><button id="armPicksTab" aria-pressed="false">Pickaxes</button><button id="armSkinsTab" aria-pressed="false">Skins</button></div>
     <div id="armSets" role="group" aria-label="Pickaxe set" hidden></div></div>
     <div id="armLabels"></div>
     <div class="armbottom"><p id="armPower" hidden></p><p id="armStats"></p><p class="note" id="armNote">Higher rarities add attachments and a new finish: worn steel, camo, tech, energy and gold.</p><div class="btnrow"><button class="btn2" id="armEquip" hidden>Equip</button><button class="btn" id="armBack">Back</button></div></div>
@@ -265,6 +265,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
 <script src="soldier.js"></script>
 <script src="pickaxes.js"></script>
+<script src="skins.js"></script>
 <script>
 (function(){
 'use strict';
@@ -645,6 +646,7 @@ const SFX={
     else { nz(v,{type:'lowpass',f:900,dur:0.08,g:0.55}); nz(v,{type:'highpass',f:3500,dur:0.02,g:0.2}); } },
   alarm:(v,o)=>{ tn(v,{type:'square',f:o.hi?960:720,dur:0.17,g:0.26,lp:2600,a:0.01}); },
   bang:v=>{ nz(v,{brown:true,type:'lowpass',f:1400,f1:180,dur:0.6,g:1.4}); tn(v,{f:130,f1:38,dur:0.45,g:1}); for(let i=0;i<6;i++) nz(v,{at:rnd(0,0.4),type:'bandpass',f:rnd(1200,3000),q:3,dur:0.03,g:0.5}); },
+  crash:v=>{ nz(v,{brown:true,type:'lowpass',f:700,f1:70,dur:1.6,g:1.9,a:0.004}); tn(v,{f:58,f1:22,dur:1.1,g:1.4}); for(let i=0;i<5;i++) nz(v,{at:rnd(0,0.35),type:'bandpass',f:rnd(700,2200),q:6,dur:rnd(0.08,0.25),g:0.55}); tn(v,{at:0.05,type:'triangle',f:rnd(300,420),f1:180,dur:0.5,g:0.25}); },
   boom:v=>{ nz(v,{type:'highpass',f:1500,dur:0.12,g:1.4}); nz(v,{brown:true,type:'lowpass',f:900,f1:110,dur:2.8,g:1.8,a:0.01}); tn(v,{f:62,f1:20,dur:2.3,g:1.5}); tn(v,{f:41,f1:18,dur:2.6,g:0.9});
     for(let i=0;i<14;i++) nz(v,{at:rnd(0.15,2.2),type:'bandpass',f:rnd(700,2800),q:3,dur:rnd(0.02,0.06),g:rnd(0.3,0.7)}); },
   thunder:v=>{ for(let i=0;i<5;i++) nz(v,{at:i*rnd(0.03,0.08),type:'highpass',f:2500,dur:0.05,g:0.5}); nz(v,{brown:true,type:'lowpass',f:380,f1:70,dur:rnd(2,3.2),g:1.6,a:0.04}); tn(v,{f:55,f1:25,dur:1.6,g:0.5}); },
@@ -1106,6 +1108,51 @@ function makeCharacterGLB(pal){
   const hb={head:new T.Mesh(HIT_GEO.head,hitMat),chest:new T.Mesh(HIT_GEO.chest,hitMat),legs:new T.Mesh(HIT_GEO.legs,hitMat)}; g.add(hb.head,hb.chest,hb.legs);
   return {glb:true,g,spin,model,bones,mixer,act,gunMount,pick:pickG,glider,flash,hb,parts:[hb.head,hb.chest,hb.legs],head:hb.head,heldKey:'',held:null,w:{Idle:1,Walk:0,Run:0,TPose:0}};
 }
+// ---- outfits: repaint the soldier's armor and hang themed gear on its bones (see skins.js)
+const SK=window.SKINS||null, skinMats=new Map(), gearMats={};
+function skinMaterials(skin,body,visor){
+  let m=skinMats.get(skin.i); if(m) return m;
+  const fin=skin.fin||[0.15,0.7], src=body.map, cv=SK.paint(src.image,skin,512);
+  const tex=t=>{ const x=new T.CanvasTexture(t); x.flipY=src.flipY; x.encoding=src.encoding; x.wrapS=src.wrapS; x.wrapT=src.wrapT; x.anisotropy=4; return x; };
+  const b=body.clone(); b.map=tex(cv.map); b.color.set(0xffffff); b.metalness=Math.min(fin[0],0.6); b.roughness=fin[1];
+  if(cv.glow){ b.emissive=new T.Color(0xffffff); b.emissiveMap=tex(cv.glow); b.emissiveIntensity=0.9; }
+  const v=visor.clone(); v.map=null; v.color.set(skin.v); v.metalness=0.6; v.roughness=0.18;
+  if((skin.g||'').includes('v')){ v.emissive=new T.Color(skin.v); v.emissiveIntensity=0.85; }
+  m={body:b,visor:v}; skinMats.set(skin.i,m); return m;
+}
+function applySkin(c,skin){
+  if(!c.glb||!SK||!skin) return;
+  if(!c.baseMats){ c.baseMats={}; c.model.traverse(o=>{ if(o.isMesh) c.baseMats[o.name]=o.material; }); }
+  for(const o of c.gear||[]){ o.parent&&o.parent.remove(o); o.traverse(m=>{ if(m.isMesh) m.geometry.dispose(); }); }
+  c.gear=[]; c.capes=[]; c.flaps=[]; c.bobs=[]; c.skin=skin;
+  const mats=skin.def?null:skinMaterials(skin,c.baseMats.vanguard_Mesh,c.baseMats.vanguard_visor);
+  c.model.traverse(o=>{ if(o.isMesh) o.material=mats?(o.name==='vanguard_visor'?mats.visor:mats.body):c.baseMats[o.name]; });
+  c.g.updateMatrixWorld(true); const ws=new V(), sc=new V(), qq=new T.Quaternion(); c.g.getWorldScale(ws);
+  for(const [kind,...args] of skin.acc){
+    for(const [bn,obj] of SK.gear(T,kind,args,gearMats)){
+      const bone=c.bones[bn]; if(!bone) continue; bone.matrixWorld.decompose(tv1,qq,sc);
+      const wrap=new T.Group(); wrap.scale.setScalar(ws.x/sc.x); // gear is modelled in metres at the character's own scale
+      wrap.add(obj); bone.add(wrap); c.gear.push(wrap);
+      obj.traverse(o=>{ if(o.isMesh) o.frustumCulled=false; if(o.userData.cape) c.capes.push(o); if(o.userData.flap) c.flaps.push(o); if(o.userData.bob) c.bobs.push(o); });
+    }
+  }
+}
+// capes and tails trail behind when running and falling; wings breathe; halos float
+const _cq1=new T.Quaternion(), _cq2=new T.Quaternion(), _cq3=new T.Quaternion(), UPX=new T.Vector3(1,0,0), UPY=new T.Vector3(0,1,0), _cf=new T.Vector3();
+function swayGear(e,c,speed,dt){
+  if(!c.capes||(!c.capes.length&&!c.flaps.length&&!c.bobs.length)) return;
+  const t=performance.now()/1000, air=e.phase==='fall'?1.25:e.phase==='glide'?0.9:(!e.onGround?0.35:0);
+  const tgt=0.06+clamp(speed/7,0,1)*0.55+air+Math.sin(t*(3+speed*0.6)+e.walkT)*0.04*(0.3+clamp(speed/7,0,1));
+  for(const o of c.capes){ o.userData.rx=lerp(o.userData.rx||0,tgt,1-Math.exp(-6*dt));
+    if(o.userData.cape==='hang'){ // a cape hangs from the shoulders under gravity, whatever the spine is doing
+      // face the way the chest faces (the torso twists to aim), hang straight down, flare back with speed
+      o.parent.getWorldQuaternion(_cq1); _cf.set(0,0,1).applyQuaternion(_cq1); _cf.y=0;
+      if(_cf.lengthSq()<0.09){ c.spin.getWorldQuaternion(_cq2); _cf.set(0,0,-1).applyQuaternion(_cq2); _cf.y=0; }
+      _cq2.setFromAxisAngle(UPY,Math.atan2(_cf.x,_cf.z)).multiply(_cq3.setFromAxisAngle(UPX,o.userData.rx+0.08)).premultiply(_cq1.invert()); o.quaternion.copy(_cq2); }
+    else o.rotation.x=(o.userData.baseX??(o.userData.baseX=o.rotation.x))+o.userData.rx; }
+  for(const o of c.flaps) o.rotation.y=o.userData.flap*(0.45+Math.sin(t*2.2)*0.1+air*0.35);
+  for(const o of c.bobs) o.position.y=0.42+Math.sin(t*2)*0.012;
+}
 const UP=new V(0,1,0);
 // Whole-body motion shared by both character styles: the out-of-control tumble of the drop, sprint
 // front flips, leaning into turns, glider banking, skydive and swim posture. Spins pivot around the
@@ -1200,7 +1247,7 @@ function animateGLB(e,dt){
   for(const n in c.act) c.act[n].setEffectiveWeight(W[n]);
   c.act.Walk.setEffectiveTimeScale(back*clamp(s/1.8,0.7,1.6)); c.act.Run.setEffectiveTimeScale(back*clamp(s/5.5,0.8,2.15));
   const near=!player||e===player||e.pos.distanceTo(camera.position)<70;
-  c.mixer.update(dt);
+  c.mixer.update(dt); swayGear(e,c,s+(e.phase==='ground'?0:Math.hypot(e.vel.x,e.vel.z)*0.3),dt);
   bodyPose(e,g,c,a,dt);
   c.model.position.y=0; g.updateMatrixWorld(true);
   // body-relative axes (they follow flips, twists and swimming)
@@ -1343,6 +1390,7 @@ function makeCombatant(name,isPlayer,pal){
   const ch=SOLDIER?makeCharacterGLB(pal):makeCharacter(pal); world.add(ch.g);
   const e={etype:'char',name,isPlayer,ch,pos:new V(),vel:new V(),yaw:0,pitch:0,hp:100,shield:0,alive:true,onGround:false,phase:'jet',kills:0,radius:0.45,height:2.0,walkT:Math.random()*6,swingT:0,deadT:0,crouch:false,buildT:0,reloadT:0,
     anim:{move:0,crouch:0,air:0,phase:Math.random()*6,recoil:0,flash:0,reload:0,pumpT:9,twist:0,sprint:0,sprPose:0,swimK:0,land:0,hit:0,draw:1,stroke:0,kick:0}};
+  if(ch.glb&&SK) applySkin(ch,isPlayer?equippedSkin():pickBotSkin());
   ch.parts.forEach(m=>{ m.userData.ent=e; m.userData.part=(m===ch.head)?'head':'body'; charMeshes.push(m); });
   combatants.push(e); targetsDirty=true; return e;
 }
@@ -2076,12 +2124,12 @@ function explodeJet(){
     const spin=new V(rnd(-2.5,2.5),rnd(-2,2),rnd(-2.5,2.5)), burning=name!=='wingL'||Math.random()<0.5;
     let fl=null; if(burning){ fl=new T.Sprite(fireMat.clone()); fl.scale.setScalar(4); g.add(fl); }
     let st=0;
-    effects.push({t:0,dur:12,obj:g,upd:(e,k,dt)=>{
+    effects.push({t:0,dur:25,obj:g,upd:(e,k,dt)=>{
       v.y=Math.max(v.y-GRAV*0.55*dt,-45); v.x*=1-0.15*dt; v.z*=1-0.15*dt; g.position.addScaledVector(v,dt);
       g.rotation.x+=spin.x*dt; g.rotation.y+=spin.y*dt; g.rotation.z+=spin.z*dt;
       if(fl){ fl.scale.setScalar(rnd(3,4.5)*(1-k*0.6)); fl.material.color.setHSL(0.05+Math.random()*0.05,1,0.55); }
       st-=dt*Math.hypot(v.x,v.y,v.z); if(st<=0&&burning&&e.t<5){ st=1.7; smokePuff(g.position,3.2,2.4,0x2e2926,new V(rnd(-0.5,0.5),1,rnd(-0.5,0.5))); }
-      if(g.position.y<Math.max(terrainHeight(g.position.x,g.position.z),WATER_Y)+0.5){ smokePuff(g.position,3,3,0x4a4540,new V(0,3,0)); if(fl) fl.visible=false; e.t=e.dur; }
+      if(g.position.y<Math.max(terrainHeight(g.position.x,g.position.z),WATER_Y)+0.5){ if(fl){ g.remove(fl); fl.material.dispose(); fl=null; } debrisImpact(g,v,burning); e.obj=new T.Object3D(); e.t=e.dur; }
     },done:()=>{ if(fl) fl.material.dispose(); }});
   }
   world.remove(jet.mesh);
@@ -2089,6 +2137,43 @@ function explodeJet(){
   for(const e of combatants) if(e.alive&&e.phase==='jet') leaveJet(e,true);
   if(player.alive){ const d=player.pos.distanceTo(c); camShake=Math.max(camShake,clamp(1.6-d/120,0.15,1.2)); boomFlash=clamp(1.1-d/200,0.1,1); }
   sfx('boom',c);
+}
+// A falling piece of the jet hits the island: dirt and rock blast out, a dust cloud and shockwave roll out
+// from a scorched crater, anything close gets hurt and knocked back, trees and builds there are flattened,
+// and the wreck stays where it fell, smoking (and burning for a while if it was on fire).
+const scorchMat=new T.MeshBasicMaterial({map:glowTex,color:0x17110c,transparent:true,opacity:0.85,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2});
+function debrisImpact(g,v,burning){
+  const p=g.position, gy=terrainHeight(p.x,p.z), wet=gy<WATER_Y, speed=v.length(), big=g.userData.size||1, d=p.distanceTo(camera.position);
+  sfx(wet?'splash':'crash',p,{big:true});
+  camShake=Math.max(camShake,clamp(1.1-d/90,0,0.9)*big);
+  if(wet){ for(let i=0;i<3;i++) splash(tv4.set(p.x+rnd(-2,2),WATER_Y,p.z+rnd(-2,2)),3.5); for(let i=0;i<6;i++) smokePuff(tv4.set(p.x+rnd(-3,3),WATER_Y+0.5,p.z+rnd(-3,3)),3,3,0xe8eef2,new V(0,2.5,0),i*0.1);
+    effects.push({t:0,dur:4,obj:g,upd:(e,k,dt)=>{ g.position.y-=dt*1.2; g.rotation.z+=dt*0.2; }}); return; }
+  // settle the wreck half buried in the ground, nose tipped into the dirt
+  p.y=gy+0.2; g.rotation.x*=0.4; g.rotation.z*=0.4;
+  const mats=[new T.MeshLambertMaterial({color:0x6b5236}),new T.MeshLambertMaterial({color:0x8d9198}),JM.char];
+  for(let i=0;i<18;i++){ const m=new T.Mesh(GEO.debris,mats[i%3]); m.position.set(p.x,gy+0.5,p.z); m.scale.setScalar(rnd(0.6,1.8)); world.add(m);
+    const a=Math.random()*TAU, u=new V(Math.cos(a)*rnd(4,12),rnd(6,15),Math.sin(a)*rnd(4,12)); let rest=false;
+    effects.push({t:0,dur:rnd(5,8),obj:m,upd:(e,k,dt)=>{ if(rest){ if(k>0.8) m.scale.multiplyScalar(1-dt*3); return; } u.y-=GRAV*dt; m.position.addScaledVector(u,dt); m.rotation.x+=dt*7; m.rotation.y+=dt*5;
+      const h=terrainHeight(m.position.x,m.position.z); if(m.position.y<h){ m.position.y=h; rest=true; } }}); }
+  const col=surfaceAt({pos:p})==='sand'?DUST.sand:0x9a8a70;
+  for(let i=0;i<12;i++){ const a=i/12*TAU; smokePuff(tv4.set(p.x+Math.cos(a)*2,gy+1,p.z+Math.sin(a)*2),rnd(4,6),rnd(2.2,3.4),col,new V(Math.cos(a)*rnd(5,9),rnd(1,2.5),Math.sin(a)*rnd(5,9))); }
+  smokePuff(tv4.set(p.x,gy+3,p.z),9,3.5,0x5a4c40,new V(0,4,0));
+  for(let i=0;i<4;i++){ const mat=fireMat.clone(), s=new T.Sprite(mat); s.position.set(p.x+rnd(-2,2),gy+rnd(1,3),p.z+rnd(-2,2)); world.add(s); const sz=rnd(6,10);
+    effects.push({t:0,dur:0.7,obj:s,upd:(e,k)=>{ s.scale.setScalar(sz*(0.4+k)); mat.color.setHSL(0.09-k*0.06,1,0.6); mat.opacity=1-k; },done:()=>mat.dispose()}); }
+  const rm=new T.MeshBasicMaterial({map:ringTex,color:0xffe6c0,transparent:true,depthWrite:false}), ring=new T.Mesh(GEO.ringPlane,rm); ring.rotation.x=-Math.PI/2; ring.position.set(p.x,gy+0.3,p.z); world.add(ring);
+  effects.push({t:0,dur:0.7,obj:ring,upd:(e,k)=>{ ring.scale.setScalar(2+k*16); rm.opacity=0.8*(1-k); },done:()=>rm.dispose()});
+  const scorch=new T.Mesh(new T.CircleGeometry(1,20),scorchMat); scorch.rotation.x=-Math.PI/2; scorch.position.set(p.x,gy+0.08,p.z); scorch.scale.setScalar(rnd(6,8)*big); world.add(scorch);
+  // knock people back and hurt the ones underneath; flatten trees and builds it lands on
+  for(const e of combatants){ if(!e.alive||e.phase==='jet') continue; const dx=e.pos.x-p.x, dz=e.pos.z-p.z, dd=Math.hypot(dx,dz);
+    if(dd<9&&Math.abs(e.pos.y-gy)<6){ const f=1-dd/9; hurt(e,15+55*f,null,{}); e.vel.x+=dx/(dd||1)*14*f; e.vel.z+=dz/(dd||1)*14*f; e.vel.y=Math.max(e.vel.y,6*f); e.onGround=false; } }
+  for(const pr of props){ if(!pr.dead&&Math.hypot(pr.obj.position.x-p.x,pr.obj.position.z-p.z)<5) damageProp(pr,9999,null,false); }
+  for(const pc of [...pieceMap.values()]){ if(pc.kind!=='house'&&pc.meshes[0]){ pc.meshes[0].getWorldPosition(tv3); if(Math.hypot(tv3.x-p.x,tv3.z-p.z)<5) removePiece(pc); } }
+  // the wreck becomes cover you can hide behind
+  const bb=new T.Box3().setFromObject(g); if(bb.max.x-bb.min.x<30) colliders.add({min:{x:bb.min.x,y:gy-1,z:bb.min.z},max:{x:bb.max.x,y:Math.min(bb.max.y,gy+3),z:bb.max.z}});
+  // smoulder: a column of dark smoke, and flames for a while if it came down burning
+  let fl=null; if(burning){ fl=new T.Sprite(fireMat.clone()); fl.position.set(0,1,0); g.add(fl); }
+  let st=0; effects.push({t:0,dur:30,obj:new T.Object3D(),upd:(e,k,dt)=>{ st-=dt; if(st<=0){ st=0.45; if(p.distanceTo(camera.position)<VIEW.house*(fogFar/520)) smokePuff(tv4.set(p.x+rnd(-1,1),gy+1.5,p.z+rnd(-1,1)),rnd(2.5,4)*(1-k*0.6),4,0x2e2926,new V(rnd(-0.4,0.4),3,rnd(-0.4,0.4))); }
+    if(fl){ if(e.t>15){ g.remove(fl); fl.material.dispose(); fl=null; } else { fl.scale.setScalar(rnd(3,4.5)); fl.material.color.setHSL(0.05+Math.random()*0.05,1,0.55); } } }});
 }
 function blastFx(c){
   boomLight.position.copy(c); boomLight.intensity=7;
@@ -2313,6 +2398,7 @@ const ARM_IDS=['ar','smg','pump','pistol','sniper'], ARM_Y=420;
 let armIdx=0, armGroup=null, armGuns=[];
 function buildArmory(){
   if(armMode==='picks'&&PX) return buildPickStand();
+  if(armMode==='skins'&&SK) return buildSkinStand();
   if(armGroup) scene.remove(armGroup);
   armGroup=new T.Group(); armGroup.position.set(0,ARM_Y,0); armGuns=[];
   const id=ARM_IDS[armIdx];
@@ -2326,9 +2412,10 @@ function buildArmory(){
 }
 function openArmory(){ state='armory'; if(world) world.visible=false; $('menu').hidden=true; $('armory').hidden=false; buildArmory(); $('armNext').focus(); }
 function closeArmory(){ state='menu'; if(world) world.visible=true; $('armory').hidden=true; $('menu').hidden=false; if(armGroup){ scene.remove(armGroup); armGroup=null; } $('armoryBtn').focus(); }
-function updateArmory(dt){
+function updateArmory(dt){ dt=dt||1/60;
   const t=performance.now()/1000;
   if(armMode==='picks'&&PX) return updatePickStand(t);
+  if(armMode==='skins'&&SK) return updateSkinStand(t,dt);
   armGuns.forEach((h,i)=>{ h.rotation.y=Math.PI/2+Math.sin(t*0.8+i*0.5)*0.55; h.position.y=Math.sin(t*1.6+i)*0.06; });
   const dist=Math.max(6,(ARM_IDS[armIdx]==='sniper'?13:10.5)/camera.aspect);
   camera.position.set(0,ARM_Y+0.2,dist); camera.lookAt(0,ARM_Y,0); if(camera.fov!==50){ camera.fov=50; camera.updateProjectionMatrix(); }
@@ -2429,22 +2516,53 @@ function updatePickStand(t){
   camera.position.set(0,ARM_Y+0.3,dist); camera.lookAt(0,ARM_Y,0); if(camera.fov!==50){ camera.fov=50; camera.updateProjectionMatrix(); }
 }
 function setArmMode(m){
-  if(m==='picks'&&!PX) return; armMode=m; $('armEquip').hidden=m!=='picks';
-  $('armGunsTab').setAttribute('aria-pressed',String(m==='guns')); $('armPicksTab').setAttribute('aria-pressed',String(m==='picks'));
-  $('armSets').hidden=m!=='picks'; buildArmory();
+  if(m==='picks'&&!PX||m==='skins'&&!(SK&&SOLDIER)) return; armMode=m; $('armEquip').hidden=m==='guns';
+  $('armGunsTab').setAttribute('aria-pressed',String(m==='guns')); $('armPicksTab').setAttribute('aria-pressed',String(m==='picks')); $('armSkinsTab').setAttribute('aria-pressed',String(m==='skins'));
+  $('armSets').hidden=m==='guns'; $('armSets').setAttribute('aria-label',m==='skins'?'Skin theme':'Pickaxe set');
+  $('armSets').innerHTML=m==='skins'?SK.THEMES.map(t=>`<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join(''):m==='picks'?PX.SETS.map(s=>`<button data-s="${s.id}" aria-pressed="false">${s.n}</button>`).join(''):'';
+  buildArmory();
 }
-function armStep(d){ if(armMode==='picks'&&PX){ const N=PX.ITEMS.length; pxIdx=(pxIdx+d+N)%N; } else armIdx=(armIdx+d+5)%5; buildArmory(); }
-if(PX) $('armSets').innerHTML=PX.SETS.map(s=>`<button data-s="${s.id}" aria-pressed="false">${s.n}</button>`).join('');
-else $('armPicksTab').hidden=true;
-$('armSets').addEventListener('click',ev=>{ const b=ev.target.closest('button'); if(!b) return; pxIdx=PX.ITEMS.findIndex(i=>i.set.id===b.dataset.s); buildArmory(); });
+function armStep(d){ if(armMode==='picks'&&PX){ const N=PX.ITEMS.length; pxIdx=(pxIdx+d+N)%N; } else if(armMode==='skins'&&SK){ const N=SK.ITEMS.length; skIdx=(skIdx+d+N)%N; } else armIdx=(armIdx+d+5)%5; buildArmory(); }
+if(!PX) $('armPicksTab').hidden=true;
+$('armSets').addEventListener('click',ev=>{ const b=ev.target.closest('button'); if(!b) return;
+  if(armMode==='skins') skIdx=SK.ITEMS.findIndex(i=>i.t===b.dataset.s); else pxIdx=PX.ITEMS.findIndex(i=>i.set.id===b.dataset.s); buildArmory(); });
+$('armSkinsTab').addEventListener('click',()=>setArmMode('skins'));
+// ---- skins in the locker: the outfit on a turntable, with the ones either side waiting in the wings
+var skIdx=0, skShown=[];
+function studioLights(gr){ const k=new T.DirectionalLight(0xfff4e6,0.9); k.position.set(2,3,5); const r=new T.DirectionalLight(0xbfd8ff,0.6); r.position.set(-3,2,-4); gr.add(k,k.target,r,r.target); }
+function standChar(skin){ const c=makeCharacterGLB({shirt:0x888888}); c.glider.visible=false; c.pick.visible=false; applySkin(c,skin); return c; }
+function buildSkinStand(){
+  if(armGroup) scene.remove(armGroup); for(const c of skShown) for(const o of c.gear||[]) o.traverse(m=>{ if(m.isMesh) m.geometry.dispose(); });
+  armGroup=new T.Group(); armGroup.position.set(0,ARM_Y,0); armGuns=[]; skShown=[];
+  const N=SK.ITEMS.length;
+  studioLights(armGroup);
+  for(const o of[-1,1,0]){ const c=standChar(SK.ITEMS[(skIdx+o+N)%N]); c.g.position.set(o*2.1,o?0.15:0,o?-1.6:0); c.g.scale.setScalar(o?0.7:1); c.g.userData.o=o; armGroup.add(c.g); skShown.push(c); }
+  scene.add(armGroup);
+  const it=SK.ITEMS[skIdx], r=RAR[it.r];
+  $('armKick').textContent=`${it.theme.n} · ${skIdx+1} of ${N}`; $('armName').textContent=it.n; $('armName').style.color=r.c;
+  $('armLabels').innerHTML=''; $('armPower').hidden=true;
+  $('armStats').textContent=`${r.n} outfit · ${it.acc.length?it.acc.length+' pieces of gear':'Classic armor'} · Looks only, every skin plays the same`;
+  $('armNote').textContent='All of these are original Storm Island designs.';
+  showEquip(); [...$('armSets').children].forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.s===it.t)));
+}
+function updateSkinStand(t,dt){
+  for(const c of skShown){ const o=c.g.userData.o; c.g.rotation.y=c.g.userData.yaw!=null?c.g.userData.yaw:o?0.5*o:Math.PI+t*0.6; c.mixer.update(dt); swayGear({phase:'ground',onGround:true,walkT:0},c,0,dt); }
+  const dist=armGroup.userData.dist||Math.max(4.6,6.2/camera.aspect);
+  camera.position.set(0,ARM_Y+1.25,dist); camera.lookAt(0,ARM_Y+1.0,0); if(camera.fov!==50){ camera.fov=50; camera.updateProjectionMatrix(); }
+}
 $('armGunsTab').addEventListener('click',()=>setArmMode('guns'));
 // ---- locker: the equipped pickaxe is the one you carry into matches (looks only, same stats as Fortnite's)
 let equippedName='Standard Issue';
 try{ const v=localStorage.getItem('stormIslandPick'); if(v&&PX&&PX.ITEMS.some(i=>i.n===v)) equippedName=v; }catch(e){}
 function equippedPick(){ return PX?PX.ITEMS.find(i=>i.n===equippedName)||null:null; }
 function pickIcon(ic){ const it=PX&&PX.ITEMS[+ic.slice(2)]; return it?PX.pickSVG(it,'hb').replace('<svg viewBox="0 0 200 200"','<svg viewBox="24 22 152 152" width="30" height="30" aria-hidden="true"'):''; }
-function showEquip(){ const on=PX&&PX.ITEMS[pxIdx].n===equippedName, b=$('armEquip'); b.textContent=on?'Equipped ✓':'Equip'; b.setAttribute('aria-pressed',String(!!on)); }
-function showPickNote(){ const eq=equippedPick(); $('pickNote').textContent=eq?`Pickaxe: ${eq.n}`:''; }
+function showEquip(){ const on=armMode==='skins'?SK.ITEMS[skIdx].n===equippedSkinName():PX&&PX.ITEMS[pxIdx].n===equippedName, b=$('armEquip'); b.textContent=on?'Equipped ✓':'Equip'; b.setAttribute('aria-pressed',String(!!on)); }
+function showPickNote(){ const eq=equippedPick(), sk=equippedSkin(); $('pickNote').textContent=[sk&&!sk.def?`Skin: ${sk.n}`:'',eq?`Pickaxe: ${eq.n}`:''].filter(Boolean).join(' · '); }
+// the equipped skin; bots dress up at random (a few stay in the classic armor)
+var skinName=null;
+function equippedSkinName(){ if(skinName==null){ skinName='Default Trooper'; try{ const v=localStorage.getItem('stormIslandSkin'); if(v&&SK&&SK.ITEMS.some(i=>i.n===v)) skinName=v; }catch(e){} } return skinName; }
+function equippedSkin(){ return SK?SK.ITEMS.find(i=>i.n===equippedSkinName())||SK.ITEMS[0]:null; }
+function pickBotSkin(){ return Math.random()<0.1?SK.ITEMS[0]:SK.ITEMS[1+Math.floor(Math.random()*(SK.ITEMS.length-1))]; }
 function applyPickSkin(e){
   const eq=equippedPick(); if(!eq||!e||!e.ch) return; const c=e.ch;
   for(const o of [...c.pick.children]){ c.pick.remove(o); if(o.userData.skin) disposeObj(o); }
@@ -2452,10 +2570,12 @@ function applyPickSkin(e){
   if(!c.glb) w.rotation.x=-Math.PI/2; // GLB characters: handle up, spike along x like the default pickaxe
   c.pick.add(w);
 }
-function equipCurrent(){ equippedName=PX.ITEMS[pxIdx].n; try{ localStorage.setItem('stormIslandPick',equippedName); }catch(e){} showEquip(); showPickNote(); applyPickSkin(player); refreshHotbar(); sfx('pickup',null,{item:{kind:'gun',r:PX.ITEMS[pxIdx].rar}}); }
+function equipCurrent(){
+  if(armMode==='skins'){ const it=SK.ITEMS[skIdx]; skinName=it.n; try{ localStorage.setItem('stormIslandSkin',it.n); }catch(e){} showEquip(); showPickNote(); if(player) applySkin(player.ch,it); sfx('pickup',null,{item:{kind:'gun',r:it.r}}); return; }
+  equippedName=PX.ITEMS[pxIdx].n; try{ localStorage.setItem('stormIslandPick',equippedName); }catch(e){} showEquip(); showPickNote(); applyPickSkin(player); refreshHotbar(); sfx('pickup',null,{item:{kind:'gun',r:PX.ITEMS[pxIdx].rar}}); }
 $('armEquip').addEventListener('click',equipCurrent);
-$('lockerBtn').addEventListener('click',()=>{ const eq=equippedPick(); if(eq) pxIdx=eq.i; openArmory(); setArmMode('picks'); $('armEquip').focus(); });
-if(!PX) $('lockerBtn').hidden=true; showPickNote();
+$('lockerBtn').addEventListener('click',()=>{ const eq=equippedPick(); if(eq) pxIdx=eq.i; const sk=equippedSkin(); if(sk) skIdx=sk.i; openArmory(); setArmMode(SK&&SOLDIER?'skins':'picks'); $('armEquip').focus(); });
+if(!PX&&!SK) $('lockerBtn').hidden=true; if(!SK) $('armSkinsTab').hidden=true; showPickNote();
 
 // ---- weak spots: a glowing ring on whatever you are harvesting; hit it for double damage
 const weak={ent:null,pos:new V(),spr:null,t:0}, weakRay=new T.Raycaster();
@@ -2647,6 +2767,6 @@ function loop(now){
 $('playBtn').disabled=true; $('playBtn').textContent='Loading…';
 loadSoldier(ok=>{ newMatch(); $('playBtn').disabled=false; $('playBtn').textContent='Drop in'; if(!ok) console.warn('Character model unavailable; using simple characters'); });
 requestAnimationFrame(loop);
-window.__game={keys,camera,sfx:(k,o)=>sfx(k,null,o),get audioOk(){return !!(AC&&bus&&AMB);},setCam:(p,l)=>{ camOverride=p?{pos:new V(...p),look:new V(...l)}:null; },th:terrainHeight,get editing(){return player.editing;},startEdit,confirmEdit,editClick,openArmory,setArm:i=>{armIdx=i;buildArmory();},setArmMode,setPick:i=>{pxIdx=i;buildArmory();},fire:()=>playerFire(),get props(){return props;},weak,pieces:()=>[...pieceMap.values()],colliderCount:()=>colliders.size,debugLoot:(x,y,z)=>{ spawnLoot({kind:'gun',id:'sniper',r:4,ammo:1},x,y,z); spawnLoot({kind:'gun',id:'smg',r:3,ammo:30},x+1.6,y,z+0.4); spawnLoot({kind:'cons',id:'big',count:1},x-1.5,y,z+0.3); },get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},startMatch,update,setState:s=>state=s};
+window.__game={keys,get jet(){return jet;},debrisImpact,camera,sfx:(k,o)=>sfx(k,null,o),get audioOk(){return !!(AC&&bus&&AMB);},setCam:(p,l)=>{ camOverride=p?{pos:new V(...p),look:new V(...l)}:null; },th:terrainHeight,get editing(){return player.editing;},startEdit,confirmEdit,editClick,openArmory,setArm:i=>{armIdx=i;buildArmory();},setArmMode,setPick:i=>{pxIdx=i;buildArmory();},setSkin:i=>{skIdx=i;buildArmory();},lineup:(ids,yaw)=>{ if(armGroup) scene.remove(armGroup); armGroup=new T.Group(); armGroup.position.set(0,ARM_Y,0); skShown=[]; ids.forEach((id,k)=>{ const c=standChar(SK.ITEMS[id]); c.g.position.x=(k-(ids.length-1)/2)*1.25; c.g.userData.o=0; c.g.userData.yaw=yaw; armGroup.add(c.g); skShown.push(c); }); studioLights(armGroup); armGroup.userData.dist=ids.length*0.75+1.6; scene.add(armGroup); },fire:()=>playerFire(),get props(){return props;},weak,pieces:()=>[...pieceMap.values()],colliderCount:()=>colliders.size,debugLoot:(x,y,z)=>{ spawnLoot({kind:'gun',id:'sniper',r:4,ammo:1},x,y,z); spawnLoot({kind:'gun',id:'smg',r:3,ammo:30},x+1.6,y,z+0.4); spawnLoot({kind:'cons',id:'big',count:1},x-1.5,y,z+0.3); },get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},startMatch,update,setState:s=>state=s};
 })();
 </script>
