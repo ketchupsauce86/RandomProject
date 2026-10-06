@@ -1048,18 +1048,26 @@ const hitMat=new T.MeshBasicMaterial({visible:false});
 // gun hold points in gun space: right-hand grip and left-hand support
 const HOLD={ar:{r:[0,-0.13,0.11],l:[0,-0.02,-0.3],o:[0.1,-0.16,-0.34]},smg:{r:[0,-0.11,0.11],l:[0,-0.035,-0.16],o:[0.1,-0.16,-0.33]},pump:{r:[0,-0.06,0.24],l:[0,-0.05,-0.38],o:[0.1,-0.16,-0.34]},
   pistol:{r:[0,-0.08,0.055],l:[-0.03,-0.1,0.07],o:[-0.06,-0.08,-0.48]},sniper:{r:[0,-0.13,0.17],l:[0,-0.07,-0.3],o:[0.1,-0.16,-0.27]}};
-// Fortnite-style pickaxe, held in both hands: rests across the body with the head over the right shoulder,
-// winds up overhead, then chops down and across in one smooth arc and settles back.
-// Keys: [t, grip x,y,z from the right shoulder, pick tilt, pick roll, torso twist, lean]
-const SWING_T=0.42, PICK_REST=[0,-0.08,-0.4,-0.28,0.45,-0.5,0,0], PICK_HIT=0.56;
-const PICK_KEYS=[PICK_REST,[0.36,0.05,0.12,-0.06,1.9,-0.5,-0.35,-0.06],[0.58,-0.16,-0.36,-0.5,-1.25,0.15,0.3,0.22],[0.74,-0.2,-0.44,-0.42,-1.0,0.2,0.24,0.18],[1,...PICK_REST.slice(1)]];
+// Fortnite-style harvesting: both hands on the pickaxe, quick wind-up over one shoulder, a diagonal chop that
+// lands the head on the crosshair, a follow-through across the body, and alternating forehand/backhand combos.
+// Body frame: x right, y up, z back. Keys: [t, grip x,y,z from the right shoulder, handle dir x,y,z, spike dir x,y,z, torso twist, lean]
+const SWING_T=0.42, PICK_HIT=0.52;
+const PICK_REST=[0,-0.02,-0.42,-0.3,0.3,0.85,-0.42,-0.95,0.1,-0.2,0,0];
+const PICK_KEYS=[
+  [PICK_REST,[0.3,0.14,0.14,-0.02,0.35,0.55,0.75,0.1,0.75,-0.65,-0.5,-0.06],[0.52,0.05,-0.15,-0.48,0.2,0.25,-0.95,-0.3,-0.95,-0.1,0.3,0.24],
+   [0.68,-0.2,-0.42,-0.36,-0.5,-0.25,-0.8,-0.5,-0.6,0.35,0.42,0.18],[1,...PICK_REST.slice(1)]],
+  [PICK_REST,[0.3,-0.5,0.1,-0.06,-0.35,0.55,0.75,-0.1,0.75,-0.65,0.5,-0.06],[0.52,0.15,-0.15,-0.48,0.15,0.25,-0.95,0.3,-0.95,-0.1,-0.2,0.24],
+   [0.68,0.3,-0.4,-0.3,0.65,-0.2,-0.7,0.5,-0.6,0.35,-0.42,0.18],[1,...PICK_REST.slice(1)]]];
+const _pd=new V(), _ps=new V(), _pz=new V(), _pm=new T.Matrix4();
 function pickPose(e){
-  const K=PICK_KEYS, k=e.swingT>0?clamp(1-e.swingT/SWING_T,0,1):0;
+  const K=PICK_KEYS[e.swingSide||0], k=e.swingT>0?clamp(1-e.swingT/SWING_T,0,1):0;
   let i=0; while(i<K.length-2&&k>K[i+1][0]) i++;
   // Catmull-Rom through the keys so the arc never stops and restarts between them
   const a=K[Math.max(0,i-1)], b=K[i], c=K[i+1], d=K[Math.min(K.length-1,i+2)], u=clamp((k-b[0])/(c[0]-b[0]),0,1), u2=u*u, u3=u2*u;
   const m=j=>0.5*(2*b[j]+(c[j]-a[j])*u+(2*a[j]-5*b[j]+4*c[j]-d[j])*u2+(3*b[j]-a[j]-3*c[j]+d[j])*u3);
-  return {h:new V(m(1),m(2),m(3)),rx:m(4),rz:m(5),tw:m(6),ln:m(7)};
+  // orientation: handle along +y, spike along +x of the pickaxe model
+  _pd.set(m(4),m(5),m(6)).normalize(); _ps.set(m(7),m(8),m(9)); _ps.addScaledVector(_pd,-_ps.dot(_pd)).normalize(); _pz.crossVectors(_ps,_pd);
+  return {h:new V(m(1),m(2),m(3)),q:new T.Quaternion().setFromRotationMatrix(_pm.makeBasis(_ps,_pd,_pz)),tw:m(10),ln:m(11)};
 }
 function makeCharacterGLB(pal){
   const g=new T.Group(); g.rotation.order='YXZ';
@@ -1071,7 +1079,7 @@ function makeCharacterGLB(pal){
   const mixer=new T.AnimationMixer(model), act={};
   for(const n of ['Idle','Walk','Run','TPose']){ const a=mixer.clipAction(SOLDIER.clips[n]); a.play(); a.setEffectiveWeight(n==='Idle'?1:0); a.time=Math.random()*a.getClip().duration; act[n]=a; }
   const gunMount=new T.Group(); gunMount.scale.setScalar(1.2); g.add(gunMount);
-  const pickG=new T.Group(); const handle=new T.Mesh(GEO.handle,colorMat(0x6b4a2a)); handle.position.y=0.35; const ph=new T.Mesh(GEO.pickHead,colorMat(0xb8c4d6)); ph.position.set(0,0.78,-0.12); ph.rotation.x=Math.PI/2; pickG.add(handle,ph); pickG.visible=false; g.add(pickG);
+  const pickG=new T.Group(); const handle=new T.Mesh(GEO.handle,colorMat(0x6b4a2a)); handle.position.y=0.35; const ph=new T.Mesh(GEO.pickHead,colorMat(0xb8c4d6)); ph.position.set(0,0.78,0); pickG.add(handle,ph); pickG.visible=false; g.add(pickG);
   const glider=makeGlider(pal); g.add(glider);
   const flash=new T.Sprite(flashMat); flash.scale.setScalar(0.8); flash.visible=false;
   const hb={head:new T.Mesh(HIT_GEO.head,hitMat),chest:new T.Mesh(HIT_GEO.chest,hitMat),legs:new T.Mesh(HIT_GEO.legs,hitMat)}; g.add(hb.head,hb.chest,hb.legs);
@@ -1255,7 +1263,7 @@ function animateGLB(e,dt){
     const tgt=g.localToWorld(g.worldToLocal(sh.clone()).add(P.h));
     const grip=A.air<0.02||e.swingT>0;
     if(grip) solveIK(B.RightArm,B.RightForeArm,B.RightHand,tgt,sh.clone().addScaledVector(right,0.6).add(new V(0,-0.5,0)));
-    B.RightHand.getWorldPosition(_v2); g.worldToLocal(_v2); c.pick.position.copy(_v2); c.pick.rotation.set(P.rx,0,P.rz);
+    B.RightHand.getWorldPosition(_v2); g.worldToLocal(_v2); c.pick.position.copy(_v2); c.pick.quaternion.copy(P.q);
     // the left hand holds the handle just above the right
     if(grip){ c.pick.updateMatrixWorld(true); const lS=B.LeftArm.getWorldPosition(new V());
       solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,c.pick.localToWorld(new V(0,0.15,0)),lS.clone().addScaledVector(right,-0.6).add(new V(0,-0.5,0))); }
@@ -1653,7 +1661,7 @@ function playerFire(){
   const p=player; if(p.phase!=='ground'||p.consuming) return;
   const it=curItem();
   if(!it){
-    if(p.fireCd>0) return; p.fireCd=0.42; p.swingT=SWING_T; p.comboT=SWING_T+0.3; p.hitT=SWING_T*PICK_HIT; sfx('swing');
+    if(p.fireCd>0) return; p.fireCd=0.42; p.swingSide=p.swingT>0||p.comboT>0?1-(p.swingSide||0):0; p.swingT=SWING_T; p.comboT=SWING_T+0.3; p.hitT=SWING_T*PICK_HIT; sfx('swing');
     return;
   }
   if(it.kind==='cons') return startConsume(it);
@@ -2382,7 +2390,7 @@ function applyPickSkin(e){
   const eq=equippedPick(); if(!eq||!e||!e.ch) return; const c=e.ch;
   for(const o of [...c.pick.children]){ c.pick.remove(o); if(o.userData.skin) disposeObj(o); }
   const w=new T.Group(); w.userData.skin=true; w.add(makePickaxe3D(eq,true));
-  if(c.glb) w.rotation.y=Math.PI/2-0.8; else w.rotation.x=-Math.PI/2; // spike forward, head turned so its artwork faces the camera
+  if(!c.glb) w.rotation.x=-Math.PI/2; // GLB characters: handle up, spike along x like the default pickaxe
   c.pick.add(w);
 }
 function equipCurrent(){ equippedName=PX.ITEMS[pxIdx].n; try{ localStorage.setItem('stormIslandPick',equippedName); }catch(e){} showEquip(); showPickNote(); applyPickSkin(player); refreshHotbar(); sfx('pickup',null,{item:{kind:'gun',r:PX.ITEMS[pxIdx].rar}}); }
