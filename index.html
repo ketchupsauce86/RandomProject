@@ -1195,10 +1195,11 @@ function animateGLB(e,dt){
     const sh=B.RightArm.getWorldPosition(new V()); g.worldToLocal(sh);
     const adsK=e.isPlayer&&ads?1:0, cp=Math.cos(pE), sn=Math.sin(pE), dk=Math.pow(1-A.draw,2);
     // sprinting carries the gun low and canted; switching weapons raises the new one into place
-    const o=new V(H.o[0]-0.08*adsK-0.06*sp,H.o[1]+0.04*adsK-0.12*sp-0.35*dk,H.o[2]+A.recoil*0.09+0.06*sp);
+    const tp=e.isPlayer&&!adsK?1-sp:0; // third person: carry the gun out to the side so the camera can see it
+    const o=new V(H.o[0]-0.08*adsK-0.06*sp+0.12*tp,H.o[1]+0.04*adsK-0.12*sp-0.35*dk+0.03*tp,H.o[2]+A.recoil*0.09+0.06*sp);
     const oy=o.y*cp-o.z*sn, oz=o.y*sn+o.z*cp;
     c.gunMount.position.set(sh.x+o.x,sh.y+oy,sh.z+oz);
-    c.gunMount.rotation.set(pE+A.recoil*0.22-0.45*A.reload-0.5*sp-1.0*dk,0.35*sp,0.6*A.reload+0.45*sp);
+    c.gunMount.rotation.set(pE+A.recoil*0.22-0.45*A.reload-0.5*sp-1.0*dk,0.35*sp+0.55*tp,0.6*A.reload+0.45*sp);
     if(near&&c.held){ c.gunMount.updateMatrixWorld(true);
       const rt=c.gunMount.localToWorld(new V(...H.r)), lt=c.gunMount.localToWorld(new V(...H.l));
       if(A.reload>0.05){ lt.lerp(c.gunMount.localToWorld(new V(0,-0.32,-0.05)),A.reload*(0.5+0.5*Math.sin(matchTime*8))); }
@@ -1269,7 +1270,7 @@ function makeCombatant(name,isPlayer,pal){
 function setHeld(e,it){
   const c=e.ch, key=it?it.id+':'+it.r:''; if(c.heldKey===key) return; c.heldKey=key;
   if(c.held){ c.gunMount.remove(c.held); c.held=null; }
-  if(it){ const m=makeGunModel(it.id,it.r); c.gunMount.add(m); c.held=m; m.userData.muzzle.add(c.flash); e.anim.draw=0; }
+  if(it){ const m=makeGunModel(it.id,it.r); if(e.isPlayer) m.scale.setScalar(1.2); c.gunMount.add(m); c.held=m; m.userData.muzzle.add(c.flash); e.anim.draw=0; }
 }
 function muzzlePos(e,out){ const c=e.ch; if(c.held) return c.held.userData.muzzle.getWorldPosition(out); return out.set(e.pos.x,e.pos.y+1.5,e.pos.z); }
 const KICK={ar:0.55,smg:0.35,pump:1,pistol:0.6,sniper:1};
@@ -2174,7 +2175,7 @@ function updateCamera(dt){
   if(p.phase==='jet'){ pivot.copy(jet.pos); dist=34; side=0; }
   else { pivot.set(p.pos.x,p.pos.y+1.7-0.5*p.anim.crouch,p.pos.z);
     if(p.swim){ pivot.y=WATER_Y+1.1; dist=4.6; side=0.6; }
-    else if(p.phase==='ground'){ dist=ads?2.0:4.6; side=ads?0.8:0.85; pivot.y+=ads?0.05:0.45;
+    else if(p.phase==='ground'){ const gun=!!curItem()&&curItem().kind==='gun'; dist=ads?2.0:gun?3.4:4.6; side=ads?0.8:gun?1.1:0.85; pivot.y+=ads?0.05:gun?0.3:0.45;
       // sprinting: a little head bob and the camera eases back
       const sp=p.anim.sprint||0; pivot.y+=Math.abs(Math.sin(matchTime*8.5))*0.07*sp-(p.anim.land||0)*0.25; dist+=0.45*sp; }
     else { dist=9; side=0; } }
