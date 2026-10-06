@@ -394,7 +394,7 @@ function pickSVG(it,suffix){
 function headSVG(it){
   const id='h'+it.i, R=rng(it.i*9973+7), x=it.x, d=SHAPES[it.shape];
   let defs=`<linearGradient id="${id}h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${it.h1}"/><stop offset="1" stop-color="${it.h2}"/></linearGradient><clipPath id="${id}c"><path d="${d}"/></clipPath><linearGradient id="${id}gl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/></linearGradient>`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -10 200 110" width="512" height="282"><defs>${defs}</defs><rect x="0" y="-10" width="200" height="110" fill="${it.edge}"/><path d="${d}" fill="url(#${id}h)"/><g clip-path="url(#${id}c)">${patternSVG(it,id,R)}<path d="${d}" fill="url(#${id}gl)"/></g><path d="${d}" fill="none" stroke="${it.edge}" stroke-width="2.4" stroke-linejoin="round"/></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -10 200 110" width="512" height="282"><defs>${defs}</defs><rect x="0" y="-10" width="200" height="110" fill="${it.edge}"/><path d="${d}" fill="url(#${id}h)"/><g clip-path="url(#${id}c)">${patternSVG(it,id,R)}</g><path d="${d}" fill="none" stroke="${it.edge}" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
 }
 // handle as a flat strip, for wrapping around a 3D cylinder
 function handleStripSVG(it){
