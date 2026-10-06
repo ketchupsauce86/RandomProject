@@ -1008,7 +1008,7 @@ const HOLD={ar:{r:[0,-0.12,0.07],l:[0,-0.07,-0.25],o:[0.1,-0.16,-0.3]},smg:{r:[0
   pistol:{r:[0,-0.08,0.06],l:[-0.03,-0.1,0.07],o:[-0.06,-0.08,-0.48]},sniper:{r:[0,-0.1,0.14],l:[0,-0.07,-0.3],o:[0.1,-0.16,-0.24]}};
 // Fortnite-style pickaxe: rests on the shoulder, winds up high, chops diagonally across the body with a
 // torso twist, and alternates forehand and backhand swings. Keys: [t, hand x,y,z from the shoulder, pick tilt, pick roll, twist, lean]
-const SWING_T=0.42, PICK_REST=[0,0.08,-0.3,-0.2,0.75,-0.15,0,0];
+const SWING_T=0.42, PICK_REST=[0,0.14,-0.3,-0.18,0.6,-0.25,0,0];
 const PICK_KEYS=[
   [PICK_REST,[0.28,0.24,0.12,0.02,2.15,-0.45,-0.42,-0.05],[0.5,-0.14,-0.44,-0.5,-1.3,0.38,0.48,0.28],[0.72,-0.2,-0.5,-0.32,-1.0,0.42,0.32,0.18],[1,...PICK_REST.slice(1)]],
   [PICK_REST,[0.28,-0.16,0.06,-0.08,1.85,0.5,0.38,-0.05],[0.5,0.28,-0.4,-0.46,-1.2,-0.4,-0.45,0.26],[0.72,0.32,-0.48,-0.3,-0.9,-0.38,-0.3,0.16],[1,...PICK_REST.slice(1)]]];
@@ -2174,7 +2174,7 @@ function updateCamera(dt){
   if(p.phase==='jet'){ pivot.copy(jet.pos); dist=34; side=0; }
   else { pivot.set(p.pos.x,p.pos.y+1.7-0.5*p.anim.crouch,p.pos.z);
     if(p.swim){ pivot.y=WATER_Y+1.1; dist=4.6; side=0.6; }
-    else if(p.phase==='ground'){ dist=ads?2.0:3.7; side=ads?0.8:1.3; pivot.y+=ads?0.05:0.3;
+    else if(p.phase==='ground'){ dist=ads?2.0:4.6; side=ads?0.8:0.85; pivot.y+=ads?0.05:0.45;
       // sprinting: a little head bob and the camera eases back
       const sp=p.anim.sprint||0; pivot.y+=Math.abs(Math.sin(matchTime*8.5))*0.07*sp-(p.anim.land||0)*0.25; dist+=0.45*sp; }
     else { dist=9; side=0; } }
@@ -2249,21 +2249,23 @@ function svgPathShape(d){
 function makePickaxe3D(it,held){
   const Z=PX.SIZES[it.sz], L=Z.L, HS=PX.headScale(it), alpha=it.x.alpha||1;
   const g=new T.Group(), inner=new T.Group(); g.add(inner);
-  const mat=(o)=>{ const m=Lam(o); if(alpha<1){ m.transparent=true; m.opacity=alpha; } return m; };
+  const Ph=(o)=>new T.MeshPhongMaterial(Object.assign({shininess:45,specular:0x3a3a3a},o));
+  const mat=(o)=>{ const m=Ph(o); if(alpha<1){ m.transparent=true; m.opacity=alpha; } return m; };
   // head: extruded outline, artwork on both faces, edge color on the sides
   const tex=svgTexture(PX.headSVG(it),512,282); tex.repeat.set(1/200,1/110); tex.offset.set(0,100/110);
-  const geo=new T.ExtrudeGeometry(svgPathShape(PX.SHAPES[it.shape]),{depth:10,bevelEnabled:true,bevelThickness:2.2,bevelSize:1.6,bevelSegments:2,curveSegments:12});
-  geo.translate(-100,48,-5);
+  const geo=new T.ExtrudeGeometry(svgPathShape(PX.SHAPES[it.shape]),{depth:14,bevelEnabled:true,bevelThickness:4.5,bevelSize:2.6,bevelSegments:4,curveSegments:14});
+  geo.translate(-100,48,-7);
   const hg=new T.Group(); hg.position.set(100,-48,0); hg.scale.setScalar(HS); inner.add(hg);
-  hg.add(new T.Mesh(geo,[mat({map:tex,emissive:0xffffff,emissiveMap:tex,emissiveIntensity:0.22}),mat({color:it.edge,emissive:new T.Color(it.edge).multiplyScalar(0.25)})]));
-  const collar=new T.Mesh(new T.BoxGeometry(22,26,17),Lam({color:it.edge})); collar.position.set(0,-1,0); hg.add(collar);
-  if(it.x.gem){ const gm=Lam({color:it.x.gem,emissive:new T.Color(it.x.gem).multiplyScalar(0.45)}), gg=new T.SphereGeometry(6,16,12);
-    for(const z of[9,-9]){ const gem=new T.Mesh(gg,gm); gem.position.set(0,-1,z); gem.scale.z=0.55; hg.add(gem); } }
+  const sideCol=new T.Color(it.h1).lerp(new T.Color(it.h2),0.5).lerp(new T.Color(it.edge),0.35);
+  hg.add(new T.Mesh(geo,[mat({map:tex,emissive:0xffffff,emissiveMap:tex,emissiveIntensity:0.12}),mat({color:sideCol,emissive:sideCol.clone().multiplyScalar(0.12),shininess:70})]));
+  const collar=new T.Mesh(new T.CylinderGeometry(11,11,26,16),Ph({color:it.edge,shininess:80,specular:0x666666})); collar.scale.z=0.95; collar.position.set(0,-1,0); hg.add(collar);
+  if(it.x.gem){ const gm=Ph({color:it.x.gem,emissive:new T.Color(it.x.gem).multiplyScalar(0.4),shininess:120,specular:0xffffff}), gg=new T.SphereGeometry(6,16,12);
+    for(const z of[13,-13]){ const gem=new T.Mesh(gg,gm); gem.position.set(0,-1,z); gem.scale.z=0.55; hg.add(gem); } }
   // handle: the 2D handle strip wrapped around a cylinder
   const htex=svgTexture(PX.handleStripSVG(it),64,Math.round(L*4));
-  const handle=new T.Mesh(new T.CylinderGeometry(7,7,L,16),Lam({map:htex})); handle.position.set(100,-(50+L/2),0); inner.add(handle);
+  const handle=new T.Mesh(new T.CylinderGeometry(7,7,L,16),Ph({map:htex,shininess:25,specular:0x222222})); handle.position.set(100,-(50+L/2),0); inner.add(handle);
   // pommel
-  const pe=-(50+L), pom=it.x.pom, pc=it.x.gem||it.edge, add=(geo,col,y,em)=>{ const m=new T.Mesh(geo,Lam({color:col,emissive:em?new T.Color(col).multiplyScalar(0.6):0x000000})); m.position.set(100,y,0); inner.add(m); return m; };
+  const pe=-(50+L), pom=it.x.pom, pc=it.x.gem||it.edge, add=(geo,col,y,em)=>{ const m=new T.Mesh(geo,Ph({color:col,shininess:70,emissive:em?new T.Color(col).multiplyScalar(0.6):0x000000})); m.position.set(100,y,0); inner.add(m); return m; };
   if(it.hs==='bone'){ for(const dx of[-9,9]){ const b=add(new T.SphereGeometry(6.5,12,10),it.ha,pe); b.position.x+=dx; } }
   else if(pom==='spike') add(new T.ConeGeometry(7,18,10),it.edge,pe-9).rotation.x=Math.PI;
   else if(pom==='ball') add(new T.SphereGeometry(9,16,12),0xe3243b,pe-6);
@@ -2276,7 +2278,7 @@ function makePickaxe3D(it,held){
   if(it.x.parts&&!held){ const ring=new T.Group(), sm=auraMats('#'+new T.Color(PX_TRAIL[it.x.parts]||0xffffff).getHexString()).spark;
     for(let k=0;k<10;k++){ const s=new T.Sprite(sm), a=k/10*Math.PI*2; s.position.set(Math.cos(a)*(70+(k%3)*18),(k%4)*30-60,Math.sin(a)*(70+(k%3)*18)); s.scale.setScalar(14+(k%3)*6); ring.add(s); }
     ring.position.set(100,-60,0); inner.add(ring); g.userData.trail=ring; }
-  if(held){ inner.position.set(-100,50+L-16,0); g.scale.setScalar(0.0075); return g; } // grip near the pommel sits at the origin
+  if(held){ inner.position.set(-100,50+L-16,0); g.scale.setScalar(0.0054); return g; } // grip near the pommel sits at the origin
   const top=48-56*HS, bot=50+L+18; inner.position.set(-100,(top+bot)/2,0);
   g.scale.setScalar(0.016); g.rotation.z=-0.55;
   return g;
@@ -2331,7 +2333,7 @@ function applyPickSkin(e){
   const eq=equippedPick(); if(!eq||!e||!e.ch) return; const c=e.ch;
   for(const o of [...c.pick.children]){ c.pick.remove(o); if(o.userData.skin) disposeObj(o); }
   const w=new T.Group(); w.userData.skin=true; w.add(makePickaxe3D(eq,true));
-  if(c.glb) w.rotation.y=Math.PI/2; else w.rotation.x=-Math.PI/2; // spike faces forward
+  if(c.glb) w.rotation.y=Math.PI/2-0.8; else w.rotation.x=-Math.PI/2; // spike forward, head turned so its artwork faces the camera
   c.pick.add(w);
 }
 function equipCurrent(){ equippedName=PX.ITEMS[pxIdx].n; try{ localStorage.setItem('stormIslandPick',equippedName); }catch(e){} showEquip(); showPickNote(); applyPickSkin(player); refreshHotbar(); sfx('pickup',null,{item:{kind:'gun',r:PX.ITEMS[pxIdx].rar}}); }
