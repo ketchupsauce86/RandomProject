@@ -197,7 +197,8 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
       <div class="hero">
         <h1 class="logo">Storm<span>Island</span></h1>
         <p class="tag">You and 19 bots drop onto the island. Loot chests, build fast, outrun the storm. Last one standing wins.</p>
-        <div class="btnrow"><button class="btn" id="playBtn">Drop in</button><button class="btn2" id="armoryBtn">Armory</button></div>
+        <div class="btnrow"><button class="btn" id="playBtn">Drop in</button><button class="btn2" id="armoryBtn">Armory</button><button class="btn2" id="lockerBtn">Locker</button></div>
+        <div class="note" id="pickNote"></div>
         <div class="diff" role="group" aria-label="Bot difficulty"><span>Bots</span><button type="button" data-d="easy">Easy</button><button type="button" data-d="normal">Normal</button><button type="button" data-d="hard">Hard</button></div>
         <div class="note">Needs a keyboard and mouse. Click the game to lock your mouse.</div>
         <div id="err"></div>
@@ -232,7 +233,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
     <div class="armtabs" role="group" aria-label="Show"><button id="armGunsTab" aria-pressed="true">Guns</button><button id="armPicksTab" aria-pressed="false">Pickaxes</button></div>
     <div id="armSets" role="group" aria-label="Pickaxe set" hidden></div></div>
     <div id="armLabels"></div>
-    <div class="armbottom"><p id="armPower" hidden></p><p id="armStats"></p><p class="note" id="armNote">Higher rarities add attachments and a new finish: worn steel, camo, tech, energy and gold.</p><button class="btn" id="armBack">Back</button></div>
+    <div class="armbottom"><p id="armPower" hidden></p><p id="armStats"></p><p class="note" id="armNote">Higher rarities add attachments and a new finish: worn steel, camo, tech, energy and gold.</p><div class="btnrow"><button class="btn2" id="armEquip" hidden>Equip</button><button class="btn" id="armBack">Back</button></div></div>
   </div>
   <div class="overlay" id="pause" hidden>
     <div class="card panel">
@@ -558,6 +559,7 @@ const FOOT={
 const PICK_NOTES=[784,988,1175,1568,1976];
 const SFX={
   swing:v=>{ nz(v,{type:'bandpass',f:500,f1:2600,q:1.2,dur:0.17,g:0.55,a:0.04}); },
+  crit:v=>{ tn(v,{type:'triangle',f:1568,dur:0.16,g:0.22}); tn(v,{at:0.05,type:'triangle',f:2349,dur:0.2,g:0.16}); },
   chop:(v,o)=>{ if(o.mat==='stone'){ nz(v,{type:'highpass',f:2500,dur:0.04,g:0.9}); tn(v,{type:'triangle',f:1300*rnd(0.95,1.05),dur:0.22,g:0.2}); tn(v,{type:'triangle',f:1870*rnd(0.95,1.05),dur:0.16,g:0.14}); tn(v,{f:260,f1:140,dur:0.08,g:0.6}); }
     else { nz(v,{type:'highpass',f:3000,dur:0.02,g:0.6}); nz(v,{type:'bandpass',f:520*rnd(0.9,1.1),q:2.5,dur:0.08,g:1.2}); tn(v,{f:220*rnd(0.9,1.1),f1:110,dur:0.09,g:0.7}); } },
   break:v=>{ nz(v,{type:'lowpass',f:1800,f1:250,dur:0.42,g:1.1}); tn(v,{f:120,f1:45,dur:0.25,g:0.8}); for(let i=0;i<7;i++) nz(v,{at:rnd(0,0.3),type:'bandpass',f:rnd(800,2600),q:3,dur:0.03,g:0.6}); },
@@ -792,13 +794,13 @@ function removePiece(p){
   for(const m of p.meshes) removeFrom(structMeshes,m); (p.boxes||[]).forEach(b=>colliders.delete(b)); if(p.key) pieceMap.delete(p.key); if(p.ramp) removeFrom(ramps,p.ramp);
   targetsDirty=true; const c=new V(); p.meshes[0].getWorldPosition(c); debris(c,p.meshes[0].material); sfx('break',c);
 }
-function damagePiece(p,dmg,attacker,point){ if(p.dead) return; p.hp-=dmg; if(attacker===player&&point) showDmg(point,Math.round(dmg),'build'); if(p.hp<=0) removePiece(p); }
+function damagePiece(p,dmg,attacker,point,crit){ if(p.dead) return; p.hp-=dmg; if(attacker===player&&point) showDmg(point,Math.round(dmg),crit?'head':'build'); if(p.hp<=0) removePiece(p); }
 function boxOf(cx,cy,cz,sx,sy,sz){ return {min:{x:cx-sx/2,y:cy-sy/2,z:cz-sz/2},max:{x:cx+sx/2,y:cy+sy/2,z:cz+sz/2}}; }
 function addBlock(cx,cy,cz,sx,sy,sz,mat,hp){ const m=new T.Mesh(new T.BoxGeometry(sx,sy,sz),mat); m.position.set(cx,cy,cz); world.add(m); return registerPiece({kind:'house',hp,maxHp:hp,obj:m,meshes:[m],box:boxOf(cx,cy,cz,sx,sy,sz)}); }
 function addProp(obj,meshes,box,res,hp){ const p={etype:'prop',obj,meshes,box,res,hp,maxHp:hp,shake:0}; meshes.forEach(m=>{ m.userData.ent=p; propMeshes.push(m); }); if(box) colliders.add(box); props.push(p); world.add(obj); return p; }
-function damageProp(p,dmg,attacker,pickaxe,point){
+function damageProp(p,dmg,attacker,pickaxe,point,crit){
   if(p.dead) return; p.hp-=dmg; p.shake=0.3; if(!anims.includes(p)) anims.push(p);
-  if(pickaxe&&attacker===player){ const amt=p.res==='wood'?12:10; player.mats[p.res]=Math.min(999,player.mats[p.res]+amt); if(point) showDmg(point,'+'+amt,'build'); sfx('chop',null,{mat:p.res}); }
+  if(pickaxe&&attacker===player){ const amt=Math.round((p.res==='wood'?12:10)*(crit?1.5:1)); player.mats[p.res]=Math.min(999,player.mats[p.res]+amt); if(point) showDmg(point,'+'+amt,crit?'head':'build'); sfx('chop',null,{mat:p.res}); }
   if(p.hp<=0){ p.dead=true; world.remove(p.obj); for(const m of p.meshes) removeFrom(propMeshes,m); if(p.box) colliders.delete(p.box); targetsDirty=true; debris(p.obj.position.clone().add(new V(0,1.5,0)),p.meshes[0].material); sfx('break',p.obj.position); }
 }
 function makeTree(x,z,forest){
@@ -1004,6 +1006,18 @@ const hitMat=new T.MeshBasicMaterial({visible:false});
 // gun hold points in gun space: right-hand grip and left-hand support
 const HOLD={ar:{r:[0,-0.12,0.07],l:[0,-0.07,-0.25],o:[0.1,-0.16,-0.3]},smg:{r:[0,-0.1,0.08],l:[0,-0.14,-0.08],o:[0.1,-0.16,-0.3]},pump:{r:[0,-0.1,0.14],l:[0,-0.07,-0.32],o:[0.1,-0.16,-0.24]},
   pistol:{r:[0,-0.08,0.06],l:[-0.03,-0.1,0.07],o:[-0.06,-0.08,-0.48]},sniper:{r:[0,-0.1,0.14],l:[0,-0.07,-0.3],o:[0.1,-0.16,-0.24]}};
+// Fortnite-style pickaxe: rests on the shoulder, winds up high, chops diagonally across the body with a
+// torso twist, and alternates forehand and backhand swings. Keys: [t, hand x,y,z from the shoulder, pick tilt, pick roll, twist, lean]
+const SWING_T=0.42, PICK_REST=[0,0.08,-0.3,-0.2,0.75,-0.15,0,0];
+const PICK_KEYS=[
+  [PICK_REST,[0.28,0.24,0.12,0.02,2.15,-0.45,-0.42,-0.05],[0.5,-0.14,-0.44,-0.5,-1.3,0.38,0.48,0.28],[0.72,-0.2,-0.5,-0.32,-1.0,0.42,0.32,0.18],[1,...PICK_REST.slice(1)]],
+  [PICK_REST,[0.28,-0.16,0.06,-0.08,1.85,0.5,0.38,-0.05],[0.5,0.28,-0.4,-0.46,-1.2,-0.4,-0.45,0.26],[0.72,0.32,-0.48,-0.3,-0.9,-0.38,-0.3,0.16],[1,...PICK_REST.slice(1)]]];
+function pickPose(e){
+  const keys=PICK_KEYS[e.swingSide||0], k=e.swingT>0?clamp(1-e.swingT/SWING_T,0,1):0;
+  let i=0; while(i<keys.length-2&&k>keys[i+1][0]) i++;
+  const a=keys[i], b=keys[i+1], u=clamp((k-a[0])/(b[0]-a[0]),0,1), f=u*u*(3-2*u), m=j=>a[j]+(b[j]-a[j])*f;
+  return {h:new V(m(1),m(2),m(3)),rx:m(4),rz:m(5),tw:m(6),ln:m(7)};
+}
 function makeCharacterGLB(pal){
   const g=new T.Group(); g.rotation.order='YXZ';
   const spin=new T.Group(); g.add(spin);
@@ -1160,7 +1174,7 @@ function animateGLB(e,dt){
   if(near&&land){ const lean=-0.28*cr-(held?0.06:0)*Math.min(1,s/4)-0.22*A.sprint; rotateBoneWorld(B.Spine,right,lean);
     if(held){ for(const n of ['Spine','Spine1','Spine2']) rotateBoneWorld(B[n],right,pE/3); } else rotateBoneWorld(B.Neck,right,pitch*0.5);
     if(A.hit>0.01){ rotateBoneWorld(B.Spine1,right,0.32*A.hit); rotateBoneWorld(B.Neck,right,0.25*A.hit); }
-    if(e.swingT>0){ const k=1-e.swingT/0.3; rotateBoneWorld(B.Spine1,UP,-0.5*Math.sin(k*Math.PI)); } }
+    if(pickaxe&&e.swingT>0){ const P=pickPose(e); rotateBoneWorld(B.Spine1,UP,P.tw); rotateBoneWorld(B.Spine2,UP,P.tw*0.5); rotateBoneWorld(B.Spine1,right,P.ln); } }
   // --- hands
   c.pick.visible=pickaxe&&tuck<0.3;
   if(tuck>0.25&&near&&!held){
@@ -1193,11 +1207,10 @@ function animateGLB(e,dt){
       solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,lt,lS.clone().addScaledVector(right,-0.5).add(new V(0,-0.7,0)));
     }
   } else if(pickaxe&&near){
-    const k=e.swingT>0?1-e.swingT/0.3:-1, sw=k<0?0.35:(k<0.3?lerp(0.35,-1.6,k/0.3):lerp(-1.6,1.5,(k-0.3)/0.7));
-    const sh=B.RightArm.getWorldPosition(new V()); const hand=new V(0.12,-0.28+Math.cos(sw)*0.05,-0.38-Math.sin(sw)*0.1).applyAxisAngle(new V(1,0,0),-sw*0.6);
-    const tgt=g.localToWorld(g.worldToLocal(sh.clone()).add(hand));
+    const P=pickPose(e), sh=B.RightArm.getWorldPosition(new V());
+    const tgt=g.localToWorld(g.worldToLocal(sh.clone()).add(P.h));
     if(A.air<0.02||e.swingT>0) solveIK(B.RightArm,B.RightForeArm,B.RightHand,tgt,sh.clone().addScaledVector(right,0.6).add(new V(0,-0.5,0)));
-    B.RightHand.getWorldPosition(_v2); g.worldToLocal(_v2); c.pick.position.copy(_v2); c.pick.rotation.set(-0.9+sw*0.9,0,0);
+    B.RightHand.getWorldPosition(_v2); g.worldToLocal(_v2); c.pick.position.copy(_v2); c.pick.rotation.set(P.rx,0,P.rz);
   } else if(e.phase==='glide'&&near){
     // both hands grip the glider's base bar
     c.glider.updateMatrixWorld(true);
@@ -1307,7 +1320,7 @@ function animateChar(e,dt){
   const pitch=e.isPlayer?e.pitch:(e.aimPitch||0), air2=e.phase==='fall'||e.phase==='glide';
   let sx=-0.14*mv-0.3*cr-0.2*A.sprint+0.3*A.hit+Math.sin(matchTime*2.2+e.walkT)*0.015, sy=-c.hips.rotation.y;
   if(held) sx+=pitch*0.45;
-  if(e.swingT>0){ const k=1-e.swingT/0.3; sy-=0.45*Math.sin(k*Math.PI); sx-=0.2*Math.sin(k*Math.PI); }
+  if(e.swingT>0){ const k=1-e.swingT/SWING_T; sy-=0.45*Math.sin(k*Math.PI); sx-=0.2*Math.sin(k*Math.PI); }
   if(air2){ sx=0; sy=0; }
   D(c.spine.rotation,'x',sx,a); D(c.spine.rotation,'y',sy,a);
   D(c.neck.rotation,'x',ground?(held?pitch*0.35:pitch*0.6):0,a);
@@ -1330,7 +1343,7 @@ function animateChar(e,dt){
     D(c.gunMount.rotation,'x',A.recoil*0.3-0.5*rl,0.6); D(c.gunMount.rotation,'z',0.7*rl,a);
   } else if(pickaxe){
     lx=-Math.sin(A.phase)*0.7*mv; lz=-0.08; lel=0.25+0.5*mv; rz=0.1; rel=0.6;
-    if(e.swingT>0){ const k=1-e.swingT/0.3; rx=k<0.3?lerp(0.6,2.9,k/0.3):lerp(2.9,0.1,(k-0.3)/0.7); armA=0.75; } else rx=0.55+Math.sin(A.phase)*0.3*mv;
+    if(e.swingT>0){ const k=1-e.swingT/SWING_T; rx=k<0.3?lerp(0.6,2.9,k/0.3):lerp(2.9,0.1,(k-0.3)/0.7); armA=0.75; } else rx=0.55+Math.sin(A.phase)*0.3*mv;
   } else {
     lx=-Math.sin(A.phase)*0.75*mv; rx=Math.sin(A.phase)*0.75*mv; lz=-0.1; rz=0.1; lel=0.25+0.6*mv; rel=0.25+0.6*mv;
     if(air>0.02){ const lift=tk*2.4, out=Math.max(0,air-tk)*1.1; lx=lerp(lx,lift,air); rx=lerp(rx,lift,air); lz=-0.1-out; rz=0.1+out; }
@@ -1591,16 +1604,29 @@ function playerFire(){
   const p=player; if(p.phase!=='ground'||p.consuming) return;
   const it=curItem();
   if(!it){
-    if(p.fireCd>0) return; p.fireCd=0.42; p.swingT=0.3; sfx('swing');
-    refreshTargets(); camera.getWorldDirection(tv1); ray.set(camera.position,tv1); ray.near=camDistNow; ray.far=camDistNow+4.2;
-    const hits=ray.intersectObjects(shotTargets,false); const h=hits.find(x=>x.object.userData.ent!==p);
-    if(h){ const ent=h.object.userData.ent;
-      if(ent.etype==='prop') damageProp(ent,25,p,true,h.point);
-      else if(ent.etype==='piece'){ damagePiece(ent,50,p,h.point); sfx('chop',null,{mat:ent.matName}); }
-      else if(ent.etype==='char') hurt(ent,20,p,{point:h.point,weapon:'Pickaxe'}); }
+    if(p.fireCd>0) return; p.fireCd=0.42; p.swingSide=p.swingT>0||p.comboT>0?1-(p.swingSide||0):0; p.swingT=SWING_T; p.comboT=SWING_T+0.3; p.hitT=SWING_T*0.42; sfx('swing');
     return;
   }
   if(it.kind==='cons') return startConsume(it);
+  gunFire(it);
+}
+// the pickaxe connects partway through the swing, when the head comes down
+function pickaxeHit(){
+  const p=player; if(curItem()||p.phase!=='ground') return;
+  refreshTargets(); camera.getWorldDirection(tv1); ray.set(camera.position,tv1); ray.near=camDistNow; ray.far=camDistNow+4.2;
+  const hits=ray.intersectObjects(shotTargets,false); const h=hits.find(x=>x.object.userData.ent!==p);
+  if(h){ const ent=h.object.userData.ent;
+    if(ent.etype==='prop'||ent.etype==='piece'){
+      // Fortnite-style weak spot: hitting the glowing ring doubles damage, then it jumps somewhere new
+      const crit=weak.ent===ent&&h.point.distanceTo(weak.pos)<0.55;
+      if(ent.etype==='prop') damageProp(ent,crit?50:25,p,true,h.point,crit);
+      else { damagePiece(ent,crit?100:50,p,h.point,crit); sfx('chop',null,{mat:ent.matName}); }
+      if(crit) sfx('crit');
+      if(ent.dead) clearWeakSpot(); else if(crit||weak.ent!==ent) placeWeakSpot(ent,h); }
+    else if(ent.etype==='char') hurt(ent,20,p,{point:h.point,weapon:'Pickaxe'}); }
+}
+function gunFire(it){
+  const p=player;
   const w=WEAP[it.id];
   if(p.reloading||p.fireCd>0) return;
   if(it.ammo<=0){ if(p.ammo[w.ammo]>0) startReload(); else { toast('Out of ammo'); sfx('empty'); p.fireCd=0.3; } return; }
@@ -1791,7 +1817,7 @@ function updatePlayer(dt){
   moveEntity(p,dt);
 }
 function updateActions(dt){
-  const p=player; p.fireCd-=dt; p.bloom=Math.max(0,p.bloom-dt*2.2); if(p.swingT>0) p.swingT-=dt;
+  const p=player; p.fireCd-=dt; p.bloom=Math.max(0,p.bloom-dt*2.2); if(p.swingT>0) p.swingT-=dt; if(p.comboT>0) p.comboT-=dt; if(p.hitT>0){ p.hitT-=dt; if(p.hitT<=0) pickaxeHit(); } updateWeakSpot(dt);
   if(p.reloading){ const r=p.reloading; if(curItem()!==r.it) p.reloading=null; else { r.t+=dt; const st=RELOAD_STEPS[r.it.id]; while(st&&r.step<st.length&&r.t>=st[r.step][0]*r.dur){ sfx('reloadStep',null,{step:st[r.step][1]}); r.step++; } if(r.t>=r.dur) finishReload(); } }
   if(p.consuming){ if(curItem()!==p.consuming.it) p.consuming=null; else { p.consuming.t+=dt; if(p.consuming.t>=p.consuming.dur) finishConsume(); } }
   const it=curItem();
@@ -2038,8 +2064,8 @@ function refreshHotbar(){
   const p=player; if(!p) return;
   for(let i=0;i<6;i++){ const el=slotEls[i], it=i===0?null:p.slots[i]; let nm='', sb='', col='';
     let ic='';
-    if(i===0){ nm='PICKAXE'; col='#c9d2de'; ic='pick'; } else if(it&&it.kind==='gun'){ nm=WEAP[it.id].short; col=RAR[it.r].c; sb=String(it.ammo); ic=it.id; } else if(it){ nm=CONS[it.id].short; col=CONS[it.id].color; sb='×'+it.count; ic=it.id; }
-    el.style.setProperty('--rc',col||'transparent'); if(el.dataset.ic!==ic){ el.dataset.ic=ic; el.children[1].innerHTML=ic?ICONS[ic]:''; } el.children[2].textContent=nm; el.children[3].textContent=sb;
+    if(i===0){ const eq=equippedPick(); nm=eq?eq.n.toUpperCase():'PICKAXE'; col=eq?RAR[eq.rar].c:'#c9d2de'; ic=eq?'px'+eq.i:'pick'; } else if(it&&it.kind==='gun'){ nm=WEAP[it.id].short; col=RAR[it.r].c; sb=String(it.ammo); ic=it.id; } else if(it){ nm=CONS[it.id].short; col=CONS[it.id].color; sb='×'+it.count; ic=it.id; }
+    el.style.setProperty('--rc',col||'transparent'); if(el.dataset.ic!==ic){ el.dataset.ic=ic; el.children[1].innerHTML=ic?(ICONS[ic]||pickIcon(ic)):''; } el.children[2].textContent=nm; el.children[3].textContent=sb;
     el.classList.toggle('sel',p.sel===i&&!p.build); el.classList.toggle('empty',i>0&&!it); }
 }
 const dmgPool=[]; let dmgIdx=0;
@@ -2220,7 +2246,7 @@ function svgPathShape(d){
   }
   return sh;
 }
-function makePickaxe3D(it){
+function makePickaxe3D(it,held){
   const Z=PX.SIZES[it.sz], L=Z.L, HS=PX.headScale(it), alpha=it.x.alpha||1;
   const g=new T.Group(), inner=new T.Group(); g.add(inner);
   const mat=(o)=>{ const m=Lam(o); if(alpha<1){ m.transparent=true; m.opacity=alpha; } return m; };
@@ -2246,10 +2272,11 @@ function makePickaxe3D(it){
   else if(pom==='lure') add(new T.SphereGeometry(5,12,10),0xfff27a,pe-10,true);
   else add(new T.CylinderGeometry(9,9,10,14),pc,pe-3);
   // glow and trail
-  if(it.x.glow){ const halo=new T.Sprite(auraMats(it.x.glow).halo); halo.scale.setScalar(170*HS); halo.position.set(100,-46,-25); inner.add(halo); }
-  if(it.x.parts){ const ring=new T.Group(), sm=auraMats('#'+new T.Color(PX_TRAIL[it.x.parts]||0xffffff).getHexString()).spark;
+  if(it.x.glow&&!held){ const halo=new T.Sprite(auraMats(it.x.glow).halo); halo.scale.setScalar(170*HS); halo.position.set(100,-46,-25); inner.add(halo); }
+  if(it.x.parts&&!held){ const ring=new T.Group(), sm=auraMats('#'+new T.Color(PX_TRAIL[it.x.parts]||0xffffff).getHexString()).spark;
     for(let k=0;k<10;k++){ const s=new T.Sprite(sm), a=k/10*Math.PI*2; s.position.set(Math.cos(a)*(70+(k%3)*18),(k%4)*30-60,Math.sin(a)*(70+(k%3)*18)); s.scale.setScalar(14+(k%3)*6); ring.add(s); }
     ring.position.set(100,-60,0); inner.add(ring); g.userData.trail=ring; }
+  if(held){ inner.position.set(-100,50+L-16,0); g.scale.setScalar(0.0075); return g; } // grip near the pommel sits at the origin
   const top=48-56*HS, bot=50+L+18; inner.position.set(-100,(top+bot)/2,0);
   g.scale.setScalar(0.016); g.rotation.z=-0.55;
   return g;
@@ -2272,7 +2299,8 @@ function buildPickStand(){
   $('armName').textContent=it.n; $('armName').style.color=r.c;
   $('armLabels').innerHTML='';
   $('armPower').hidden=false; $('armPower').innerHTML=`<b>⚡ ${it.pw}:</b> ${it.pwd}`;
-  $('armStats').textContent=`${r.n} · ${Z.n} · Damage ${Z.dmg+it.rar*2} · Swing speed ${Z.spd.toFixed(2)}× · Harvest +${Z.hv}`;
+  $('armStats').textContent=`${r.n} · ${Z.n} size · Every pickaxe hits the same; this one just looks cooler`;
+  showEquip();
   $('armNote').textContent=it.flav;
   [...$('armSets').children].forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.s===it.set.id)));
 }
@@ -2283,7 +2311,7 @@ function updatePickStand(t){
   camera.position.set(0,ARM_Y+0.3,dist); camera.lookAt(0,ARM_Y,0); if(camera.fov!==50){ camera.fov=50; camera.updateProjectionMatrix(); }
 }
 function setArmMode(m){
-  if(m==='picks'&&!PX) return; armMode=m;
+  if(m==='picks'&&!PX) return; armMode=m; $('armEquip').hidden=m!=='picks';
   $('armGunsTab').setAttribute('aria-pressed',String(m==='guns')); $('armPicksTab').setAttribute('aria-pressed',String(m==='picks'));
   $('armSets').hidden=m!=='picks'; buildArmory();
 }
@@ -2291,7 +2319,45 @@ function armStep(d){ if(armMode==='picks'&&PX){ const N=PX.ITEMS.length; pxIdx=(
 if(PX) $('armSets').innerHTML=PX.SETS.map(s=>`<button data-s="${s.id}" aria-pressed="false">${s.n}</button>`).join('');
 else $('armPicksTab').hidden=true;
 $('armSets').addEventListener('click',ev=>{ const b=ev.target.closest('button'); if(!b) return; pxIdx=PX.ITEMS.findIndex(i=>i.set.id===b.dataset.s); buildArmory(); });
-$('armGunsTab').addEventListener('click',()=>setArmMode('guns')); $('armPicksTab').addEventListener('click',()=>setArmMode('picks'));
+$('armGunsTab').addEventListener('click',()=>setArmMode('guns'));
+// ---- locker: the equipped pickaxe is the one you carry into matches (looks only, same stats as Fortnite's)
+let equippedName='Standard Issue';
+try{ const v=localStorage.getItem('stormIslandPick'); if(v&&PX&&PX.ITEMS.some(i=>i.n===v)) equippedName=v; }catch(e){}
+function equippedPick(){ return PX?PX.ITEMS.find(i=>i.n===equippedName)||null:null; }
+function pickIcon(ic){ const it=PX&&PX.ITEMS[+ic.slice(2)]; return it?PX.pickSVG(it,'hb').replace('<svg viewBox="0 0 200 200"','<svg viewBox="24 22 152 152" width="30" height="30" aria-hidden="true"'):''; }
+function showEquip(){ const on=PX&&PX.ITEMS[pxIdx].n===equippedName, b=$('armEquip'); b.textContent=on?'Equipped ✓':'Equip'; b.setAttribute('aria-pressed',String(!!on)); }
+function showPickNote(){ const eq=equippedPick(); $('pickNote').textContent=eq?`Pickaxe: ${eq.n}`:''; }
+function applyPickSkin(e){
+  const eq=equippedPick(); if(!eq||!e||!e.ch) return; const c=e.ch;
+  for(const o of [...c.pick.children]){ c.pick.remove(o); if(o.userData.skin) disposeObj(o); }
+  const w=new T.Group(); w.userData.skin=true; w.add(makePickaxe3D(eq,true));
+  if(c.glb) w.rotation.y=Math.PI/2; else w.rotation.x=-Math.PI/2; // spike faces forward
+  c.pick.add(w);
+}
+function equipCurrent(){ equippedName=PX.ITEMS[pxIdx].n; try{ localStorage.setItem('stormIslandPick',equippedName); }catch(e){} showEquip(); showPickNote(); applyPickSkin(player); refreshHotbar(); sfx('pickup',null,{item:{kind:'gun',r:PX.ITEMS[pxIdx].rar}}); }
+$('armEquip').addEventListener('click',equipCurrent);
+$('lockerBtn').addEventListener('click',()=>{ const eq=equippedPick(); if(eq) pxIdx=eq.i; openArmory(); setArmMode('picks'); $('armEquip').focus(); });
+if(!PX) $('lockerBtn').hidden=true; showPickNote();
+
+// ---- weak spots: a glowing ring on whatever you are harvesting; hit it for double damage
+const weak={ent:null,pos:new V(),spr:null,t:0}, weakRay=new T.Raycaster();
+function clearWeakSpot(){ weak.ent=null; if(weak.spr&&weak.spr.parent) weak.spr.parent.remove(weak.spr); }
+function placeWeakSpot(ent,h){
+  if(!weak.spr){ weak.spr=new T.Sprite(new T.SpriteMaterial({map:ringTex,color:0x58d0ff,blending:T.AdditiveBlending,depthTest:false,depthWrite:false,transparent:true,fog:false})); weak.spr.renderOrder=10; }
+  const n=h.face?h.face.normal.clone().transformDirection(h.object.matrixWorld):camera.position.clone().sub(h.point).normalize();
+  const t1=new V().crossVectors(n,Math.abs(n.y)>0.9?new V(1,0,0):new V(0,1,0)).normalize(), t2=new V().crossVectors(n,t1).normalize();
+  let spot=null;
+  for(let k=0;k<10&&!spot;k++){ const c=h.point.clone().addScaledVector(t1,rnd(-1,1)).addScaledVector(t2,rnd(-1.1,1.1)), dir=c.sub(camera.position).normalize();
+    weakRay.set(camera.position,dir); const hh=weakRay.intersectObjects(shotTargets,false)[0];
+    if(hh&&hh.object.userData.ent===ent&&hh.point.distanceTo(h.point)>0.7) spot=hh.point.addScaledVector(dir,-0.06); }
+  weak.ent=ent; weak.pos.copy(spot||h.point.clone().addScaledVector(t2,0.5)); weak.t=0;
+  weak.spr.position.copy(weak.pos); if(weak.spr.parent!==world) world.add(weak.spr);
+}
+function updateWeakSpot(dt){
+  if(!weak.ent) return;
+  if(weak.ent.dead||curItem()||player.build||!player.alive||player.pos.distanceTo(weak.pos)>7){ clearWeakSpot(); return; }
+  weak.t+=dt; weak.spr.scale.setScalar(Math.min(1,weak.t*6)*(0.55+0.07*Math.sin(weak.t*9)));
+} $('armPicksTab').addEventListener('click',()=>setArmMode('picks'));
 
 // ================= match flow =================
 function newMatch(){
@@ -2299,6 +2365,7 @@ function newMatch(){
   if(world) scene.remove(world);
   world=new T.Group(); scene.add(world);
   colliders=new Set(); structMeshes=[]; propMeshes=[]; chestMeshes=[]; charMeshes=[]; ramps=[]; pieceMap=new Map(); props=[]; chests=[]; loots=[]; combatants=[]; bots=[]; effects=[]; anims=[]; housePos=[]; clouds=[];
+  clearWeakSpot();
   matchTime=0; targetsDirty=true; stormTick=1; hurtFlash=0;
   initNoise(); genHeights(); buildTerrain(); makeHouses(11);
   let n=0, tries=0;
@@ -2319,7 +2386,7 @@ function newMatch(){
   initJet(); initStorm();
   player=makeCombatant('You',true,{skin:0xf1c9a5,shirt:0xff7f2a,pants:0x2b3a55,hair:0x2a1b12});
   Object.assign(player,{slots:[null,null,null,null,null,null],sel:0,ammo:{light:0,medium:0,heavy:0,shells:0},mats:{wood:0,stone:0},buildMat:'wood',build:null,lastBuild:'wall',fireCd:0,bloom:0,reloading:null,consuming:null,buildRepeat:0,dmgDealt:0,wantJump:false});
-  player.yaw=Math.atan2(-jet.dir.x,-jet.dir.z); player.pitch=-0.25;
+  player.yaw=Math.atan2(-jet.dir.x,-jet.dir.z); player.pitch=-0.25; applyPickSkin(player);
   for(let i=0;i<BOTS;i++) bots.push(makeBot(i));
   aliveCount=combatants.length;
   renderMapBase();
@@ -2449,6 +2516,6 @@ function loop(now){
 $('playBtn').disabled=true; $('playBtn').textContent='Loading…';
 loadSoldier(ok=>{ newMatch(); $('playBtn').disabled=false; $('playBtn').textContent='Drop in'; if(!ok) console.warn('Character model unavailable; using simple characters'); });
 requestAnimationFrame(loop);
-window.__game={keys,camera,sfx:(k,o)=>sfx(k,null,o),get audioOk(){return !!(AC&&bus&&AMB);},setCam:(p,l)=>{ camOverride=p?{pos:new V(...p),look:new V(...l)}:null; },th:terrainHeight,get editing(){return player.editing;},startEdit,confirmEdit,editClick,openArmory,setArm:i=>{armIdx=i;buildArmory();},setArmMode,setPick:i=>{pxIdx=i;buildArmory();},pieces:()=>[...pieceMap.values()],colliderCount:()=>colliders.size,debugLoot:(x,y,z)=>{ spawnLoot({kind:'gun',id:'sniper',r:4,ammo:1},x,y,z); spawnLoot({kind:'gun',id:'smg',r:3,ammo:30},x+1.6,y,z+0.4); spawnLoot({kind:'cons',id:'big',count:1},x-1.5,y,z+0.3); },get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},startMatch,update,setState:s=>state=s};
+window.__game={keys,camera,sfx:(k,o)=>sfx(k,null,o),get audioOk(){return !!(AC&&bus&&AMB);},setCam:(p,l)=>{ camOverride=p?{pos:new V(...p),look:new V(...l)}:null; },th:terrainHeight,get editing(){return player.editing;},startEdit,confirmEdit,editClick,openArmory,setArm:i=>{armIdx=i;buildArmory();},setArmMode,setPick:i=>{pxIdx=i;buildArmory();},fire:()=>playerFire(),get props(){return props;},weak,pieces:()=>[...pieceMap.values()],colliderCount:()=>colliders.size,debugLoot:(x,y,z)=>{ spawnLoot({kind:'gun',id:'sniper',r:4,ammo:1},x,y,z); spawnLoot({kind:'gun',id:'smg',r:3,ammo:30},x+1.6,y,z+0.4); spawnLoot({kind:'cons',id:'big',count:1},x-1.5,y,z+0.3); },get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},startMatch,update,setState:s=>state=s};
 })();
 </script>

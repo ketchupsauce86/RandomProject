@@ -4,7 +4,7 @@ A 3D battle royale that runs in the browser. You and 19 bots are flying over an 
 
 **Play online:** https://ketchupsauce86.github.io/RandomProject/ (updates automatically about a minute after `main` changes; hard refresh with Ctrl+Shift+R to get the newest version).
 
-Or open `index.html` in a browser (Chrome or Edge works best), pick a bot difficulty, and click **Drop in**. Needs a keyboard and mouse. The **Armory** button shows every gun design, and its **Pickaxes** tab shows 100 pickaxes in 3D across ten themed sets, each with its own shape, size and power-up.
+Or open `index.html` in a browser (Chrome or Edge works best), pick a bot difficulty, and click **Drop in**. Needs a keyboard and mouse. The **Armory** button shows every gun design, and its **Pickaxes** tab shows 100 pickaxes in 3D across ten themed sets. Open the **Locker** to equip one: you carry it into every match. Like Fortnite, every pickaxe plays the same (the power-ups are just for fun); when you harvest, hit the glowing blue weak spot for double damage and extra materials.
 
 ## Controls
 
