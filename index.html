@@ -150,14 +150,10 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 .armbottom{text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
 #armStats{font-size:20px;font-weight:700;margin:0;text-shadow:0 2px 6px rgba(0,0,0,.7)}
 .armbottom .note{margin:0 0 10px}
-.diff{display:flex;align-items:center;gap:6px;margin-top:18px;font-size:17px;font-weight:700}
-.diff span{color:var(--muted);margin-right:6px;text-transform:uppercase;letter-spacing:.1em;font-size:14px}
-.diff button{font-family:var(--ui);font-weight:800;font-size:16px;color:var(--text);background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:6px;padding:5px 14px;cursor:pointer}
-.diff button[aria-pressed="true"]{background:var(--sun);color:var(--sun-ink);border-color:var(--sun)}
-.diff button:focus-visible{outline:2px solid #fff;outline-offset:2px}
 #err{color:#ffb3bd;font-size:16px;margin-top:12px}
 @media (max-width:700px){#map{width:120px;height:120px}.slot{width:48px;height:48px}.slot .nm,.slot .sb{display:none}#vitals{width:40vw}}
 @media (prefers-reduced-motion:reduce){.btn,.slot{transition:none}}
+.season{margin:6px 0 0;font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-size:15px;color:#c9b8ff}.season b{color:#5cf0ff;text-shadow:2px 0 #ff2bd6,-2px 0 #2bd9ff}
 </style>
 
 <div id="app">
@@ -196,10 +192,10 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
     <div class="wrap">
       <div class="hero">
         <h1 class="logo">Storm<span>Island</span></h1>
-        <p class="tag">You and 19 bots drop onto the island. Loot chests, build fast, outrun the storm. Last one standing wins.</p>
+        <p class="season">Season: <b>Glitched</b></p>
+        <p class="tag">You and 99 bots drop onto a glitching island. Loot chests, build fast, outrun the storm. Last one standing wins.</p>
         <div class="btnrow"><button class="btn" id="playBtn">Drop in</button><button class="btn2" id="armoryBtn">Armory</button><button class="btn2" id="lockerBtn">Locker</button></div>
         <div class="note" id="pickNote"></div>
-        <div class="diff" role="group" aria-label="Bot difficulty"><span>Bots</span><button type="button" data-d="easy">Easy</button><button type="button" data-d="normal">Normal</button><button type="button" data-d="hard">Hard</button></div>
         <div class="note">Needs a keyboard and mouse. Click the game to lock your mouse.</div>
         <div id="err"></div>
       </div>
@@ -287,9 +283,9 @@ function angLerp(a,b,t){ let d=((b-a+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)
 
 // ================= constants =================
 const DIFF={easy:{dmg:0.28,spread:1.7,react:[0.9,1.5],cad:2.6,head:0.04,range:65,cover:0.2},normal:{dmg:0.4,spread:1.15,react:[0.6,1.1],cad:2.0,head:0.08,range:80,cover:0.4},hard:{dmg:0.62,spread:0.7,react:[0.3,0.6],cad:1.45,head:0.15,range:100,cover:0.6}};
-let diff='normal';
+const diff='hard'; // bots always play on hard
 // MAP_S scales the island: 4 = about 2.5 km across (Fortnite-sized, 16x the original area), 10 = 100x the area
-const MAP_S=4, G=4, GRAV=30, STEP=0.7, WORLD=640*MAP_S, N=240*MAP_S, CELL=WORLD/N, ISLAND_R=255*MAP_S, WATER_Y=-0.8, BOT_DMG=0.75, BOTS=99;
+const MAP_S=4, G=4, GRAV=30, STEP=0.7, WORLD=640*MAP_S, N=Math.round(240*Math.min(MAP_S,6)), CELL=WORLD/N, ISLAND_R=255*MAP_S, WATER_Y=-0.8, BOT_DMG=0.75, BOTS=99;
 // draw distances: things past these are hidden (the fog has mostly swallowed them by then)
 const VIEW={tree:300,bush:150,rock:280,house:420,chest:260,loot:180,grass:170,char:300,terrain:900};
 const RAR=[{n:'Common',c:'#a4abb5',m:1},{n:'Uncommon',c:'#55c95f',m:1.05},{n:'Rare',c:'#3fa0f5',m:1.1},{n:'Epic',c:'#b866f5',m:1.16},{n:'Legendary',c:'#f5a83b',m:1.22}];
@@ -309,7 +305,7 @@ const CONS={
   mini:{name:'Small Shield',short:'MINI',time:2,shield:25,cap:50,stack:6,give:3,color:'#7cc8ff'},
   big:{name:'Shield Potion',short:'BIG POT',time:4,shield:50,cap:100,stack:3,give:1,color:'#3d7bff'},
 };
-const STORM_T=MAP_S*0.6+0.4, STORM=[{wait:75,shrink:40,r:165,dps:1},{wait:40,shrink:35,r:100,dps:2},{wait:35,shrink:30,r:55,dps:4},{wait:25,shrink:25,r:26,dps:7},{wait:20,shrink:20,r:9,dps:10},{wait:15,shrink:20,r:0,dps:15}]
+const STORM_T=Math.min(MAP_S*0.6+0.4,4), STORM=[{wait:75,shrink:40,r:165,dps:1},{wait:40,shrink:35,r:100,dps:2},{wait:35,shrink:30,r:55,dps:4},{wait:25,shrink:25,r:26,dps:7},{wait:20,shrink:20,r:9,dps:10},{wait:15,shrink:20,r:0,dps:15}]
   .map(o=>({wait:Math.round(o.wait*STORM_T),shrink:Math.round(o.shrink*STORM_T),r:o.r*MAP_S,dps:o.dps}));
 const NAMES=['Pixel_Pete','NoScopeNora','LlamaDrama','BuildBot9000','SweatyTaco','CrankKing','RampRat','ShieldSipper','GliderGus','StormChaser','TiltedTina','LootGoblin','BoxFighter','DustyDan','BananaBro','CampingCarl','BushBrenda','HeadshotHank','WallWendy'];
 const SKINS=[0xf1c9a5,0xd9a27c,0xa8714f,0x7a4b32,0xffe0c4];
@@ -324,18 +320,28 @@ const renderer=new T.WebGLRenderer({canvas,antialias:true,powerPreference:'high-
 renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));
 renderer.shadowMap.enabled=true; renderer.shadowMap.type=T.PCFSoftShadowMap;
 const scene=new T.Scene();
-scene.fog=new T.Fog(0xcfeaff,150,520); let fogFar=520;
+scene.fog=new T.Fog(0x8a62c4,150,520); let fogFar=520;
 const camera=new T.PerspectiveCamera(72,1,0.1,2600);
 function resize(){ renderer.setSize(innerWidth,innerHeight); camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); }
 addEventListener('resize',resize); resize();
 
 const sky=new T.Mesh(new T.SphereGeometry(2400,24,12),new T.ShaderMaterial({side:T.BackSide,depthWrite:false,fog:false,
-  uniforms:{top:{value:new T.Color(0x3a86e0)},mid:{value:new T.Color(0xa6dcff)},bot:{value:new T.Color(0xe9f7ff)}},
+  // Glitched season: a violet twilight with stars, a drifting aurora and the odd glitch band tearing across
+  uniforms:{top:{value:new T.Color(0x150c3a)},mid:{value:new T.Color(0x6a3fb0)},bot:{value:new T.Color(0xe58ac4)},t:{value:0}},
   vertexShader:'varying vec3 vP;void main(){vP=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
-  fragmentShader:'uniform vec3 top;uniform vec3 mid;uniform vec3 bot;varying vec3 vP;void main(){float h=vP.y;vec3 c=h>0.0?mix(mid,top,smoothstep(0.0,0.55,h)):mix(mid,bot,smoothstep(0.0,-0.2,h));gl_FragColor=vec4(c,1.0);}'}));
+  fragmentShader:`uniform vec3 top;uniform vec3 mid;uniform vec3 bot;uniform float t;varying vec3 vP;
+    float hs(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+    void main(){float h=vP.y;vec3 c=h>0.0?mix(mid,top,smoothstep(0.0,0.5,h)):mix(mid,bot,smoothstep(0.0,-0.2,h));
+      c=mix(c,bot,smoothstep(0.12,0.0,abs(h))*0.55);
+      float az=atan(vP.z,vP.x);
+      vec2 sp=vec2(az*160.0,h*160.0); float st=step(0.9965,hs(floor(sp)))*smoothstep(0.08,0.35,h); c+=vec3(st)*(0.6+0.4*sin(t*3.0+hs(floor(sp))*40.0));
+      float band=sin(az*3.0+t*0.05+sin(az*7.0+t*0.11)*0.6)*0.05+0.32; float a=exp(-pow((h-band)*14.0,2.0))*(0.55+0.45*sin(az*20.0+t*0.4));
+      c+=a*mix(vec3(0.1,1.0,0.75),vec3(0.3,0.6,1.0),0.5+0.5*sin(az*5.0+t*0.2))*0.75;
+      float g=step(0.985,hs(vec2(floor(h*90.0),floor(t*6.0))))*smoothstep(-0.05,0.2,h); c=mix(c,c.gbr*1.2+vec3(0.15,0.0,0.2),g*0.6);
+      gl_FragColor=vec4(c,1.0);}`}));
 scene.add(sky);
-scene.add(new T.HemisphereLight(0xe2f3ff,0x5a7a3a,0.72));
-const sun=new T.DirectionalLight(0xfff0d2,0.95);
+scene.add(new T.HemisphereLight(0xc8b4ff,0x4a3a6a,0.8));
+const sun=new T.DirectionalLight(0xffd6f0,0.9);
 sun.castShadow=true; sun.shadow.mapSize.set(2048,2048);
 Object.assign(sun.shadow.camera,{left:-70,right:70,top:70,bottom:-70,near:10,far:420});
 sun.shadow.bias=-0.0008; scene.add(sun); scene.add(sun.target);
@@ -348,9 +354,9 @@ const stoneTex=canvasTex(128,128,(g,w,h)=>{ g.fillStyle='#5f666e'; g.fillRect(0,
 const Lam=(o)=>new T.MeshLambertMaterial(o);
 const M={
   wood:Lam({map:woodTex}), stone:Lam({map:stoneTex}),
-  trunk:Lam({color:0x7a5230}), rock:Lam({color:0x8d9198}),
-  chest:Lam({color:0xe8b13a,emissive:0x7a5200}), chestOpen:Lam({color:0x8a6a2a}), chestTrim:Lam({color:0x5a3a14}),
-  found:Lam({color:0x9a958c}), water:Lam({color:0x2b8fd8,transparent:true,opacity:0.86}),
+  trunk:Lam({color:0x7a5230}), jungle:Lam({color:0x0f4a3a,emissive:0x06281e,side:T.DoubleSide}), rock:Lam({color:0x8d9198}),
+  chest:Lam({color:0x5a2fb0,emissive:0x2a0e6a}), chestOpen:Lam({color:0x3a2a5a}), chestTrim:Lam({color:0xf0b840,emissive:0x8a5a00}),
+  found:Lam({color:0x9a958c}), water:Lam({color:0x3a5ae8,emissive:0x140a4a,transparent:true,opacity:0.86}),
   cloud:Lam({color:0xffffff,emissive:0x8899aa}),
 };
 const LEAFS=[Lam({color:0x3f9a3a}),Lam({color:0x2f7d3b}),Lam({color:0x5cb043})];
@@ -365,7 +371,7 @@ const GEO={
   wallZ:new T.BoxGeometry(G,G+0.3,0.3), wallX:new T.BoxGeometry(0.3,G+0.3,G), floor:new T.BoxGeometry(G,0.25,G), ramp:new T.BoxGeometry(G,0.25,G*Math.SQRT2),
   trunk:new T.CylinderGeometry(0.28,0.38,3,7), pine:new T.ConeGeometry(1.9,3.4,8), pine2:new T.ConeGeometry(1.4,2.6,8), crown:new T.IcosahedronGeometry(2.1,0),
   rock:new T.DodecahedronGeometry(1,0), roofCone:new T.ConeGeometry(9.2,4,4,1),
-  chestBase:new T.BoxGeometry(1.1,0.55,0.7), chestLid:new T.BoxGeometry(1.14,0.24,0.74), chestBand:new T.BoxGeometry(1.16,0.1,0.76),
+  chestBase:new T.BoxGeometry(1.1,0.55,0.7), chestLid:new T.BoxGeometry(1.14,0.24,0.74), chestBand:new T.BoxGeometry(1.16,0.1,0.76), chestCorner:new T.BoxGeometry(0.1,0.62,0.1), jungleLeaf:new T.BoxGeometry(3.4,0.08,0.9).translate(1.7,0,0), vine:new T.CylinderGeometry(0.04,0.04,5,4).translate(0,-2.5,0),
   lootGun:new T.BoxGeometry(0.9,0.22,0.2), lootSmall:new T.BoxGeometry(0.42,0.42,0.42), beam:new T.CylinderGeometry(0.14,0.14,4,8,1,true),
   leg:new T.BoxGeometry(0.28,0.85,0.3), body:new T.BoxGeometry(0.72,0.78,0.42), arm:new T.BoxGeometry(0.22,0.72,0.24), head:new T.BoxGeometry(0.44,0.44,0.44),
   hair:new T.BoxGeometry(0.48,0.14,0.48), eye:new T.BoxGeometry(0.07,0.09,0.02),
@@ -812,29 +818,46 @@ function buildTerrain(){
   water=new T.Mesh(new T.PlaneGeometry(WORLD*1.8,WORLD*1.8).rotateX(-Math.PI/2),M.water); water.position.y=WATER_Y; world.add(water);
   for(let i=0;i<16*MAP_S;i++){ const cl=new T.Mesh(GEO.cloud,M.cloud); cl.position.set(rnd(-400,400)*MAP_S,rnd(150,185)+MAP_S*25,rnd(-400,400)*MAP_S); cl.scale.set(rnd(1.5,3),rnd(0.5,0.8),rnd(1.2,2.2)); world.add(cl); clouds.push(cl); }
 }
+// Grass tufts and flowers live in 160 m cells. On a big island there are millions of them, so a cell is only
+// built (from a seed, so it always grows back the same) when the camera comes near, and freed again far away.
+const FOL_C=160, folCells=new Map(); let folKit=null;
 function scatterFoliage(){
-  // grass tufts and flowers, grouped into 160 m cells; each cell is one instanced mesh that is hidden when far away
-  const blade=new T.ConeGeometry(0.08,0.6,3); blade.translate(0,0.28,0);
-  const flower=new T.IcosahedronGeometry(0.11,0), gMat=Lam({color:0xffffff}), fMat=Lam({color:0xffffff});
-  const FC=160, cells=new Map(), cellOf=(x,z)=>{ const k=Math.floor(x/FC)+','+Math.floor(z/FC); let c=cells.get(k); if(!c){ c={g:[],f:[],x:(Math.floor(x/FC)+0.5)*FC,z:(Math.floor(z/FC)+0.5)*FC}; cells.set(k,c); } return c; };
-  const m4=new T.Matrix4(), q=new T.Quaternion(), s=new V(), p=new V(), eu=new T.Euler(), col=new T.Color(), RR=ISLAND_R*0.96;
-  for(let i=0;i<6000*MAP_S*MAP_S;i++){
-    const cx=rnd(-RR,RR), cz=rnd(-RR,RR), h=terrainHeight(cx,cz);
+  if(!folKit){ const blade=new T.ConeGeometry(0.08,0.6,3); blade.translate(0,0.28,0);
+    folKit={blade,flower:new T.IcosahedronGeometry(0.11,0),gMat:Lam({color:0xffffff}),fMat:Lam({color:0xffffff})}; }
+  for(const c of folCells.values()) for(const im of c.ims) im.dispose(); folCells.clear(); foliage=[];
+}
+function buildFoliageCell(ix,iz){
+  let sd=(ix*73856093^iz*19349663^0x5bd1e995)>>>0; const R=()=>{ sd=(sd+0x6D2B79F5)>>>0; let t=sd; t=Math.imul(t^t>>>15,t|1); t^=t+Math.imul(t^t>>>7,t|61); return ((t^t>>>14)>>>0)/4294967296; }, rr=(a,b)=>a+R()*(b-a);
+  const m4=new T.Matrix4(), q=new T.Quaternion(), s=new V(), p=new V(), eu=new T.Euler(), col=new T.Color(), RR=ISLAND_R*0.96, g=[], f=[];
+  for(let i=0;i<640;i++){
+    const cx=(ix+R())*FOL_C, cz=(iz+R())*FOL_C; if(Math.abs(cx)>RR||Math.abs(cz)>RR) continue; const h=terrainHeight(cx,cz);
     if(h<1.4||h>18||biomeAt(cx,cz)>0.57||slopeAt(cx,cz)>0.55||nearHouse(cx,cz,8)) continue;
-    const tint=Math.random()*0.15, cell=cellOf(cx,cz);
-    for(let k=0;k<7;k++){ const x=cx+rnd(-0.7,0.7), z=cz+rnd(-0.7,0.7);
-      p.set(x,terrainHeight(x,z)-0.05,z); eu.set(rnd(-0.3,0.3),Math.random()*6.28,rnd(-0.3,0.3)); q.setFromEuler(eu); s.set(1,rnd(0.7,1.5),1);
-      cell.g.push(m4.compose(p,q,s).clone(),col.setRGB(0.3+tint+Math.random()*0.08,0.6+tint+Math.random()*0.12,0.2).getHex()); }
-    if(Math.random()<0.18){ const fc=pick([0xffe14d,0xff6b9a,0xffffff,0xb98cff,0xff8a3d]);
-      for(let k=0;k<4;k++){ const x=cx+rnd(-1,1), z=cz+rnd(-1,1); p.set(x,terrainHeight(x,z)+0.32,z); q.identity(); s.setScalar(rnd(0.8,1.2)); cell.f.push(m4.compose(p,q,s).clone(),fc); } }
+    const tint=R()*0.15;
+    for(let k=0;k<7;k++){ const x=cx+rr(-0.7,0.7), z=cz+rr(-0.7,0.7);
+      p.set(x,terrainHeight(x,z)-0.05,z); eu.set(rr(-0.3,0.3),R()*6.28,rr(-0.3,0.3)); q.setFromEuler(eu); s.set(1,rr(0.7,1.5),1);
+      g.push(m4.compose(p,q,s).clone(),col.setRGB(0.3+tint+R()*0.08,0.6+tint+R()*0.12,0.2).getHex()); }
+    if(R()<0.18){ const fc=[0xffe14d,0xff6b9a,0xffffff,0xb98cff,0xff8a3d][Math.floor(R()*5)];
+      for(let k=0;k<4;k++){ const x=cx+rr(-1,1), z=cz+rr(-1,1); p.set(x,terrainHeight(x,z)+0.32,z); q.identity(); s.setScalar(rr(0.8,1.2)); f.push(m4.compose(p,q,s).clone(),fc); } }
   }
-  foliage=[];
-  for(const c of cells.values()) for(const [list,geo,mat] of [[c.g,blade,gMat],[c.f,flower,fMat]]){
+  const c={ims:[],x:(ix+0.5)*FOL_C,z:(iz+0.5)*FOL_C};
+  for(const [list,geo,mat] of [[g,folKit.blade,folKit.gMat],[f,folKit.flower,folKit.fMat]]){
     const n=list.length/2; if(!n) continue; const im=new T.InstancedMesh(geo,mat,n);
     for(let i=0;i<n;i++){ im.setMatrixAt(i,list[i*2]); im.setColorAt(i,col.setHex(list[i*2+1])); }
-    im.instanceMatrix.needsUpdate=true; im.instanceColor.needsUpdate=true; im.computeBoundingSphere&&im.computeBoundingSphere(); im.frustumCulled=false;
-    world.add(im); foliage.push(im); cullables.push({obj:im,x:c.x,z:c.z,r:VIEW.grass+FC*0.7});
+    im.instanceMatrix.needsUpdate=true; im.instanceColor.needsUpdate=true; im.frustumCulled=false; im.visible=!noFoliage;
+    world.add(im); c.ims.push(im); foliage.push(im);
   }
+  return c;
+}
+// called a few times a second: grow the cells in view (a couple per call so it never hitches), free far ones
+function updateFoliage(cam,k){
+  const r=VIEW.grass*k+FOL_C*0.7, ci=Math.floor(cam.x/FOL_C), cj=Math.floor(cam.z/FOL_C), span=Math.ceil(r/FOL_C); let built=0;
+  for(const [key,c] of folCells){ if(Math.hypot(c.x-cam.x,c.z-cam.z)>r+FOL_C*1.5){ for(const im of c.ims){ world.remove(im); im.dispose(); removeFrom(foliage,im); } folCells.delete(key); } }
+  const want=[];
+  for(let i=ci-span;i<=ci+span;i++) for(let j=cj-span;j<=cj+span;j++){ const key=i+','+j; if(folCells.has(key)) continue;
+    const d=Math.hypot((i+0.5)*FOL_C-cam.x,(j+0.5)*FOL_C-cam.z); if(d<r) want.push([d,i,j,key]); }
+  want.sort((a,b)=>a[0]-b[0]);
+  for(const [,i,j,key] of want){ if(built++>=2) break; folCells.set(key,buildFoliageCell(i,j)); }
+  for(const c of folCells.values()){ const v=!noFoliage&&Math.hypot(c.x-cam.x,c.z-cam.z)<r; for(const im of c.ims) im.visible=v; }
 }
 
 // ================= world state =================
@@ -861,29 +884,46 @@ function addProp(obj,meshes,box,res,hp){ const p={etype:'prop',obj,meshes,box,re
 function damageProp(p,dmg,attacker,pickaxe,point,crit){
   if(p.dead) return; p.hp-=dmg; p.shake=0.3; if(!anims.includes(p)) anims.push(p);
   if(pickaxe&&attacker===player){ const amt=Math.round((p.res==='wood'?12:10)*(crit?1.5:1)); player.mats[p.res]=Math.min(999,player.mats[p.res]+amt); if(point) showDmg(point,'+'+amt,crit?'head':'build'); sfx('chop',null,{mat:p.res}); }
-  if(p.hp<=0){ p.dead=true; world.remove(p.obj); for(const m of p.meshes) removeFrom(propMeshes,m); if(p.box) colliders.delete(p.box); targetsDirty=true; debris(p.obj.position.clone().add(new V(0,1.5,0)),p.meshes[0].material); sfx('break',p.obj.position); }
+  if(p.hp<=0){ p.dead=true; world.remove(p.obj); for(const m of p.meshes) removeFrom(propMeshes,m); if(p.box) colliders.delete(p.box); targetsDirty=true; debris(p.obj.position.clone().add(new V(0,1.5,0)),[].concat(p.meshes[0].material).pop()); sfx('break',p.obj.position); }
 }
+// Trees, cacti and bushes are each a single mesh: a handful of shapes are built once (parts merged into one
+// geometry, one draw group per material) and shared by every copy, which keeps a 100x island light on memory.
+const propShapes=new Map();
+function mergeParts(parts,mats){ // parts: [geometry, material index, Object3D placing it]
+  const pos=[], nor=[], idx=[], groups=[]; let base=0;
+  for(let mi=0;mi<mats;mi++){ const g0=idx.length;
+    for(const [geo,m,o] of parts){ if(m!==mi) continue; o.updateMatrix(); const g=geo.clone().applyMatrix4(o.matrix), pa=g.attributes.position, na=g.attributes.normal;
+      for(let i=0;i<pa.count;i++){ pos.push(pa.getX(i),pa.getY(i),pa.getZ(i)); nor.push(na.getX(i),na.getY(i),na.getZ(i)); }
+      if(g.index) for(let i=0;i<g.index.count;i++) idx.push(base+g.index.getX(i)); else for(let i=0;i<pa.count;i++) idx.push(base+i);
+      base+=pa.count; g.dispose(); }
+    if(idx.length>g0) groups.push([g0,idx.length-g0,mi]); }
+  const out=new T.BufferGeometry(); out.setAttribute('position',new T.Float32BufferAttribute(pos,3)); out.setAttribute('normal',new T.Float32BufferAttribute(nor,3)); out.setIndex(idx);
+  for(const [st,c,mi] of groups) out.addGroup(st,c,mi); out.computeBoundingSphere(); return out;
+}
+function propShape(key,make){ let g=propShapes.get(key); if(!g){ g=make(); propShapes.set(key,g); } return g; }
+const at=(x,y,z,sx=1,sy=sx,sz=sx,ry=0,rz=0)=>{ const o=new T.Object3D(); o.position.set(x,y,z); o.scale.set(sx,sy,sz); o.rotation.set(0,ry,rz); return o; };
 function makeTree(x,z,forest){
-  const y=terrainHeight(x,z), g=new T.Group(), s=rnd(0.85,1.4); g.position.set(x,y-0.1,z); g.scale.setScalar(s);
-  const trunk=new T.Mesh(GEO.trunk,M.trunk); trunk.position.y=1.5; g.add(trunk); const meshes=[trunk];
-  if(Math.random()<(forest?0.85:0.45)){ const lm=pick(LEAFS); const l1=new T.Mesh(GEO.pine,lm); l1.position.y=3.8; const l2=new T.Mesh(GEO.pine2,lm); l2.position.y=5.4; g.add(l1,l2); meshes.push(l1,l2); }
-  else { const lm=pick(LEAFS); for(const [cx,cy,cz,sc] of [[0,4.4,0,1],[0.9,3.9,0.3,0.6],[-0.7,4.1,-0.5,0.65]]){ const c=new T.Mesh(GEO.crown,lm); c.position.set(cx,cy,cz); c.scale.set(sc,sc*0.85,sc); c.rotation.y=Math.random()*3; g.add(c); meshes.push(c); } }
-  meshes.forEach(m=>{ m.castShadow=true; });
-  const r=0.45*s; addProp(g,meshes,{min:{x:x-r,y:y-1,z:z-r},max:{x:x+r,y:y+3*s,z:z+r}},'wood',100);
+  const y=terrainHeight(x,z), s=rnd(0.85,1.4), pine=Math.random()<(forest?0.85:0.45), v=Math.floor(Math.random()*4);
+  const geo=propShape('tree'+pine+v,()=>mergeParts([[GEO.trunk,0,at(0,1.5,0)],...(pine?[[GEO.pine,1,at(0,3.8,0,1,1,1,v)],[GEO.pine2,1,at(0,5.4,0,1,1,1,v*1.3)]]
+    :[[0,4.4,0,1],[0.9,3.9,0.3,0.6],[-0.7,4.1,-0.5,0.65]].map(([cx,cy,cz,sc],i)=>[GEO.crown,1,at(cx,cy,cz,sc,sc*0.85,sc,v*1.7+i*2.1)]))],2));
+  const m=new T.Mesh(geo,[M.trunk,pick(LEAFS)]); m.position.set(x,y-0.1,z); m.scale.setScalar(s); m.rotation.y=Math.random()*6.28; m.castShadow=true;
+  const r=0.45*s; addProp(m,[m],{min:{x:x-r,y:y-1,z:z-r},max:{x:x+r,y:y+3*s,z:z+r}},'wood',100);
 }
 function makeCactus(x,z){
-  const y=terrainHeight(x,z), g=new T.Group(), s=rnd(0.8,1.25); g.position.set(x,y-0.1,z); g.scale.setScalar(s);
-  const t=new T.Mesh(GEO.cactus,M.cactus); t.position.y=1.7; g.add(t); const meshes=[t];
-  for(const sd of [-1,1]){ if(Math.random()<0.25) continue; const h=rnd(1.3,2.2);
-    const a=new T.Mesh(GEO.cactusArm,M.cactus); a.rotation.z=Math.PI/2; a.position.set(sd*0.6,h,0); a.scale.y=0.8;
-    const u=new T.Mesh(GEO.cactusArm,M.cactus); u.position.set(sd*1.0,h+0.45,0); g.add(a,u); meshes.push(a,u); }
-  meshes.forEach(m=>{ m.castShadow=true; });
-  const r=0.4*s; addProp(g,meshes,{min:{x:x-r,y:y-1,z:z-r},max:{x:x+r,y:y+3.4*s,z:z+r}},'wood',90);
+  const y=terrainHeight(x,z), s=rnd(0.8,1.25), v=Math.floor(Math.random()*4);
+  const geo=propShape('cactus'+v,()=>{ const parts=[[GEO.cactus,0,at(0,1.7,0)]];
+    for(const sd of [-1,1]){ if(v===(sd<0?1:2)||v===3&&sd>0) continue; const h=1.3+((v*7+sd*3+10)%9)/9*0.9;
+      parts.push([GEO.cactusArm,0,at(sd*0.6,h,0,1,0.8,1,0,Math.PI/2)],[GEO.cactusArm,0,at(sd*1.0,h+0.45,0)]); }
+    return mergeParts(parts,1); });
+  const m=new T.Mesh(geo,[M.cactus]); m.position.set(x,y-0.1,z); m.scale.setScalar(s); m.rotation.y=Math.random()*6.28; m.castShadow=true;
+  const r=0.4*s; addProp(m,[m],{min:{x:x-r,y:y-1,z:z-r},max:{x:x+r,y:y+3.4*s,z:z+r}},'wood',90);
 }
 function makeBush(x,z,dry){
-  const y=terrainHeight(x,z), g=new T.Group(); g.position.set(x,y,z); const meshes=[];
-  for(let i=0;i<3;i++){ const m=new T.Mesh(GEO.bushBall,dry?M.dryBush:M.bush); const sc=rnd(0.55,0.85); m.scale.set(sc,sc*0.8,sc); m.position.set(rnd(-0.5,0.5),0.45+i*0.08,rnd(-0.5,0.5)); m.castShadow=true; g.add(m); meshes.push(m); }
-  addProp(g,meshes,null,'wood',50);
+  const y=terrainHeight(x,z), v=Math.floor(Math.random()*6);
+  const geo=propShape('bush'+v,()=>{ let sd=v*9301+49297; const r=(a,b)=>{ sd=(sd*9301+49297)%233280; return a+sd/233280*(b-a); };
+    return mergeParts([0,1,2].map(i=>{ const sc=r(0.55,0.85); return [GEO.bushBall,0,at(r(-0.5,0.5),0.45+i*0.08,r(-0.5,0.5),sc,sc*0.8,sc)]; }),1); });
+  const m=new T.Mesh(geo,[dry?M.dryBush:M.bush]); m.position.set(x,y,z); m.rotation.y=Math.random()*6.28; m.castShadow=true;
+  addProp(m,[m],null,'wood',50);
 }
 function makeRock(x,z){
   const y=terrainHeight(x,z), sx=rnd(1.2,2.8), sy=rnd(0.8,2), sz=rnd(1.2,2.8), m=new T.Mesh(GEO.rock,biomeAt(x,z)>0.58?M.rockRed:M.rock);
@@ -896,6 +936,7 @@ function makeChest(x,y,z,ry){
   const band=new T.Mesh(GEO.chestBand,M.chestTrim); band.position.y=0.5;
   const pivot=new T.Group(); pivot.position.set(0,0.55,0.35);
   const lid=new T.Mesh(GEO.chestLid,M.chest); lid.position.set(0,0.12,-0.37); pivot.add(lid);
+  for(const sx of [-1,1]) for(const sz of [-1,1]){ const k=new T.Mesh(GEO.chestCorner,M.chestTrim); k.position.set(sx*0.53,0.3,sz*0.33); g.add(k); }
   g.add(b,band,pivot); [b,lid].forEach(m=>m.castShadow=true); world.add(g);
   const c={etype:'chest',obj:g,pos:new V(x,y,z),opened:false,lid:pivot,meshes:[b,lid],ry};
   c.meshes.forEach(m=>{ m.userData.ent=c; chestMeshes.push(m); }); chests.push(c); cullables.push({obj:g,x,z,r:VIEW.chest}); targetsDirty=true; return c;
@@ -907,6 +948,15 @@ function openChest(c){
   const drops=[gun,{kind:'ammo',type:WEAP[gun.id].ammo,count:AMMO_GIVE[WEAP[gun.id].ammo]},randomCons(),{kind:'mat',type:'wood',count:30}];
   drops.forEach((it,i)=>{ const o=(i-1.5)*0.7; spawnLoot(it,c.pos.x+fx*1.4+rx*o,c.pos.y,c.pos.z+fz*1.4+rz*o); });
 }
+// two lit windows on each solid wall, inside and out; they go when the wall is broken
+const winMat=new T.MeshBasicMaterial({color:0xffc861,side:T.DoubleSide}), winGeo=new T.PlaneGeometry(1.3,1.2);
+function houseWindows(wall,cx,base,cz,along,s,hx,hz){
+  wall.extra=wall.extra||[];
+  for(const o of [-2.6,2.6]){ const m=new T.Mesh(winGeo,winMat), nx=cx-hx, nz=cz-hz, l=Math.hypot(nx,nz)||1;
+    m.position.set(cx+(along?o:0)+nx/l*0.22,base+2.7,cz+(along?0:o)+nz/l*0.22); m.rotation.y=along?0:Math.PI/2; world.add(m); wall.extra.push(m);
+    const m2=m.clone(); m2.position.set(cx+(along?o:0)-nx/l*0.22,base+2.7,cz+(along?0:o)-nz/l*0.22); world.add(m2); wall.extra.push(m2);
+    cullables.push({obj:m,x:cx,z:cz,r:VIEW.house},{obj:m2,x:cx,z:cz,r:VIEW.house}); }
+}
 function buildHouse(x,z,base,mn){
   const firstMesh=structMeshes.length;
   const W=12,H=5,t=0.4, wallMat=pick(HOUSE_MATS), roofMat=pick(ROOF_MATS);
@@ -915,7 +965,7 @@ function buildHouse(x,z,base,mn){
   for(let s=0;s<4;s++){
     const along=(s%2===0), off=W/2-t/2;
     const cx=s===1?x+off:s===3?x-off:x, cz=s===0?z+off:s===2?z-off:z;
-    if(s!==door){ addBlock(cx,base+H/2,cz,along?W:t,H,along?t:W,wallMat,300); continue; }
+    if(s!==door){ const wall=addBlock(cx,base+H/2,cz,along?W:t,H,along?t:W,wallMat,300); houseWindows(wall,cx,base,cz,along,s,x,z); continue; }
     const gap=2.6, side=(W-gap)/2, dh=3.3;
     for(const sg of [-1,1]){ const o=sg*(gap/2+side/2); addBlock(along?cx+o:cx,base+H/2,along?cz:cz+o,along?side:t,H,along?t:side,wallMat,300); }
     addBlock(cx,base+dh+(H-dh)/2,cz,along?gap:t,H-dh,along?t:gap,wallMat,300);
@@ -931,6 +981,127 @@ function buildHouse(x,z,base,mn){
   for(let i=firstMesh;i<structMeshes.length;i++) cullables.push({obj:structMeshes[i],x,z,r:VIEW.house});
   const hp={x,z,base}; housePos.push(hp); addHouseCell(hp);
 }
+// ================= season: Glitched =================
+// The island is glitching: four new places (Neon Grid, Glitch City, Server Hill and the Glow Jungle), pixel
+// shards hanging in a violet sky, purple-and-gold chests and lit windows. The places are solid, unbreakable
+// structures you can climb, build on and fight around; they are listed on the map.
+let seasonPOIs=[];
+function poiReserve(x,z,r){ for(let a=-r;a<=r;a+=12) for(let b=-r;b<=r;b+=12) if(a*a+b*b<=r*r) addHouseCell({x:x+a,z:z+b,base:0,poi:true}); }
+function poiSpot(rad,lo,hi,tol){ // the flattest spot it can find; if none, it settles for bumpier ground
+  for(let pass=0;pass<8;pass++){ const r=poiSpotTry(rad*(pass<5?1:0.7),lo,hi+pass*4,tol*(1+pass*0.8),pass<3?520:pass<6?380:260); if(r) return r; } return null; }
+function poiSpotTry(rad,lo,hi,tol,apart){
+  for(let k=0;k<2500;k++){ const a=Math.random()*Math.PI*2, r=Math.sqrt(Math.random())*ISLAND_R*0.72, x=Math.cos(a)*r, z=Math.sin(a)*r, h=terrainHeight(x,z);
+    if(h<lo||h>hi) continue; if(seasonPOIs.some(p=>Math.hypot(p.x-x,p.z-z)<apart)) continue;
+    let ok=true; for(let i=0;i<12&&ok;i++){ const an=i/12*Math.PI*2; for(const f of [0.5,1]){ const hh=terrainHeight(x+Math.cos(an)*rad*f,z+Math.sin(an)*rad*f); if(hh<1.2||Math.abs(hh-h)>tol) ok=false; } }
+    if(ok) return {x,z,h}; }
+  return null;
+}
+// an unbreakable, solid part of a landmark (bullets stop on it, you can stand and build on it)
+function poiSolid(mesh,box){ mesh.castShadow=true; mesh.receiveShadow=true; world.add(mesh); const p=registerPiece({kind:'poi',hp:1e12,maxHp:1e12,obj:mesh,meshes:[mesh],box}); cullables.push({obj:mesh,x:mesh.position.x,z:mesh.position.z,r:1500}); return p; }
+function poiDeco(o,x,z,r=900){ world.add(o); cullables.push({obj:o,x,z,r}); return o; }
+const neonGlow=c=>new T.SpriteMaterial({map:glowTex,color:c,blending:T.AdditiveBlending,depthWrite:false,transparent:true});
+
+function buildNeonGrid(){
+  const s=poiSpot(80,2,16,2.5); if(!s) return; const {x,z}=s; poiReserve(x,z,95);
+  // a glowing grid laid over the ground
+  const gt=canvasTex(128,128,(g)=>{ g.fillStyle='#160a3a'; g.fillRect(0,0,128,128); const gr=g.createLinearGradient(0,0,128,0); gr.addColorStop(0,'#ff3bd4'); gr.addColorStop(1,'#3bd8ff');
+    g.strokeStyle=gr; g.lineWidth=5; g.shadowColor='#ff5ae0'; g.shadowBlur=10; g.strokeRect(0,0,128,128); g.lineWidth=2; g.strokeStyle='#ffffff'; g.strokeRect(0,0,128,128); });
+  gt.wrapS=gt.wrapT=T.RepeatWrapping; gt.repeat.set(20,20);
+  const geo=new T.PlaneGeometry(190,190,38,38); geo.rotateX(-Math.PI/2); const pa=geo.attributes.position;
+  for(let i=0;i<pa.count;i++){ const px=pa.getX(i)+x, pz=pa.getZ(i)+z; pa.setY(i,terrainHeight(px,pz)+0.08); } geo.computeVertexNormals();
+  const floor=new T.Mesh(geo,new T.MeshBasicMaterial({map:gt,polygonOffset:true,polygonOffsetFactor:-2})); floor.position.set(x,0,z); poiDeco(floor,x,z,1500);
+  // wireframe neon pyramids
+  const pyr=[[0,0,46,34],[-58,-30,28,22],[58,-26,30,22],[-34,48,22,17],[40,50,24,18]];
+  for(const [ox,oz,h,r] of pyr){ const px=x+ox, pz=z+oz, gy=terrainHeight(px,pz)-0.5;
+    const cg=new T.ConeGeometry(r,h,4,4); cg.rotateY(Math.PI/4); cg.translate(0,h/2,0);
+    const m=new T.Mesh(cg,new T.MeshLambertMaterial({color:0x1c1066,emissive:0x1a0c58})); m.position.set(px,gy,pz);
+    const box=boxOf(px,gy+h*0.18,pz,r*1.3,h*0.36,r*1.3); poiSolid(m,box);
+    for(const [f,hh] of [[0.85,0.36],[0.55,0.62],[0.28,0.85]]) colliders.add(boxOf(px,gy+h*hh-h*0.13,pz,r*1.3*f,h*0.26,r*1.3*f));
+    const wire=new T.LineSegments(new T.WireframeGeometry(cg),new T.LineBasicMaterial({color:ox===0?0x7ef6ff:0xff5ae0})); wire.position.copy(m.position); wire.scale.setScalar(1.004); poiDeco(wire,px,pz,1500);
+    const tip=new T.Sprite(neonGlow(0x9ff4ff)); tip.scale.setScalar(h*0.35); tip.position.set(px,gy+h,pz); poiDeco(tip,px,pz,1500); }
+  seasonPOIs.push({n:'Neon Grid',x,z});
+}
+function buildGlitchCity(){
+  const s=poiSpot(70,2,18,4); if(!s) return; const {x,z}=s; poiReserve(x,z,95);
+  const winTex=(c1,c2,seed)=>canvasTex(64,128,(g)=>{ g.fillStyle='#10121e'; g.fillRect(0,0,64,128); for(let r=0;r<16;r++) for(let c=0;c<4;c++){ const v=Math.sin(seed*91+r*7.1+c*13.3)*0.5+0.5;
+    g.fillStyle=v>0.62?c1:v>0.45?c2:'#1c2034'; g.fillRect(4+c*15,3+r*8,11,5); } g.fillStyle='rgba(120,240,255,.5)'; g.fillRect(0,0,64,2); });
+  const pal=[['#5cf0ff','#ff9a3c'],['#ff4fd8','#5cf0ff'],['#ffd24a','#4f8bff'],['#7dffb0','#ff4fd8']];
+  // a flat plaza: its top sits just above the highest ground under it
+  let top=-1e9, bot=1e9; for(let a=-85;a<=85;a+=8.5) for(let b=-85;b<=85;b+=8.5){ const hh=terrainHeight(x+a,z+b); top=Math.max(top,hh); bot=Math.min(bot,hh); }
+  s.h=top+0.3; const th=s.h-bot+1.5;
+  const slab=new T.Mesh(new T.BoxGeometry(170,th,170),new T.MeshLambertMaterial({color:0x1a1c2a})); slab.position.set(x,s.h-th/2,z); poiSolid(slab,boxOf(x,s.h-th/2,z,170,th,170));
+  // neon street lines across the plaza
+  for(const d of [-1,1]) for(const ax of [0,1]){ const st=new T.Mesh(new T.PlaneGeometry(ax?3:168,ax?168:3),new T.MeshBasicMaterial({color:d>0?0xff4fd8:0x5cf0ff})); st.rotation.x=-Math.PI/2; st.position.set(x+(ax?d*22:0),s.h+0.03,z+(ax?0:d*22)); poiDeco(st,x,z,1500); }
+  let k=0;
+  for(let i=-2;i<=2;i++) for(let j=-2;j<=2;j++){ if((i===0&&j===0)||Math.abs(i)+Math.abs(j)>3) continue; if(Math.random()<0.15) continue;
+    const w=rnd(12,18), d=rnd(12,18), h=i===0||j===0?rnd(30,55):rnd(45,85), px=x+i*32+rnd(-3,3), pz=z+j*32+rnd(-3,3), c=pal[k++%4], tx=winTex(c[0],c[1],k);
+    tx.wrapS=tx.wrapT=T.RepeatWrapping; tx.repeat.set(Math.round(w/8),Math.round(h/12));
+    const mat=new T.MeshLambertMaterial({map:tx,emissive:0xffffff,emissiveMap:tx,emissiveIntensity:0.9});
+    const m=new T.Mesh(new T.BoxGeometry(w,h,d),[mat,mat,new T.MeshLambertMaterial({color:0x151726}),mat,mat,mat]); m.position.set(px,s.h+h/2,pz); poiSolid(m,boxOf(px,s.h+h/2,pz,w,h,d));
+    const cap=new T.Mesh(new T.BoxGeometry(w+0.6,1.2,d+0.6),new T.MeshBasicMaterial({color:new T.Color(c[0])})); cap.position.set(px,s.h+h+0.4,pz); poiDeco(cap,px,pz,1500);
+    if(Math.random()<0.6){ const sp=new T.Mesh(new T.CylinderGeometry(0.25,0.6,h*0.35,6),new T.MeshLambertMaterial({color:0x9aa4b8})); sp.position.set(px,s.h+h+h*0.175,pz); poiDeco(sp,px,pz,1500);
+      const tip=new T.Sprite(neonGlow(0xff3b4a)); tip.scale.setScalar(5); tip.position.set(px,s.h+h*1.35+1,pz); poiDeco(tip,px,pz,1500); } }
+  seasonPOIs.push({n:'Glitch City',x,z});
+}
+function buildServerHill(){
+  const s=poiSpot(14,12,30,3); if(!s) return; const {x,z,h}=s; poiReserve(x,z,40);
+  const W=12, H=20, D=9, by=h-0.5;
+  const rack=canvasTex(64,128,(g)=>{ g.fillStyle='#0c0f18'; g.fillRect(0,0,64,128); for(let r=0;r<20;r++){ g.fillStyle='#2a3142'; g.fillRect(4,3+r*6,56,4); for(let c=0;c<8;c++){ const v=Math.sin(r*12.9+c*78.2)*0.5+0.5; g.fillStyle=v>0.7?'#ff8a2a':v>0.45?'#4fe0ff':'#1a2030'; g.fillRect(8+c*6,4+r*6,3,2); } } });
+  const caseMat=new T.MeshLambertMaterial({color:0xc9ccd6}), glass=new T.MeshLambertMaterial({map:rack,emissive:0xffffff,emissiveMap:rack,emissiveIntensity:0.8});
+  const body=new T.Mesh(new T.BoxGeometry(W,H,D),[caseMat,caseMat,caseMat,caseMat,glass,caseMat]); body.position.set(x,by+H/2+1.2,z); poiSolid(body,boxOf(x,by+H/2+1.2,z,W,H,D));
+  const frame=new T.Mesh(new T.BoxGeometry(W*0.92,0.6,0.5),caseMat); frame.position.set(x,by+H/2+1.2,z+D/2+0.1); poiDeco(frame,x,z);
+  const fan=new T.Mesh(new T.CylinderGeometry(3.6,3.6,1.2,28),new T.MeshLambertMaterial({color:0x2a2f3c})); fan.rotation.z=Math.PI/2; fan.position.set(x+W/2+0.5,by+H*0.55,z); poiDeco(fan,x,z);
+  const hub=new T.Mesh(new T.CylinderGeometry(1.2,1.2,1.4,18),new T.MeshLambertMaterial({color:0x4fe0ff,emissive:0x1a6a80})); hub.rotation.z=Math.PI/2; hub.position.set(x+W/2+0.7,by+H*0.55,z); poiDeco(hub,x,z);
+  const feet=new T.Mesh(new T.BoxGeometry(W*0.9,1.4,D*0.9),new T.MeshLambertMaterial({color:0x3a3f4c})); feet.position.set(x,by+0.7,z); poiSolid(feet,boxOf(x,by+0.7,z,W*0.9,1.4,D*0.9));
+  // cables spill out of the base and snake down the hill
+  const cols=[0x15161c,0xff7a2a,0x2a7aff,0xd8263a,0x15161c,0x7a3aff];
+  for(let i=0;i<16;i++){ const a=i/16*Math.PI*2+rnd(-0.2,0.2), L=rnd(18,40), pts=[];
+    for(let t=0;t<=6;t++){ const r=3+L*t/6, px=x+Math.cos(a)*r+Math.sin(t*1.3+i)*1.5, pz=z+Math.sin(a)*r+Math.cos(t*1.1+i)*1.5; pts.push(new V(px,(t===0?by+1.2:terrainHeight(px,pz))+0.25,pz)); }
+    const tube=new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts),24,rnd(0.18,0.35),5),new T.MeshLambertMaterial({color:cols[i%cols.length]})); poiDeco(tube,x,z,600); }
+  for(let i=0;i<5;i++){ const b=new T.Mesh(GEO.bushBall,M.bush); b.scale.setScalar(rnd(1.2,2)); b.position.set(x+rnd(-5,5),by+H+1.4,z+rnd(-3,3)); poiDeco(b,x,z); }
+  const beacon=new T.Sprite(neonGlow(0x4fe0ff)); beacon.scale.setScalar(14); beacon.position.set(x,by+H+5,z); poiDeco(beacon,x,z,1500);
+  seasonPOIs.push({n:'Server Hill',x,z});
+}
+function makeJungleTree(x,z){
+  const y=terrainHeight(x,z), s=rnd(1,1.5), v=Math.floor(Math.random()*3);
+  const geo=propShape('jungle'+v,()=>{ const parts=[[GEO.trunk,0,at(0,1.5,0,1,1.4,1)],[GEO.trunk,0,at(0.3,5.3,0,0.8,1.2,0.8,0,0.12)]];
+    for(let i=0;i<7;i++){ const a=i/7*Math.PI*2+v; parts.push([GEO.jungleLeaf,1,(()=>{ const o=new T.Object3D(); o.position.set(0.5+Math.cos(a)*1.2,7.6,Math.sin(a)*1.2); o.rotation.set(0,-a,-0.55); return o; })()]); }
+    parts.push([GEO.crown,1,at(0.4,7.8,0,0.9,0.6,0.9)]); return mergeParts(parts,2); });
+  const m=new T.Mesh(geo,[M.trunk,M.jungle]); m.position.set(x,y-0.1,z); m.scale.setScalar(s); m.rotation.y=Math.random()*6.28; m.castShadow=true;
+  const r=0.45*s; addProp(m,[m],{min:{x:x-r,y:y-1,z:z-r},max:{x:x+r,y:y+4*s,z:z+r}},'wood',120);
+}
+function buildGlowJungle(){
+  const s=poiSpot(90,2,14,7); if(!s) return; const {x,z}=s; poiReserve(x,z,120);
+  const lantern=neonGlow(0xff9a2a), fl=[], m4=new T.Matrix4(), col=new T.Color();
+  for(let i=0;i<110;i++){ const a=Math.random()*Math.PI*2, r=Math.sqrt(Math.random())*115, px=x+Math.cos(a)*r, pz=z+Math.sin(a)*r, h=terrainHeight(px,pz); if(h<1.4||h>s.h+9) continue; // stays in the lowland, off the snowy peaks
+    makeJungleTree(px,pz);
+    if(i%2===0){ const l=new T.Sprite(lantern); l.scale.setScalar(rnd(3,4.5)); l.position.set(px+rnd(-2,2),h+rnd(1.5,5),pz+rnd(-2,2)); poiDeco(l,px,pz,300); }
+    if(i%3===0){ const v=new T.Mesh(GEO.vine,M.jungle); v.position.set(px+rnd(-1.5,1.5),h+rnd(5,7),pz+rnd(-1.5,1.5)); poiDeco(v,px,pz,300); }
+    for(let k=0;k<6;k++){ const fx=px+rnd(-4,4), fz=pz+rnd(-4,4); fl.push([fx,terrainHeight(fx,fz)+0.3,fz,Math.random()<0.7?0xe8203a:0xff5ab0]); } }
+  const im=new T.InstancedMesh(new T.IcosahedronGeometry(0.28,0),new T.MeshLambertMaterial({color:0xffffff,emissive:0x400008}),fl.length);
+  fl.forEach(([fx,fy,fz,c],i)=>{ im.setMatrixAt(i,m4.makeTranslation(fx,fy,fz)); im.setColorAt(i,col.setHex(c)); }); im.frustumCulled=false; poiDeco(im,x,z,400);
+  seasonPOIs.push({n:'Glow Jungle',x,z});
+}
+function buildSeason(){ seasonPOIs=[]; buildNeonGrid(); buildGlitchCity(); buildServerHill(); buildGlowJungle(); }
+
+// pixel shards hanging in the sky around you, slowly turning, now and then blinking out like a glitch
+let shardIM=null, shardData=[];
+function initShards(){
+  const N=320, cols=[0x5cf0ff,0xff4fd8,0xff9a3c,0x9b6bff,0x7dffb0,0xffffff];
+  shardIM=new T.InstancedMesh(new T.BoxGeometry(1,1,0.12),new T.MeshBasicMaterial({color:0xffffff,fog:false,transparent:true,opacity:0.85}),N); shardIM.frustumCulled=false;
+  const col=new T.Color(); shardData=[];
+  for(let i=0;i<N;i++){ shardData.push({ox:rnd(-900,900),oz:rnd(-900,900),y:rnd(55,330),s:rnd(1.5,9)*(Math.random()<0.1?2.5:1),rx:Math.random()*6,ry:Math.random()*6,sp:rnd(-0.4,0.4),blink:Math.random()*20}); shardIM.setColorAt(i,col.setHex(cols[i%cols.length])); }
+  scene.add(shardIM);
+}
+const _sq=new T.Quaternion(), _se=new T.Euler(), _sv=new V(), _ss=new V(), _sm=new T.Matrix4();
+function updateShards(t){
+  if(!shardIM) initShards(); shardIM.visible=state!=='armory'; const c=camera.position;
+  shardData.forEach((d,i)=>{ const x=((d.ox-c.x)%1800+2700)%1800-900+c.x, z=((d.oz-c.z)%1800+2700)%1800-900+c.z;
+    const on=((t+d.blink)%9)>0.25; _se.set(d.rx+t*d.sp,d.ry+t*d.sp*0.7,0); _sq.setFromEuler(_se); _ss.setScalar(on?d.s:0.001); _sv.set(x+(on?0:3),d.y+Math.sin(t*0.4+i)*2,z);
+    shardIM.setMatrixAt(i,_sm.compose(_sv,_sq,_ss)); });
+  shardIM.instanceMatrix.needsUpdate=true;
+}
+
 function makeHouses(n){
   let tries=0;
   while(housePos.length<n&&tries<300*n){ tries++;
@@ -2349,6 +2520,8 @@ function renderMapBase(){
     if(h<WATER_Y) c=[36+h*3,120+h*4,190]; else { terrainColor(wx,wz,h,slopeAt(wx,wz),mapCol); const sh=clamp(1+(terrainHeight(wx-2,wz-2)-h)*-0.04,0.75,1.2); c=[mapCol.r*255*sh,mapCol.g*255*sh,mapCol.b*255*sh]; }
     const i=(y*MAPS+x)*4; img.data[i]=c[0]; img.data[i+1]=c[1]; img.data[i+2]=c[2]; img.data[i+3]=255; }
   g.putImageData(img,0,0); g.fillStyle='#7a4a2a'; for(const h of housePos) g.fillRect(toMap(h.x)-2,toMap(h.z)-2,4,4);
+  g.font='bold 11px sans-serif'; g.textAlign='center'; g.lineWidth=3; g.strokeStyle='rgba(20,8,50,.9)';
+  for(const p of seasonPOIs){ g.fillStyle='#5cf0ff'; g.beginPath(); g.arc(toMap(p.x),toMap(p.z),3,0,7); g.fill(); g.strokeText(p.n,toMap(p.x),toMap(p.z)-6); g.fillStyle='#fff'; g.fillText(p.n,toMap(p.x),toMap(p.z)-6); }
 }
 function drawMap(){
   const g=mctx; g.drawImage(mapBase,0,0); const sc=MAPS/MAPW;
@@ -2391,7 +2564,7 @@ function updateCamera(dt){
   const it=curItem(), tf=ads?(it&&WEAP[it.id].zoom?20:52):(p.phase==='fall'?82:p.phase==='glide'&&p.dive?80:72+7*(p.anim.sprint||0));
   fov=lerp(fov,tf,1-Math.exp(-14*dt)); camera.fov=fov; camera.updateProjectionMatrix();
 }
-function updateSun(){ const f=(state==='menu'||!player)?tv4.set(0,0,0):(player.phase==='jet'?jet.pos:player.pos); sun.position.copy(f).addScaledVector(SUN_DIR,200); sun.target.position.copy(f); sky.position.copy(camera.position); }
+function updateSun(){ const tt=performance.now()/1000; sky.material.uniforms.t.value=tt; if(world) updateShards(tt); const f=(state==='menu'||!player)?tv4.set(0,0,0):(player.phase==='jet'?jet.pos:player.pos); sun.position.copy(f).addScaledVector(SUN_DIR,200); sun.target.position.copy(f); sky.position.copy(camera.position); }
 
 // ================= armory (gun showcase) =================
 const ARM_IDS=['ar','smg','pump','pistol','sniper'], ARM_Y=420;
@@ -2605,7 +2778,7 @@ function newMatch(){
   colliders=new BoxGrid(8); cullables=[]; structMeshes=[]; propMeshes=[]; chestMeshes=[]; charMeshes=[]; ramps=[]; pieceMap=new Map(); props=[]; chests=[]; loots=[]; combatants=[]; bots=[]; effects=[]; anims=[]; housePos=[]; houseCells=new Map(); clouds=[];
   clearWeakSpot();
   matchTime=0; targetsDirty=true; stormTick=1; hurtFlash=0;
-  initNoise(); genHeights(); buildTerrain(); makeHouses(11*MAP_S*MAP_S);
+  initNoise(); genHeights(); buildTerrain(); buildSeason(); makeHouses(11*MAP_S*MAP_S);
   const AREA=MAP_S*MAP_S; let n=0, tries=0;
   while(n<330*AREA&&tries<9000*AREA){ tries++; const a=Math.random()*Math.PI*2, r=Math.sqrt(Math.random())*245*MAP_S, x=Math.cos(a)*r, z=Math.sin(a)*r, h=terrainHeight(x,z);
     if(h<1.5||h>22||nearHouse(x,z,10)||slopeAt(x,z)>0.9) continue; const b=biomeAt(x,z);
@@ -2668,10 +2841,6 @@ volInputs.forEach(inp=>{ inp.value=volume; inp.addEventListener('input',()=>{ in
 addEventListener('pointerdown',()=>initAudio());
 addEventListener('click',ev=>{ if(ev.target.closest&&ev.target.closest('button')) sfx('ui'); });
 $('playBtn').addEventListener('click',startMatch);
-try{ const d=localStorage.getItem('stormIslandDiff'); if(DIFF[d]) diff=d; }catch(e){}
-const diffBtns=[...document.querySelectorAll('.diff button')];
-function showDiff(){ diffBtns.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.d===diff))); }
-diffBtns.forEach(b=>b.addEventListener('click',()=>{ diff=b.dataset.d; showDiff(); try{ localStorage.setItem('stormIslandDiff',diff); }catch(e){} })); showDiff();
 $('armoryBtn').addEventListener('click',openArmory); $('armBack').addEventListener('click',closeArmory);
 $('armPrev').addEventListener('click',()=>armStep(-1)); $('armNext').addEventListener('click',()=>armStep(1));
 addEventListener('keydown',ev=>{ if(state!=='armory') return; if(ev.key==='ArrowRight') armStep(1); else if(ev.key==='ArrowLeft') armStep(-1); else if(ev.key==='Escape') closeArmory(); });
@@ -2746,7 +2915,7 @@ function updateCull(dt){
   cullT-=dt; if(cullT>0) return; cullT=0.25;
   const air=smooth(25,220,agl), k=1+air*1.2;
   for(const c of cullables){ const dx=c.x-cam.x, dz=c.z-cam.z, r=c.r*k; const v=dx*dx+dz*dz<r*r; if(c.obj.visible!==v) c.obj.visible=v; }
-  if(noFoliage) for(const m of foliage) m.visible=false;
+  updateFoliage(cam,k);
   const tr=fogFar+250; for(const t of terrainChunks){ const dx=t.x-cam.x, dz=t.z-cam.z; t.mesh.visible=dx*dx+dz*dz<tr*tr; }
 }
 function loop(now){
@@ -2767,6 +2936,6 @@ function loop(now){
 $('playBtn').disabled=true; $('playBtn').textContent='Loading…';
 loadSoldier(ok=>{ newMatch(); $('playBtn').disabled=false; $('playBtn').textContent='Drop in'; if(!ok) console.warn('Character model unavailable; using simple characters'); });
 requestAnimationFrame(loop);
-window.__game={keys,get jet(){return jet;},debrisImpact,camera,sfx:(k,o)=>sfx(k,null,o),get audioOk(){return !!(AC&&bus&&AMB);},setCam:(p,l)=>{ camOverride=p?{pos:new V(...p),look:new V(...l)}:null; },th:terrainHeight,get editing(){return player.editing;},startEdit,confirmEdit,editClick,openArmory,setArm:i=>{armIdx=i;buildArmory();},setArmMode,setPick:i=>{pxIdx=i;buildArmory();},setSkin:i=>{skIdx=i;buildArmory();},lineup:(ids,yaw)=>{ if(armGroup) scene.remove(armGroup); armGroup=new T.Group(); armGroup.position.set(0,ARM_Y,0); skShown=[]; ids.forEach((id,k)=>{ const c=standChar(SK.ITEMS[id]); c.g.position.x=(k-(ids.length-1)/2)*1.25; c.g.userData.o=0; c.g.userData.yaw=yaw; armGroup.add(c.g); skShown.push(c); }); studioLights(armGroup); armGroup.userData.dist=ids.length*0.75+1.6; scene.add(armGroup); },fire:()=>playerFire(),get props(){return props;},weak,pieces:()=>[...pieceMap.values()],colliderCount:()=>colliders.size,debugLoot:(x,y,z)=>{ spawnLoot({kind:'gun',id:'sniper',r:4,ammo:1},x,y,z); spawnLoot({kind:'gun',id:'smg',r:3,ammo:30},x+1.6,y,z+0.4); spawnLoot({kind:'cons',id:'big',count:1},x-1.5,y,z+0.3); },get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},startMatch,update,setState:s=>state=s};
+window.__game={keys,get pois(){return seasonPOIs;},get jet(){return jet;},debrisImpact,camera,sfx:(k,o)=>sfx(k,null,o),get audioOk(){return !!(AC&&bus&&AMB);},setCam:(p,l)=>{ camOverride=p?{pos:new V(...p),look:new V(...l)}:null; },th:terrainHeight,get editing(){return player.editing;},startEdit,confirmEdit,editClick,openArmory,setArm:i=>{armIdx=i;buildArmory();},setArmMode,setPick:i=>{pxIdx=i;buildArmory();},setSkin:i=>{skIdx=i;buildArmory();},lineup:(ids,yaw)=>{ if(armGroup) scene.remove(armGroup); armGroup=new T.Group(); armGroup.position.set(0,ARM_Y,0); skShown=[]; ids.forEach((id,k)=>{ const c=standChar(SK.ITEMS[id]); c.g.position.x=(k-(ids.length-1)/2)*1.25; c.g.userData.o=0; c.g.userData.yaw=yaw; armGroup.add(c.g); skShown.push(c); }); studioLights(armGroup); armGroup.userData.dist=ids.length*0.75+1.6; scene.add(armGroup); },fire:()=>playerFire(),get props(){return props;},weak,pieces:()=>[...pieceMap.values()],colliderCount:()=>colliders.size,debugLoot:(x,y,z)=>{ spawnLoot({kind:'gun',id:'sniper',r:4,ammo:1},x,y,z); spawnLoot({kind:'gun',id:'smg',r:3,ammo:30},x+1.6,y,z+0.4); spawnLoot({kind:'cons',id:'big',count:1},x-1.5,y,z+0.3); },get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},startMatch,update,setState:s=>state=s};
 })();
 </script>
