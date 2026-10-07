@@ -226,7 +226,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 
   <div id="armory" hidden>
     <div class="armhead"><div class="armtop"><button class="btn2 arrow" id="armPrev" aria-label="Previous">‹</button><div><div class="armkick" id="armKick">Armory</div><h2 id="armName">Assault Rifle</h2></div><button class="btn2 arrow" id="armNext" aria-label="Next">›</button></div>
-    <div class="armtabs" role="group" aria-label="Show"><button id="armGunsTab" aria-pressed="true">Guns</button><button id="armPicksTab" aria-pressed="false">Pickaxes</button><button id="armSkinsTab" aria-pressed="false">Skins</button></div>
+    <div class="armtabs" role="group" aria-label="Show"><button id="armGunsTab" aria-pressed="true">Guns</button><button id="armPicksTab" aria-pressed="false">Pickaxes</button><button id="armSkinsTab" aria-pressed="false">Skins</button><button id="armGlidersTab" aria-pressed="false">Gliders</button></div>
     <div id="armSets" role="group" aria-label="Pickaxe set" hidden></div></div>
     <div id="armLabels"></div>
     <div class="armbottom"><p id="armPower" hidden></p><p id="armStats"></p><p class="note" id="armNote">Higher rarities add attachments and a new finish: worn steel, camo, tech, energy and gold.</p><div class="btnrow"><button class="btn2" id="armEquip" hidden>Equip</button><button class="btn" id="armBack">Back</button></div></div>
@@ -354,14 +354,14 @@ const stoneTex=canvasTex(128,128,(g,w,h)=>{ g.fillStyle='#5f666e'; g.fillRect(0,
 const Lam=(o)=>new T.MeshLambertMaterial(o);
 const M={
   wood:Lam({map:woodTex}), stone:Lam({map:stoneTex}),
-  trunk:Lam({color:0x7a5230}), jungle:Lam({color:0x0f4a3a,emissive:0x06281e,side:T.DoubleSide}), rock:Lam({color:0x8d9198}),
+  trunk:Lam({color:0x3a2a48}), jungle:Lam({color:0x0f4a3a,emissive:0x06281e,side:T.DoubleSide}), rock:Lam({color:0x5a52a0,emissive:0x140a30}),
   chest:Lam({color:0x5a2fb0,emissive:0x2a0e6a}), chestOpen:Lam({color:0x3a2a5a}), chestTrim:Lam({color:0xf0b840,emissive:0x8a5a00}),
-  found:Lam({color:0x9a958c}), water:Lam({color:0x3a5ae8,emissive:0x140a4a,transparent:true,opacity:0.86}),
-  cloud:Lam({color:0xffffff,emissive:0x8899aa}),
+  found:Lam({color:0x9a958c}), water:Lam({color:0x3a32d8,emissive:0x2a127a,transparent:true,opacity:0.86}),
+  cloud:Lam({color:0xe8d8ff,emissive:0x8a6ab8}),
 };
-const LEAFS=[Lam({color:0x3f9a3a}),Lam({color:0x2f7d3b}),Lam({color:0x5cb043})];
-const HOUSE_MATS=[0xf2e2c4,0xd9ecf2,0xf7d1c9,0xe3f0d0,0xfff3b0].map(c=>Lam({color:c}));
-const ROOF_MATS=[0xc8553d,0x3d6fc8,0x5b8c3a,0x8a4fb0,0x2f3b4c].map(c=>Lam({color:c}));
+const LEAFS=[Lam({color:0x1d5a5a,emissive:0x041a1a}),Lam({color:0x183e58,emissive:0x060f24}),Lam({color:0x245a44,emissive:0x061a10})];
+const HOUSE_MATS=[0x6a5a8a,0x4e5a86,0x7a5878,0x5a4a6e,0x6e6290].map(c=>Lam({color:c}));
+const ROOF_MATS=[0x2a1e52,0x1c3a5c,0x3c1e4e,0x1e4a40,0x2c2a40].map(c=>Lam({color:c}));
 const ghostMat=new T.MeshBasicMaterial({color:0x5ab4ff,transparent:true,opacity:0.38,depthWrite:false});
 const colorMats=new Map();
 function colorMat(c){ if(!colorMats.has(c)) colorMats.set(c,Lam({color:c})); return colorMats.get(c); }
@@ -503,8 +503,8 @@ function auraMats(col){
 GEO.lootBeam=new T.CylinderGeometry(0.32,0.32,5,14,1,true); GEO.ringPlane=new T.PlaneGeometry(1.9,1.9); GEO.shell=BX(0.04,0.04,0.1);
 Object.assign(GEO,{pelvis:BX(0.62,0.26,0.36),thigh:BX(0.26,0.48,0.28),shin:BX(0.23,0.46,0.25),foot:BX(0.25,0.12,0.38),torso:BX(0.7,0.64,0.4),uarm:BX(0.2,0.4,0.22),farm:BX(0.18,0.36,0.2),hand:BX(0.16,0.14,0.16),belt:BX(0.64,0.08,0.38),pack:BX(0.46,0.42,0.18),
   bushBall:new T.IcosahedronGeometry(1,1),cactus:new T.CylinderGeometry(0.34,0.38,3.4,9),cactusArm:new T.CylinderGeometry(0.22,0.22,1.1,8)});
-M.rockRed=Lam({color:0xb7714e}); M.cactus=Lam({color:0x4f8a3a}); M.bush=Lam({color:0x3f8f3a}); M.dryBush=Lam({color:0x9a8a4a});
-M.water=new T.MeshPhongMaterial({color:0x2a8fd6,specular:0xbfe8ff,shininess:80,transparent:true,opacity:0.84});
+M.rockRed=Lam({color:0x8a4aa8,emissive:0x2a0a3a}); M.cactus=Lam({color:0x3ae0e8,emissive:0x0a6a80}); M.bush=Lam({color:0x1f6a4a,emissive:0x062014}); M.dryBush=Lam({color:0x7a4aa0});
+M.water=new T.MeshPhongMaterial({color:0x2a2ab8,emissive:0x1a0a5a,specular:0xff9af0,shininess:90,transparent:true,opacity:0.86}); // the glossy indigo lake from the Glitched art
 
 // ================= audio =================
 // Every sound is synthesized live with the Web Audio API: layers of filtered noise and oscillators
@@ -577,16 +577,18 @@ function tn(v,o){
   v.end=Math.max(v.end,(o.at||0)+dur);
 }
 function done(v){ const ms=(v.t-AC.currentTime+v.end+0.4)*1000; setTimeout(()=>{ try{ v.out.disconnect(); }catch(e){} },ms); }
+// a quick run of stuttering square-wave blips: the Glitched season's sound signature
+const glt=(v,at,f,n,g,step)=>{ const R=[1,1.5,0.75,2,1.25,0.5]; for(let i=0;i<n;i++) tn(v,{at:at+i*(step||0.03),type:'square',f:f*R[(i*7+n)%6],dur:(step||0.03)*0.7,g,lp:3600}); };
 const chk=(v,at,f,g)=>{ nz(v,{at,type:'bandpass',f:f||2600,q:2.5,dur:0.03,g:g||0.7}); nz(v,{at,type:'lowpass',f:500,dur:0.04,g:(g||0.7)*0.6}); };
 // --- guns: crack + body + thump + tail, with a little random pitch so no two shots sound alike
 const GUN_SFX={
-  ar:(v,p)=>{ nz(v,{type:'highpass',f:2600,dur:0.045,g:0.9}); nz(v,{type:'bandpass',f:950*p,q:0.9,dur:0.13,g:1.2}); tn(v,{f:150*p,f1:48,dur:0.1,g:0.9}); nz(v,{brown:true,type:'lowpass',f:1300,f1:250,dur:0.42,g:0.45,a:0.008}); },
-  smg:(v,p)=>{ nz(v,{type:'highpass',f:3400,dur:0.03,g:0.8}); nz(v,{type:'bandpass',f:1700*p,q:1.1,dur:0.07,g:1}); tn(v,{f:210*p,f1:90,dur:0.05,g:0.6}); nz(v,{type:'lowpass',f:1800,f1:400,dur:0.2,g:0.25,a:0.005}); },
+  ar:(v,p)=>{ nz(v,{type:'highpass',f:2600,dur:0.045,g:0.9}); nz(v,{type:'bandpass',f:950*p,q:0.9,dur:0.13,g:1.2}); tn(v,{f:150*p,f1:48,dur:0.1,g:0.9}); nz(v,{brown:true,type:'lowpass',f:1300,f1:250,dur:0.42,g:0.45,a:0.008}); tn(v,{type:'triangle',f:2900*p,f1:2500,dur:0.07,g:0.07}); }, // AR: punchy, with a metallic ring
+  smg:(v,p)=>{ nz(v,{type:'highpass',f:3400,dur:0.03,g:0.8}); nz(v,{type:'bandpass',f:1700*p,q:1.1,dur:0.07,g:1}); tn(v,{f:210*p,f1:90,dur:0.05,g:0.6}); nz(v,{type:'lowpass',f:1800,f1:400,dur:0.2,g:0.25,a:0.005}); tn(v,{type:'square',f:330*p,f1:260,dur:0.035,g:0.07,lp:2400}); }, // SMG: a buzzy zip
   pistol:(v,p)=>{ nz(v,{type:'highpass',f:3000,dur:0.035,g:0.9}); nz(v,{type:'bandpass',f:1250*p,q:1,dur:0.1,g:1}); tn(v,{type:'triangle',f:1850*p,f1:1700,dur:0.09,g:0.12}); tn(v,{f:170*p,f1:60,dur:0.08,g:0.7}); nz(v,{brown:true,type:'lowpass',f:1500,f1:300,dur:0.3,g:0.3,a:0.006}); },
-  pump:(v,p)=>{ nz(v,{type:'highpass',f:2000,dur:0.05,g:1}); nz(v,{brown:true,type:'lowpass',f:1100*p,f1:200,dur:0.32,g:1.6}); tn(v,{f:95*p,f1:34,dur:0.35,g:1.3}); nz(v,{brown:true,type:'lowpass',f:600,f1:120,dur:0.8,g:0.5,a:0.02});
+  pump:(v,p)=>{ nz(v,{type:'highpass',f:2000,dur:0.05,g:1}); nz(v,{brown:true,type:'lowpass',f:1100*p,f1:200,dur:0.32,g:1.6}); tn(v,{f:95*p,f1:34,dur:0.35,g:1.3}); tn(v,{f:46,f1:28,dur:0.5,g:0.9}); /* pump: a deep sub boom */ nz(v,{brown:true,type:'lowpass',f:600,f1:120,dur:0.8,g:0.5,a:0.02});
     chk(v,0.42,2200,0.6); chk(v,0.55,1800,0.7); nz(v,{at:0.43,type:'bandpass',f:900,f1:1600,q:1.5,dur:0.1,g:0.25}); },
   sniper:(v,p)=>{ nz(v,{type:'highpass',f:4200,dur:0.06,g:1.3}); nz(v,{type:'bandpass',f:700*p,q:0.8,dur:0.25,g:1.4}); tn(v,{f:80*p,f1:28,dur:0.6,g:1.4}); nz(v,{brown:true,type:'lowpass',f:500,f1:90,dur:1.5,g:0.7,a:0.03});
-    chk(v,0.75,2400,0.6); nz(v,{at:0.86,type:'bandpass',f:1400,f1:3000,q:2,dur:0.09,g:0.35}); chk(v,1.0,2000,0.7); },
+    tn(v,{at:0.02,f:2600*p,f1:500,dur:0.55,g:0.05}); /* sniper: a falling whine down the valley */ chk(v,0.75,2400,0.6); nz(v,{at:0.86,type:'bandpass',f:1400,f1:3000,q:2,dur:0.09,g:0.35}); chk(v,1.0,2000,0.7); },
 };
 // reload steps play as the reload progresses, so swapping weapons cuts them off naturally
 const RELOAD_STEPS={ar:[[0.12,'magOut'],[0.62,'magIn'],[0.88,'charge']],smg:[[0.12,'magOut'],[0.6,'magIn'],[0.86,'charge']],pistol:[[0.1,'magOut'],[0.62,'magIn'],[0.88,'slide']],
@@ -625,13 +627,13 @@ const SFX={
   shield:v=>{ tn(v,{f:1500,f1:2300,dur:0.1,g:0.3}); nz(v,{type:'bandpass',f:5000,q:6,dur:0.1,g:0.6}); },
   shieldBreak:v=>{ for(let i=0;i<9;i++) nz(v,{at:i*0.02,type:'highpass',f:rnd(4000,8000),dur:0.05,g:0.6}); tn(v,{type:'triangle',f:2400,f1:500,dur:0.32,g:0.3}); tn(v,{f:300,f1:120,dur:0.15,g:0.5}); },
   hurt:v=>{ nz(v,{type:'lowpass',f:350,dur:0.16,g:1.2}); tn(v,{f:110,f1:48,dur:0.14,g:0.9}); nz(v,{type:'bandpass',f:900,q:1,dur:0.08,g:0.3}); },
-  stormHurt:v=>{ nz(v,{type:'bandpass',f:2600,q:1.5,dur:0.16,g:0.6}); tn(v,{type:'sawtooth',f:115,dur:0.18,g:0.3,lp:1800}); tn(v,{type:'square',f:58,dur:0.16,g:0.2,lp:600}); },
-  elim:v=>{ tn(v,{type:'triangle',f:659,dur:0.13,g:0.4}); tn(v,{at:0.07,type:'triangle',f:988,dur:0.15,g:0.4}); tn(v,{at:0.14,type:'triangle',f:1319,dur:0.42,g:0.45}); tn(v,{at:0.14,f:2637,dur:0.3,g:0.08}); tn(v,{f:130,f1:55,dur:0.28,g:0.8}); nz(v,{at:0.14,type:'highpass',f:5000,dur:0.25,g:0.18}); },
+  stormHurt:v=>{ nz(v,{type:'bandpass',f:2600,q:1.5,dur:0.16,g:0.6}); tn(v,{type:'sawtooth',f:115,dur:0.18,g:0.3,lp:1800}); tn(v,{type:'square',f:58,dur:0.16,g:0.2,lp:600}); glt(v,0.02,220,3,0.08,0.04); },
+  elim:v=>{ glt(v,0,880,5,0.05,0.025); tn(v,{type:'triangle',f:659,dur:0.13,g:0.4}); tn(v,{at:0.07,type:'triangle',f:988,dur:0.15,g:0.4}); tn(v,{at:0.14,type:'triangle',f:1319,dur:0.42,g:0.45}); tn(v,{at:0.14,f:2637,dur:0.3,g:0.08}); tn(v,{f:130,f1:55,dur:0.28,g:0.8}); nz(v,{at:0.14,type:'highpass',f:5000,dur:0.25,g:0.18}); },
   pickup:(v,o)=>{ const it=o.item||{};
-    if(it.kind==='gun'){ chk(v,0,1900,0.6); chk(v,0.06,2400,0.5); const n=(it.r||0)+1; for(let i=0;i<n;i++) tn(v,{at:0.06+i*0.055,type:'triangle',f:PICK_NOTES[i],dur:0.2,g:0.2}); if(it.r>=3) nz(v,{at:0.12,type:'highpass',f:7000,dur:0.35,g:0.12,a:0.05}); }
+    if(it.kind==='gun'){ chk(v,0,1900,0.6); chk(v,0.06,2400,0.5); const n=(it.r||0)+1; for(let i=0;i<n;i++) tn(v,{at:0.06+i*0.055,type:'triangle',f:PICK_NOTES[i],dur:0.2,g:0.2}); if(it.r>=3){ nz(v,{at:0.12,type:'highpass',f:7000,dur:0.35,g:0.12,a:0.05}); glt(v,0.3,PICK_NOTES[n-1],4,0.04,0.03); } }
     else if(it.kind==='cons'){ tn(v,{f:1700,dur:0.14,g:0.22}); tn(v,{at:0.01,f:2550,dur:0.1,g:0.12}); nz(v,{type:'bandpass',f:3000,q:3,dur:0.03,g:0.3}); }
     else { tn(v,{f:520,f1:950,dur:0.06,g:0.3}); nz(v,{type:'bandpass',f:2000,q:2,dur:0.03,g:0.3}); } },
-  chest:v=>{ nz(v,{type:'bandpass',f:300,f1:850,q:4,dur:0.35,g:0.45,a:0.05}); [523,659,784,1047,1319].forEach((f,i)=>{ tn(v,{at:0.15+i*0.06,type:'triangle',f,dur:0.65,g:0.18}); tn(v,{at:0.15+i*0.06,f:f*2,dur:0.4,g:0.05}); }); nz(v,{at:0.2,type:'highpass',f:6500,dur:0.7,g:0.14,a:0.1}); },
+  chest:v=>{ nz(v,{type:'bandpass',f:300,f1:850,q:4,dur:0.35,g:0.45,a:0.05}); [523,659,784,1047,1319].forEach((f,i)=>{ tn(v,{at:0.15+i*0.06,type:'triangle',f,dur:0.65,g:0.18}); tn(v,{at:0.15+i*0.06,f:f*2,dur:0.4,g:0.05}); }); nz(v,{at:0.2,type:'highpass',f:6500,dur:0.7,g:0.14,a:0.1}); glt(v,0.5,1047,6,0.03,0.035); }, // chest: chimes, then a digital sparkle
   useStart:(v,o)=>{ const id=o.id;
     if(id==='bandage') nz(v,{type:'bandpass',f:2600,f1:1400,q:1,dur:0.28,g:0.45,a:0.01});
     else if(id==='medkit') for(let i=0;i<7;i++) nz(v,{at:i*0.03,type:'bandpass',f:3000+i*120,q:2,dur:0.022,g:0.35});
@@ -641,7 +643,13 @@ const SFX={
   jump:v=>{ nz(v,{type:'bandpass',f:800,f1:1700,q:1,dur:0.13,g:0.22,a:0.02}); },
   land:(v,o)=>{ const k=clamp((o.v||10)/18,0.3,1.3); nz(v,{brown:true,type:'lowpass',f:320,dur:0.14,g:k}); tn(v,{f:90,f1:42,dur:0.12,g:0.7*k}); if(FOOT[o.surf]) FOOT[o.surf](v,1.2); },
   step:(v,o)=>{ (FOOT[o.surf]||FOOT.grass)(v,o.g||1); },
-  glider:v=>{ nz(v,{type:'bandpass',f:450,f1:1500,q:1,dur:0.32,g:1.1,a:0.03}); for(let i=0;i<4;i++) nz(v,{at:0.05+i*0.06,type:'lowpass',f:700,dur:0.05,g:1-i*0.18}); },
+  glider:(v,o)=>{ const k=o.snd||'whoosh'; nz(v,{type:'bandpass',f:450,f1:1500,q:1,dur:0.32,g:k==='whoosh'?1.1:0.6,a:0.03});
+    if(k==='whoosh'||k==='flap') for(let i=0;i<4;i++) nz(v,{at:0.05+i*0.06,type:'lowpass',f:k==='flap'?1100:700,dur:0.05,g:(1-i*0.18)*(k==='flap'?1.3:1)});
+    if(k==='flap') chk(v,0.3,1600,0.5);
+    if(k==='glitch'){ glt(v,0.04,440,8,0.09,0.032); nz(v,{at:0.3,type:'bandpass',f:3000,f1:600,q:3,dur:0.2,g:0.3}); }
+    if(k==='jet'){ tn(v,{type:'sawtooth',f:90,f1:180,dur:0.6,g:0.18,lp:900,a:0.05}); nz(v,{type:'highpass',f:2500,f1:5000,dur:0.5,g:0.25,a:0.08}); }
+    if(k==='chime') [784,988,1319,1568].forEach((f,i)=>tn(v,{at:0.06+i*0.07,type:'triangle',f,dur:0.5,g:0.12}));
+    if(k==='zap'){ for(let i=0;i<6;i++) nz(v,{at:i*0.03,type:'highpass',f:rnd(3000,7000),dur:0.04,g:0.5}); tn(v,{type:'sawtooth',f:1200,f1:120,dur:0.25,g:0.12,lp:4000}); } },
   splash:(v,o)=>{ const b=o.big?1.6:1; nz(v,{type:'lowpass',f:2200,f1:500,dur:0.35*b,g:0.9*b,a:0.005}); nz(v,{type:'bandpass',f:1200,f1:500,q:1,dur:0.5*b,g:0.5,a:0.02}); for(let i=0;i<5;i++) tn(v,{at:0.05+rnd(0,0.3),f:rnd(400,700),f1:rnd(900,1500),dur:0.05,g:0.08}); },
   swim:v=>{ nz(v,{type:'bandpass',f:rnd(900,1300),f1:450,q:0.9,dur:0.24,g:0.45,a:0.02}); tn(v,{at:0.08,f:rnd(450,600),f1:rnd(900,1200),dur:0.05,g:0.06}); },
   whiz:v=>{ nz(v,{type:'bandpass',f:3800,f1:1100,q:3,dur:0.17,g:0.9,a:0.03}); tn(v,{f:1500,f1:600,dur:0.15,g:0.07}); },
@@ -656,11 +664,11 @@ const SFX={
   boom:v=>{ nz(v,{type:'highpass',f:1500,dur:0.12,g:1.4}); nz(v,{brown:true,type:'lowpass',f:900,f1:110,dur:2.8,g:1.8,a:0.01}); tn(v,{f:62,f1:20,dur:2.3,g:1.5}); tn(v,{f:41,f1:18,dur:2.6,g:0.9});
     for(let i=0;i<14;i++) nz(v,{at:rnd(0.15,2.2),type:'bandpass',f:rnd(700,2800),q:3,dur:rnd(0.02,0.06),g:rnd(0.3,0.7)}); },
   thunder:v=>{ for(let i=0;i<5;i++) nz(v,{at:i*rnd(0.03,0.08),type:'highpass',f:2500,dur:0.05,g:0.5}); nz(v,{brown:true,type:'lowpass',f:380,f1:70,dur:rnd(2,3.2),g:1.6,a:0.04}); tn(v,{f:55,f1:25,dur:1.6,g:0.5}); },
-  stormWarn:v=>{ tn(v,{type:'sawtooth',f:98,dur:1.2,g:0.28,a:0.25,lp:700}); tn(v,{type:'sawtooth',f:98,det:14,dur:1.2,g:0.2,a:0.25,lp:700}); tn(v,{at:1.0,type:'sawtooth',f:73,dur:1.6,g:0.3,a:0.25,lp:600}); tn(v,{at:1.0,type:'sawtooth',f:73,det:-12,dur:1.6,g:0.22,a:0.25,lp:600}); },
-  bird:v=>{ const n=2+(Math.random()*4|0), b=rnd(2400,3800); for(let i=0;i<n;i++){ const f=b*rnd(0.85,1.15); tn(v,{at:i*rnd(0.09,0.15),f,f1:f*rnd(0.7,1.4),dur:rnd(0.05,0.1),g:0.16,a:0.01}); } },
+  stormWarn:v=>{ tn(v,{type:'sawtooth',f:98,dur:1.2,g:0.28,a:0.25,lp:700}); tn(v,{type:'sawtooth',f:98,det:14,dur:1.2,g:0.2,a:0.25,lp:700}); tn(v,{at:1.0,type:'sawtooth',f:73,dur:1.6,g:0.3,a:0.25,lp:600}); tn(v,{at:1.0,type:'sawtooth',f:73,det:-12,dur:1.6,g:0.22,a:0.25,lp:600}); glt(v,0.9,147,8,0.08,0.05); },
+  bird:v=>{ const n=2+(Math.random()*4|0), b=rnd(2400,3800), dig=Math.random()<0.4; for(let i=0;i<n;i++){ const f=b*rnd(0.85,1.15); tn(v,{at:i*rnd(0.09,0.15),type:dig?'square':'sine',f:dig?f/2:f,f1:f*rnd(0.7,1.4)/(dig?2:1),dur:rnd(0.05,0.1),g:dig?0.06:0.16,a:0.01,lp:dig?3000:0}); } }, // some birds have glitched into chiptune
   victory:v=>{ [523,659,784,1047,1319].forEach((f,i)=>{ tn(v,{at:i*0.12,type:'triangle',f,dur:0.3,g:0.3}); tn(v,{at:i*0.12,f:f/2,dur:0.3,g:0.12}); }); [523,659,784,1047].forEach(f=>tn(v,{at:0.66,type:'triangle',f,dur:1.6,g:0.16,a:0.03})); nz(v,{at:0.66,type:'highpass',f:6000,dur:1.2,g:0.12,a:0.1}); },
   defeat:v=>{ [392,311,262].forEach((f,i)=>tn(v,{at:i*0.28,type:'triangle',f,dur:i===2?1.3:0.35,g:0.3,lp:1600})); tn(v,{at:0.56,f:131,dur:1.4,g:0.25}); },
-  ui:v=>{ tn(v,{type:'triangle',f:1200,f1:1500,dur:0.05,g:0.18}); },
+  ui:v=>{ tn(v,{type:'triangle',f:1200,f1:1500,dur:0.05,g:0.18}); glt(v,0.02,1600,2,0.035,0.02); },
 };
 // range is how far away a sound carries; wet is how much reverb it gets
 const SFX_OPT={ar:{range:320},smg:{range:260},pistol:{range:280},pump:{range:300,wet:0.15},sniper:{range:600,wet:0.25},
@@ -780,22 +788,27 @@ function terrainHeight(x,z){
 }
 function slopeAt(x,z){ return Math.hypot(terrainHeight(x+1,z)-terrainHeight(x-1,z),terrainHeight(x,z+1)-terrainHeight(x,z-1))/2; }
 const _tc2=new T.Color();
-function terrainColor(x,z,h,slope,out){
+const _tc3=new T.Color();
+function terrainColor(x,z,h,slope,out){ // Glitched palette: violet flats, neon meadows, glossy chrome-blue peaks with light streaks
   const b=biomeAt(x,z), n=vnoise(x*0.05,z*0.05), n2=vnoise(x*0.21+7,z*0.21+3);
   const desert=smooth(0.55,0.63,b), forest=1-smooth(0.38,0.46,b);
-  if(h<WATER_Y+0.25) return out.setRGB(0.66,0.6,0.45);
-  if(h<1.3) return out.setRGB(0.92,0.85,0.63).lerp(_tc2.setRGB(0.9,0.74,0.5),desert);
-  out.setRGB(0.36+n*0.1,0.64+n*0.12,0.26+n2*0.06);
-  out.lerp(_tc2.setRGB(0.2+n*0.06,0.48+n*0.08,0.21),forest*0.75);
-  out.lerp(_tc2.setRGB(0.88+n*0.05,0.71+n*0.06,0.47),desert);
+  if(h<WATER_Y+0.25) return out.setRGB(0.3,0.26,0.62);
+  if(h<1.3) return out.setRGB(0.74,0.56,0.86).lerp(_tc2.setRGB(0.62,0.4,0.84),desert);
+  out.setRGB(0.2+n*0.16,0.5+n*0.2,0.2+n2*0.08); // neon meadow
+  out.lerp(_tc2.setRGB(0.08+n*0.05,0.28+n*0.08,0.24),forest*0.75); // deep teal woods
+  const tile=(Math.floor(x/6)+Math.floor(z/6))&1; // the desert became glitched digital flats
+  out.lerp(_tc2.setRGB(0.36+n*0.1+tile*0.05,0.22+tile*0.04,0.6+n2*0.08),desert);
   const rock=Math.max(smooth(0.7,1.05,slope),smooth(17,22,h));
-  if(rock>0){ if(desert>0.5){ const band=Math.sin(h*1.7)*0.5+0.5; _tc2.setRGB(0.74-n2*0.08,0.42+band*0.12,0.28+band*0.05); } else _tc2.setRGB(0.5+n2*0.08,0.5+n2*0.08,0.5+n2*0.09); out.lerp(_tc2,rock); }
-  const snow=smooth(27,31,h+n*3)*(1-smooth(1.1,1.6,slope)); if(snow>0) out.lerp(_tc2.setRGB(0.95,0.97,1),snow);
+  if(rock>0){ const st=Math.pow(Math.sin(h*0.9+n*5+x*0.02)*0.5+0.5,10); // thin light streaks over the stone
+    _tc2.setRGB(0.24+n2*0.08,0.22+n2*0.06,0.56+n2*0.1);
+    if(st>0.05) _tc2.lerp(_tc3.setRGB(desert>0.5?1:0.55,desert>0.5?0.4:0.6,1),st*0.9);
+    out.lerp(_tc2,rock); }
+  const snow=smooth(27,31,h+n*3)*(1-smooth(1.1,1.6,slope)); if(snow>0) out.lerp(_tc2.setRGB(0.82+n*0.1,0.84,1),snow); // chrome caps
   return out;
 }
 function buildTerrain(){
   if(!groundTex){ groundTex=canvasTex(256,256,(g2)=>{ const im=g2.createImageData(256,256); for(let i=0;i<256*256;i++){ const v=200+Math.random()*55; im.data[i*4]=v; im.data[i*4+1]=v; im.data[i*4+2]=v; im.data[i*4+3]=255; } g2.putImageData(im,0,0);
-      for(let k=0;k<900;k++){ g2.strokeStyle=`rgba(${Math.random()<0.5?'40,70,20':'255,255,230'},.18)`; const x=Math.random()*256,y=Math.random()*256; g2.beginPath(); g2.moveTo(x,y); g2.lineTo(x+rnd(-2,2),y-rnd(3,7)); g2.stroke(); } });
+      for(let k=0;k<900;k++){ g2.strokeStyle=`rgba(${Math.random()<0.5?'60,30,110':'230,240,255'},.18)`; const x=Math.random()*256,y=Math.random()*256; g2.beginPath(); g2.moveTo(x,y); g2.lineTo(x+rnd(-2,2),y-rnd(3,7)); g2.stroke(); } });
     groundTex.wrapS=groundTex.wrapT=T.RepeatWrapping; }
   // the ground is split into square chunks; each is its own mesh so the ones past the fog can be hidden
   const CH=60, NC=Math.ceil(N/CH), mat=Lam({vertexColors:true,map:groundTex}), c=new T.Color(), W=N+1; terrainChunks=[];
@@ -835,8 +848,8 @@ function buildFoliageCell(ix,iz){
     const tint=R()*0.15;
     for(let k=0;k<7;k++){ const x=cx+rr(-0.7,0.7), z=cz+rr(-0.7,0.7);
       p.set(x,terrainHeight(x,z)-0.05,z); eu.set(rr(-0.3,0.3),R()*6.28,rr(-0.3,0.3)); q.setFromEuler(eu); s.set(1,rr(0.7,1.5),1);
-      g.push(m4.compose(p,q,s).clone(),col.setRGB(0.3+tint+R()*0.08,0.6+tint+R()*0.12,0.2).getHex()); }
-    if(R()<0.18){ const fc=[0xffe14d,0xff6b9a,0xffffff,0xb98cff,0xff8a3d][Math.floor(R()*5)];
+      g.push(m4.compose(p,q,s).clone(),col.setRGB(0.25+tint+R()*0.15,0.6+tint+R()*0.2,0.15+R()*0.1).getHex()); }
+    if(R()<0.18){ const fc=[0xf4ff4d,0xff3ab0,0x5af0ff,0xb98cff,0xff8a3d][Math.floor(R()*5)];
       for(let k=0;k<4;k++){ const x=cx+rr(-1,1), z=cz+rr(-1,1); p.set(x,terrainHeight(x,z)+0.32,z); q.identity(); s.setScalar(rr(0.8,1.2)); f.push(m4.compose(p,q,s).clone(),fc); } }
   }
   const c={ims:[],x:(ix+0.5)*FOL_C,z:(iz+0.5)*FOL_C};
@@ -889,7 +902,7 @@ function damageProp(p,dmg,attacker,pickaxe,point,crit){
 // Trees, cacti and bushes are each a single mesh: a handful of shapes are built once (parts merged into one
 // geometry, one draw group per material) and shared by every copy, which keeps a 100x island light on memory.
 const propShapes=new Map();
-function mergeParts(parts,mats){ // parts: [geometry, material index, Object3D placing it]
+function mergeProp(parts,mats){ // parts: [geometry, material index, Object3D placing it]
   const pos=[], nor=[], idx=[], groups=[]; let base=0;
   for(let mi=0;mi<mats;mi++){ const g0=idx.length;
     for(const [geo,m,o] of parts){ if(m!==mi) continue; o.updateMatrix(); const g=geo.clone().applyMatrix4(o.matrix), pa=g.attributes.position, na=g.attributes.normal;
@@ -904,7 +917,7 @@ function propShape(key,make){ let g=propShapes.get(key); if(!g){ g=make(); propS
 const at=(x,y,z,sx=1,sy=sx,sz=sx,ry=0,rz=0)=>{ const o=new T.Object3D(); o.position.set(x,y,z); o.scale.set(sx,sy,sz); o.rotation.set(0,ry,rz); return o; };
 function makeTree(x,z,forest){
   const y=terrainHeight(x,z), s=rnd(0.85,1.4), pine=Math.random()<(forest?0.85:0.45), v=Math.floor(Math.random()*4);
-  const geo=propShape('tree'+pine+v,()=>mergeParts([[GEO.trunk,0,at(0,1.5,0)],...(pine?[[GEO.pine,1,at(0,3.8,0,1,1,1,v)],[GEO.pine2,1,at(0,5.4,0,1,1,1,v*1.3)]]
+  const geo=propShape('tree'+pine+v,()=>mergeProp([[GEO.trunk,0,at(0,1.5,0)],...(pine?[[GEO.pine,1,at(0,3.8,0,1,1,1,v)],[GEO.pine2,1,at(0,5.4,0,1,1,1,v*1.3)]]
     :[[0,4.4,0,1],[0.9,3.9,0.3,0.6],[-0.7,4.1,-0.5,0.65]].map(([cx,cy,cz,sc],i)=>[GEO.crown,1,at(cx,cy,cz,sc,sc*0.85,sc,v*1.7+i*2.1)]))],2));
   const m=new T.Mesh(geo,[M.trunk,pick(LEAFS)]); m.position.set(x,y-0.1,z); m.scale.setScalar(s); m.rotation.y=Math.random()*6.28; m.castShadow=true;
   const r=0.45*s; addProp(m,[m],{min:{x:x-r,y:y-1,z:z-r},max:{x:x+r,y:y+3*s,z:z+r}},'wood',100);
@@ -914,14 +927,14 @@ function makeCactus(x,z){
   const geo=propShape('cactus'+v,()=>{ const parts=[[GEO.cactus,0,at(0,1.7,0)]];
     for(const sd of [-1,1]){ if(v===(sd<0?1:2)||v===3&&sd>0) continue; const h=1.3+((v*7+sd*3+10)%9)/9*0.9;
       parts.push([GEO.cactusArm,0,at(sd*0.6,h,0,1,0.8,1,0,Math.PI/2)],[GEO.cactusArm,0,at(sd*1.0,h+0.45,0)]); }
-    return mergeParts(parts,1); });
+    return mergeProp(parts,1); });
   const m=new T.Mesh(geo,[M.cactus]); m.position.set(x,y-0.1,z); m.scale.setScalar(s); m.rotation.y=Math.random()*6.28; m.castShadow=true;
   const r=0.4*s; addProp(m,[m],{min:{x:x-r,y:y-1,z:z-r},max:{x:x+r,y:y+3.4*s,z:z+r}},'wood',90);
 }
 function makeBush(x,z,dry){
   const y=terrainHeight(x,z), v=Math.floor(Math.random()*6);
   const geo=propShape('bush'+v,()=>{ let sd=v*9301+49297; const r=(a,b)=>{ sd=(sd*9301+49297)%233280; return a+sd/233280*(b-a); };
-    return mergeParts([0,1,2].map(i=>{ const sc=r(0.55,0.85); return [GEO.bushBall,0,at(r(-0.5,0.5),0.45+i*0.08,r(-0.5,0.5),sc,sc*0.8,sc)]; }),1); });
+    return mergeProp([0,1,2].map(i=>{ const sc=r(0.55,0.85); return [GEO.bushBall,0,at(r(-0.5,0.5),0.45+i*0.08,r(-0.5,0.5),sc,sc*0.8,sc)]; }),1); });
   const m=new T.Mesh(geo,[dry?M.dryBush:M.bush]); m.position.set(x,y,z); m.rotation.y=Math.random()*6.28; m.castShadow=true;
   addProp(m,[m],null,'wood',50);
 }
@@ -1066,7 +1079,7 @@ function makeJungleTree(x,z){
   const y=terrainHeight(x,z), s=rnd(1,1.5), v=Math.floor(Math.random()*3);
   const geo=propShape('jungle'+v,()=>{ const parts=[[GEO.trunk,0,at(0,1.5,0,1,1.4,1)],[GEO.trunk,0,at(0.3,5.3,0,0.8,1.2,0.8,0,0.12)]];
     for(let i=0;i<7;i++){ const a=i/7*Math.PI*2+v; parts.push([GEO.jungleLeaf,1,(()=>{ const o=new T.Object3D(); o.position.set(0.5+Math.cos(a)*1.2,7.6,Math.sin(a)*1.2); o.rotation.set(0,-a,-0.55); return o; })()]); }
-    parts.push([GEO.crown,1,at(0.4,7.8,0,0.9,0.6,0.9)]); return mergeParts(parts,2); });
+    parts.push([GEO.crown,1,at(0.4,7.8,0,0.9,0.6,0.9)]); return mergeProp(parts,2); });
   const m=new T.Mesh(geo,[M.trunk,M.jungle]); m.position.set(x,y-0.1,z); m.scale.setScalar(s); m.rotation.y=Math.random()*6.28; m.castShadow=true;
   const r=0.45*s; addProp(m,[m],{min:{x:x-r,y:y-1,z:z-r},max:{x:x+r,y:y+4*s,z:z+r}},'wood',120);
 }
@@ -1150,26 +1163,78 @@ function removeLoot(l){ world.remove(l.obj); removeFrom(loots,l); }
 const GL={bar:2.12,barZ:-0.2,grip:0.4,wingY:3.2};
 const glFrame=Lam({color:0x2a2e36}), glWire=new T.LineBasicMaterial({color:0x1b1e24,transparent:true,opacity:0.7});
 function tubeBetween(a,b,r,mat){ const d=new V().subVectors(b,a), m=new T.Mesh(new T.CylinderGeometry(r,r,d.length(),6),mat); m.position.copy(a).addScaledVector(d,0.5); m.quaternion.setFromUnitVectors(UP,d.normalize()); return m; }
-function sailTexture(base,accent){
-  const b=new T.Color(base), dark=b.clone().multiplyScalar(0.55), ac=new T.Color(accent);
+function sailTexture(base,accent,pat,trim){
+  const b=new T.Color(base), dark=b.clone().multiplyScalar(0.55), ac=new T.Color(accent), A='#'+ac.getHexString(), B='#'+b.getHexString(), W=trim||'#ffffff';
+  let sd=0; for(const ch of String(pat)+B+A) sd=(sd*31+ch.charCodeAt(0))>>>0; const R=()=>{ sd=(sd*1664525+1013904223)>>>0; return sd/4294967296; };
   return canvasTex(256,256,(g,w,h)=>{
-    const gr=g.createLinearGradient(0,0,0,h); gr.addColorStop(0,'#'+b.getHexString()); gr.addColorStop(1,'#'+dark.getHexString()); g.fillStyle=gr; g.fillRect(0,0,w,h);
-    // chevrons pointing at the nose
-    g.lineCap='round'; for(let i=0;i<3;i++){ g.strokeStyle=i===1?'#ffffff':'#'+ac.getHexString(); g.lineWidth=i===1?7:13; g.beginPath(); const y=92+i*30; g.moveTo(12,y+70); g.lineTo(w/2,y); g.lineTo(w-12,y+70); g.stroke(); }
-    // emblem
-    g.fillStyle='rgba(255,255,255,.9)'; g.beginPath(); const cx=w/2, cy=58; for(let i=0;i<10;i++){ const r=i%2?9:22, a=-Math.PI/2+i*Math.PI/5; g.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r); } g.fill();
+    const gr=g.createLinearGradient(0,0,0,h); gr.addColorStop(0,B); gr.addColorStop(1,'#'+dark.getHexString()); g.fillStyle=gr; g.fillRect(0,0,w,h);
+    g.lineCap='round'; g.lineJoin='round';
+    if(!pat||pat==='chevron'){ // chevrons pointing at the nose, with a star emblem
+      for(let i=0;i<3;i++){ g.strokeStyle=i===1?W:A; g.lineWidth=i===1?7:13; g.beginPath(); const y=92+i*30; g.moveTo(12,y+70); g.lineTo(w/2,y); g.lineTo(w-12,y+70); g.stroke(); }
+      g.fillStyle='rgba(255,255,255,.9)'; g.beginPath(); for(let i=0;i<10;i++){ const r=i%2?9:22, a=-Math.PI/2+i*Math.PI/5; g.lineTo(w/2+Math.cos(a)*r,58+Math.sin(a)*r); } g.fill(); }
+    else if(pat==='circuit'){ // glowing circuit traces with solder pads
+      g.lineWidth=4; for(let k=0;k<16;k++){ g.strokeStyle=k%4?A:W; let x=Math.floor(R()*16)*16+8, y=Math.floor(R()*4)*16+60; g.beginPath(); g.moveTo(x,y);
+        for(let j=0;j<4;j++){ if(j%2) x+=(R()<0.5?-1:1)*Math.floor(R()*4+1)*16; else y+=Math.floor(R()*3+1)*16; g.lineTo(x,y); } g.stroke(); g.fillStyle=A; g.beginPath(); g.arc(x,y,6,0,7); g.fill(); g.fillStyle=W; g.beginPath(); g.arc(x,y,2.5,0,7); g.fill(); } }
+    else if(pat==='pixel'){ // glitch blocks that get denser toward the tail
+      for(let k=0;k<170;k++){ const y=Math.pow(R(),0.6)*h, x=R()*w, sz=[8,12,16,24][Math.floor(R()*4)]; g.fillStyle=R()<0.55?A:R()<0.5?W:'rgba(0,0,0,.35)'; g.fillRect(Math.floor(x/8)*8,Math.floor(y/8)*8,sz,sz*(R()<0.3?0.5:1)); }
+      for(let k=0;k<5;k++){ const y=R()*h; g.fillStyle=A; g.globalAlpha=0.5; g.fillRect(0,y,w,3); g.globalAlpha=1; } }
+    else if(pat==='stripes'){ g.lineWidth=18; for(let i=-6;i<12;i++){ g.strokeStyle=i%3===0?W:A; g.beginPath(); g.moveTo(i*36,0); g.lineTo(i*36+h,h); g.stroke(); } }
+    else if(pat==='wave'){ for(let i=0;i<6;i++){ g.strokeStyle=i%2?W:A; g.lineWidth=i%2?5:12; g.beginPath(); for(let x=0;x<=w;x+=8) g.lineTo(x,50+i*32+Math.sin(x/28+i)*12); g.stroke(); } }
+    else if(pat==='flame'){ // flames licking up from the tail
+      for(const [c,s0] of [[A,1],[W,0.55]]){ g.fillStyle=c; g.beginPath(); g.moveTo(0,h); for(let x=0;x<=w;x+=32){ const tip=h-(90+R()*90)*s0; g.quadraticCurveTo(x+8,h-40*s0,x+16,tip); g.quadraticCurveTo(x+22,h-50*s0,x+32,h-20*s0); } g.lineTo(w,h); g.fill(); } }
+    else if(pat==='stars'){ g.fillStyle=W; for(let k=0;k<70;k++){ const r=R()*2.2+0.6; g.globalAlpha=0.4+R()*0.6; g.beginPath(); g.arc(R()*w,R()*h,r,0,7); g.fill(); } g.globalAlpha=1;
+      g.fillStyle=A; g.beginPath(); g.arc(w/2,96,34,0,7); g.fill(); g.fillStyle=B; g.beginPath(); g.arc(w/2+16,86,30,0,7); g.fill(); }
+    else if(pat==='split'){ // two halves torn apart by a glitchy seam
+      g.fillStyle=A; g.beginPath(); g.moveTo(w/2,0); for(let y=0;y<=h;y+=16) g.lineTo(w/2+(R()-0.5)*40,y); g.lineTo(w,h); g.lineTo(w,0); g.fill();
+      for(let k=0;k<14;k++){ g.fillStyle=k%2?W:A; g.fillRect(w/2-30+R()*60,R()*h,10+R()*30,4+R()*6); } }
+    else if(pat==='checker'){ for(let y=0;y<8;y++) for(let x=0;x<8;x++) if((x+y)%2){ g.fillStyle=A; g.fillRect(x*32,y*32,32,32); } g.strokeStyle=W; g.lineWidth=6; g.strokeRect(6,6,w-12,h-12); }
+    else if(pat==='synth'){ // retro sun over a neon grid
+      const sg=g.createLinearGradient(0,40,0,150); sg.addColorStop(0,W); sg.addColorStop(1,A); g.fillStyle=sg; g.beginPath(); g.arc(w/2,140,62,Math.PI,0); g.fill();
+      g.fillStyle=B; for(let i=0;i<5;i++) g.fillRect(0,96+i*10,w,2+i); g.strokeStyle=A; g.lineWidth=3; for(let i=0;i<6;i++){ const y=150+i*i*4; g.beginPath(); g.moveTo(0,y); g.lineTo(w,y); g.stroke(); }
+      for(let i=-8;i<=8;i++){ g.beginPath(); g.moveTo(w/2+i*8,150); g.lineTo(w/2+i*44,h); g.stroke(); } }
+    else if(pat==='leaf'){ for(let k=0;k<26;k++){ const x=R()*w, y=R()*h, a=R()*6.28, L=18+R()*16; g.save(); g.translate(x,y); g.rotate(a); g.fillStyle=k%3?A:W; g.beginPath(); g.ellipse(0,0,L,L*0.42,0,0,7); g.fill(); g.strokeStyle='rgba(0,0,0,.25)'; g.lineWidth=2; g.beginPath(); g.moveTo(-L,0); g.lineTo(L,0); g.stroke(); g.restore(); } }
+    else if(pat==='bolt'){ g.fillStyle=A; g.beginPath(); g.moveTo(150,20); g.lineTo(80,140); g.lineTo(128,140); g.lineTo(100,240); g.lineTo(180,110); g.lineTo(132,110); g.closePath(); g.fill(); g.strokeStyle=W; g.lineWidth=5; g.stroke(); }
     g.fillStyle='rgba(0,0,0,.25)'; g.fillRect(0,h-10,w,10);
   });
 }
-function makeGlider(pal){
+// ---- glider designs: picked in the Locker; bots fly random ones. Looks and deploy sound only.
+const GL_THEMES=[{id:'glitch',n:'Glitched'},{id:'classic',n:'Classic'},{id:'wild',n:'Wild'},{id:'night',n:'Night'}];
+const GLIDERS=[
+  {n:'Standard Sail',t:'classic',r:0,p:'chevron',base:0x3f6fd8,acc:0xffc83a,snd:'whoosh'},
+  {n:'Pixel Storm',t:'glitch',r:3,p:'pixel',base:0x2a1258,acc:0x3af0ff,trim:'#ff3ab0',snd:'glitch'},
+  {n:'Circuit Breaker',t:'glitch',r:2,p:'circuit',base:0x0c1e2e,acc:0x3affb0,snd:'glitch'},
+  {n:'Torn Signal',t:'glitch',r:4,p:'split',base:0x6a2bd8,acc:0x1ae6ff,trim:'#ff4ad0',snd:'glitch'},
+  {n:'Neon Grid Runner',t:'glitch',r:3,p:'synth',base:0x1a0a3a,acc:0xff3ab0,trim:'#ffe066',snd:'jet'},
+  {n:'Server Wing',t:'glitch',r:1,p:'stripes',base:0x20283a,acc:0x7a5aff,trim:'#3af0ff',snd:'jet'},
+  {n:'Checkpoint',t:'classic',r:1,p:'checker',base:0xf2f2f2,acc:0x1a1a1a,trim:'#ff3030',snd:'flap'},
+  {n:'Racing Stripe',t:'classic',r:1,p:'stripes',base:0xd8302a,acc:0xffffff,trim:'#1a1a1a',snd:'whoosh'},
+  {n:'Sky Chevron',t:'classic',r:0,p:'chevron',base:0x2fae6a,acc:0xffffff,snd:'whoosh'},
+  {n:'Firestarter',t:'wild',r:3,p:'flame',base:0x2a0a08,acc:0xff5a1a,trim:'#ffd23a',snd:'jet'},
+  {n:'Jungle Kite',t:'wild',r:2,p:'leaf',base:0x0f3a2a,acc:0x3ad06a,trim:'#ff9a2a',snd:'flap'},
+  {n:'Tidal Wave',t:'wild',r:2,p:'wave',base:0x0a3a7a,acc:0x3ac8ff,snd:'whoosh'},
+  {n:'Thunderclap',t:'wild',r:3,p:'bolt',base:0x1a2a5a,acc:0xffe03a,snd:'zap'},
+  {n:'Midnight',t:'night',r:2,p:'stars',base:0x0a0e2a,acc:0xfff3c0,snd:'chime'},
+  {n:'Aurora Drift',t:'night',r:4,p:'wave',base:0x10093a,acc:0x3affc8,trim:'#c45aff',snd:'chime'},
+  {n:'Lantern Glow',t:'night',r:1,p:'stars',base:0x2a1040,acc:0xff9a2a,snd:'chime'},
+];
+GLIDERS.forEach((d,i)=>{ d.i=i; d.theme=GL_THEMES.find(t=>t.id===d.t); });
+const glTexCache=new Map();
+function gliderTex(d){ if(!glTexCache.has(d.n)) glTexCache.set(d.n,sailTexture(d.base,d.acc,d.p,d.trim)); return glTexCache.get(d.n); }
+let gliderName=null;
+function equippedGlider(){ if(gliderName==null){ gliderName=GLIDERS[0].n; try{ const v=localStorage.getItem('stormIslandGlider'); if(v&&GLIDERS.some(d=>d.n===v)) gliderName=v; }catch(e){} } return GLIDERS.find(d=>d.n===gliderName)||GLIDERS[0]; }
+function applyGlider(c,d){
+  const old=c.glider, par=old.parent, ng=makeGlider({shirt:d.base},d); ng.position.copy(old.position); ng.rotation.copy(old.rotation); ng.visible=old.visible;
+  par.remove(old); old.traverse(m=>{ if(m.isMesh||m.isLineSegments) m.geometry.dispose(); }); par.add(ng); c.glider=ng; c.gliderD=d;
+}
+function makeGlider(pal,d){
   const root=new T.Group(), wing=new T.Group(); wing.position.y=GL.wingY; root.add(wing);
-  const base=pal.shirt, accent=pal.glow||new T.Color(base).offsetHSL(0.45,0,0.05).getHex();
+  const base=d?d.base:pal.shirt, accent=d?d.acc:pal.glow||new T.Color(base).offsetHSL(0.45,0,0.05).getHex();
   // sail: nose, mid leading edge, tips, billowed trailing edge and keel tail
   const P=[[0,0.05,-1.7],[-1.4,0.12,-0.42],[1.4,0.12,-0.42],[-2.8,-0.12,0.72],[2.8,-0.12,0.72],[-1.3,0.34,1.0],[1.3,0.34,1.0],[0,0.12,1.18]];
   const pos=new Float32Array(P.flat()), uv=new Float32Array(P.flatMap(p=>[(p[0]+2.8)/5.6,(p[2]+1.7)/2.9]));
   const geo=new T.BufferGeometry(); geo.setAttribute('position',new T.BufferAttribute(pos,3)); geo.setAttribute('uv',new T.BufferAttribute(uv,2));
   geo.setIndex([0,1,5, 1,3,5, 0,5,7, 0,6,2, 2,6,4, 0,7,6]); geo.computeVertexNormals();
-  const tex=sailTexture(base,accent), sail=new T.Mesh(geo,new T.MeshLambertMaterial({map:tex,emissive:0xffffff,emissiveMap:tex,emissiveIntensity:0.5,side:T.DoubleSide})); sail.castShadow=true; wing.add(sail);
+  const tex=d?gliderTex(d):sailTexture(base,accent), sail=new T.Mesh(geo,new T.MeshLambertMaterial({map:tex,emissive:0xffffff,emissiveMap:tex,emissiveIntensity:0.5,side:T.DoubleSide})); sail.castShadow=true; wing.add(sail);
   const V3=i=>new V(...P[i]), glow=new T.MeshBasicMaterial({color:accent});
   for(const [i,j] of [[0,1],[1,3],[0,2],[2,4]]) wing.add(tubeBetween(V3(i),V3(j),0.05,glow));
   wing.add(tubeBetween(V3(0),V3(7),0.04,glFrame), tubeBetween(V3(1),V3(2),0.03,glFrame));
@@ -1562,6 +1627,7 @@ function makeCombatant(name,isPlayer,pal){
   const e={etype:'char',name,isPlayer,ch,pos:new V(),vel:new V(),yaw:0,pitch:0,hp:100,shield:0,alive:true,onGround:false,phase:'jet',kills:0,radius:0.45,height:2.0,walkT:Math.random()*6,swingT:0,deadT:0,crouch:false,buildT:0,reloadT:0,
     anim:{move:0,crouch:0,air:0,phase:Math.random()*6,recoil:0,flash:0,reload:0,pumpT:9,twist:0,sprint:0,sprPose:0,swimK:0,land:0,hit:0,draw:1,stroke:0,kick:0}};
   if(ch.glb&&SK) applySkin(ch,isPlayer?equippedSkin():pickBotSkin());
+  applyGlider(ch,isPlayer?equippedGlider():GLIDERS[Math.floor(Math.random()*GLIDERS.length)]);
   ch.parts.forEach(m=>{ m.userData.ent=e; m.userData.part=(m===ch.head)?'head':'body'; charMeshes.push(m); });
   combatants.push(e); targetsDirty=true; return e;
 }
@@ -2050,8 +2116,8 @@ function chooseLanding(b){
 function deployGlider(e){
   e.phase='glide'; e.tumbling=false; const h=Math.hypot(e.vel.x,e.vel.z);
   e.glHead=h>2?Math.atan2(-e.vel.x,-e.vel.z):e.yaw; e.glSpeed=clamp(h,14,26); e.glTurn=0; e.dive=false; e.brake=false;
-  if(e===player){ sfx('glider'); banner('Glider out!','Mouse to steer · W dive · S brake · A / D carve',2.5); }
-  else if(e.pos.distanceTo(camera.position)<80) sfx('glider',e.pos);
+  if(e===player){ sfx('glider',null,{snd:e.ch.gliderD&&e.ch.gliderD.snd}); banner('Glider out!','Mouse to steer · W dive · S brake · A / D carve',2.5); }
+  else if(e.pos.distanceTo(camera.position)<80) sfx('glider',e.pos,{snd:e.ch.gliderD&&e.ch.gliderD.snd});
 }
 function glideFly(e,want,dive,brake,dt){
   const d=wrapPi(want-e.glHead), rate=clamp(d*2.4,-1.9,1.9); e.glHead+=rate*dt; e.glTurn=rate; e.dive=dive; e.brake=brake&&!dive;
@@ -2145,7 +2211,7 @@ function updatePlayer(dt){
   if(p.phase==='fall'||p.phase==='glide'){ const agl=p.pos.y-supportAt(p.pos.x,p.pos.z,p.pos.y,p.radius);
     // SPACE opens the glider (after a moment of tumbling) and closes it again for a fast skydive; it opens on its own near the ground
     if(p.phase==='fall'){ p.fallT+=dt; if(agl<55||(p.wantJump&&p.fallT>0.6)) deployGlider(p); }
-    else if(p.wantJump&&agl>35){ p.phase='fall'; p.tumbling=false; p.fallT=1; p.dive=false; p.brake=false; sfx('glider'); } }
+    else if(p.wantJump&&agl>35){ p.phase='fall'; p.tumbling=false; p.fallT=1; p.dive=false; p.brake=false; sfx('glider',null,{snd:p.ch.gliderD&&p.ch.gliderD.snd}); } }
   p.wantJump=false;
   moveEntity(p,dt);
 }
@@ -2572,6 +2638,7 @@ let armIdx=0, armGroup=null, armGuns=[];
 function buildArmory(){
   if(armMode==='picks'&&PX) return buildPickStand();
   if(armMode==='skins'&&SK) return buildSkinStand();
+  if(armMode==='gliders') return buildGliderStand();
   if(armGroup) scene.remove(armGroup);
   armGroup=new T.Group(); armGroup.position.set(0,ARM_Y,0); armGuns=[];
   const id=ARM_IDS[armIdx];
@@ -2589,6 +2656,7 @@ function updateArmory(dt){ dt=dt||1/60;
   const t=performance.now()/1000;
   if(armMode==='picks'&&PX) return updatePickStand(t);
   if(armMode==='skins'&&SK) return updateSkinStand(t,dt);
+  if(armMode==='gliders') return updateGliderStand(t);
   armGuns.forEach((h,i)=>{ h.rotation.y=Math.PI/2+Math.sin(t*0.8+i*0.5)*0.55; h.position.y=Math.sin(t*1.6+i)*0.06; });
   const dist=Math.max(6,(ARM_IDS[armIdx]==='sniper'?13:10.5)/camera.aspect);
   camera.position.set(0,ARM_Y+0.2,dist); camera.lookAt(0,ARM_Y,0); if(camera.fov!==50){ camera.fov=50; camera.updateProjectionMatrix(); }
@@ -2690,15 +2758,15 @@ function updatePickStand(t){
 }
 function setArmMode(m){
   if(m==='picks'&&!PX||m==='skins'&&!(SK&&SOLDIER)) return; armMode=m; $('armEquip').hidden=m==='guns';
-  $('armGunsTab').setAttribute('aria-pressed',String(m==='guns')); $('armPicksTab').setAttribute('aria-pressed',String(m==='picks')); $('armSkinsTab').setAttribute('aria-pressed',String(m==='skins'));
-  $('armSets').hidden=m==='guns'; $('armSets').setAttribute('aria-label',m==='skins'?'Skin theme':'Pickaxe set');
-  $('armSets').innerHTML=m==='skins'?SK.THEMES.map(t=>`<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join(''):m==='picks'?PX.SETS.map(s=>`<button data-s="${s.id}" aria-pressed="false">${s.n}</button>`).join(''):'';
+  $('armGunsTab').setAttribute('aria-pressed',String(m==='guns')); $('armPicksTab').setAttribute('aria-pressed',String(m==='picks')); $('armSkinsTab').setAttribute('aria-pressed',String(m==='skins')); $('armGlidersTab').setAttribute('aria-pressed',String(m==='gliders'));
+  $('armSets').hidden=m==='guns'; $('armSets').setAttribute('aria-label',m==='skins'?'Skin theme':m==='gliders'?'Glider theme':'Pickaxe set');
+  $('armSets').innerHTML=m==='gliders'?GL_THEMES.map(t=>`<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join(''):m==='skins'?SK.THEMES.map(t=>`<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join(''):m==='picks'?PX.SETS.map(s=>`<button data-s="${s.id}" aria-pressed="false">${s.n}</button>`).join(''):'';
   buildArmory();
 }
-function armStep(d){ if(armMode==='picks'&&PX){ const N=PX.ITEMS.length; pxIdx=(pxIdx+d+N)%N; } else if(armMode==='skins'&&SK){ const N=SK.ITEMS.length; skIdx=(skIdx+d+N)%N; } else armIdx=(armIdx+d+5)%5; buildArmory(); }
+function armStep(d){ if(armMode==='picks'&&PX){ const N=PX.ITEMS.length; pxIdx=(pxIdx+d+N)%N; } else if(armMode==='skins'&&SK){ const N=SK.ITEMS.length; skIdx=(skIdx+d+N)%N; } else if(armMode==='gliders'){ const N=GLIDERS.length; glIdx=(glIdx+d+N)%N; } else armIdx=(armIdx+d+5)%5; buildArmory(); }
 if(!PX) $('armPicksTab').hidden=true;
 $('armSets').addEventListener('click',ev=>{ const b=ev.target.closest('button'); if(!b) return;
-  if(armMode==='skins') skIdx=SK.ITEMS.findIndex(i=>i.t===b.dataset.s); else pxIdx=PX.ITEMS.findIndex(i=>i.set.id===b.dataset.s); buildArmory(); });
+  if(armMode==='gliders') glIdx=GLIDERS.findIndex(i=>i.t===b.dataset.s); else if(armMode==='skins') skIdx=SK.ITEMS.findIndex(i=>i.t===b.dataset.s); else pxIdx=PX.ITEMS.findIndex(i=>i.set.id===b.dataset.s); buildArmory(); });
 $('armSkinsTab').addEventListener('click',()=>setArmMode('skins'));
 // ---- skins in the locker: the outfit on a turntable, with the ones either side waiting in the wings
 var skIdx=0, skShown=[];
@@ -2723,14 +2791,35 @@ function updateSkinStand(t,dt){
   const dist=armGroup.userData.dist||Math.max(4.6,6.2/camera.aspect);
   camera.position.set(0,ARM_Y+1.25,dist); camera.lookAt(0,ARM_Y+1.0,0); if(camera.fov!==50){ camera.fov=50; camera.updateProjectionMatrix(); }
 }
+// ---- gliders in the locker: the chosen sail spread open, its neighbours either side
+var glIdx=0, glShown=[];
+function buildGliderStand(){
+  if(armGroup) scene.remove(armGroup); for(const g of glShown) g.traverse(m=>{ if(m.isMesh||m.isLineSegments) m.geometry.dispose(); });
+  armGroup=new T.Group(); armGroup.position.set(0,ARM_Y,0); armGuns=[]; glShown=[]; studioLights(armGroup);
+  const N=GLIDERS.length;
+  for(const o of[-1,1,0]){ const d=GLIDERS[(glIdx+o+N)%N], g=makeGlider({shirt:d.base},d); g.visible=true; g.position.set(o*5.4,o?-2.2:-2.6,o?-3:0); g.scale.setScalar(o?0.6:1); g.userData.o=o; armGroup.add(g); glShown.push(g); }
+  scene.add(armGroup);
+  const d=GLIDERS[glIdx], r=RAR[d.r];
+  $('armKick').textContent=`${d.theme.n} · ${glIdx+1} of ${N}`; $('armName').textContent=d.n; $('armName').style.color=r.c;
+  $('armLabels').innerHTML=''; $('armPower').hidden=true;
+  $('armStats').textContent=`${r.n} glider · ${{whoosh:'Wind whoosh',glitch:'Glitchy',jet:'Jet hum',flap:'Cloth snap',chime:'Chimes',zap:'Electric'}[d.snd]} deploy sound · Looks only`;
+  $('armNote').textContent='Every glider flies the same; pick the one you like the look of.';
+  showEquip(); [...$('armSets').children].forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.s===d.t)));
+}
+function updateGliderStand(t){
+  for(const g of glShown){ const o=g.userData.o; g.rotation.y=o?0.6*o:Math.PI+Math.sin(t*0.5)*0.7; g.rotation.x=0.35+Math.sin(t*0.9+o)*0.06; g.position.y=(o?-2.2:-2.6)+Math.sin(t*1.2+o)*0.1; }
+  const dist=Math.max(8,12/camera.aspect);
+  camera.position.set(0,ARM_Y+1.6,dist); camera.lookAt(0,ARM_Y+0.4,0); if(camera.fov!==50){ camera.fov=50; camera.updateProjectionMatrix(); }
+}
+$('armGlidersTab').addEventListener('click',()=>setArmMode('gliders'));
 $('armGunsTab').addEventListener('click',()=>setArmMode('guns'));
 // ---- locker: the equipped pickaxe is the one you carry into matches (looks only, same stats as Fortnite's)
 let equippedName='Standard Issue';
 try{ const v=localStorage.getItem('stormIslandPick'); if(v&&PX&&PX.ITEMS.some(i=>i.n===v)) equippedName=v; }catch(e){}
 function equippedPick(){ return PX?PX.ITEMS.find(i=>i.n===equippedName)||null:null; }
 function pickIcon(ic){ const it=PX&&PX.ITEMS[+ic.slice(2)]; return it?PX.pickSVG(it,'hb').replace('<svg viewBox="0 0 200 200"','<svg viewBox="24 22 152 152" width="30" height="30" aria-hidden="true"'):''; }
-function showEquip(){ const on=armMode==='skins'?SK.ITEMS[skIdx].n===equippedSkinName():PX&&PX.ITEMS[pxIdx].n===equippedName, b=$('armEquip'); b.textContent=on?'Equipped ✓':'Equip'; b.setAttribute('aria-pressed',String(!!on)); }
-function showPickNote(){ const eq=equippedPick(), sk=equippedSkin(); $('pickNote').textContent=[sk&&!sk.def?`Skin: ${sk.n}`:'',eq?`Pickaxe: ${eq.n}`:''].filter(Boolean).join(' · '); }
+function showEquip(){ const on=armMode==='gliders'?GLIDERS[glIdx].n===equippedGlider().n:armMode==='skins'?SK.ITEMS[skIdx].n===equippedSkinName():PX&&PX.ITEMS[pxIdx].n===equippedName, b=$('armEquip'); b.textContent=on?'Equipped ✓':'Equip'; b.setAttribute('aria-pressed',String(!!on)); }
+function showPickNote(){ const eq=equippedPick(), sk=equippedSkin(), gd=equippedGlider(); $('pickNote').textContent=[sk&&!sk.def?`Skin: ${sk.n}`:'',gd.i?`Glider: ${gd.n}`:'',eq?`Pickaxe: ${eq.n}`:''].filter(Boolean).join(' · '); }
 // the equipped skin; bots dress up at random (a few stay in the classic armor)
 var skinName=null;
 function equippedSkinName(){ if(skinName==null){ skinName='Default Trooper'; try{ const v=localStorage.getItem('stormIslandSkin'); if(v&&SK&&SK.ITEMS.some(i=>i.n===v)) skinName=v; }catch(e){} } return skinName; }
@@ -2744,10 +2833,11 @@ function applyPickSkin(e){
   c.pick.add(w);
 }
 function equipCurrent(){
+  if(armMode==='gliders'){ const d=GLIDERS[glIdx]; gliderName=d.n; try{ localStorage.setItem('stormIslandGlider',d.n); }catch(e){} showEquip(); showPickNote(); if(player) applyGlider(player.ch,d); sfx('glider',null,{snd:d.snd}); return; }
   if(armMode==='skins'){ const it=SK.ITEMS[skIdx]; skinName=it.n; try{ localStorage.setItem('stormIslandSkin',it.n); }catch(e){} showEquip(); showPickNote(); if(player) applySkin(player.ch,it); sfx('pickup',null,{item:{kind:'gun',r:it.r}}); return; }
   equippedName=PX.ITEMS[pxIdx].n; try{ localStorage.setItem('stormIslandPick',equippedName); }catch(e){} showEquip(); showPickNote(); applyPickSkin(player); refreshHotbar(); sfx('pickup',null,{item:{kind:'gun',r:PX.ITEMS[pxIdx].rar}}); }
 $('armEquip').addEventListener('click',equipCurrent);
-$('lockerBtn').addEventListener('click',()=>{ const eq=equippedPick(); if(eq) pxIdx=eq.i; const sk=equippedSkin(); if(sk) skIdx=sk.i; openArmory(); setArmMode(SK&&SOLDIER?'skins':'picks'); $('armEquip').focus(); });
+$('lockerBtn').addEventListener('click',()=>{ const eq=equippedPick(); if(eq) pxIdx=eq.i; const sk=equippedSkin(); if(sk) skIdx=sk.i; glIdx=equippedGlider().i; openArmory(); setArmMode(SK&&SOLDIER?'skins':'picks'); $('armEquip').focus(); });
 if(!PX&&!SK) $('lockerBtn').hidden=true; if(!SK) $('armSkinsTab').hidden=true; showPickNote();
 
 // ---- weak spots: a glowing ring on whatever you are harvesting; hit it for double damage
@@ -2936,6 +3026,6 @@ function loop(now){
 $('playBtn').disabled=true; $('playBtn').textContent='Loading…';
 loadSoldier(ok=>{ newMatch(); $('playBtn').disabled=false; $('playBtn').textContent='Drop in'; if(!ok) console.warn('Character model unavailable; using simple characters'); });
 requestAnimationFrame(loop);
-window.__game={keys,get pois(){return seasonPOIs;},get jet(){return jet;},debrisImpact,camera,sfx:(k,o)=>sfx(k,null,o),get audioOk(){return !!(AC&&bus&&AMB);},setCam:(p,l)=>{ camOverride=p?{pos:new V(...p),look:new V(...l)}:null; },th:terrainHeight,get editing(){return player.editing;},startEdit,confirmEdit,editClick,openArmory,setArm:i=>{armIdx=i;buildArmory();},setArmMode,setPick:i=>{pxIdx=i;buildArmory();},setSkin:i=>{skIdx=i;buildArmory();},lineup:(ids,yaw)=>{ if(armGroup) scene.remove(armGroup); armGroup=new T.Group(); armGroup.position.set(0,ARM_Y,0); skShown=[]; ids.forEach((id,k)=>{ const c=standChar(SK.ITEMS[id]); c.g.position.x=(k-(ids.length-1)/2)*1.25; c.g.userData.o=0; c.g.userData.yaw=yaw; armGroup.add(c.g); skShown.push(c); }); studioLights(armGroup); armGroup.userData.dist=ids.length*0.75+1.6; scene.add(armGroup); },fire:()=>playerFire(),get props(){return props;},weak,pieces:()=>[...pieceMap.values()],colliderCount:()=>colliders.size,debugLoot:(x,y,z)=>{ spawnLoot({kind:'gun',id:'sniper',r:4,ammo:1},x,y,z); spawnLoot({kind:'gun',id:'smg',r:3,ammo:30},x+1.6,y,z+0.4); spawnLoot({kind:'cons',id:'big',count:1},x-1.5,y,z+0.3); },get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},startMatch,update,setState:s=>state=s};
+window.__game={keys,get pois(){return seasonPOIs;},get jet(){return jet;},debrisImpact,camera,sfx:(k,o)=>sfx(k,null,o),get audioOk(){return !!(AC&&bus&&AMB);},setCam:(p,l)=>{ camOverride=p?{pos:new V(...p),look:new V(...l)}:null; },th:terrainHeight,get editing(){return player.editing;},startEdit,confirmEdit,editClick,openArmory,setArm:i=>{armIdx=i;buildArmory();},setArmMode,setPick:i=>{pxIdx=i;buildArmory();},setSkin:i=>{skIdx=i;buildArmory();},setGl:i=>{glIdx=i;buildArmory();},GLIDERS,lineup:(ids,yaw)=>{ if(armGroup) scene.remove(armGroup); armGroup=new T.Group(); armGroup.position.set(0,ARM_Y,0); skShown=[]; ids.forEach((id,k)=>{ const c=standChar(SK.ITEMS[id]); c.g.position.x=(k-(ids.length-1)/2)*1.25; c.g.userData.o=0; c.g.userData.yaw=yaw; armGroup.add(c.g); skShown.push(c); }); studioLights(armGroup); armGroup.userData.dist=ids.length*0.75+1.6; scene.add(armGroup); },fire:()=>playerFire(),get props(){return props;},weak,pieces:()=>[...pieceMap.values()],colliderCount:()=>colliders.size,debugLoot:(x,y,z)=>{ spawnLoot({kind:'gun',id:'sniper',r:4,ammo:1},x,y,z); spawnLoot({kind:'gun',id:'smg',r:3,ammo:30},x+1.6,y,z+0.4); spawnLoot({kind:'cons',id:'big',count:1},x-1.5,y,z+0.3); },get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},startMatch,update,setState:s=>state=s};
 })();
 </script>
