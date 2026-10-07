@@ -1482,7 +1482,7 @@ function animateGLB(e,dt){
   const wIdle=Math.max(0,1-wRun-wWalk-wT), W=c.w;
   D(W,'Idle',wIdle,aS); D(W,'Walk',wWalk,aS); D(W,'Run',wRun,aS); D(W,'TPose',wT,aS);
   for(const n in c.act) c.act[n].setEffectiveWeight(W[n]);
-  c.act.Walk.setEffectiveTimeScale(back*clamp(s/1.8,0.7,1.6)); c.act.Run.setEffectiveTimeScale(back*clamp(s/5.5,0.8,2.15));
+  c.act.Walk.setEffectiveTimeScale(back*clamp(s/1.8,0.7,1.6)); c.act.Run.setEffectiveTimeScale(back*clamp(s/(5.5+1.2*A.sprint),0.8,2.15)); // sprinting takes longer strides instead of faster steps
   const near=!player||e===player||e.pos.distanceTo(camera.position)<70;
   c.mixer.update(dt); swayGear(e,c,s+(e.phase==='ground'?0:Math.hypot(e.vel.x,e.vel.z)*0.3),dt);
   bodyPose(e,g,c,a,dt);
@@ -1524,13 +1524,19 @@ function animateGLB(e,dt){
       rotateBoneWorld(B.LeftForeArm,fwdB,Math.sin(t*1.1)*0.1); rotateBoneWorld(B.RightForeArm,fwdB,Math.sin(t*0.9+1)*0.1);
     } else if(e.phase==='glide'){
       const t=matchTime*1.8+e.walkT, dv=e.dive?-0.35:0; bend('Left',0.15+Math.sin(t)*0.12+dv,-0.35-Math.max(0,Math.sin(t))*0.2); bend('Right',0.2+Math.sin(t+1.7)*0.12+dv,-0.4-Math.max(0,Math.sin(t+1.7))*0.2);
+    } else if(land&&e.onGround&&A.sprint>0.02){
+      // sprint: on top of the run clip, a longer stride and a high knee on whichever leg is swinging through
+      const sp=A.sprint*(1-cr), d=B.LeftFoot.getWorldPosition(new V()).sub(B.RightFoot.getWorldPosition(new V())).dot(fwdB), dn=clamp(d/0.5,-1,1);
+      const vd=(dn-(A.dn==null?dn:A.dn))/Math.max(dt,1e-3); A.dn=dn; D(A,'swingL',clamp(vd*0.35,-1,1),1-Math.exp(-18*dt));
+      const lift=1-Math.abs(dn)*0.6;
+      bend('Left',0.32*dn*sp+0.25*sp*Math.max(0,A.swingL),-1.0*sp*Math.max(0,A.swingL)*lift); bend('Right',-0.32*dn*sp+0.25*sp*Math.max(0,-A.swingL),-1.0*sp*Math.max(0,-A.swingL)*lift);
     }
   }
   // --- upper body: strafe twist, crouch and sprint lean, aim pitch, flinch when hit
   const twist=speed>1.2&&land?clamp(Math.atan2(side,Math.abs(fwd))*back,-0.85,0.85):0; D(A,'twist',twist,aS);
   if(near&&land){ rotateBoneWorld(B.Hips,UP,A.twist); rotateBoneWorld(B.Spine,UP,-A.twist*0.5); rotateBoneWorld(B.Spine1,UP,-A.twist*0.5); }
   const pitch=e.isPlayer?e.pitch:(e.aimPitch||0), sp=A.sprPose, pE=pitch*(1-sp);
-  if(near&&land){ const lean=-0.28*cr-(held?0.06:0)*Math.min(1,s/4)-0.22*A.sprint; rotateBoneWorld(B.Spine,right,lean);
+  if(near&&land){ const lean=-0.28*cr-(held?0.06:0)*Math.min(1,s/4)-0.34*A.sprint; rotateBoneWorld(B.Spine,right,lean); if(A.sprint>0.01) rotateBoneWorld(B.Neck,right,0.2*A.sprint); // lean into a sprint, eyes up
     if(held){ for(const n of ['Spine','Spine1','Spine2']) rotateBoneWorld(B[n],right,pE/3); } else rotateBoneWorld(B.Neck,right,pitch*0.5);
     if(A.hit>0.01){ rotateBoneWorld(B.Spine1,right,0.32*A.hit); rotateBoneWorld(B.Neck,right,0.25*A.hit); }
     if(pickaxe&&e.swingT>0){ const P=pickPose(e); rotateBoneWorld(B.Spine1,UP,P.tw); rotateBoneWorld(B.Spine2,UP,P.tw*0.5); rotateBoneWorld(B.Spine1,right,P.ln); } }
@@ -1557,8 +1563,8 @@ function animateGLB(e,dt){
     const tp=e.isPlayer&&!adsK?1-sp:0; // third person: carry the gun out to the side so the camera can see it
     const o=new V(H.o[0]-0.08*adsK-0.06*sp+0.12*tp,H.o[1]+0.04*adsK-0.12*sp-0.35*dk+0.03*tp,H.o[2]+A.recoil*0.09+0.06*sp);
     const oy=o.y*cp-o.z*sn, oz=o.y*sn+o.z*cp;
-    c.gunMount.position.set(sh.x+o.x,sh.y+oy,sh.z+oz);
-    c.gunMount.rotation.set(pE+A.recoil*0.22-0.45*A.reload-0.5*sp-1.0*dk,0.35*sp,0.6*A.reload+0.45*sp);
+    const dn=(A.dn||0)*A.sprint; c.gunMount.position.set(sh.x+o.x,sh.y+oy+0.035*sp*(Math.abs(A.dn||0)-0.5),sh.z+oz); // the gun bobs and sways with the sprint stride
+    c.gunMount.rotation.set(pE+A.recoil*0.22-0.45*A.reload-0.5*sp-1.0*dk,0.35*sp+0.1*dn,0.6*A.reload+0.45*sp+0.08*dn);
     if(near&&c.held){ c.gunMount.updateMatrixWorld(true);
       const rt=c.gunMount.localToWorld(new V(...H.r)), lt=c.gunMount.localToWorld(new V(...H.l));
       if(A.reload>0.05){ lt.lerp(c.gunMount.localToWorld(new V(0,-0.32,-0.05)),A.reload*(0.5+0.5*Math.sin(matchTime*8))); }
@@ -1570,11 +1576,16 @@ function animateGLB(e,dt){
     const P=pickPose(e), sh=B.RightArm.getWorldPosition(new V());
     const tgt=g.localToWorld(g.worldToLocal(sh.clone()).add(P.h));
     const grip=A.air<0.02||e.swingT>0;
-    if(grip) solveIK(B.RightArm,B.RightForeArm,B.RightHand,tgt,sh.clone().addScaledVector(right,0.6).add(new V(0,-0.5,0)));
+    // sprinting pumps both arms, the pickaxe swinging along in the right hand
+    const pump=land&&e.onGround&&!(e.swingT>0)?A.sprint*(1-cr):0, dn=A.dn||0;
+    if(pump>0.01){ rotateBoneWorld(B.LeftArm,rightB,-0.8*dn*pump); rotateBoneWorld(B.RightArm,rightB,0.8*dn*pump); rotateBoneWorld(B.LeftForeArm,rightB,0.55*pump); rotateBoneWorld(B.RightForeArm,rightB,0.55*pump); }
+    const natR=B.RightHand.getWorldPosition(new V()), natL=B.LeftHand.getWorldPosition(new V());
+    if(grip) solveIK(B.RightArm,B.RightForeArm,B.RightHand,tgt.lerp(natR,pump),sh.clone().addScaledVector(right,0.6).add(new V(0,-0.5,0)));
     B.RightHand.getWorldPosition(_v2); g.worldToLocal(_v2); c.pick.position.copy(_v2); c.pick.quaternion.copy(P.q);
+    if(pump>0.01) c.pick.quaternion.premultiply(_qm.setFromAxisAngle(_v2.set(1,0,0),(0.45*dn-0.8)*pump)); // carried tipped forward, rocking with the arm
     // the left hand holds the handle just above the right
     if(grip){ c.pick.updateMatrixWorld(true); const lS=B.LeftArm.getWorldPosition(new V());
-      solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,c.pick.localToWorld(new V(0,0.15,0)),lS.clone().addScaledVector(right,-0.6).add(new V(0,-0.5,0))); }
+      solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,c.pick.localToWorld(new V(0,0.15,0)).lerp(natL,pump),lS.clone().addScaledVector(right,-0.6).add(new V(0,-0.5,0))); }
   } else if(e.phase==='glide'&&near){
     // both hands grip the glider's base bar
     c.glider.updateMatrixWorld(true);

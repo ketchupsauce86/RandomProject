@@ -24,7 +24,7 @@ const ITEMS=[
     acc:[['emblem','star','#ffffff','#1f3f9a'],['roundShield','#c4161c','#e8e8ec','#1f3f9a'],['helmWings','#ffffff']]}),
   S('Iron Man','heroes',4,{p:'#b3121f',c:'#e0b13a',s:'#3a0a0c',k:'#e0b13a',m:'#f2d27a',x:'#e0b13a',v:'#e0b13a',g:'x',fin:[0.85,0.25],
     acc:[['reactor','#9fefff'],['faceplate','#e0b13a','#cff6ff'],['palms','#9fefff']]}),
-  S('Joker','heroes',4,{p:'#6a2a9a',c:'#3aa04a',s:'#2a0e3e',k:'#f28a1a',m:'#3aa04a',x:'#f28a1a',v:'#f4f1ea',fin:[0.1,0.6],pat:['p','pinstripe','#4a1a72'],
+  S('The Creepster','heroes',4,{p:'#6a2a9a',c:'#3aa04a',s:'#2a0e3e',k:'#f28a1a',m:'#3aa04a',x:'#f28a1a',v:'#f4f1ea',fin:[0.1,0.6],pat:['p','pinstripe','#4a1a72'],
     noVisor:1,acc:[['jokerMask','#f4f1ea','#c4161c'],['hair','#3aa04a','slick'],['bowtie','#3aa04a']]}),
   S('Harley Quinn','heroes',4,{p:'#ff5aa8',c:'#141414',s:'#0a0a0a',k:'#141414',m:'#d8d8d8',x:'#2a7bff',v:'#141414',fin:[0.15,0.55],pat:['p','diamond','#141414'],
     acc:[['pigtails','#ff5aa8','#2a7bff'],['choker','#141414','#d8d8d8'],['emblem','heart','#ff5aa8','#141414']]}),
