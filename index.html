@@ -1362,7 +1362,7 @@ function applySkin(c,skin){
   for(const o of c.gear||[]){ o.parent&&o.parent.remove(o); o.traverse(m=>{ if(m.isMesh) m.geometry.dispose(); }); }
   c.gear=[]; c.capes=[]; c.flaps=[]; c.bobs=[]; c.skin=skin;
   const mats=skin.def?null:skinMaterials(skin,c.baseMats.vanguard_Mesh,c.baseMats.vanguard_visor);
-  c.model.traverse(o=>{ if(o.isMesh) o.material=mats?(o.name==='vanguard_visor'?mats.visor:mats.body):c.baseMats[o.name]; });
+  c.model.traverse(o=>{ if(o.isMesh) o.material=mats?(o.name==='vanguard_visor'?mats.visor:mats.body):c.baseMats[o.name]; if(o.name==='vanguard_visor') o.visible=!skin.noVisor; }); // masks like the Joker's replace the visor
   const big=skin.big||[1,1]; c.model.scale.set(MODEL_SCALE*big[0],MODEL_SCALE*big[1],MODEL_SCALE*big[0]); // Hulk and Thanos are bigger (looks only)
   c.g.updateMatrixWorld(true); const ws=new V(), sc=new V(), qq=new T.Quaternion(); c.g.getWorldScale(ws);
   for(const [kind,...args] of skin.acc){

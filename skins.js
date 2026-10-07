@@ -25,7 +25,7 @@ const ITEMS=[
   S('Iron Man','heroes',4,{p:'#b3121f',c:'#e0b13a',s:'#3a0a0c',k:'#e0b13a',m:'#f2d27a',x:'#e0b13a',v:'#e0b13a',g:'x',fin:[0.85,0.25],
     acc:[['reactor','#9fefff'],['faceplate','#e0b13a','#cff6ff'],['palms','#9fefff']]}),
   S('Joker','heroes',4,{p:'#6a2a9a',c:'#3aa04a',s:'#2a0e3e',k:'#f28a1a',m:'#3aa04a',x:'#f28a1a',v:'#f4f1ea',fin:[0.1,0.6],pat:['p','pinstripe','#4a1a72'],
-    acc:[['jokerMask','#f4f1ea','#c4161c'],['hair','#3aa04a','slick'],['bowtie','#3aa04a']]}),
+    noVisor:1,acc:[['jokerMask','#f4f1ea','#c4161c'],['hair','#3aa04a','slick'],['bowtie','#3aa04a']]}),
   S('Harley Quinn','heroes',4,{p:'#ff5aa8',c:'#141414',s:'#0a0a0a',k:'#141414',m:'#d8d8d8',x:'#2a7bff',v:'#141414',fin:[0.15,0.55],pat:['p','diamond','#141414'],
     acc:[['pigtails','#ff5aa8','#2a7bff'],['choker','#141414','#d8d8d8'],['emblem','heart','#ff5aa8','#141414']]}),
   S('Spider-Man','heroes',4,{p:'#c8121e',c:'#1c3fa8',s:'#0e1f54',k:'#1c3fa8',m:'#c8121e',x:'#1a1a1a',v:'#c8121e',fin:[0.05,0.55],pat:['p','web','#1a1a1a'],
@@ -353,13 +353,14 @@ function gear(T,kind,a,mats){
       const m=M(new T.ShapeGeometry(sh),L(a[0],{side:T.DoubleSide}),s2*0.15,0.14,0.02); m.scale.x=s2; m.rotation.y=s2*-1.2; out.push(['Head',m]); } break;
     case 'reactor': { const g=G(); g.add(M(new T.CylinderGeometry(0.045,0.045,0.02,24),glowM(a[0]),0,0,0)); const r=M(new T.TorusGeometry(0.05,0.01,8,24),L('#8a8f96',{metalness:0.9,roughness:0.25}),0,0,0); r.rotation.x=Math.PI/2; g.add(r);
       g.rotation.x=Math.PI/2-0.12; g.position.set(0,0.07,0.19); out.push(['Spine2',g]); break; }
-    case 'faceplate': { const g=G(), plate=M(new T.SphereGeometry(0.155,18,12,-Math.PI*0.42,Math.PI*0.84,Math.PI*0.25,Math.PI*0.5),L(a[0],{metalness:0.9,roughness:0.22}),0,0.12,0.012); plate.scale.set(1,1.08,1.08); g.add(plate);
+    case 'faceplate': { const g=G(), plate=M(new T.SphereGeometry(0.155,18,12,Math.PI*0.08,Math.PI*0.84,Math.PI*0.25,Math.PI*0.5),L(a[0],{metalness:0.9,roughness:0.22}),0,0.12,0.012); plate.scale.set(1,1.08,1.08); g.add(plate);
       for(const sx of [-1,1]){ const e=M(new T.BoxGeometry(0.05,0.014,0.01),glowM(a[1]),sx*0.045,0.15,0.168); e.rotation.z=sx*-0.18; g.add(e); }
       g.add(M(new T.BoxGeometry(0.07,0.006,0.01),L('#5a1010'),0,0.06,0.165)); out.push(['Head',g]); break; }
     case 'palms': for(const sd of ['Left','Right']){ const m=M(new T.CylinderGeometry(0.022,0.022,0.01,16),glowM(a[0]),0,0.07,0.03); m.rotation.x=Math.PI/2; out.push([sd+'Hand',m]); } break;
-    case 'jokerMask': { const g=G(), face=M(new T.SphereGeometry(0.156,18,12,-Math.PI*0.42,Math.PI*0.84,Math.PI*0.2,Math.PI*0.6),L(a[0],{roughness:0.5}),0,0.12,0.01); g.add(face);
-      for(const sx of [-1,1]){ const e=M(new T.SphereGeometry(0.024,10,8),L('#1a1a1a'),sx*0.05,0.16,0.15); e.scale.set(1.3,0.8,0.4); g.add(e); }
-      const smile=M(new T.TorusGeometry(0.06,0.012,8,20,Math.PI),L(a[1],{roughness:0.4}),0,0.1,0.15); smile.rotation.z=Math.PI; g.add(smile); out.push(['Head',g]); break; }
+    case 'jokerMask': { const g=G(), f=G(), face=M(new T.SphereGeometry(0.152,20,14,Math.PI*0.12,Math.PI*0.76,Math.PI*0.22,Math.PI*0.5),L(a[0],{roughness:0.5,side:T.DoubleSide}),0,0,0); f.add(face); // a face-shaped shell over the front of the helmet
+      for(const sx of [-1,1]){ const e=M(new T.SphereGeometry(0.024,10,8),L('#1a1a1a'),sx*0.05,0.03,0.142); e.scale.set(1.3,0.8,0.4); f.add(e); }
+      const smile=M(new T.TorusGeometry(0.06,0.012,8,20,Math.PI),L(a[1],{roughness:0.4}),0,-0.03,0.142); smile.rotation.z=Math.PI; f.add(smile);
+      f.position.set(0,0.13,0.012); f.scale.set(1.08,1.05,1.4); g.add(f); out.push(['Head',g]); break; } // stretched forward so the helmet's nose ridge stays tucked inside
     case 'bowtie': { const g=G(), m=L(a[0]); for(const sx of [-1,1]){ const c=M(new T.ConeGeometry(0.035,0.06,4),m,sx*0.03,0,0); c.rotation.z=sx*Math.PI/2; g.add(c); } g.add(M(new T.SphereGeometry(0.016,8,6),m)); g.position.set(0,0.0,0.12); out.push(['Neck',g]); break; }
     case 'pigtails': for(const s2 of [-1,1]){ const g=G(), m=L(s2<0?a[0]:a[1],{roughness:0.5}); g.add(M(new T.SphereGeometry(0.035,10,8),L('#141414'),0,0,0));
       for(let i=0;i<5;i++){ const t=M(new T.SphereGeometry(0.055-i*0.007,10,8),m,s2*(0.03+i*0.015),-0.04-i*0.055,-0.01-i*0.01); g.add(t); }
@@ -382,11 +383,18 @@ function gear(T,kind,a,mats){
     case 'crest': { const g=G(), m=L(a[0],{metalness:0.9,roughness:0.25}); const cap=M(new T.SphereGeometry(0.165,18,10,0,Math.PI*2,0,Math.PI*0.5),m,0,0.12,-0.01); cap.scale.set(1.02,1,1.1); g.add(cap);
       for(const sx of [-1,1]){ const f=M(new T.BoxGeometry(0.02,0.16,0.06),m,sx*0.16,0.16,0.0); f.rotation.z=sx*-0.35; g.add(f); }
       const ridge=M(new T.BoxGeometry(0.02,0.06,0.28),m,0,0.27,-0.02); g.add(ridge); out.push(['Head',g]); break; }
-    case 'gauntlet': { // golden glove with six glowing stones
-      const g=G(), gold=L(a[0],{metalness:0.95,roughness:0.2}); g.add(M(new T.BoxGeometry(0.1,0.09,0.06),gold,0,0.05,0)); const cuff=M(new T.CylinderGeometry(0.055,0.05,0.09,12),gold,0,-0.02,0); g.add(cuff);
-      for(let i=0;i<4;i++) g.add(M(new T.BoxGeometry(0.018,0.07,0.022),gold,-0.036+i*0.024,0.12,0.004));
-      ['#b04aff','#2a7bff','#ff2a2a','#ffd21f','#3aff6a','#ff8a1a'].forEach((c,i)=>{ const st=M(new T.SphereGeometry(i===5?0.016:0.01,8,6),glowM(c),i<4?-0.036+i*0.024:i===4?0.055:0,i<4?0.135:i===4?0.07:0.05,0.033); g.add(st); });
-      g.scale.setScalar(1.6); out.push(['LeftHand',g]); break; }
+    case 'gauntlet': { // a golden glove built onto the hand's own bones, so it curls with the fingers. Fingers run along +y;
+      // the back of the hand faces +x. Stones: four on the knuckles, one on the thumb, the big one on the back of the hand.
+      const gold=L(a[0],{metalness:0.6,roughness:0.3,emissive:'#3a2600',emissiveIntensity:0.6}), st=(g,c,r,x,y,z)=>{ const m=M(new T.SphereGeometry(r,10,8),glowM(c),x,y,z); m.scale.x=0.6; g.add(m); };
+      const hand=G(); hand.add(M(new T.BoxGeometry(0.078,0.19,0.12),gold,0.004,0.1,0.012));
+      const cuff=M(new T.CylinderGeometry(0.066,0.058,0.09,14),gold,0,-0.005,0.01); cuff.scale.z=1.2; hand.add(cuff);
+      const rim=M(new T.TorusGeometry(0.068,0.008,6,18),gold,0,0.04,0.01); rim.rotation.x=Math.PI/2; rim.scale.y=1.2; hand.add(rim);
+      st(hand,'#ff8a1a',0.022,0.042,0.1,0.012); out.push(['LeftHand',hand]);
+      const gems={Index:'#b04aff',Middle:'#2a7bff',Ring:'#ff2a2a',Pinky:'#ffd21f',Thumb:'#3aff6a'};
+      for(const f of ['Thumb','Index','Middle','Ring','Pinky']) for(let k=1;k<=3;k++){ const g=G(), len=k===3?0.032:0.042;
+        g.add(M(new T.BoxGeometry(0.034,len,0.03),gold,0,len/2,0)); if(k===1) st(g,gems[f],0.011,0.018,0.008,0);
+        out.push(['LeftHand'+f+k,g]); }
+      break; }
     case 'tail': { const g=G(); for(let i=0;i<6;i++){ const r=0.06+Math.sin(i/5*Math.PI)*0.05; g.add(M(new T.SphereGeometry(r,10,8),L(i>3?a[1]:a[0],{roughness:0.9}),0,-i*0.07,-i*0.06-0.02)); }
       g.position.set(0,-0.05,-0.14); g.rotation.x=-0.5; g.userData.cape=true; out.push(['Hips',g]); break; }
   }
