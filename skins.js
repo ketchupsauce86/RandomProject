@@ -1,11 +1,12 @@
 // Storm Island outfits: original themed skins for the soldier character. Each skin repaints the soldier's
 // armor texture region by region (plates, cloth, undersuit, straps, metal trim, accent stripes and the visor)
 // keeping the original shading, scuffs and wear, then adds 3D gear on the skeleton: capes, hats, hair,
-// horns, halos, wings, emblems and more. All characters and names here are made up for this game.
+// horns, halos, wings, emblems and more. The Heroes & Villains set is Kash's own picks: fan-made tributes for
+// this personal project. Every other theme is an original design.
 (function(){
 
 const THEMES=[
-  {id:'heroes',n:'Superheroes'},{id:'anime',n:'Anime'},{id:'west',n:'Wild West'},{id:'cyber',n:'Cyber Neon'},
+  {id:'heroes',n:'Heroes & Villains'},{id:'anime',n:'Anime'},{id:'west',n:'Wild West'},{id:'cyber',n:'Cyber Neon'},
   {id:'myth',n:'Myth & Fantasy'},{id:'space',n:'Space'},{id:'ops',n:'Special Ops'},{id:'street',n:'Street & Sports'},
   {id:'spooky',n:'Spooky'}
 ];
@@ -16,24 +17,27 @@ const S=(n,t,r,o)=>Object.assign({n,t,r},o);
 const ITEMS=[
   // ---------- Superheroes
   S('Default Trooper','heroes',0,{p:'#e9c39c',c:'#556140',s:'#1d1f22',k:'#4a3a28',m:'#7a8b94',x:'#b0221c',v:'#20262c',def:true,acc:[]}),
-  S('Titan Vanguard','heroes',4,{p:'#1f4fb8',c:'#c4161c',s:'#0e1a3a',k:'#c9a227',m:'#e8e8ec',x:'#ffffff',v:'#9fd8ff',g:'v',fin:[0.35,0.45],
-    acc:[['cape','#c4161c','#7a0d10'],['emblem','star','#ffffff','#c4161c'],['pauldrons','#1f4fb8']]}),
-  S('Volt Striker','heroes',3,{p:'#ffd21f',c:'#151515',s:'#0b0b0b',k:'#2a2a2a',m:'#d0d0d0',x:'#33e6ff',v:'#33e6ff',g:'xv',pat:['c','carbon','#262626'],
-    acc:[['emblem','bolt','#151515','#ffd21f'],['scarf','#ffd21f']]}),
-  S('Crimson Comet','heroes',4,{p:'#b3121f',c:'#f2b400',s:'#2a0508',k:'#f2b400',m:'#ffd76a',x:'#ff8a1f',v:'#ffcc66',g:'xv',fin:[0.5,0.35],
-    acc:[['cape','#f2b400','#9b6c00'],['emblem','flame','#ffd21f','#b3121f']]}),
-  S('Night Warden','heroes',4,{p:'#24262c',c:'#3b2a55',s:'#0c0c10',k:'#1a1a1f',m:'#5a5f6a',x:'#a46bff',v:'#c69bff',g:'xv',fin:[0.2,0.6],
-    acc:[['cape','#15161a','#3b2a55'],['emblem','eye','#a46bff','#15161a'],['ears','#24262c']]}),
-  S('Steel Sentinel','heroes',3,{p:'#9aa4b0',c:'#2a3542',s:'#151a20',k:'#39434f',m:'#d6dde4',x:'#4fd2ff',v:'#4fd2ff',g:'xv',fin:[0.85,0.28],
-    acc:[['emblem','atom','#4fd2ff','#2a3542',1],['pauldrons','#9aa4b0']]}),
-  S('Dawn Herald','heroes',3,{p:'#f4f1ea',c:'#1fb5a8',s:'#12514c',k:'#e0b13a',m:'#e0b13a',x:'#ffd65a',v:'#ffe39a',g:'v',
-    acc:[['cape','#1fb5a8','#0f6b63'],['emblem','sun','#e0b13a','#f4f1ea']]}),
-  S('Emerald Gale','heroes',2,{p:'#1d8f4e',c:'#e9e4d3',s:'#0b2f1b',k:'#c9c1a9',m:'#bfeccf',x:'#7dff9e',v:'#7dff9e',g:'xv',
-    acc:[['emblem','wing','#e9e4d3','#1d8f4e'],['scarf','#e9e4d3']]}),
-  S('Frostbyte','heroes',2,{p:'#d8f1ff',c:'#3a7fc2',s:'#13304d',k:'#6fa6d9',m:'#ffffff',x:'#8fe8ff',v:'#8fe8ff',g:'xv',pat:['p','ice','#a9dcff'],
-    acc:[['emblem','snow','#3a7fc2','#d8f1ff']]}),
-  S('Quantum Quasar','heroes',4,{p:'#2b1a5e',c:'#e33ea0',s:'#120a26',k:'#e33ea0',m:'#f4c3ff',x:'#ff6be6',v:'#ff6be6',g:'xv',pat:['p','stars','#ffffff'],
-    acc:[['cape','#120a26','#e33ea0'],['emblem','atom','#ff6be6','#2b1a5e',1],['halo','#ff6be6']]}),
+  // big: [width, height] scale of the whole body · Kash's picks, in Kash's order
+  S('Hulk','heroes',4,{p:'#4f9a2e',c:'#5a2d82',s:'#3c7a22',k:'#3a1d5a',m:'#3c7a22',x:'#5a2d82',v:'#2f6a1c',fin:[0.05,0.8],big:[1.38,1.16],
+    acc:[['muscles','#4f9a2e'],['hair','#151515','slick']]}),
+  S('Captain America','heroes',4,{p:'#1f3f9a',c:'#c4161c',s:'#16285a',k:'#8a5a2a',m:'#e8e8ec',x:'#ffffff',v:'#1f3f9a',fin:[0.2,0.5],pat:['c','stripes','#ffffff'],
+    acc:[['emblem','star','#ffffff','#1f3f9a'],['roundShield','#c4161c','#e8e8ec','#1f3f9a'],['helmWings','#ffffff']]}),
+  S('Iron Man','heroes',4,{p:'#b3121f',c:'#e0b13a',s:'#3a0a0c',k:'#e0b13a',m:'#f2d27a',x:'#e0b13a',v:'#e0b13a',g:'x',fin:[0.85,0.25],
+    acc:[['reactor','#9fefff'],['faceplate','#e0b13a','#cff6ff'],['palms','#9fefff']]}),
+  S('Joker','heroes',4,{p:'#6a2a9a',c:'#3aa04a',s:'#2a0e3e',k:'#f28a1a',m:'#3aa04a',x:'#f28a1a',v:'#f4f1ea',fin:[0.1,0.6],pat:['p','pinstripe','#4a1a72'],
+    acc:[['jokerMask','#f4f1ea','#c4161c'],['hair','#3aa04a','slick'],['bowtie','#3aa04a']]}),
+  S('Harley Quinn','heroes',4,{p:'#ff5aa8',c:'#141414',s:'#0a0a0a',k:'#141414',m:'#d8d8d8',x:'#2a7bff',v:'#141414',fin:[0.15,0.55],pat:['p','diamond','#141414'],
+    acc:[['pigtails','#ff5aa8','#2a7bff'],['choker','#141414','#d8d8d8'],['emblem','heart','#ff5aa8','#141414']]}),
+  S('Spider-Man','heroes',4,{p:'#c8121e',c:'#1c3fa8',s:'#0e1f54',k:'#1c3fa8',m:'#c8121e',x:'#1a1a1a',v:'#c8121e',fin:[0.05,0.55],pat:['p','web','#1a1a1a'],
+    acc:[['spiderEyes','#f4f6f8','#1a1a1a'],['emblem','spider','#1a1a1a','#c8121e']]}),
+  S('Batman','heroes',4,{p:'#4a4e56',c:'#18191c',s:'#0c0c0e',k:'#e0b13a',m:'#18191c',x:'#e0b13a',v:'#18191c',fin:[0.15,0.6],
+    acc:[['cape','#111214','#1e2024'],['ears','#18191c'],['emblem','bat','#141414','#f2c230'],['belt','#e0b13a']]}),
+  S('Robin Hood','heroes',3,{p:'#2f6a2a',c:'#9a1f1a',s:'#1a2a12',k:'#6a4422',m:'#c9a227',x:'#9a1f1a',v:'#1a2a12',fin:[0.05,0.85],
+    acc:[['hood','#2f6a2a','#9a1f1a'],['bow','#7a4a22','#e8e0c8'],['belt','#6a4422']]}),
+  S('Superman','heroes',4,{p:'#1f4fc8',c:'#c4161c',s:'#123080',k:'#c4161c',m:'#f2c230',x:'#c4161c',v:'#1f4fc8',fin:[0.15,0.45],
+    acc:[['cape','#c4161c','#8a0d12'],['emblem','super','#c4161c','#f2c230'],['hair','#101010','slick'],['belt','#f2c230']]}),
+  S('Thanos','heroes',4,{p:'#d4a43a',c:'#2a4aa8',s:'#5a3a7a',k:'#2a4aa8',m:'#f2d27a',x:'#7a4aa8',v:'#7a4a9a',fin:[0.75,0.3],big:[1.24,1.12],
+    acc:[['crest','#d4a43a'],['gauntlet','#d4a43a'],['muscles','#7a4a9a'],['pauldrons','#d4a43a']]}),
   // ---------- Anime
   S('Kaze Ninja','anime',3,{p:'#ff7a1a',c:'#1c2b4a',s:'#0f1626',k:'#1c2b4a',m:'#c9cfd8',x:'#1c2b4a',v:'#2b3a55',
     acc:[['hair','#ffd21f','spiky'],['headband','#1c2b4a','#c9cfd8'],['katana','#1c2b4a']]}),
@@ -168,6 +172,12 @@ function patternAt(kind,u,v){ // 0..1 amount of the pattern colour at atlas coor
     case 'denim': { return (Math.sin((u+v)*1600)*0.5+0.5)*0.35+fbm(u*80,v*80)*0.25; }
     case 'splat': { const f=fbm(u*12+7,v*12); return f>0.64?1:0; }
     case 'check': { return (Math.floor(u*50)+Math.floor(v*50))%2; }
+    case 'stripes': { return Math.floor(v*36)%2; }
+    case 'pinstripe': { return (u*90)%1<0.12?1:0; }
+    case 'diamond': { const x=u*24, y=v*24, dx=Math.abs(x%1-0.5), dy=Math.abs(y%1-0.5); return ((Math.floor(x)+Math.floor(y))%2)&&dx+dy<0.5?1:0; }
+    case 'web': { // spokes and rings around a few centres, like a spider's web
+      let best=0; for(const [cx,cy] of [[0.25,0.25],[0.75,0.3],[0.3,0.75],[0.75,0.78]]){ const dx=u-cx, dy=v-cy, r=Math.hypot(dx,dy), a=Math.atan2(dy,dx);
+        const spoke=Math.abs(Math.sin(a*6))<0.08*(0.04/Math.max(r,0.04))?1:0, ring=Math.abs((r*38)%1-0.5)>0.44?1:0; best=Math.max(best,r<0.3?Math.max(spoke,ring):0); } return best; }
   }
   return 0;
 }
@@ -197,11 +207,22 @@ function emblemCanvas(kind,fg,bg){
   x.translate(64,64);
   // shield-shaped plate with a bevelled rim
   const plate=()=>{ x.beginPath(); x.moveTo(-50,-46); x.lineTo(50,-46); x.lineTo(50,4); x.quadraticCurveTo(46,40,0,58); x.quadraticCurveTo(-46,40,-50,4); x.closePath(); };
-  x.fillStyle=bg; plate(); x.fill(); x.lineWidth=7; x.strokeStyle=fg; plate(); x.stroke();
+  const own={super:1,bat:1,spider:1}[kind];
+  if(!own){ x.fillStyle=bg; plate(); x.fill(); x.lineWidth=7; x.strokeStyle=fg; plate(); x.stroke(); }
   x.fillStyle=fg; x.strokeStyle=fg; x.lineCap='round'; x.lineJoin='round';
   const star=(r,ri,pts)=>{ x.beginPath(); for(let i=0;i<pts*2;i++){ const a=-Math.PI/2+i*Math.PI/pts, rr=i%2?ri:r; x.lineTo(Math.cos(a)*rr,Math.sin(a)*rr+2); } x.closePath(); x.fill(); };
   switch(kind){
     case 'star': star(34,14,5); break;
+    case 'super': { // the diamond crest with a big S
+      const dia=()=>{ x.beginPath(); x.moveTo(-56,-34); x.lineTo(56,-34); x.lineTo(62,-18); x.lineTo(0,56); x.lineTo(-62,-18); x.closePath(); };
+      x.fillStyle=bg; dia(); x.fill(); x.lineWidth=7; x.strokeStyle=fg; dia(); x.stroke();
+      x.fillStyle=fg; x.font='900 68px Georgia, serif'; x.textAlign='center'; x.textBaseline='middle'; x.fillText('S',0,2); break; }
+    case 'bat': { // a yellow oval with a bat in it
+      x.fillStyle=bg; x.beginPath(); x.ellipse(0,0,60,38,0,0,7); x.fill(); x.lineWidth=5; x.strokeStyle=fg; x.stroke(); x.fillStyle=fg; x.beginPath();
+      [[-54,-6],[-34,-22],[-30,-10],[-14,-14],[-8,-26],[-4,-14],[4,-14],[8,-26],[14,-14],[30,-10],[34,-22],[54,-6],[40,6],[28,2],[18,16],[8,8],[0,26],[-8,8],[-18,16],[-28,2],[-40,6]].forEach(p=>x.lineTo(p[0],p[1])); x.closePath(); x.fill(); break; }
+    case 'spider': { // body, head and eight legs
+      x.fillStyle=fg; x.beginPath(); x.ellipse(0,10,11,20,0,0,7); x.fill(); x.beginPath(); x.arc(0,-16,8,0,7); x.fill(); x.lineWidth=5; x.strokeStyle=fg;
+      for(const sd of [-1,1]) for(let i=0;i<4;i++){ const y0=-6+i*8; x.beginPath(); x.moveTo(sd*6,y0); x.lineTo(sd*(26+i*2),y0-14+i*6); x.lineTo(sd*(34+i*3),y0+(i<2?-22:18)); x.stroke(); } break; }
     case 'bolt': x.beginPath(); [[8,-40],[-22,6],[-2,6],[-10,42],[24,-8],[4,-8],[14,-40]].forEach(p=>x.lineTo(p[0],p[1])); x.closePath(); x.fill(); break;
     case 'flame': x.beginPath(); x.moveTo(0,42); x.bezierCurveTo(-34,30,-26,-6,-6,-38); x.bezierCurveTo(-6,-14,6,-12,10,-24); x.bezierCurveTo(30,4,28,34,0,42); x.fill(); break;
     case 'eye': x.beginPath(); x.moveTo(-38,2); x.quadraticCurveTo(0,-34,38,2); x.quadraticCurveTo(0,38,-38,2); x.fill(); x.fillStyle=bg; x.beginPath(); x.arc(0,2,13,0,7); x.fill(); x.fillStyle=fg; x.beginPath(); x.arc(0,2,6,0,7); x.fill(); break;
@@ -316,6 +337,56 @@ function gear(T,kind,a,mats){
       for(const s of [-1,1]){ g.add(M(new T.CylinderGeometry(0.06,0.06,0.42,12),body,s*0.12,-0.02,-0.05)); const n=M(new T.CylinderGeometry(0.045,0.065,0.08,12),L('#3a3a3a',{metalness:0.8,roughness:0.3}),s*0.12,-0.27,-0.05); g.add(n);
         const f=M(new T.SphereGeometry(0.04,8,6),glowM(a[1]),s*0.12,-0.31,-0.05); g.add(f); }
       g.position.set(0,0.0,-0.24); out.push(['Spine2',g]); break; }
+    case 'muscles': { // big biceps, forearms, chest and traps in the skin colour
+      const m=L(a[0],{roughness:0.7});
+      for(const sd of ['Left','Right']){ const b=M(new T.SphereGeometry(0.095,12,10),m,0,0.13,0.02); b.scale.set(1.1,1.5,1.05); out.push([sd+'Arm',b]);
+        const f=M(new T.SphereGeometry(0.075,12,10),m,0,0.1,0); f.scale.set(1,1.7,1); out.push([sd+'ForeArm',f]);
+        const t=M(new T.SphereGeometry(0.08,12,10),m,0,0.02,-0.02); t.scale.set(1.2,0.8,1); out.push([sd+'Shoulder',t]); }
+      const g=G(); for(const sx of [-1,1]){ const p=M(new T.SphereGeometry(0.1,14,10),m,sx*0.08,0.05,0.13); p.scale.set(1.1,0.75,0.6); g.add(p); } out.push(['Spine2',g]); break; }
+    case 'roundShield': { // red, white and blue rings with a white star, worn on the back
+      const g=G(), ring=(r,c,z)=>{ const d=M(new T.CylinderGeometry(r,r,0.025,32),L(c,{metalness:0.6,roughness:0.3}),0,0,z); d.rotation.x=Math.PI/2; g.add(d); };
+      ring(0.26,a[0],0); ring(0.21,a[1],0.004); ring(0.16,a[0],0.008); ring(0.11,a[2],0.012);
+      const sh=new T.Shape(); for(let i=0;i<10;i++){ const an=Math.PI/2+i*Math.PI/5, r=i%2?0.04:0.095; sh.lineTo(Math.cos(an)*r,Math.sin(an)*r); }
+      g.add(M(new T.ExtrudeGeometry(sh,{depth:0.006,bevelEnabled:false}),L(a[1],{metalness:0.6,roughness:0.3}),0,0,0.026));
+      g.rotation.y=Math.PI; g.position.set(0,0.0,-0.21); out.push(['Spine2',g]); break; }
+    case 'helmWings': for(const s2 of [-1,1]){ const sh=new T.Shape(); sh.moveTo(0,0); sh.lineTo(0.09,0.03); sh.lineTo(0.08,0.06); sh.lineTo(0.1,0.08); sh.lineTo(0,0.05);
+      const m=M(new T.ShapeGeometry(sh),L(a[0],{side:T.DoubleSide}),s2*0.15,0.14,0.02); m.scale.x=s2; m.rotation.y=s2*-1.2; out.push(['Head',m]); } break;
+    case 'reactor': { const g=G(); g.add(M(new T.CylinderGeometry(0.045,0.045,0.02,24),glowM(a[0]),0,0,0)); const r=M(new T.TorusGeometry(0.05,0.01,8,24),L('#8a8f96',{metalness:0.9,roughness:0.25}),0,0,0); r.rotation.x=Math.PI/2; g.add(r);
+      g.rotation.x=Math.PI/2-0.12; g.position.set(0,0.07,0.19); out.push(['Spine2',g]); break; }
+    case 'faceplate': { const g=G(), plate=M(new T.SphereGeometry(0.155,18,12,-Math.PI*0.42,Math.PI*0.84,Math.PI*0.25,Math.PI*0.5),L(a[0],{metalness:0.9,roughness:0.22}),0,0.12,0.012); plate.scale.set(1,1.08,1.08); g.add(plate);
+      for(const sx of [-1,1]){ const e=M(new T.BoxGeometry(0.05,0.014,0.01),glowM(a[1]),sx*0.045,0.15,0.168); e.rotation.z=sx*-0.18; g.add(e); }
+      g.add(M(new T.BoxGeometry(0.07,0.006,0.01),L('#5a1010'),0,0.06,0.165)); out.push(['Head',g]); break; }
+    case 'palms': for(const sd of ['Left','Right']){ const m=M(new T.CylinderGeometry(0.022,0.022,0.01,16),glowM(a[0]),0,0.07,0.03); m.rotation.x=Math.PI/2; out.push([sd+'Hand',m]); } break;
+    case 'jokerMask': { const g=G(), face=M(new T.SphereGeometry(0.156,18,12,-Math.PI*0.42,Math.PI*0.84,Math.PI*0.2,Math.PI*0.6),L(a[0],{roughness:0.5}),0,0.12,0.01); g.add(face);
+      for(const sx of [-1,1]){ const e=M(new T.SphereGeometry(0.024,10,8),L('#1a1a1a'),sx*0.05,0.16,0.15); e.scale.set(1.3,0.8,0.4); g.add(e); }
+      const smile=M(new T.TorusGeometry(0.06,0.012,8,20,Math.PI),L(a[1],{roughness:0.4}),0,0.1,0.15); smile.rotation.z=Math.PI; g.add(smile); out.push(['Head',g]); break; }
+    case 'bowtie': { const g=G(), m=L(a[0]); for(const sx of [-1,1]){ const c=M(new T.ConeGeometry(0.035,0.06,4),m,sx*0.03,0,0); c.rotation.z=sx*Math.PI/2; g.add(c); } g.add(M(new T.SphereGeometry(0.016,8,6),m)); g.position.set(0,0.0,0.12); out.push(['Neck',g]); break; }
+    case 'pigtails': for(const s2 of [-1,1]){ const g=G(), m=L(s2<0?a[0]:a[1],{roughness:0.5}); g.add(M(new T.SphereGeometry(0.035,10,8),L('#141414'),0,0,0));
+      for(let i=0;i<5;i++){ const t=M(new T.SphereGeometry(0.055-i*0.007,10,8),m,s2*(0.03+i*0.015),-0.04-i*0.055,-0.01-i*0.01); g.add(t); }
+      g.position.set(s2*0.13,0.2,-0.04); g.userData.cape=true; out.push(['Head',g]); } break;
+    case 'choker': { const g=G(), r=M(new T.TorusGeometry(0.085,0.012,8,24),L(a[0]),0,0.02,0.01); r.rotation.x=Math.PI/2; g.add(r); for(let i=0;i<6;i++){ const an=-0.9+i*0.36, st=M(new T.ConeGeometry(0.01,0.025,4),L(a[1],{metalness:0.9,roughness:0.2}),Math.sin(an)*0.095,0.02,Math.cos(an)*0.095); st.rotation.set(Math.PI/2,0,0); st.rotation.z=-an; g.add(st); } out.push(['Neck',g]); break; }
+    case 'spiderEyes': for(const sx of [-1,1]){ const g=G(), sh=new T.Shape(); sh.moveTo(0,0); sh.quadraticCurveTo(0.06,0.05,0.07,-0.01); sh.quadraticCurveTo(0.04,-0.04,0,0);
+      const o=M(new T.ShapeGeometry(sh),L(a[1]),0,0,0); o.scale.set(1.25,1.25,1); g.add(o); const w=M(new T.ShapeGeometry(sh),L(a[0],{emissive:a[0],emissiveIntensity:0.25}),0.006,0,0.002); g.add(w);
+      g.scale.x=sx; g.position.set(sx*0.02,0.16,0.158); g.rotation.y=sx*0.35; out.push(['Head',g]); } break;
+    case 'belt': { const g=G(), r=M(new T.TorusGeometry(0.17,0.025,6,28),L(a[0],{metalness:0.6,roughness:0.35}),0,0.05,0); r.rotation.x=Math.PI/2; r.scale.set(1,0.75,1); g.add(r);
+      for(let i=0;i<6;i++){ const an=-1.1+i*0.45, pz=M(new T.BoxGeometry(0.04,0.05,0.03),L(a[0],{metalness:0.6,roughness:0.35}),Math.sin(an)*0.17,0.05,Math.cos(an)*0.13); pz.rotation.y=an; g.add(pz); } out.push(['Hips',g]); break; }
+    case 'hood': { const g=G(), m=L(a[0],{side:T.DoubleSide,roughness:0.9}), h=M(new T.SphereGeometry(0.168,16,12,Math.PI*0.7,Math.PI*1.6,0,Math.PI*0.6),m,0,0.115,-0.025); h.scale.set(1.02,1.08,1.08); g.add(h);
+      const tip=M(new T.ConeGeometry(0.05,0.16,8),m,0,0.15,-0.18); tip.rotation.x=-2.3; g.add(tip);
+      const fe=M(new T.ConeGeometry(0.012,0.2,4),L(a[1]),0.14,0.25,-0.04); fe.rotation.z=-0.5; g.add(fe); out.push(['Head',g]); break; }
+    case 'bow': { // cosmetic only: a longbow and quiver across the back
+      const g=G(), wood=L(a[0],{roughness:0.7}), arc=M(new T.TorusGeometry(0.42,0.014,6,30,Math.PI*0.9),wood,0,0,0); arc.rotation.z=Math.PI*0.55; g.add(arc);
+      const st=M(new T.CylinderGeometry(0.003,0.003,0.82,4),L(a[1]),0.06,0,0); g.add(st); g.rotation.set(0,0,0.5); g.position.set(-0.02,0.02,-0.2);
+      const q=G(), qv=M(new T.CylinderGeometry(0.05,0.045,0.42,12),L('#5a3a1a',{roughness:0.8})); q.add(qv);
+      for(let i=0;i<4;i++){ const ar=M(new T.CylinderGeometry(0.005,0.005,0.2,4),wood,(i%2-0.5)*0.03,0.25,(i>>1)*0.025-0.012); q.add(ar); const fl=M(new T.BoxGeometry(0.03,0.05,0.003),L('#e8e0c8'),(i%2-0.5)*0.03,0.33,(i>>1)*0.025-0.012); q.add(fl); }
+      q.position.set(0.08,0.05,-0.18); q.rotation.z=-0.45; out.push(['Spine2',g],['Spine2',q]); break; }
+    case 'crest': { const g=G(), m=L(a[0],{metalness:0.9,roughness:0.25}); const cap=M(new T.SphereGeometry(0.165,18,10,0,Math.PI*2,0,Math.PI*0.5),m,0,0.12,-0.01); cap.scale.set(1.02,1,1.1); g.add(cap);
+      for(const sx of [-1,1]){ const f=M(new T.BoxGeometry(0.02,0.16,0.06),m,sx*0.16,0.16,0.0); f.rotation.z=sx*-0.35; g.add(f); }
+      const ridge=M(new T.BoxGeometry(0.02,0.06,0.28),m,0,0.27,-0.02); g.add(ridge); out.push(['Head',g]); break; }
+    case 'gauntlet': { // golden glove with six glowing stones
+      const g=G(), gold=L(a[0],{metalness:0.95,roughness:0.2}); g.add(M(new T.BoxGeometry(0.1,0.09,0.06),gold,0,0.05,0)); const cuff=M(new T.CylinderGeometry(0.055,0.05,0.09,12),gold,0,-0.02,0); g.add(cuff);
+      for(let i=0;i<4;i++) g.add(M(new T.BoxGeometry(0.018,0.07,0.022),gold,-0.036+i*0.024,0.12,0.004));
+      ['#b04aff','#2a7bff','#ff2a2a','#ffd21f','#3aff6a','#ff8a1a'].forEach((c,i)=>{ const st=M(new T.SphereGeometry(i===5?0.016:0.01,8,6),glowM(c),i<4?-0.036+i*0.024:i===4?0.055:0,i<4?0.135:i===4?0.07:0.05,0.033); g.add(st); });
+      g.scale.setScalar(1.6); out.push(['LeftHand',g]); break; }
     case 'tail': { const g=G(); for(let i=0;i<6;i++){ const r=0.06+Math.sin(i/5*Math.PI)*0.05; g.add(M(new T.SphereGeometry(r,10,8),L(i>3?a[1]:a[0],{roughness:0.9}),0,-i*0.07,-i*0.06-0.02)); }
       g.position.set(0,-0.05,-0.14); g.rotation.x=-0.5; g.userData.cape=true; out.push(['Hips',g]); break; }
   }
