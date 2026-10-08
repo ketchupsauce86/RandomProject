@@ -6,6 +6,18 @@ A 3D battle royale that runs in the browser. You and 19 bots are flying over an 
 
 Or open `index.html` in a browser (Chrome or Edge works best) and click **Drop in** (the bots always play on hard). Needs a keyboard and mouse. The **Armory** button shows every gun design, and its **Pickaxes** tab shows 100 pickaxes in 3D across ten themed sets. Open the **Locker** to equip one: you carry it into every match. Like Fortnite, every pickaxe plays the same (the power-ups are just for fun); when you harvest, hit the glowing blue weak spot for double damage and extra materials. The Locker also has a **Skins** tab with 56 original outfits in nine themes (Superheroes, Anime, Wild West, Cyber Neon, Myth & Fantasy, Space, Special Ops, Street & Sports, Spooky), each with repainted armor and 3D gear like capes, hats, hair, wings and halos. The bots wear them too.
 
+## Zero-G Box
+
+Pick **Zero-G Box** on the home screen for a second mode: a huge white box full of floating white and gray blocks, with no gravity and 20 tough bots. Everyone starts armed, there is nothing to loot or build, and each elimination heals you and adds shield.
+
+| Key | Action |
+| --- | --- |
+| WASD | Swim toward where you look |
+| Space / C | Swim up / down |
+| Shift | Propel forward fast (uses the stamina bar) |
+
+Now and then the lights flash red and gravity flips: everyone lands on the ceiling and fights upside down (Space jumps off it) until the lights flash green.
+
 ## Version
 
 The version badge in the top-right corner of the home screen opens a **What's new** list, and the pause screen shows the version too. Every merged pull request is one release (v1.13.0 is the 13th). Before opening a pull request, stamp the next version:
