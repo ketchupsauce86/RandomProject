@@ -2842,7 +2842,7 @@
       $("armLabels").innerHTML = "";
       $("armPower").hidden = true;
       $("armStats").textContent = `${r.n} outfit \xB7 ${it.acc.length ? it.acc.length + " pieces of gear" : "Classic armor"} \xB7 Looks only, every skin plays the same`;
-      $("armNote").textContent = "All of these are original Storm Island designs.";
+      $("armNote").textContent = "All of these are original Inverted designs.";
       showEquip();
       [...$("armSets").children].forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.s === it.t)));
     }

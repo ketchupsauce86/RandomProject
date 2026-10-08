@@ -1,4 +1,4 @@
-// Storm Island outfits: original themed skins for the soldier character. Each skin repaints the soldier's
+// Inverted outfits: original themed skins for the soldier character. Each skin repaints the soldier's
 // armor texture region by region (plates, cloth, undersuit, straps, metal trim, accent stripes and the visor)
 // keeping the original shading, scuffs and wear, then adds 3D gear on the skeleton: capes, hats, hair,
 // horns, halos, wings, emblems and more. The Heroes & Villains set is Kash's own picks: fan-made tributes for

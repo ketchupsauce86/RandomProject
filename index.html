@@ -1,8 +1,8 @@
 <meta charset="utf-8">
-<title>Storm Island</title>
+<title>Inverted</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Barlow+Condensed:wght@500;600;700;800&family=Orbitron:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Barlow+Condensed:wght@500;600;700;800&family=Orbitron:wght@500;700;900&display=swap">
 <style>
 /* Layout: one full-screen 3D canvas; HUD hugs the four corners like a match broadcast, menus float over the live Zero-G Box. */
 :root{
@@ -18,7 +18,7 @@
   --hp:#62e06b;
   --shield:#45b0ff;
   --danger:#ff5468;
-  --display:'Luckiest Guy','Impact','Arial Black',sans-serif;
+  --display:'Russo One','Arial Black',sans-serif;
   --ui:'Barlow Condensed','Arial Narrow','Roboto Condensed',sans-serif;
 }
 [hidden]{display:none!important}
@@ -154,7 +154,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 #menu.overlay{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,390px);grid-template-rows:auto 1fr auto;gap:18px 28px;padding:18px 28px 26px;align-items:end;justify-content:stretch;
   background:linear-gradient(90deg,rgba(9,5,28,.82) 0%,rgba(9,5,28,.35) 46%,rgba(9,5,28,.05) 62%,rgba(9,5,28,.55) 100%),linear-gradient(0deg,rgba(9,5,28,.7),transparent 40%)}
 .topbar{grid-column:1/-1;align-self:start;display:flex;justify-content:space-between;align-items:center;gap:12px}
-.brand{font-family:var(--display);font-size:22px;letter-spacing:.04em;color:#fff}.brand b{font-weight:400;color:var(--sun);margin-left:6px}
+.brand{font-family:var(--display);font-size:22px;letter-spacing:.04em;color:#fff}.brand b{font-weight:400;color:var(--sun)}
 .topacts{display:flex;gap:8px;align-items:center}
 .chip{font-family:var(--ui);font-weight:700;font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--text);background:var(--glass);border:1px solid var(--edge);border-radius:999px;padding:7px 14px;cursor:pointer;backdrop-filter:blur(8px)}
 .chip:hover{background:var(--glass-hi);border-color:var(--neon)}
@@ -166,6 +166,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 .season b{position:relative;color:var(--neon);text-shadow:2px 0 var(--hot),-2px 0 #2bd9ff}
 .logo{font-family:var(--display);font-weight:400;font-size:clamp(64px,10vw,140px);line-height:.88;margin:.18em 0 0;letter-spacing:.01em}
 .logo span{display:block;will-change:transform}
+.logo .l2 i{display:inline-block;font-style:normal;transform:scaleY(-1);opacity:.55;-webkit-mask-image:linear-gradient(to top,#000 10%,transparent 85%);mask-image:linear-gradient(to top,#000 10%,transparent 85%)}
 .logo .l1{color:var(--sun);text-shadow:0 5px 0 #b3471f,0 10px 0 #2a1458,0 0 40px rgba(255,210,63,.35);animation:chroma 4s steps(1) infinite}
 .logo .l2{color:#fff;text-shadow:0 5px 0 #6a3bc4,0 10px 0 #2a1458,0 0 40px rgba(170,120,255,.4);animation:chroma 4s steps(1) infinite 1.3s}
 @keyframes chroma{0%,92%,100%{filter:none}93%{filter:drop-shadow(4px 0 var(--hot)) drop-shadow(-4px 0 var(--neon))}95%{filter:drop-shadow(-3px 0 var(--hot)) drop-shadow(3px 0 var(--neon))}}
@@ -273,7 +274,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
   <canvas class="layer" id="fx" aria-hidden="true"></canvas>
   <div class="overlay" id="menu">
     <header class="topbar">
-      <div class="brand">Storm<b>Island</b></div>
+      <div class="brand">INVER<b>TED</b></div>
       <div class="topacts">
         <button class="chip" id="controlsBtn" aria-expanded="false" aria-controls="controlsDrawer">Controls &amp; settings</button>
         <button class="chip ver" id="verBtn" aria-haspopup="dialog" title="See what's new">v<span id="verNum">1.0.0</span></button>
@@ -281,7 +282,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
     </header>
     <section class="hero">
       <p class="season">Chapter 1 · Season <b data-text="Glitched">Glitched</b></p>
-      <h1 class="logo" data-text="Storm Island"><span class="l1">Storm</span><span class="l2">Island</span></h1>
+      <h1 class="logo" data-text="Inverted"><span class="l1">Inverted</span><span class="l2" aria-hidden="true"><i>Inverted</i></span></h1>
       <p class="tag">A giant white box, no gravity and 20 ruthless bots. Swim through the air, and when the lights flash red, everyone slams onto the ceiling.</p>
     </section>
     <section class="loadout" aria-label="Your loadout">

@@ -1,4 +1,4 @@
-# Storm Island: Zero-G Box
+# Inverted
 
 A 3D zero-gravity shooter that runs in the browser. You and 20 bots float inside a huge white box full of floating blocks. Swim through the air, propel yourself into fights, and when the lights flash red, gravity flips and everyone slams onto the ceiling to fight upside down. Last one floating wins, and every elimination heals you and adds shield.
 
