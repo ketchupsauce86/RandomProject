@@ -6,6 +6,20 @@ A 3D battle royale that runs in the browser. You and 19 bots are flying over an 
 
 Or open `index.html` in a browser (Chrome or Edge works best) and click **Drop in** (the bots always play on hard). Needs a keyboard and mouse. The **Armory** button shows every gun design, and its **Pickaxes** tab shows 100 pickaxes in 3D across ten themed sets. Open the **Locker** to equip one: you carry it into every match. Like Fortnite, every pickaxe plays the same (the power-ups are just for fun); when you harvest, hit the glowing blue weak spot for double damage and extra materials. The Locker also has a **Skins** tab with 56 original outfits in nine themes (Superheroes, Anime, Wild West, Cyber Neon, Myth & Fantasy, Space, Special Ops, Street & Sports, Spooky), each with repainted armor and 3D gear like capes, hats, hair, wings and halos. The bots wear them too.
 
+## Version
+
+The version badge in the top-right corner of the home screen opens a **What's new** list, and the pause screen shows the version too. Every merged pull request is one release (v1.13.0 is the 13th). Before opening a pull request, stamp the next version:
+
+```
+python3 tools/stamp_version.py --next "Short title of this release"
+```
+
+This rewrites `version.js` from the game's git history.
+
+## Built with
+
+JavaScript, HTML and CSS, GLSL shaders (the sky, and the glitch light on the home screen in `ui.js`), and Python (the version stamper). Libraries: three.js for the 3D world and GSAP for the home screen motion.
+
 ## Controls
 
 | Key | Action |

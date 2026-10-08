@@ -2,7 +2,7 @@
 <title>Storm Island</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Barlow+Condensed:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Barlow+Condensed:wght@500;600;700;800&family=Orbitron:wght@500;700;900&display=swap">
 <style>
 /* Layout: one full-screen 3D canvas; HUD hugs the four corners like a match broadcast, menus float over the live island. */
 :root{
@@ -102,22 +102,22 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 
 /* Menus */
 .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px 16px;box-sizing:border-box;background:linear-gradient(180deg,rgba(13,22,38,.25),rgba(13,22,38,.85));overflow:auto}
-#menu .wrap{display:flex;gap:40px;align-items:center;flex-wrap:wrap;justify-content:center;max-width:1000px}
-.hero{min-width:0;max-width:460px}
-.logo{font-family:var(--display);font-size:clamp(54px,9vw,104px);line-height:.88;color:var(--sun);text-shadow:0 5px 0 #b3471f,0 10px 0 #1b2440,0 14px 30px rgba(0,0,0,.4);margin:0;text-wrap:balance}
-.logo span{display:block;color:#fff;text-shadow:0 5px 0 #6a3bc4,0 10px 0 #1b2440,0 14px 30px rgba(0,0,0,.4)}
-.tag{font-size:22px;font-weight:600;color:var(--text);margin:22px 0 24px;max-width:36ch;text-shadow:0 2px 8px rgba(0,0,0,.6)}
+
+
+
+
+
 .btn{font-family:var(--display);font-size:30px;letter-spacing:.02em;color:var(--sun-ink);background:var(--sun);border:0;border-radius:10px;padding:14px 38px 10px;cursor:pointer;box-shadow:0 6px 0 #c08a00,0 12px 24px rgba(0,0,0,.35);transform:skewX(-6deg);transition:transform .1s,box-shadow .1s}
 .btn:disabled{opacity:.6;cursor:wait}
 .btn:hover{transform:skewX(-6deg) translateY(-2px)}
 .btn:active{transform:skewX(-6deg) translateY(4px);box-shadow:0 2px 0 #c08a00}
 .btn:focus-visible{outline:3px solid #fff;outline-offset:4px}
 .note{font-size:16px;color:var(--muted);margin-top:16px}
-.controls{min-width:0;padding:18px 22px;width:min(380px,100%);box-sizing:border-box}
-.controls h2{font-family:var(--display);font-weight:400;font-size:22px;margin:0 0 10px;color:var(--text);letter-spacing:.03em}
-.controls dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0;font-size:17px}
-.controls dt{font-weight:800;color:var(--sun);white-space:nowrap}
-.controls dd{margin:0;color:var(--text);font-weight:500}
+
+
+
+
+
 .sens{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:16px;color:var(--muted)}
 .sens input{flex:1;accent-color:var(--sun)}
 #pause .card,#over .card{padding:28px 32px;text-align:center;max-width:440px;width:100%;box-sizing:border-box}
@@ -153,7 +153,86 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 #err{color:#ffb3bd;font-size:16px;margin-top:12px}
 @media (max-width:700px){#map{width:120px;height:120px}.slot{width:48px;height:48px}.slot .nm,.slot .sb{display:none}#vitals{width:40vw}}
 @media (prefers-reduced-motion:reduce){.btn,.slot{transition:none}}
-.season{margin:6px 0 0;font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-size:15px;color:#c9b8ff}.season b{color:#5cf0ff;text-shadow:2px 0 #ff2bd6,-2px 0 #2bd9ff}
+
+
+/* ===== v1.13 home screen: a lobby over the live island. Glass panels, neon edges and a glitching logo. ===== */
+:root{--neon:#5cf0ff;--hot:#ff3bd4;--glass:rgba(18,10,44,.58);--glass-hi:rgba(40,22,90,.55);--edge:rgba(160,140,255,.32);--mono:'Orbitron','Barlow Condensed',sans-serif}
+#fx{width:100%;height:100%;mix-blend-mode:screen;opacity:.9}
+#menu.overlay{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,390px);grid-template-rows:auto 1fr auto;gap:18px 28px;padding:18px 28px 26px;align-items:end;justify-content:stretch;
+  background:linear-gradient(90deg,rgba(9,5,28,.82) 0%,rgba(9,5,28,.35) 46%,rgba(9,5,28,.05) 62%,rgba(9,5,28,.55) 100%),linear-gradient(0deg,rgba(9,5,28,.7),transparent 40%)}
+.topbar{grid-column:1/-1;align-self:start;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.brand{font-family:var(--display);font-size:22px;letter-spacing:.04em;color:#fff}.brand b{font-weight:400;color:var(--sun);margin-left:6px}
+.topacts{display:flex;gap:8px;align-items:center}
+.chip{font-family:var(--ui);font-weight:700;font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--text);background:var(--glass);border:1px solid var(--edge);border-radius:999px;padding:7px 14px;cursor:pointer;backdrop-filter:blur(8px)}
+.chip:hover{background:var(--glass-hi);border-color:var(--neon)}
+.chip:focus-visible{outline:2px solid var(--neon);outline-offset:2px}
+.chip.ver{font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:.12em;color:var(--neon);border-color:rgba(92,240,255,.5);box-shadow:0 0 14px rgba(92,240,255,.25),inset 0 0 10px rgba(92,240,255,.12)}
+.chip.ver::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#62ff9a;box-shadow:0 0 8px #62ff9a;margin-right:8px;vertical-align:1px}
+.hero{grid-column:1;grid-row:2;align-self:center;max-width:620px;min-width:0}
+.season{margin:0 0 6px;font-family:var(--mono);font-weight:700;letter-spacing:.22em;text-transform:uppercase;font-size:13px;color:#c9b8ff}
+.season b{position:relative;color:var(--neon);text-shadow:2px 0 var(--hot),-2px 0 #2bd9ff}
+.logo{font-family:var(--display);font-weight:400;font-size:clamp(64px,10vw,140px);line-height:.88;margin:.18em 0 0;letter-spacing:.01em}
+.logo span{display:block;will-change:transform}
+.logo .l1{color:var(--sun);text-shadow:0 5px 0 #b3471f,0 10px 0 #2a1458,0 0 40px rgba(255,210,63,.35);animation:chroma 4s steps(1) infinite}
+.logo .l2{color:#fff;text-shadow:0 5px 0 #6a3bc4,0 10px 0 #2a1458,0 0 40px rgba(170,120,255,.4);animation:chroma 4s steps(1) infinite 1.3s}
+@keyframes chroma{0%,92%,100%{filter:none}93%{filter:drop-shadow(4px 0 var(--hot)) drop-shadow(-4px 0 var(--neon))}95%{filter:drop-shadow(-3px 0 var(--hot)) drop-shadow(3px 0 var(--neon))}}
+.tag{font-size:21px;font-weight:600;line-height:1.3;color:#e8e2ff;margin:20px 0 0;max-width:34ch;text-shadow:0 2px 10px rgba(0,0,0,.7)}
+.loadout{grid-column:1;grid-row:3;min-width:0;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.lohead,.modekick{font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:#b9a8ff}
+.lochips{display:flex;flex-wrap:wrap;gap:8px}
+.lochip{display:flex;flex-direction:column;background:var(--glass);border:1px solid var(--edge);border-left:3px solid var(--neon);border-radius:8px;padding:6px 12px 7px;font-weight:700;font-size:17px;backdrop-filter:blur(8px);max-width:220px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.lochip i{font-style:normal;font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.lochip:nth-child(2){border-left-color:var(--sun)}.lochip:nth-child(3){border-left-color:var(--hot)}
+.playcard{grid-column:2;grid-row:3;display:flex;flex-direction:column;gap:12px;min-width:0}
+.mode{display:flex;gap:12px;align-items:stretch;background:var(--glass);border:1px solid var(--edge);border-radius:14px;padding:10px;backdrop-filter:blur(10px);box-shadow:0 10px 40px rgba(0,0,0,.35)}
+.modeart{flex:0 0 96px;height:96px;border-radius:10px;position:relative;overflow:hidden;
+  background:radial-gradient(circle at 50% 78%,#ffd23f 0 16%,#ff6aa8 17% 19%,transparent 20%),repeating-linear-gradient(0deg,transparent 0 6px,rgba(255,255,255,.12) 6px 7px),linear-gradient(180deg,#1a0b45 0%,#6a3fb0 55%,#e58ac4 75%,#2a2ab8 76%,#120a3a 100%)}
+.modeart::after{content:"";position:absolute;left:-10%;right:-10%;bottom:12%;height:30%;background:linear-gradient(170deg,transparent 30%,#3c1f7a 31% 60%,transparent 61%),linear-gradient(195deg,transparent 35%,#2a1458 36%)}
+.modetxt{display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0}
+.modename{font-family:var(--display);font-size:30px;line-height:1;color:#fff}
+.modemeta{font-size:16px;color:var(--muted);font-weight:600}.modemeta b{color:var(--neon);font-variant-numeric:tabular-nums}
+.btn.play{width:100%;box-sizing:border-box;font-size:42px;padding:16px 20px 12px;transform:none;border-radius:14px;background:linear-gradient(180deg,#ffe066,#ffc400);box-shadow:0 6px 0 #c08a00,0 0 0 2px rgba(255,255,255,.25) inset,0 14px 40px rgba(255,196,0,.35);position:relative;overflow:hidden}
+.btn.play::after{content:"";position:absolute;top:0;bottom:0;width:40%;left:-60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.65),transparent);transform:skewX(-20deg);animation:shine 3.2s ease-in-out infinite}
+@keyframes shine{0%,60%{left:-60%}100%{left:130%}}
+.btn.play:hover{transform:translateY(-2px)}.btn.play:active{transform:translateY(4px);box-shadow:0 2px 0 #c08a00}
+.playcard .note{margin:0;text-align:center;font-size:14px}
+.drawer{position:absolute;top:0;right:0;bottom:0;width:min(400px,100%);border-radius:0;border-width:0 0 0 1px;border-color:var(--edge);background:rgba(14,8,36,.92);padding:20px 24px;box-sizing:border-box;overflow:auto;z-index:3}
+.drawer h2,.modal h2{font-family:var(--display);font-weight:400;font-size:26px;margin:0;letter-spacing:.03em}
+.drawer h2{margin:18px 0 10px}.drawhead h2{margin:0}
+.drawhead{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.drawer dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:12px 0 0;font-size:17px}
+.drawer dt{font-weight:800;color:var(--sun);white-space:nowrap}.drawer dd{margin:0;font-weight:500}
+.modal{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(6,3,20,.6);backdrop-filter:blur(3px);z-index:4}
+.modal .card{width:min(520px,100%);max-height:80vh;overflow:auto;padding:22px 26px;box-sizing:border-box;background:rgba(16,9,40,.94);border-color:var(--edge)}
+.wnmeta{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:6px 0 14px}
+#wnList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+#wnList li{display:grid;grid-template-columns:72px 1fr;gap:4px 12px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06)}
+#wnList li:first-child{background:linear-gradient(90deg,rgba(92,240,255,.14),rgba(255,59,212,.08));border-color:rgba(92,240,255,.4)}
+#wnList .v{font-family:var(--mono);font-weight:700;font-size:14px;color:var(--neon);grid-row:span 2;align-self:center}
+#wnList .t{font-weight:700;font-size:17px}#wnList .d{font-size:13px;color:var(--muted)}
+#wnList li:first-child .t::after{content:"NEW";font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:#1a0b45;background:var(--neon);border-radius:4px;padding:2px 6px;margin-left:8px;vertical-align:2px}
+.vline{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase}
+@media (max-width:760px){#menu.overlay{grid-template-columns:1fr;grid-template-rows:auto auto auto auto;padding:14px 16px 18px;overflow:auto;align-items:start}.hero,.loadout,.playcard{grid-column:1;grid-row:auto}.topacts .chip:not(.ver){font-size:13px;padding:6px 10px}.btn.play{font-size:34px}}
+@media (prefers-reduced-motion:reduce){.logo span,.btn.play::after{animation:none}}
+
+/* ===== v1.13 HUD: glass panels with neon edges ===== */
+.panel{background:var(--glass);border-color:var(--edge);backdrop-filter:blur(8px)}
+#stats span{background:var(--glass);border-color:var(--edge);border-radius:999px;padding:3px 11px;backdrop-filter:blur(6px)}
+#stats b{color:var(--neon)}
+#map{border:2px solid rgba(92,240,255,.6);box-shadow:0 0 0 4px rgba(18,10,44,.5),0 0 22px rgba(92,240,255,.3)}
+.fl{background:var(--glass);border-left:2px solid transparent;backdrop-filter:blur(6px)}.fl.mine{border-left-color:var(--neon)}
+#vitals{padding:10px 12px;background:linear-gradient(90deg,rgba(18,10,44,.62),rgba(18,10,44,0));border-left:3px solid var(--neon);border-radius:4px}
+.bar .track{border-color:var(--edge);background:rgba(8,4,24,.7);height:16px}
+#shFill{background:linear-gradient(180deg,#a6e6ff,#36a8ff);box-shadow:0 0 12px rgba(69,176,255,.7)}
+#hpFill{background:linear-gradient(180deg,#b9ffbf,#3fd65a);box-shadow:0 0 12px rgba(98,224,107,.7)}
+.slot{border-color:var(--edge);background:linear-gradient(180deg,color-mix(in srgb,var(--rc) 60%,transparent),rgba(14,8,36,.85) 85%);backdrop-filter:blur(6px)}
+.slot.sel{border-color:var(--neon);box-shadow:0 0 0 2px rgba(92,240,255,.3),0 0 18px rgba(92,240,255,.45)}
+.mat{background:var(--glass);border-color:var(--edge);backdrop-filter:blur(6px)}.mat.on{border-color:var(--neon);box-shadow:0 0 0 1px var(--neon),0 0 14px rgba(92,240,255,.35)}
+#prompt{background:var(--glass);border-color:var(--edge);backdrop-filter:blur(8px)}
+#bannerMain{text-shadow:0 3px 0 #2a1458,0 0 30px rgba(170,120,255,.55)}
+.armtabs button,#armSets button{background:var(--glass);border-color:var(--edge);border-radius:999px;backdrop-filter:blur(6px)}
+.armtabs button[aria-pressed="true"],#armSets button[aria-pressed="true"]{box-shadow:0 0 16px rgba(255,210,63,.45)}
+#armory{background:radial-gradient(ellipse at center,transparent 35%,rgba(9,5,28,.8) 100%)}
 </style>
 
 <div id="app">
@@ -188,38 +267,62 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
     </div>
   </div>
 
+  <canvas class="layer" id="fx" aria-hidden="true"></canvas>
   <div class="overlay" id="menu">
-    <div class="wrap">
-      <div class="hero">
-        <h1 class="logo">Storm<span>Island</span></h1>
-        <p class="season">Season: <b>Glitched</b></p>
-        <p class="tag">You and 99 bots drop onto a glitching island. Loot chests, build fast, outrun the storm. Last one standing wins.</p>
-        <div class="btnrow"><button class="btn" id="playBtn">Drop in</button><button class="btn2" id="armoryBtn">Armory</button><button class="btn2" id="lockerBtn">Locker</button></div>
-        <div class="note" id="pickNote"></div>
-        <div class="note">Needs a keyboard and mouse. Click the game to lock your mouse.</div>
-        <div id="err"></div>
+    <header class="topbar">
+      <div class="brand">Storm<b>Island</b></div>
+      <div class="topacts">
+        <button class="chip" id="controlsBtn" aria-expanded="false" aria-controls="controlsDrawer">Controls &amp; settings</button>
+        <button class="chip ver" id="verBtn" aria-haspopup="dialog" title="See what's new">v<span id="verNum">1.0.0</span></button>
       </div>
-      <div class="controls panel">
-        <h2>Controls</h2>
-        <dl>
-          <dt>WASD</dt><dd>Move</dd>
-          <dt>Mouse</dt><dd>Look around</dd>
-          <dt>Space</dt><dd>Jump / bail out of the jet / open or close glider</dd>
-          <dt>Shift</dt><dd>Sprint</dd>
-          <dt>W / S in the air</dt><dd>Dive / brake while gliding</dd>
-          <dt>V</dt><dd>Crouch (steadier aim)</dd>
-          <dt>Left click</dt><dd>Shoot, swing pickaxe, place builds</dd>
-          <dt>Right click</dt><dd>Aim down sights</dd>
-          <dt>1 – 6 / wheel</dt><dd>Switch slots</dd>
-          <dt>E</dt><dd>Open chests, pick up loot</dd>
-          <dt>R</dt><dd>Reload</dd>
-          <dt>Z / X / C</dt><dd>Build a wall / floor / ramp</dd>
-          <dt>Q</dt><dd>Toggle build mode</dd>
-          <dt>G</dt><dd>Edit a build: click tiles, G to confirm</dd>
-          <dt>F</dt><dd>Swap wood and stone</dd>
-        </dl>
-        <label class="sens" for="sens">Mouse speed <input type="range" id="sens" min="0.4" max="3" step="0.1" value="1"></label>
-        <label class="sens" for="vol">Volume <input type="range" id="vol" min="0" max="1" step="0.05" value="0.8"></label>
+    </header>
+    <section class="hero">
+      <p class="season">Chapter 1 · Season <b data-text="Glitched">Glitched</b></p>
+      <h1 class="logo" data-text="Storm Island"><span class="l1">Storm</span><span class="l2">Island</span></h1>
+      <p class="tag">You and 99 bots drop onto a glitching island. Loot chests, build fast, outrun the storm. Last one standing wins.</p>
+    </section>
+    <section class="loadout" aria-label="Your loadout">
+      <div class="lohead">Loadout</div>
+      <div id="pickNote" class="lochips"></div>
+      <div class="btnrow"><button class="btn2" id="lockerBtn">Locker</button><button class="btn2" id="armoryBtn">Armory</button></div>
+    </section>
+    <section class="playcard" aria-label="Game mode">
+      <div class="mode">
+        <div class="modeart" aria-hidden="true"></div>
+        <div class="modetxt"><span class="modekick">Battle Royale</span><span class="modename">Storm Island</span><span class="modemeta"><b id="pcount">100</b> players · Solo · Bots on hard</span></div>
+      </div>
+      <button class="btn play" id="playBtn">Drop in</button>
+      <div class="note">Keyboard and mouse. Click the game to lock your mouse.</div>
+      <div id="err"></div>
+    </section>
+    <aside class="drawer panel" id="controlsDrawer" hidden aria-label="Controls and settings">
+      <div class="drawhead"><h2>Controls</h2><button class="chip" id="controlsClose" aria-label="Close">✕</button></div>
+      <dl>
+        <dt>WASD</dt><dd>Move</dd>
+        <dt>Mouse</dt><dd>Look around</dd>
+        <dt>Space</dt><dd>Jump / bail out of the jet / open or close glider</dd>
+        <dt>Shift</dt><dd>Sprint</dd>
+        <dt>W / S in the air</dt><dd>Dive / brake while gliding</dd>
+        <dt>V</dt><dd>Crouch (steadier aim)</dd>
+        <dt>Left click</dt><dd>Shoot, swing pickaxe, place builds</dd>
+        <dt>Right click</dt><dd>Aim down sights</dd>
+        <dt>1 – 6 / wheel</dt><dd>Switch slots</dd>
+        <dt>E</dt><dd>Open chests, pick up loot</dd>
+        <dt>R</dt><dd>Reload</dd>
+        <dt>Z / X / C</dt><dd>Build a wall / floor / ramp</dd>
+        <dt>Q</dt><dd>Toggle build mode</dd>
+        <dt>G</dt><dd>Edit a build: click tiles, G to confirm</dd>
+        <dt>F</dt><dd>Swap wood and stone</dd>
+      </dl>
+      <h2>Settings</h2>
+      <label class="sens" for="sens">Mouse speed <input type="range" id="sens" min="0.4" max="3" step="0.1" value="1"></label>
+      <label class="sens" for="vol">Volume <input type="range" id="vol" min="0" max="1" step="0.05" value="0.8"></label>
+    </aside>
+    <div class="modal" id="whatsNew" hidden role="dialog" aria-modal="true" aria-labelledby="wnTitle">
+      <div class="card panel">
+        <div class="drawhead"><h2 id="wnTitle">What's new</h2><button class="chip" id="wnClose" aria-label="Close">✕</button></div>
+        <p class="wnmeta" id="wnMeta"></p>
+        <ol id="wnList"></ol>
       </div>
     </div>
   </div>
@@ -234,7 +337,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
   <div class="overlay" id="pause" hidden>
     <div class="card panel">
       <h2>Paused</h2>
-      <p class="tag" style="margin:6px auto 18px">Your match is frozen until you come back.</p>
+      <p class="tag" style="margin:6px auto 18px">Your match is frozen until you come back.</p><p class="note vline" id="pauseVer"></p>
       <button class="btn" id="resumeBtn">Resume</button>
       <label class="sens" for="sens2">Mouse speed <input type="range" id="sens2" min="0.4" max="3" step="0.1" value="1"></label>
       <label class="sens" for="vol2">Volume <input type="range" id="vol2" min="0" max="1" step="0.05" value="0.8"></label>
@@ -262,6 +365,8 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 <script src="soldier.js"></script>
 <script src="pickaxes.js"></script>
 <script src="skins.js"></script>
+<script src="version.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script>
 (function(){
 'use strict';
@@ -2831,7 +2936,8 @@ try{ const v=localStorage.getItem('stormIslandPick'); if(v&&PX&&PX.ITEMS.some(i=
 function equippedPick(){ return PX?PX.ITEMS.find(i=>i.n===equippedName)||null:null; }
 function pickIcon(ic){ const it=PX&&PX.ITEMS[+ic.slice(2)]; return it?PX.pickSVG(it,'hb').replace('<svg viewBox="0 0 200 200"','<svg viewBox="24 22 152 152" width="30" height="30" aria-hidden="true"'):''; }
 function showEquip(){ const on=armMode==='gliders'?GLIDERS[glIdx].n===equippedGlider().n:armMode==='skins'?SK.ITEMS[skIdx].n===equippedSkinName():PX&&PX.ITEMS[pxIdx].n===equippedName, b=$('armEquip'); b.textContent=on?'Equipped ✓':'Equip'; b.setAttribute('aria-pressed',String(!!on)); }
-function showPickNote(){ const eq=equippedPick(), sk=equippedSkin(), gd=equippedGlider(); $('pickNote').textContent=[sk&&!sk.def?`Skin: ${sk.n}`:'',gd.i?`Glider: ${gd.n}`:'',eq?`Pickaxe: ${eq.n}`:''].filter(Boolean).join(' · '); }
+function showPickNote(){ const eq=equippedPick(), sk=equippedSkin(), gd=equippedGlider(), esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  $('pickNote').innerHTML=[['Skin',sk?sk.n:'Default Trooper'],['Pickaxe',eq?eq.n:'Default'],['Glider',gd.n]].map(([k,v])=>`<span class="lochip"><i>${esc(k)}</i>${esc(v)}</span>`).join(''); }
 // the equipped skin; bots dress up at random (a few stay in the classic armor)
 var skinName=null;
 function equippedSkinName(){ if(skinName==null){ skinName='Default Trooper'; try{ const v=localStorage.getItem('stormIslandSkin'); if(v&&SK&&SK.ITEMS.some(i=>i.n===v)) skinName=v; }catch(e){} } return skinName; }
@@ -3041,3 +3147,4 @@ requestAnimationFrame(loop);
 window.__game={keys,get pois(){return seasonPOIs;},get jet(){return jet;},debrisImpact,camera,sfx:(k,o)=>sfx(k,null,o),get audioOk(){return !!(AC&&bus&&AMB);},setCam:(p,l)=>{ camOverride=p?{pos:new V(...p),look:new V(...l)}:null; },th:terrainHeight,get editing(){return player.editing;},startEdit,confirmEdit,editClick,openArmory,setArm:i=>{armIdx=i;buildArmory();},setArmMode,setPick:i=>{pxIdx=i;buildArmory();},setSkin:i=>{skIdx=i;buildArmory();},setGl:i=>{glIdx=i;buildArmory();},GLIDERS,lineup:(ids,yaw)=>{ if(armGroup) scene.remove(armGroup); armGroup=new T.Group(); armGroup.position.set(0,ARM_Y,0); skShown=[]; ids.forEach((id,k)=>{ const c=standChar(SK.ITEMS[id]); c.g.position.x=(k-(ids.length-1)/2)*1.25; c.g.userData.o=0; c.g.userData.yaw=yaw; armGroup.add(c.g); skShown.push(c); }); studioLights(armGroup); armGroup.userData.dist=ids.length*0.75+1.6; scene.add(armGroup); },fire:()=>playerFire(),get props(){return props;},weak,pieces:()=>[...pieceMap.values()],colliderCount:()=>colliders.size,debugLoot:(x,y,z)=>{ spawnLoot({kind:'gun',id:'sniper',r:4,ammo:1},x,y,z); spawnLoot({kind:'gun',id:'smg',r:3,ammo:30},x+1.6,y,z+0.4); spawnLoot({kind:'cons',id:'big',count:1},x-1.5,y,z+0.3); },get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},startMatch,update,setState:s=>state=s};
 })();
 </script>
+<script src="ui.js"></script>
