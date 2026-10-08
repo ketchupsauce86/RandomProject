@@ -1,5 +1,5 @@
 // Home screen polish: the version badge and "What's new" list (from version.js), a WebGL glitch-light
-// layer drawn over the live island (raw GLSL, no three.js), and GSAP motion. Everything here is optional
+// layer drawn over the live box (raw GLSL, no three.js), and GSAP motion. Everything here is optional
 // decoration: if GSAP or WebGL is missing the menu still works and simply sits still.
 (()=>{
   const $=id=>document.getElementById(id), gs=window.gsap, V=window.GAME_VERSION||{version:'dev',date:'',build:'',notes:[]};
@@ -37,7 +37,6 @@
       .from('.tag',{y:20,opacity:0,duration:0.5},'-=0.35')
       .from('.loadout > *',{y:24,opacity:0,stagger:0.08,duration:0.45},'-=0.3')
       .from('.playcard > *',{x:60,opacity:0,stagger:0.1,duration:0.55},'-=0.5');
-    const pc=$('pcount'), n={v:0}; gs.to(n,{v:100,duration:1.6,delay:0.6,ease:'power2.out',onUpdate:()=>{ pc.textContent=Math.round(n.v); }});
     // a short burst of jitter on the logo, like a bad signal
     const glitch=()=>{ if(!$('menu').hidden){ const g=gs.timeline();
         for(let i=0;i<5;i++) g.to('.logo span',{x:()=>gs.utils.random(-10,10),skewX:()=>gs.utils.random(-12,12),duration:0.05,ease:'none'});
@@ -51,7 +50,7 @@
       b.addEventListener('pointerleave',()=>gs.to(b,{y:0,duration:0.25,ease:'power2.out'})); });
   }
 
-  // ---- WebGL glitch light over the island: aurora ribbons, scanlines, a sweeping signal tear and drifting
+  // ---- WebGL glitch light over the box: aurora ribbons, scanlines, a sweeping signal tear and drifting
   // pixels. Blended with "screen" so it only ever adds light. Drawn at half resolution, menu only.
   const cv=$('fx'), gl=cv.getContext('webgl',{premultipliedAlpha:false,antialias:false});
   if(!gl){ cv.remove(); return; }

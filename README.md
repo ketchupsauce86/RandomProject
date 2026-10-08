@@ -1,22 +1,42 @@
-# Storm Island
+# Storm Island: Zero-G Box
 
-A 3D battle royale that runs in the browser. You and 19 bots are flying over an island in a private jet when an engine catches fire and the jet explodes, throwing everyone clear to glide down. Then you loot chests, harvest materials, build walls, floors and ramps, and outlast the shrinking storm.
+A 3D zero-gravity shooter that runs in the browser. You and 20 bots float inside a huge white box full of floating blocks. Swim through the air, propel yourself into fights, and when the lights flash red, gravity flips and everyone slams onto the ceiling to fight upside down. Last one floating wins, and every elimination heals you and adds shield.
 
 **Play online:** https://ketchupsauce86.github.io/RandomProject/ (updates automatically about a minute after `main` changes; hard refresh with Ctrl+Shift+R to get the newest version).
 
-Or open `index.html` in a browser (Chrome or Edge works best) and click **Drop in** (the bots always play on hard). Needs a keyboard and mouse. The **Armory** button shows every gun design, and its **Pickaxes** tab shows 100 pickaxes in 3D across ten themed sets. Open the **Locker** to equip one: you carry it into every match. Like Fortnite, every pickaxe plays the same (the power-ups are just for fun); when you harvest, hit the glowing blue weak spot for double damage and extra materials. The Locker also has a **Skins** tab with 56 original outfits in nine themes (Superheroes, Anime, Wild West, Cyber Neon, Myth & Fantasy, Space, Special Ops, Street & Sports, Spooky), each with repainted armor and 3D gear like capes, hats, hair, wings and halos. The bots wear them too.
+Needs a keyboard and mouse. The **Armory** button shows every gun design, and its **Pickaxes** tab shows 100 pickaxes in 3D across ten themed sets. Open the **Locker** to equip a pickaxe or one of 56 original skins in nine themes, each with repainted armor and 3D gear like capes, hats, hair, wings and halos. The bots wear them too.
 
-## Zero-G Box
-
-Pick **Zero-G Box** on the home screen for a second mode: a huge white box full of floating white and gray blocks, with no gravity and 20 tough bots. Everyone starts armed, there is nothing to loot or build, and each elimination heals you and adds shield.
+## Controls
 
 | Key | Action |
 | --- | --- |
 | WASD | Swim toward where you look |
-| Space / C | Swim up / down |
-| Shift | Propel forward fast (uses the stamina bar) |
+| Mouse | Look |
+| Space / C | Swim up / down (Space jumps off the ceiling) |
+| Shift | Propel forward fast (uses the stamina bar); sprint on the ceiling |
+| Left click | Shoot, swing pickaxe, drink a potion |
+| Right click | Aim down sights |
+| 1–6 / wheel | Switch slots |
+| R | Reload |
 
-Now and then the lights flash red and gravity flips: everyone lands on the ceiling and fights upside down (Space jumps off it) until the lights flash green.
+## Code
+
+The game is written in **TypeScript** in `src/`, and bundled into `game.js`, which `index.html` loads. `game.js` is committed so GitHub Pages can serve the game as plain files, so rebuild it whenever you change `src/`:
+
+```
+npm install        # once: TypeScript and esbuild
+npm run check      # type-check src/
+npm run build      # bundle src/ into game.js
+npm run watch      # rebuild on every save while you work
+```
+
+Other files:
+
+- `skins.js`: the skins (`window.SKINS`).
+- `pickaxes.js`: the pickaxes (`window.PICKAXES`).
+- `ui.js`: the home screen polish: version badge, What's new list, a GLSL glitch-light layer and GSAP motion.
+- `soldier.js`: the character rig, packed as base64 glTF.
+- `version.js`: the version badge (see below).
 
 ## Version
 
@@ -30,30 +50,8 @@ This rewrites `version.js` from the game's git history.
 
 ## Built with
 
-JavaScript, HTML and CSS, GLSL shaders (the sky, and the glitch light on the home screen in `ui.js`), and Python (the version stamper). Libraries: three.js for the 3D world and GSAP for the home screen motion.
+TypeScript, HTML and CSS, GLSL shaders (the glitch light on the home screen in `ui.js`), and Python (the version stamper). Libraries: three.js r128 for the 3D world (with its GLTFLoader and SkeletonUtils, loaded from cdnjs and jsDelivr) and GSAP for the home screen motion. esbuild bundles the TypeScript.
 
-## Controls
+All sound is synthesized live in the browser with the Web Audio API, so there are no audio files. Each gun has its own layered shot, plus reload steps, distant echoes and bullet whizzes. Sounds in the world are panned left and right, muffled with distance, and arrive later from far away. The home screen and pause screen have a volume slider.
 
-| Key | Action |
-| --- | --- |
-| WASD | Move |
-| Mouse | Look |
-| Space | Jump / bail out of the jet early / open or close the glider |
-| Shift | Sprint |
-| W / S while gliding | Dive / brake (the glider follows your mouse; A / D carve) |
-| V | Crouch |
-| Left click | Shoot, swing pickaxe, place builds |
-| Right click | Aim down sights |
-| 1–6 / wheel | Switch slots |
-| E | Open chests, pick up loot |
-| R | Reload |
-| Z / X / C | Build wall / floor / ramp |
-| Q | Toggle build mode |
-| G | Edit a build (click tiles, G to confirm, right-click to reset) |
-| F | Swap wood and stone |
-
-All sound is synthesized live in the browser with the Web Audio API, so there are no audio files. Each gun has its own layered shot, plus reload steps, distant echoes and bullet whizzes. Footsteps change with the ground under you (grass, sand, rock, wood and water), and wind, waves, birds, the storm, the jet engine and nearby chests all have their own ambience. Sounds in the world are panned left and right, muffled with distance, and arrive later from far away. The menu and pause screen have a volume slider.
-
-Built with [three.js](https://threejs.org/) r128 plus its GLTFLoader and SkeletonUtils (loaded from cdnjs and jsDelivr).
-
-Characters use the Soldier model and its Idle, Walk, Run and T-Pose motion-capture clips from the three.js examples (animations from Mixamo), packed into `soldier.js`. Arm, leg and spine poses for aiming, crouching, recoil and gliding are solved live with two-bone inverse kinematics. If `soldier.js` is missing, the game falls back to simple block characters.
+Characters use the Soldier model and its Idle, Walk, Run and T-Pose motion-capture clips from the three.js examples (animations from Mixamo), packed into `soldier.js`. Swimming, propelling, aiming, recoil and drinking are layered on top live, with two-bone inverse kinematics for the arms and legs.
