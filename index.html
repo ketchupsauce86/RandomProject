@@ -1427,6 +1427,18 @@ function rotateBoneWorld(bone,axisW,ang){
   bone.parent.getWorldQuaternion(_qP); _qD.setFromAxisAngle(axisW,ang); _qI.copy(_qP).invert();
   bone.quaternion.premultiply(_qP).premultiply(_qD).premultiply(_qI); bone.updateMatrixWorld(true);
 }
+// Turn a hand so its fingers point along F with the palm facing N (world directions), then curl the fingers by
+// `curl` radians per joint, as if wrapped around a grip. Uses the knuckles to find how the hand is turned now.
+const _hq=new T.Quaternion(), _hm0=new T.Matrix4(), _hm1=new T.Matrix4(), _hw=o=>o.getWorldPosition(new V());
+function poseHand(B,sd,F,N,curl){
+  const h=B[sd+'Hand'], s=sd==='Right'?1:-1, hp=_hw(h); // right hand: palm = fingers x (index to pinky); left hand is mirrored
+  const f0=_hw(B[sd+'HandMiddle1']).sub(hp).normalize(), a0=_hw(B[sd+'HandPinky1']).sub(_hw(B[sd+'HandIndex1']));
+  a0.addScaledVector(f0,-a0.dot(f0)).normalize(); const n0=new V().crossVectors(f0,a0).multiplyScalar(s);
+  const f1=F.clone().normalize(), n1=N.clone().addScaledVector(f1,-N.dot(f1)).normalize(), a1=new V().crossVectors(n1,f1).multiplyScalar(s);
+  _hm0.makeBasis(f0,a0,n0).transpose(); _hm1.makeBasis(f1,a1,n1).multiply(_hm0); _hq.setFromRotationMatrix(_hm1);
+  h.parent.getWorldQuaternion(_qP); _qI.copy(_qP).invert(); h.quaternion.premultiply(_qP).premultiply(_hq).premultiply(_qI); h.updateMatrixWorld(true);
+  if(curl){ const ax=a1.multiplyScalar(-s); for(const fg of ['Index','Middle','Ring','Pinky']) for(const k of [1,2,3]){ const b=B[sd+'Hand'+fg+k]; if(b) rotateBoneWorld(b,ax,curl*(k===1?0.8:1)); } }
+}
 function solveIK(A,B,C,target,pole){
   A.getWorldPosition(_ikA); B.getWorldPosition(_ikB); C.getWorldPosition(_ikC); _ikT.copy(target);
   const lab=_ikA.distanceTo(_ikB), lcb=_ikB.distanceTo(_ikC), lat=clamp(_ikT.distanceTo(_ikA),0.01,lab+lcb-0.002);
@@ -1455,14 +1467,20 @@ function loadSoldier(done){
 }
 const HIT_GEO={head:new T.BoxGeometry(0.34,0.36,0.34),chest:new T.BoxGeometry(0.56,0.62,0.36),legs:new T.BoxGeometry(0.5,1,0.34)};
 const hitMat=new T.MeshBasicMaterial({visible:false});
-// gun hold points in gun space: right-hand grip and left-hand support
-const HOLD={ar:{r:[0,-0.13,0.11],l:[0,-0.02,-0.3],o:[0.1,-0.16,-0.34]},smg:{r:[0,-0.11,0.11],l:[0,-0.035,-0.16],o:[0.1,-0.16,-0.33]},pump:{r:[0,-0.06,0.24],l:[0,-0.05,-0.38],o:[0.1,-0.16,-0.34]},
-  pistol:{r:[0,-0.08,0.055],l:[-0.03,-0.1,0.07],o:[-0.06,-0.08,-0.48]},sniper:{r:[0,-0.13,0.17],l:[0,-0.07,-0.3],o:[0.1,-0.16,-0.27]}};
+// How each gun is held, Fortnite style: up at the chest with the barrel level, right hand on the grip, left hand
+// palm up under the barrel, stock tucked under the arm. In gun space (x right, y up, z back): r is the right wrist
+// on the pistol grip and l the left wrist under the handguard or pump. g is where the right wrist sits relative to
+// the right shoulder in body space (x right, y up, z back), before the aim pitch.
+const GUN_S=0.95;
+const HOLD={ar:{r:[0.015,-0.09,0.21],l:[-0.03,-0.065,-0.17],g:[-0.04,-0.17,-0.24]},smg:{r:[0.015,-0.08,0.2],l:[-0.03,-0.05,-0.1],g:[-0.04,-0.17,-0.26]},
+  pump:{r:[0.015,-0.06,0.3],l:[-0.03,-0.08,-0.18],g:[-0.04,-0.19,-0.2]},pistol:{r:[0.015,-0.05,0.13],l:[-0.035,-0.08,0.1],g:[-0.1,-0.13,-0.37],lf:[0.3,-0.3,-0.9],ln:[0.9,0.4,0]},
+  sniper:{r:[0.015,-0.09,0.26],l:[-0.03,-0.08,-0.2],g:[-0.04,-0.17,-0.22]}};
 // Fortnite-style harvesting: both hands on the pickaxe, quick wind-up over one shoulder, a diagonal chop that
 // lands the head on the crosshair, a follow-through across the body, and alternating forehand/backhand combos.
 // Body frame: x right, y up, z back. Keys: [t, grip x,y,z from the right shoulder, handle dir x,y,z, spike dir x,y,z, torso twist, lean]
 const SWING_T=0.42, PICK_HIT=0.52;
-const PICK_REST=[0,-0.02,-0.42,-0.3,0.3,0.85,-0.42,-0.95,0.1,-0.2,0,0];
+// at rest the pickaxe is carried in the right hand only, out to the side with the head tipped up and forward
+const PICK_REST=[0,0.2,-0.16,-0.3,0.55,0.75,-0.35,-0.7,0.55,-0.2,0,0];
 const PICK_KEYS=[
   [PICK_REST,[0.3,0.14,0.14,-0.02,0.35,0.55,0.75,0.1,0.75,-0.65,-0.5,-0.06],[0.52,0.05,-0.15,-0.48,0.2,0.25,-0.95,-0.3,-0.95,-0.1,0.3,0.24],
    [0.68,-0.2,-0.42,-0.36,-0.5,-0.25,-0.8,-0.5,-0.6,0.35,0.42,0.18],[1,...PICK_REST.slice(1)]],
@@ -1488,7 +1506,7 @@ function makeCharacterGLB(pal){
     if(o.isMesh){ o.castShadow=true; o.frustumCulled=false; if(/Body/i.test(o.material.name)){ o.material=o.material.clone(); o.material.color.copy(tint); } } });
   const mixer=new T.AnimationMixer(model), act={};
   for(const n of ['Idle','Walk','Run','TPose']){ const a=mixer.clipAction(SOLDIER.clips[n]); a.play(); a.setEffectiveWeight(n==='Idle'?1:0); a.time=Math.random()*a.getClip().duration; act[n]=a; }
-  const gunMount=new T.Group(); gunMount.scale.setScalar(1.2); g.add(gunMount);
+  const gunMount=new T.Group(); gunMount.scale.setScalar(GUN_S); g.add(gunMount);
   const pickG=new T.Group(); const handle=new T.Mesh(GEO.handle,colorMat(0x6b4a2a)); handle.position.y=0.35; const ph=new T.Mesh(GEO.pickHead,colorMat(0xb8c4d6)); ph.position.set(0,0.78,0); pickG.add(handle,ph); pickG.visible=false; g.add(pickG);
   const glider=makeGlider(pal); g.add(glider);
   const flash=new T.Sprite(flashMat); flash.scale.setScalar(0.8); flash.visible=false;
@@ -1697,6 +1715,9 @@ function animateGLB(e,dt){
   const pitch=e.isPlayer?e.pitch:(e.aimPitch||0), sp=A.sprPose, pE=pitch*(1-sp);
   if(near&&land){ const lean=-0.28*cr-(held?0.06:0)*Math.min(1,s/4)-0.34*A.sprint; rotateBoneWorld(B.Spine,right,lean); if(A.sprint>0.01) rotateBoneWorld(B.Neck,right,0.2*A.sprint); // lean into a sprint, eyes up
     if(held){ for(const n of ['Spine','Spine1','Spine2']) rotateBoneWorld(B[n],right,pE/3); } else rotateBoneWorld(B.Neck,right,pitch*0.5);
+    // rifle stance: the chest turns a little toward the gun side so the left hand can reach under the barrel, eyes stay on target
+    D(A,'stance',held?1-sp:0,aS); if(A.stance>0.01){ const st=A.stance*(held&&held.id==='pistol'?0.5:1);
+      rotateBoneWorld(B.Spine1,upB,-0.24*st); rotateBoneWorld(B.Spine2,upB,-0.16*st); rotateBoneWorld(B.Neck,upB,0.4*st); if(B.LeftShoulder) rotateBoneWorld(B.LeftShoulder,upB,-0.25*st); }
     if(A.hit>0.01){ rotateBoneWorld(B.Spine1,right,0.32*A.hit); rotateBoneWorld(B.Neck,right,0.25*A.hit); }
     if(pickaxe&&e.swingT>0){ const P=pickPose(e); rotateBoneWorld(B.Spine1,UP,P.tw); rotateBoneWorld(B.Spine2,UP,P.tw*0.5); rotateBoneWorld(B.Spine1,right,P.ln); } }
   // --- hands
@@ -1720,12 +1741,12 @@ function animateGLB(e,dt){
       rotateBoneWorld(B[sd+'Arm'],rightB,Math.sin(t+(sx>0?0:Math.PI))*1.9*A.zgP); rotateBoneWorld(B[sd+'Arm'],fwdB,sx*(0.35+Math.cos(t*2+sx)*0.3)*A.zgP);
       rotateBoneWorld(B[sd+'ForeArm'],rightB,-0.4-Math.max(0,Math.sin(t+(sx>0?0.6:Math.PI+0.6)))*1.1); }
   } else if(held){
-    const H=HOLD[held.id]; D(A,'reload',(e.isPlayer?!!e.reloading:e.reloadT>0)?1:0,a);
+    const H=HOLD[held.id], S=c.gunMount.scale.x; D(A,'reload',(e.isPlayer?!!e.reloading:e.reloadT>0)?1:0,a);
     const sh=B.RightArm.getWorldPosition(new V()); g.worldToLocal(sh);
     const adsK=e.isPlayer&&ads?1:0, cp=Math.cos(pE), sn=Math.sin(pE), dk=Math.pow(1-A.draw,2);
     // sprinting carries the gun low and canted; switching weapons raises the new one into place
     const tp=e.isPlayer&&!adsK?1-sp:0; // third person: carry the gun out to the side so the camera can see it
-    const o=new V(H.o[0]-0.08*adsK-0.06*sp+0.12*tp,H.o[1]+0.04*adsK-0.12*sp-0.35*dk+0.03*tp,H.o[2]+A.recoil*0.09+0.06*sp);
+    const o=new V(H.g[0]-S*H.r[0]-0.08*adsK-0.06*sp+0.16*tp,H.g[1]-S*H.r[1]+0.04*adsK-0.12*sp-0.35*dk+0.03*tp,H.g[2]-S*H.r[2]+A.recoil*0.09+0.06*sp);
     const oy=o.y*cp-o.z*sn, oz=o.y*sn+o.z*cp;
     const dn=(A.dn||0)*A.sprint; c.gunMount.position.set(sh.x+o.x,sh.y+oy+0.035*sp*(Math.abs(A.dn||0)-0.5),sh.z+oz); // the gun bobs and sways with the sprint stride
     c.gunMount.rotation.set(pE+A.recoil*0.22-0.45*A.reload-0.5*sp-1.0*dk,0.35*sp+0.1*dn,0.6*A.reload+0.45*sp+0.08*dn);
@@ -1733,8 +1754,12 @@ function animateGLB(e,dt){
       const rt=c.gunMount.localToWorld(new V(...H.r)), lt=c.gunMount.localToWorld(new V(...H.l));
       if(A.reload>0.05){ lt.lerp(c.gunMount.localToWorld(new V(0,-0.32,-0.05)),A.reload*(0.5+0.5*Math.sin(matchTime*8))); }
       const rS=B.RightArm.getWorldPosition(new V()), lS=B.LeftArm.getWorldPosition(new V());
-      solveIK(B.RightArm,B.RightForeArm,B.RightHand,rt,rS.clone().addScaledVector(right,0.5).add(new V(0,-0.6,0)).addScaledVector(fwdV,-0.2));
+      solveIK(B.RightArm,B.RightForeArm,B.RightHand,rt,rS.clone().addScaledVector(right,0.3).add(new V(0,-0.8,0)).addScaledVector(fwdV,-0.1));
       solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,lt,lS.clone().addScaledVector(right,-0.5).add(new V(0,-0.7,0)));
+      // right hand wrapped round the grip, left hand palm up under the barrel
+      const gq=c.gunMount.getWorldQuaternion(new T.Quaternion()), dir=a=>new V(...a).applyQuaternion(gq);
+      poseHand(B,'Right',dir([-0.1,-0.1,-0.99]),dir([-1,0,0.1]),0.75);
+      if(A.reload<0.5) poseHand(B,'Left',dir(H.lf||[0.45,0.1,-0.9]),dir(H.ln||[0,1,0]),0.55);
     }
   } else if(pickaxe&&near){
     const P=pickPose(e), sh=B.RightArm.getWorldPosition(new V());
@@ -1745,11 +1770,19 @@ function animateGLB(e,dt){
     if(pump>0.01){ rotateBoneWorld(B.LeftArm,rightB,-0.8*dn*pump); rotateBoneWorld(B.RightArm,rightB,0.8*dn*pump); rotateBoneWorld(B.LeftForeArm,rightB,0.55*pump); rotateBoneWorld(B.RightForeArm,rightB,0.55*pump); }
     const natR=B.RightHand.getWorldPosition(new V()), natL=B.LeftHand.getWorldPosition(new V());
     if(grip) solveIK(B.RightArm,B.RightForeArm,B.RightHand,tgt.lerp(natR,pump),sh.clone().addScaledVector(right,0.6).add(new V(0,-0.5,0)));
-    B.RightHand.getWorldPosition(_v2); g.worldToLocal(_v2); c.pick.position.copy(_v2); c.pick.quaternion.copy(P.q);
+    c.pick.quaternion.copy(P.q);
     if(pump>0.01) c.pick.quaternion.premultiply(_qm.setFromAxisAngle(_v2.set(1,0,0),(0.45*dn-0.8)*pump)); // carried tipped forward, rocking with the arm
-    // the left hand holds the handle just above the right
-    if(grip){ c.pick.updateMatrixWorld(true); const lS=B.LeftArm.getWorldPosition(new V());
-      solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,c.pick.localToWorld(new V(0,0.15,0)).lerp(natL,pump),lS.clone().addScaledVector(right,-0.6).add(new V(0,-0.5,0))); }
+    // at rest the right fist closes round the handle (knuckles out) and the handle runs through the palm
+    D(A,'pk2',e.swingT>0?1:0,1-Math.exp(-20*dt)); const rest=grip?(1-A.pk2)*(1-pump):0;
+    const hw=B.RightHand.getWorldPosition(new V());
+    if(rest>0.01){ g.updateMatrixWorld(true); const hd=new V(0,1,0).applyQuaternion(c.pick.getWorldQuaternion(new T.Quaternion()));
+      const pn=rightB.clone().negate(); pn.addScaledVector(hd,-pn.dot(hd)).normalize(); const pf=new V().crossVectors(hd.clone().negate(),pn);
+      poseHand(B,'Right',pf,pn,0.8*rest); hw.addScaledVector(pf,0.07*rest).addScaledVector(pn,0.03*rest); }
+    g.worldToLocal(hw); c.pick.position.copy(hw);
+    // swinging, the left hand joins just above the right; at rest it hangs free
+    const w2=A.pk2*(1-pump);
+    if(grip&&w2>0.01){ c.pick.updateMatrixWorld(true); const lS=B.LeftArm.getWorldPosition(new V());
+      solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,natL.clone().lerp(c.pick.localToWorld(new V(0,0.15,0)),w2),lS.clone().addScaledVector(right,-0.6).add(new V(0,-0.5,0))); }
   } else if(e.phase==='glide'&&near){
     // both hands grip the glider's base bar
     c.glider.updateMatrixWorld(true);
@@ -1801,7 +1834,7 @@ function makeCharacter(pal){
 function makeCombatant(name,isPlayer,pal){
   const ch=SOLDIER?makeCharacterGLB(pal):makeCharacter(pal); world.add(ch.g);
   const e={etype:'char',name,isPlayer,ch,pos:new V(),vel:new V(),yaw:0,pitch:0,hp:100,shield:0,alive:true,onGround:false,phase:'jet',kills:0,radius:0.45,height:2.0,walkT:Math.random()*6,swingT:0,deadT:0,crouch:false,buildT:0,reloadT:0,
-    anim:{move:0,crouch:0,air:0,phase:Math.random()*6,recoil:0,flash:0,reload:0,pumpT:9,twist:0,sprint:0,sprPose:0,swimK:0,land:0,hit:0,draw:1,stroke:0,kick:0}};
+    anim:{move:0,crouch:0,air:0,phase:Math.random()*6,recoil:0,flash:0,reload:0,pumpT:9,twist:0,sprint:0,sprPose:0,stance:0,pk2:0,swimK:0,land:0,hit:0,draw:1,stroke:0,kick:0}};
   if(ch.glb&&SK) applySkin(ch,isPlayer?equippedSkin():pickBotSkin());
   applyGlider(ch,isPlayer?equippedGlider():GLIDERS[Math.floor(Math.random()*GLIDERS.length)]);
   ch.parts.forEach(m=>{ m.userData.ent=e; m.userData.part=(m===ch.head)?'head':'body'; charMeshes.push(m); });
@@ -1810,7 +1843,7 @@ function makeCombatant(name,isPlayer,pal){
 function setHeld(e,it){
   const c=e.ch, key=it?it.id+':'+it.r:''; if(c.heldKey===key) return; c.heldKey=key;
   if(c.held){ c.gunMount.remove(c.held); c.held=null; }
-  if(it){ const m=makeGunModel(it.id,it.r); if(e.isPlayer) m.scale.setScalar(1.2); c.gunMount.add(m); c.held=m; m.userData.muzzle.add(c.flash); e.anim.draw=0; }
+  if(it){ const m=makeGunModel(it.id,it.r); if(e.isPlayer&&!c.glb) m.scale.setScalar(1.2); c.gunMount.add(m); c.held=m; m.userData.muzzle.add(c.flash); e.anim.draw=0; }
 }
 function muzzlePos(e,out){ const c=e.ch; if(c.held) return c.held.userData.muzzle.getWorldPosition(out); return out.set(e.pos.x,e.pos.y+1.5,e.pos.z); }
 const KICK={ar:0.55,smg:0.35,pump:1,pistol:0.6,sniper:1};
