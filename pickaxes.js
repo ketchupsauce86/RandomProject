@@ -1,4 +1,4 @@
-// Storm Island pickaxes: 100 designs in ten themed sets, each with a shape, size and power-up.
+// Inverted pickaxes: 100 designs in ten themed sets, each with a shape, size and power-up.
 // Shared data plus 2D SVG drawing; the game turns the head drawings into 3D models in the Armory.
 (function(){
 
@@ -14,7 +14,7 @@ const SETS=[
  {id:'sweet',n:'Sweet Tooth',c:'#ff8fc8',d:'Sugar-coated and surprisingly sturdy.'},
  {id:'cosmic',n:'Cosmic',c:'#9d86ff',d:'Mined from meteors and starlight.'},
  {id:'wild',n:'Wild',c:'#53d16b',d:'Straight out of the jungle, teeth included.'},
- {id:'storm',n:'Storm Island',c:'#ffd23f',d:'Made for this island and nowhere else.'},
+ {id:'storm',n:'Inverted',c:'#ffd23f',d:'Made for this box and nowhere else.'},
 ];
 
 // [name, rarity, head shape, head top, head bottom, edge, handle style, handle a, handle b, pattern, pattern color, extras{parts,gem,glow,drip,pom}, flavor]

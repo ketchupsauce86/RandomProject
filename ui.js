@@ -7,11 +7,11 @@
 
   // ---- version badge, pause line and What's new
   $('verNum').textContent=V.version;
-  $('pauseVer').textContent=`Storm Island v${V.version} · Season ${V.season||''}`;
+  $('pauseVer').textContent=`Inverted v${V.version} · Season ${V.season||''}`;
   $('wnMeta').textContent=`v${V.version} · build ${V.build} · ${V.date}`;
   const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   $('wnList').innerHTML=(V.notes||[]).map(n=>`<li><span class="v">v${esc(n.v)}</span><span class="t">${esc(n.title)}</span><span class="d">${esc(n.date)}</span></li>`).join('');
-  console.info(`%c Storm Island v${V.version} `,'background:#5cf0ff;color:#1a0b45;font-weight:700;border-radius:3px');
+  console.info(`%c Inverted v${V.version} `,'background:#5cf0ff;color:#1a0b45;font-weight:700;border-radius:3px');
 
   // ---- drawer and modal, animated in and out
   const show=(el,from)=>{ el.hidden=false; if(gs&&!calm) gs.fromTo(el,from,{x:0,y:0,opacity:1,duration:0.35,ease:'power3.out'}); };

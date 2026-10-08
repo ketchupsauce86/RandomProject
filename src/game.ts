@@ -1230,7 +1230,7 @@ function buildSkinStand(){
   $('armKick').textContent=`${it.theme.n} · ${skIdx+1} of ${N}`; $('armName').textContent=it.n; $('armName').style.color=r.c;
   $('armLabels').innerHTML=''; $('armPower').hidden=true;
   $('armStats').textContent=`${r.n} outfit · ${it.acc.length?it.acc.length+' pieces of gear':'Classic armor'} · Looks only, every skin plays the same`;
-  $('armNote').textContent='All of these are original Storm Island designs.';
+  $('armNote').textContent='All of these are original Inverted designs.';
   showEquip(); [...$('armSets').children].forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.s===it.t)));
 }
 function updateSkinStand(t,dt){
