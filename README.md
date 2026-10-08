@@ -1,6 +1,6 @@
 # Inverted
 
-A 3D zero-gravity shooter that runs in the browser. You and 20 bots float inside a huge white box full of floating blocks. Swim through the air, propel yourself into fights, and when the lights flash red, gravity flips and everyone slams onto the ceiling to fight upside down. Last one floating wins, and every elimination heals you and adds shield.
+A 3D zero-gravity shooter that runs in the browser. You and 20 bots float inside a huge white box full of floating blocks. Swim through the air, propel yourself into fights, and when the lights flash red, gravity flips and everyone slams onto the ceiling to fight upside down. Red flying blocks zoom around the box and knock out anyone they touch, blue booster pads launch you across it, and every gun has infinite ammo. Last one floating wins, and every elimination heals you and adds shield.
 
 **Play online:** https://ketchupsauce86.github.io/RandomProject/ (updates automatically about a minute after `main` changes; hard refresh with Ctrl+Shift+R to get the newest version).
 
@@ -17,7 +17,6 @@ Needs a keyboard and mouse. The **Armory** button shows every gun design, and it
 | Left click | Shoot, swing pickaxe, drink a potion |
 | Right click | Aim down sights |
 | 1–6 / wheel | Switch slots |
-| R | Reload |
 
 ## Code
 
