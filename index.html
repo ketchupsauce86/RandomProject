@@ -784,6 +784,9 @@ const SFX={
     if(id==='bandage') nz(v,{type:'bandpass',f:2600,f1:1400,q:1,dur:0.28,g:0.45,a:0.01});
     else if(id==='medkit') for(let i=0;i<7;i++) nz(v,{at:i*0.03,type:'bandpass',f:3000+i*120,q:2,dur:0.022,g:0.35});
     else { tn(v,{f:400,f1:1300,dur:0.04,g:0.4}); nz(v,{type:'highpass',f:3000,dur:0.02,g:0.4}); for(let i=0;i<4;i++) tn(v,{at:0.25+i*0.2,f:rnd(240,380),f1:rnd(500,700),dur:0.07,g:0.22}); } },
+  gulp:v=>{ tn(v,{type:'sine',f:210,f1:95,dur:0.11,g:0.4}); tn(v,{at:0.05,type:'sine',f:520,f1:900,dur:0.05,g:0.12}); },
+  pat:v=>{ nz(v,{type:'lowpass',f:700,dur:0.07,g:0.45,a:0.003}); tn(v,{at:0.02,type:'triangle',f:660,f1:990,dur:0.12,g:0.12}); },
+  wrap:v=>{ nz(v,{type:'bandpass',f:2400,f1:1300,q:1.2,dur:0.22,g:0.25,a:0.03}); },
   healDone:(v,o)=>{ if(o.id==='mini'||o.id==='big'){ tn(v,{type:'triangle',f:880,f1:1760,dur:0.35,g:0.25}); tn(v,{at:0.1,f:1320,dur:0.45,g:0.14}); nz(v,{type:'highpass',f:6000,dur:0.4,g:0.12,a:0.05}); }
     else [523,659,784].forEach((f,i)=>tn(v,{at:i*0.08,f,dur:0.45,g:0.2,a:0.02})); },
   jump:v=>{ nz(v,{type:'bandpass',f:800,f1:1700,q:1,dur:0.13,g:0.22,a:0.02}); },
@@ -1509,9 +1512,10 @@ function makeCharacterGLB(pal){
   const gunMount=new T.Group(); gunMount.scale.setScalar(GUN_S); g.add(gunMount);
   const pickG=new T.Group(); const handle=new T.Mesh(GEO.handle,colorMat(0x6b4a2a)); handle.position.y=0.35; const ph=new T.Mesh(GEO.pickHead,colorMat(0xb8c4d6)); ph.position.set(0,0.78,0); pickG.add(handle,ph); pickG.visible=false; g.add(pickG);
   const glider=makeGlider(pal); g.add(glider);
+  const consG=new T.Group(); consG.visible=false; g.add(consG);
   const flash=new T.Sprite(flashMat); flash.scale.setScalar(0.8); flash.visible=false;
   const hb={head:new T.Mesh(HIT_GEO.head,hitMat),chest:new T.Mesh(HIT_GEO.chest,hitMat),legs:new T.Mesh(HIT_GEO.legs,hitMat)}; g.add(hb.head,hb.chest,hb.legs);
-  return {glb:true,g,spin,model,bones,mixer,act,gunMount,pick:pickG,glider,flash,hb,parts:[hb.head,hb.chest,hb.legs],head:hb.head,heldKey:'',held:null,w:{Idle:1,Walk:0,Run:0,TPose:0}};
+  return {glb:true,g,spin,model,bones,mixer,act,gunMount,pick:pickG,consG,consId:'',glider,flash,hb,parts:[hb.head,hb.chest,hb.legs],head:hb.head,heldKey:'',held:null,w:{Idle:1,Walk:0,Run:0,TPose:0}};
 }
 // ---- outfits: repaint the soldier's armor and hang themed gear on its bones (see skins.js)
 const SK=window.SKINS||null, skinMats=new Map(), gearMats={};
@@ -1626,10 +1630,85 @@ function deathPose(e,g,body,dt){
   if(e.deadT>2.8) g.visible=false;
 }
 const _qm=new T.Quaternion();
+// ---- heals and potions in hand. Each one is a little cartoon: bandages get wound round the left forearm, the med
+// kit is held open while the right hand dabs and pats the chest, and potions are chugged with the head thrown back,
+// a gulp at a time, then an "ahh" shake (the big one ends with a wipe of the mouth).
+const CONS_S={bandage:0.5,medkit:0.42,mini:0.62,big:0.55};
+const wrapGeo=new T.CylinderGeometry(0.062,0.062,1,10,1,true), wrapMat=Lam({color:0xf4efe2,side:T.DoubleSide});
+function setConsHeld(c,id){ if(!c.consG) return; id=id||'';
+  if(c.consId!==id){ c.consId=id; while(c.consG.children.length) c.consG.remove(c.consG.children[0]); if(id){ const m=makeConsModel(id); m.scale.setScalar(CONS_S[id]); m.traverse(o=>{ if(o.isMesh) o.castShadow=true; }); c.consG.add(m); } }
+  c.consG.visible=!!id; if(c.wrap&&!id) c.wrap.visible=false; }
+function healFx(p,col,n,spd){ for(let i=0;i<n;i++){ const mat=new T.MeshBasicMaterial({color:col,transparent:true,opacity:0.95,depthWrite:false}), m=new T.Mesh(GEO.puff,mat), v=new V(rnd(-1,1),rnd(0.4,1.4),rnd(-1,1)).multiplyScalar(spd);
+  m.position.copy(p); world.add(m); effects.push({t:0,dur:rnd(0.45,0.8),obj:m,upd:(e,k,dt)=>{ m.position.addScaledVector(v,dt); m.scale.setScalar(0.32*Math.sin(Math.min(1,k*1.4)*Math.PI)+0.02); mat.opacity=0.95*(1-k*k); },done:()=>mat.dispose()}); } }
+const _cq=new T.Quaternion(), _cm=new T.Matrix4();
+// place the item: world position p, its up axis along y, its x axis roughly along x
+function consPlace(c,p,y,x){ const g=c.g; y=y.clone().normalize(); const z=new V().crossVectors(x,y).normalize(); x=new V().crossVectors(y,z);
+  _cm.makeBasis(x,y,z); _cq.setFromRotationMatrix(_cm); g.getWorldQuaternion(_qP); c.consG.quaternion.copy(_qP.invert().multiply(_cq)); c.consG.position.copy(g.worldToLocal(p.clone())); }
+function consPose(e,c,id,k,rightB,fwdB,upB,dt){
+  const B=c.bones, A=e.anim, w=o=>o.getWorldPosition(new V()), dur=CONS[id].time, near=e===player||e.pos.distanceTo(camera.position)<30, at=e===player?null:e.pos;
+  const rS=w(B.RightArm), lS=w(B.LeftArm), head=w(B.Head), mouth=head.clone().addScaledVector(upB,0.05).addScaledVector(fwdB,0.12), chest=w(B.Spine2).addScaledVector(fwdB,0.2), belly=w(B.Spine).addScaledVector(fwdB,0.2);
+  const poleR=rS.clone().addScaledVector(rightB,0.5).addScaledVector(upB,-0.6).addScaledVector(fwdB,-0.2), poleL=lS.clone().addScaledVector(rightB,-0.5).addScaledVector(upB,-0.6).addScaledVector(fwdB,-0.2);
+  const ik=(sd,t,pole)=>solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],t,pole);
+  const bell=(a,b)=>k<a||k>b?0:Math.sin((k-a)/(b-a)*Math.PI);
+  // holding it ready: potions shown off at chest height, the kit and the roll at the belly
+  const idle=chest.clone().addScaledVector(rightB,0.17).addScaledVector(upB,-0.14).addScaledVector(fwdB,0.08).addScaledVector(upB,0.015*Math.sin(matchTime*2.4+e.walkT));
+  const tick=(key,period)=>{ const n=Math.floor(k*dur/period); if(A[key]!==n){ const first=A[key]==null||A[key]>n; A[key]=n; return !first; } return false; };
+  if(id==='mini'||id==='big'){
+    const big=id==='big', u=Math.max(0,k), ka=k<0?0:smooth(0,0.14,k), kl=smooth(0.82,0.94,u), dr=ka*(1-kl), prog=clamp((u-0.14)/0.68,0,1);
+    const nd=fwdB.clone().negate().addScaledVector(upB,-0.15-0.95*prog).normalize(), gq=k>=0?Math.sin(u*dur*TAU*2.2):0;
+    const drinkP=mouth.clone().addScaledVector(nd,-(big?0.2:0.16)).addScaledVector(nd,0.015*gq), pos=idle.clone().lerp(drinkP,dr);
+    const yAx=upB.clone().lerp(nd,dr).normalize();
+    consPlace(c,pos,yAx,rightB);
+    // head back, a nod with every gulp, then a happy shake
+    rotateBoneWorld(B.Neck,rightB,(0.42+(big?0.15:0))*dr*(0.6+0.4*prog)+0.06*gq*dr); rotateBoneWorld(B.Spine1,rightB,(big?0.22:0.1)*dr);
+    const shake=bell(0.84,1); if(shake) rotateBoneWorld(B.Neck,upB,0.28*shake*Math.sin(u*dur*42));
+    const hold=pos.clone().addScaledVector(rightB,0.075).addScaledVector(yAx,-0.04);
+    ik('Right',hold,poleR); poseHand(B,'Right',fwdB.clone().addScaledVector(rightB,-0.3),rightB.clone().negate(),0.9);
+    if(big&&k>=0){ const bot=pos.clone().addScaledVector(yAx,-0.17).addScaledVector(rightB,-0.03), wipe=bell(0.86,0.98);
+      const lt=wipe?mouth.clone().addScaledVector(fwdB,0.06).addScaledVector(upB,-0.05).addScaledVector(rightB,lerp(-0.14,0.14,clamp((u-0.86)/0.12,0,1))):bot.clone().addScaledVector(rightB,-0.04).addScaledVector(upB,-0.04);
+      const lw=Math.max(dr,wipe); if(lw>0.01){ const natL=w(B.LeftHand); ik('Left',natL.lerp(lt,lw),poleL); poseHand(B,'Left',wipe?rightB:rightB.clone().addScaledVector(fwdB,0.4),wipe?fwdB.clone().negate():yAx,0.5); } }
+    if(k>=0&&dr>0.5&&near&&tick('gulpN',1/2.2)){ sfx('gulp',at); healFx(mouth.clone().addScaledVector(fwdB,0.08),CONS[id].color,2,1.2); }
+  } else if(id==='bandage'){
+    const u=Math.max(0,k), wk=k<0?0:smooth(0,0.1,k)*(1-smooth(0.92,1,k)), th=u*dur*TAU*1.7;
+    const natL=w(B.LeftHand), natR=w(B.RightHand);
+    // the left forearm comes up across the chest
+    ik('Left',natL.lerp(chest.clone().addScaledVector(fwdB,0.2).addScaledVector(upB,-0.1).addScaledVector(rightB,0.02),wk),poleL);
+    if(wk>0.01) poseHand(B,'Left',rightB.clone().addScaledVector(fwdB,0.3),upB.clone().negate(),0.3);
+    const fa=w(B.LeftHand).sub(w(B.LeftForeArm)), mid=w(B.LeftForeArm).addScaledVector(fa,0.55); fa.normalize();
+    const u1=new V().crossVectors(fa,upB).normalize(), u2=new V().crossVectors(fa,u1);
+    // the right hand winds round and round it
+    const loop=mid.clone().addScaledVector(u1,Math.cos(th)*0.14).addScaledVector(u2,Math.sin(th)*0.14).addScaledVector(fa,0.05*Math.sin(th*0.5));
+    const rt=natR.lerp(loop,wk).lerp(idle,k<0?1:0);
+    ik('Right',rt,poleR); poseHand(B,'Right',fwdB.clone().addScaledVector(rightB,-0.5),rightB.clone().negate(),0.8);
+    const hp=w(B.RightHand).addScaledVector(fwdB,0.06); consPlace(c,hp,k<0?upB:fa,k<0?rightB:u1.clone().applyAxisAngle(fa,th));
+    if(!c.wrap){ c.wrap=new T.Mesh(wrapGeo,wrapMat); c.wrap.castShadow=true; c.g.add(c.wrap); }
+    const len=0.2*clamp(u*1.15,0,1); c.wrap.visible=k>=0&&len>0.01;
+    if(c.wrap.visible){ const wq=_cq.setFromUnitVectors(_v5.set(0,1,0),fa); c.g.getWorldQuaternion(_qP); c.wrap.quaternion.copy(_qP.invert().multiply(wq)); c.wrap.position.copy(c.g.worldToLocal(mid.clone())); c.wrap.scale.set(1,len,1); }
+    if(k>=0&&wk>0.5&&near&&tick('wrapN',1/1.7)) sfx('wrap',at);
+  } else {
+    // med kit: held open at the belly, dab inside, pat it onto the chest, again and again
+    const u=Math.max(0,k), wk=k<0?0:smooth(0,0.08,k)*(1-smooth(0.93,1,k)), q=(u*dur/1.25)%1;
+    const kit=belly.clone().addScaledVector(fwdB,0.06).addScaledVector(rightB,-0.04).addScaledVector(upB,0.04);
+    rotateBoneWorld(B.Spine1,rightB,-0.2*wk); rotateBoneWorld(B.Neck,rightB,-0.38*wk*(q<0.4||q>0.85?1:0.4));
+    const press=q>0.55&&q<0.85?Math.sin((q-0.55)/0.3*Math.PI):0; if(press) rotateBoneWorld(B.Spine2,rightB,0.12*press*wk);
+    consPlace(c,kit,upB,rightB);
+    const natL=w(B.LeftHand); ik('Left',natL.lerp(kit.clone().addScaledVector(rightB,-0.15).addScaledVector(upB,-0.04),Math.max(wk,k<0?1:0)),poleL);
+    poseHand(B,'Left',fwdB.clone().addScaledVector(rightB,0.4),rightB,0.7);
+    const inKit=kit.clone().addScaledVector(upB,0.05+0.06*Math.max(0,Math.sin(q*TAU*2.5))), onChest=chest.clone().addScaledVector(rightB,0.03).addScaledVector(fwdB,-0.05*press);
+    const r=q<0.35?inKit:q<0.55?inKit.lerp(onChest,easeIO((q-0.35)/0.2)):q<0.85?onChest:onChest.lerp(inKit,easeIO((q-0.85)/0.15));
+    const kitIdle=kit.clone().addScaledVector(rightB,0.15).addScaledVector(upB,-0.04);
+    ik('Right',k<0?kitIdle:w(B.RightHand).lerp(r,wk),poleR); poseHand(B,'Right',k<0?fwdB.clone().addScaledVector(rightB,-0.4):fwdB,k<0?rightB.clone().negate():upB.clone().negate(),k<0?0.7:0.25);
+    if(k>=0&&wk>0.5&&near&&press>0.9&&tick('patN',1.25)){ sfx('pat',at); healFx(chest.clone().addScaledVector(fwdB,0.1),0x6dff8a,5,1.6); }
+  }
+}
+// breaststroke hand path for zero-g swimming, as [out, up, forward] from the shoulder over one stroke
+const ZG_STROKE=[[0,0.18,0.12,0.38],[0.2,0.12,0.5,0.32],[0.45,0.56,0.3,0.12],[0.66,0.4,-0.18,0.08],[0.86,0.14,-0.04,0.3],[1,0.18,0.12,0.38]];
+function zgStroke(u){ let i=0; while(i<ZG_STROKE.length-2&&u>ZG_STROKE[i+1][0]) i++; const a=ZG_STROKE[i], b=ZG_STROKE[i+1], k=easeIO(clamp((u-a[0])/(b[0]-a[0]),0,1));
+  return [lerp(a[1],b[1],k),lerp(a[2],b[2],k),lerp(a[3],b[3],k)]; }
 function animateGLB(e,dt){
   const c=e.ch, A=e.anim, B=c.bones, g=c.g; g.position.copy(e.pos); g.rotation.y=faceYaw(e);
   const a=1-Math.exp(-14*dt), aS=1-Math.exp(-7*dt);
-  if(!e.alive){ c.flash.visible=false; c.glider.visible=false; if(e.deadT<0.6) c.mixer.update(dt*0.3); deathPose(e,g,c.model,dt); return; }
+  if(!e.alive){ c.spin.scale.set(1,1,1); c.flash.visible=false; c.glider.visible=false; if(e.deadT<0.6) c.mixer.update(dt*0.3); deathPose(e,g,c.model,dt); return; }
   const hide=e.phase==='jet'||(e.isPlayer&&ads&&isScoped());
   g.visible=!hide; if(e.phase==='jet') return;
   if(!e.isPlayer){ const cd=e.pos.distanceTo(camera.position);
@@ -1639,7 +1718,11 @@ function animateGLB(e,dt){
   let held=null, pickaxe=false;
   if(e.isPlayer){ const it=curItem(); if(!e.build&&!e.editing&&land){ if(it&&it.kind==='gun') held=it; else if(!it) pickaxe=true; } }
   else if(land) held=e.gun;
-  setHeld(e,held);
+  // a heal or potion in hand: k<0 just holding it, 0..1 how far through using it
+  let cons=null, useK=-1;
+  if(e.isPlayer){ const it=curItem(); if(!e.build&&!e.editing&&land&&it&&it.kind==='cons'){ cons=it.id; if(e.consuming&&e.consuming.it===it) useK=e.consuming.t/e.consuming.dur; } }
+  else if(land&&e.healT>0){ cons=e.hp<75?'medkit':'big'; useK=clamp(1-e.healT/2.5,0,1); held=null; }
+  setHeld(e,held); setConsHeld(c,cons);
   D(A,'crouch',e.crouch&&land?1:0,a*0.7); D(A,'air',land&&!e.onGround?1:0,a);
   A.recoil=Math.max(0,A.recoil-dt*8); A.flash-=dt; c.flash.visible=A.flash>0; A.pumpT+=dt; if(e.buildT>0) e.buildT-=dt;
   const aiming=e.isPlayer?(ads||mouse.l||!!e.reloading):(A.recoil>0.05||!!e.enemy);
@@ -1665,17 +1748,32 @@ function animateGLB(e,dt){
   const cr=A.crouch, crE=Math.max(cr,land&&e.onGround?A.land*0.75:0), right=_v1.set(Math.cos(e.yaw),0,-Math.sin(e.yaw)).clone(), fwdV=new V(fx,0,fz);
   let feet=null;
   if(near&&land&&crE>0.01){ feet=[B.LeftFoot.getWorldPosition(new V()),B.RightFoot.getWorldPosition(new V())]; if(A.air>0.5){ feet[0].y+=0.25*A.air; feet[1].y+=0.4*A.air; } }
-  c.model.position.y=-0.48*crE; g.updateMatrixWorld(true);
+  c.model.position.y=-0.48*crE;
+  // zero-g: a lazy bob while drifting, and cartoon squash and stretch: long on the kick, squashed on the tuck
+  let sqY=1;
+  if(e.zgFloat&&e.phase==='ground'){ const kz=1-Math.exp(-8*dt); D(A,'zgP',e.zgPropel?1:0,kz); D(A,'zgS',e.zgPropel?0:smooth(1.5,7,e.vel.length()),1-Math.exp(-4*dt));
+    A.zgT=(A.zgT||e.walkT)+dt*lerp(3.2,13,A.zgP); A.zgB=((A.zgB||0)+dt*(0.45+0.95*A.zgS))%1; A.zgI=(A.zgI||e.walkT*3)+dt;
+    const P=A.zgP, Sw=A.zgS*(1-P), I=(1-P)*(1-A.zgS), u=A.zgB;
+    c.model.position.y+=I*0.07*Math.sin(A.zgI*1.5);
+    sqY=1+I*0.025*Math.sin(A.zgI*1.5+1)+Sw*(0.11*Math.max(0,Math.cos(TAU*u*2.5))*(u<0.2?1:0)-0.07*Math.max(0,Math.sin(TAU*(u-0.5))))+P*(0.07+0.02*Math.sin(A.zgT*2)); }
+  else if(A.zgP){ A.zgP=0; A.zgS=0; }
+  c.spin.scale.set(1/Math.sqrt(sqY),sqY,1/Math.sqrt(sqY)); c.spin.position.y+=1-sqY; // squash about the middle of the body
+  g.updateMatrixWorld(true);
   if(feet){ for(const [i,sd] of [[0,'Left'],[1,'Right']]){ const hip=B[sd+'UpLeg'].getWorldPosition(new V()); const pole=hip.clone().addScaledVector(fwdV,1.2).add(new V(0,-0.4,0)); solveIK(B[sd+'UpLeg'],B[sd+'Leg'],B[sd+'Foot'],feet[i],pole); } }
   const tuck=e.tuckK||0;
   if(near){
     if(tuck>0.02){ bend('Left',2.0*tuck,-2.3*tuck); bend('Right',2.0*tuck,-2.3*tuck); rotateBoneWorld(B.Spine1,rightB,-0.45*tuck); rotateBoneWorld(B.Neck,rightB,-0.4*tuck); }
     else if(e.zgFloat&&e.phase==='ground'){
-      // floating: a slow flutter kick; propelling: legs pedal like a cartoon character running on air
-      D(A,'zgP',e.zgPropel?1:0,1-Math.exp(-8*dt)); const P=A.zgP; A.zgT=(A.zgT||e.walkT)+dt*lerp(3.2,13,P);
-      for(const [sd,off] of [['Left',0],['Right',Math.PI]]){ const t=A.zgT+off;
-        bend(sd,lerp(0.22+Math.sin(t)*0.32,0.7+Math.sin(t)*1.05,P),-lerp(0.3+0.35*(Math.sin(t+0.9)+1)/2,0.5+1.25*Math.max(0,Math.sin(t+1.3)),P)); }
-      rotateBoneWorld(B.Neck,rightB,0.45*P+(e.zgTx||0)*-0.3);
+      // three ways to move in zero-g, blended: drifting (a lazy bicycle with the knees falling apart), swimming
+      // (a big frog kick timed to the arm stroke) and propelling (legs pedal like a cartoon character running on air)
+      const P=A.zgP, Sw=A.zgS*(1-P), I=(1-P)*(1-A.zgS), u=A.zgB, tI=A.zgI;
+      const frog=Math.max(0,Math.sin(TAU*(u-0.5))), snap=Math.max(0,Math.cos(TAU*u*2.5))*(u<0.2?1:0);
+      for(const [sd,off,sx] of [['Left',0,-1],['Right',Math.PI,1]]){ const t=A.zgT+off, ti=tI*1.3+off;
+        const th=I*(0.35+0.38*Math.sin(ti))+Sw*(1.15*frog-0.18*snap)+P*(0.7+Math.sin(t)*1.05);
+        const kn=I*(0.55+0.5*(Math.sin(ti+1.1)+1)/2)+Sw*(0.15+1.9*frog)+P*(0.5+1.25*Math.max(0,Math.sin(t+1.3)));
+        bend(sd,th,-kn); rotateBoneWorld(B[sd+'UpLeg'],fwdB,-sx*(I*(0.16+0.06*Math.sin(ti*0.7))+Sw*0.6*frog)); }
+      rotateBoneWorld(B.Neck,rightB,0.45*P+0.35*Sw+(e.zgTx||0)*-0.3); rotateBoneWorld(B.Neck,upB,0.3*I*Math.sin(tI*0.45));
+      rotateBoneWorld(B.Hips,fwdB,0.12*I*Math.sin(tI*0.8)); rotateBoneWorld(B.Spine1,rightB,0.1*I*Math.sin(tI*1.1)-0.22*Sw*frog+0.18*Sw*snap);
     }
     else if(land&&A.air>0.02){
       // jump: knees tuck on the way up, legs reach down for the landing, arms swing up then out for balance
@@ -1721,7 +1819,15 @@ function animateGLB(e,dt){
     if(A.hit>0.01){ rotateBoneWorld(B.Spine1,right,0.32*A.hit); rotateBoneWorld(B.Neck,right,0.25*A.hit); }
     if(pickaxe&&e.swingT>0){ const P=pickPose(e); rotateBoneWorld(B.Spine1,UP,P.tw); rotateBoneWorld(B.Spine2,UP,P.tw*0.5); rotateBoneWorld(B.Spine1,right,P.ln); } }
   // --- hands
-  c.pick.visible=pickaxe&&tuck<0.3&&!(e.zgFloat&&(A.zgP||0)>0.3&&!(e.swingT>0));
+  // zero-g arms: drifting, they float out and wave like a jellyfish; swimming, a big breaststroke (reach, sweep
+  // wide, pull, tuck) on the same beat as the frog kick
+  const zgArms=sides=>{ const Sw=A.zgS*(1-A.zgP), I=1-Sw, u=A.zgB, tI=A.zgI;
+    for(const sd of sides){ const sx=sd==='Right'?1:-1, ph=sx>0?0:1.7, sh=B[sd+'Arm'].getWorldPosition(new V());
+      const st=zgStroke(u), out=I*(0.42+0.07*Math.sin(tI*1.1+ph))+Sw*st[0], up=I*(-0.16+0.15*Math.sin(tI*0.9+ph))+Sw*st[1], fw=I*(0.08+0.08*Math.sin(tI*0.7+ph))+Sw*st[2];
+      const t=sh.clone().addScaledVector(rightB,sx*out).addScaledVector(upB,up).addScaledVector(fwdB,fw);
+      solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],t,sh.clone().addScaledVector(rightB,sx*0.6).addScaledVector(upB,0.05).addScaledVector(fwdB,-0.3));
+      rotateBoneWorld(B[sd+'Hand'],fwdB,sx*(0.45*I*Math.sin(tI*2.1+ph)+0.5*Sw*Math.sin(TAU*u))); } };
+  c.pick.visible=pickaxe&&tuck<0.3&&!(e.zgFloat&&e.phase==='ground'&&((A.zgP||0)>0.3||A.zgS*(1-A.zgP)>0.35)&&!(e.swingT>0)); // tucked away to swim with both arms
   if(tuck>0.25&&near&&!held){
     // hug the shins during flips
     for(const [sd,sx] of [['Left',-1],['Right',1]]){ const t=B[sd+'Leg'].getWorldPosition(new V()).addScaledVector(fwdB,0.14).addScaledVector(upB,-0.12); const sh=B[sd+'Arm'].getWorldPosition(new V());
@@ -1735,11 +1841,15 @@ function animateGLB(e,dt){
       const pole=sh.clone().addScaledVector(rightB,sx*0.7).addScaledVector(fwdB,-0.35*sk).addScaledVector(upB,-0.2);
       solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],tread.lerp(crawl,sk),pole);
     }
+  } else if(cons&&near){
+    consPose(e,c,cons,useK,rightB,fwdB,upB,dt);
   } else if(near&&e.zgFloat&&(A.zgP||0)>0.3&&!held&&!(e.swingT>0)){
     const t=A.zgT*1.15;
     for(const [sd,sx] of [['Left',-1],['Right',1]]){
       rotateBoneWorld(B[sd+'Arm'],rightB,Math.sin(t+(sx>0?0:Math.PI))*1.9*A.zgP); rotateBoneWorld(B[sd+'Arm'],fwdB,sx*(0.35+Math.cos(t*2+sx)*0.3)*A.zgP);
       rotateBoneWorld(B[sd+'ForeArm'],rightB,-0.4-Math.max(0,Math.sin(t+(sx>0?0.6:Math.PI+0.6)))*1.1); }
+  } else if(near&&e.zgFloat&&e.phase==='ground'&&!held&&!(pickaxe&&c.pick.visible)){
+    zgArms(['Left','Right']);
   } else if(held){
     const H=HOLD[held.id], S=c.gunMount.scale.x; D(A,'reload',(e.isPlayer?!!e.reloading:e.reloadT>0)?1:0,a);
     const sh=B.RightArm.getWorldPosition(new V()); g.worldToLocal(sh);
@@ -1783,6 +1893,7 @@ function animateGLB(e,dt){
     const w2=A.pk2*(1-pump);
     if(grip&&w2>0.01){ c.pick.updateMatrixWorld(true); const lS=B.LeftArm.getWorldPosition(new V());
       solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,natL.clone().lerp(c.pick.localToWorld(new V(0,0.15,0)),w2),lS.clone().addScaledVector(right,-0.6).add(new V(0,-0.5,0))); }
+    else if(e.zgFloat&&e.phase==='ground') zgArms(['Left']);
   } else if(e.phase==='glide'&&near){
     // both hands grip the glider's base bar
     c.glider.updateMatrixWorld(true);
@@ -1834,7 +1945,7 @@ function makeCharacter(pal){
 function makeCombatant(name,isPlayer,pal){
   const ch=SOLDIER?makeCharacterGLB(pal):makeCharacter(pal); world.add(ch.g);
   const e={etype:'char',name,isPlayer,ch,pos:new V(),vel:new V(),yaw:0,pitch:0,hp:100,shield:0,alive:true,onGround:false,phase:'jet',kills:0,radius:0.45,height:2.0,walkT:Math.random()*6,swingT:0,deadT:0,crouch:false,buildT:0,reloadT:0,
-    anim:{move:0,crouch:0,air:0,phase:Math.random()*6,recoil:0,flash:0,reload:0,pumpT:9,twist:0,sprint:0,sprPose:0,stance:0,pk2:0,swimK:0,land:0,hit:0,draw:1,stroke:0,kick:0}};
+    anim:{move:0,crouch:0,air:0,phase:Math.random()*6,recoil:0,flash:0,reload:0,pumpT:9,twist:0,sprint:0,sprPose:0,stance:0,pk2:0,zgP:0,zgS:0,swimK:0,land:0,hit:0,draw:1,stroke:0,kick:0}};
   if(ch.glb&&SK) applySkin(ch,isPlayer?equippedSkin():pickBotSkin());
   applyGlider(ch,isPlayer?equippedGlider():GLIDERS[Math.floor(Math.random()*GLIDERS.length)]);
   ch.parts.forEach(m=>{ m.userData.ent=e; m.userData.part=(m===ch.head)?'head':'body'; charMeshes.push(m); });
@@ -2253,7 +2364,7 @@ function startConsume(it){ const p=player, c=CONS[it.id];
 function finishConsume(){ const p=player, it=p.consuming.it, c=CONS[it.id]; p.consuming=null;
   if(c.heal) p.hp=Math.min(c.cap,p.hp+c.heal);
   if(c.shield) p.shield=Math.min(c.cap,p.shield+c.shield);
-  sfx('healDone',null,{id:it.id}); it.count--; if(it.count<=0){ const i=p.slots.indexOf(it); if(i>0) p.slots[i]=null; } refreshHotbar(); }
+  sfx('healDone',null,{id:it.id}); healFx(p.pos.clone().add(new V(0,mode==='zerog'&&p.zgRoll>1.5?0.7:1.3,0)),c.shield?0x6fb6ff:0x6dff8a,16,2.4); it.count--; if(it.count<=0){ const i=p.slots.indexOf(it); if(i>0) p.slots[i]=null; } refreshHotbar(); }
 function selectSlot(n){ const p=player; if(p.editing) endEdit(); if(p.build) p.build=null; if(p.sel!==n) cancelActions(); p.sel=n; refreshHotbar(); }
 function setBuild(k){ const p=player; if(p.editing) endEdit(); if(p.phase!=='ground'||p.swim||mode==='zerog') return; cancelActions(); p.build=k; p.lastBuild=k; refreshHotbar(); }
 function toggleBuild(){ const p=player; if(p.build){ p.build=null; refreshHotbar(); } else setBuild(p.lastBuild||'wall'); }
@@ -2352,7 +2463,7 @@ function updateBot(b,dt){
   b.calmT=b.enemy?0:b.calmT+dt;
   if(b.healT>0){
     b.healT-=dt; b.crouch=true; b.vel.x*=0.85; b.vel.z*=0.85;
-    if(b.healT<=0){ if(b.hp<75) b.hp=Math.min(100,b.hp+40); else b.shield=Math.min(100,b.shield+50); b.heals--; b.crouch=false; }
+    if(b.healT<=0){ if(b.pos.distanceTo(camera.position)<40) healFx(b.pos.clone().add(new V(0,1.3,0)),b.hp<75?0x6dff8a:0x6fb6ff,12,2.2); if(b.hp<75) b.hp=Math.min(100,b.hp+40); else b.shield=Math.min(100,b.shield+50); b.heals--; b.crouch=false; }
     b.height=1.45; moveEntity(b,dt); return;
   }
   if(b.calmT>3&&b.heals>0&&(b.hp<75||b.shield<50)){ b.healT=2.5; b.calmT=0; }
@@ -3175,7 +3286,7 @@ function updatePlayerZG(dt){
     const sp=prop?22:ads?5.5:9;
     _zw.set(0,0,0).addScaledVector(_zf,mz).addScaledVector(_zr,mx); _zw.y+=my; if(_zw.lengthSq()>1) _zw.normalize(); _zw.multiplyScalar(sp);
     const k=1-Math.exp(-(prop?2.6:2.2)*dt); p.vel.lerp(_zw,k);
-    p.zgTx=prop?-1.25:-0.4*clamp(mz,0,1)*(curItem()&&curItem().kind==='gun'?0.4:1);
+    p.zgTx=prop?-1.25:-0.75*clamp(mz,0,1)*(curItem()&&curItem().kind==='gun'?0.2:1);
   } else {
     p.zgPropel=false; zgStamina(p,false,dt);
     const sprint=(keys.ShiftLeft||keys.ShiftRight)&&mz>0&&!ads; p.sprinting=sprint&&p.onGround;
@@ -3227,7 +3338,7 @@ function updateBotZG(b,dt){
   if(!ceil){ if(b.pos.y<4) wish.y+=1; if(b.pos.y>ZG.H-8) wish.y-=1; }
   if(wish.lengthSq()>1) wish.normalize();
   if(ceil){ speed=7.5; const k=1-Math.exp(-(b.onGround?12:3)*dt); b.vel.x=lerp(b.vel.x,wish.x*speed,k); b.vel.z=lerp(b.vel.z,wish.z*speed,k); if(b.enemy&&b.onGround&&Math.random()<dt*0.6) b.vel.y=-10.5; b.zgTx=0; }
-  else { speed=prop?21:9; b.vel.lerp(wish.multiplyScalar(speed),1-Math.exp(-2.4*dt)); b.zgTx=prop?-1.25:b.enemy?-0.1:-0.35; }
+  else { speed=prop?21:9; b.vel.lerp(wish.multiplyScalar(speed),1-Math.exp(-2.4*dt)); b.zgTx=prop?-1.25:b.enemy?-0.1:-0.6; }
   // stuck behind a block: pick a new way
   b.stuckT=(b.stuckT||0)+dt; if(b.stuckT>1){ if(b.pos.distanceTo(b.lastPos)<1&&(wish.lengthSq()>0.1)){ b.goal=null; b.vstrafe=-(b.vstrafe||1); if(!ceil) b.vel.y+=rnd(-6,6); } b.lastPos.copy(b.pos); b.stuckT=0; }
   zgMove(b,dt);
