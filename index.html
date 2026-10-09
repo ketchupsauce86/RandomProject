@@ -281,9 +281,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
       </div>
     </header>
     <section class="hero">
-      <p class="season">Chapter 1 · Season <b data-text="Glitched">Glitched</b></p>
       <h1 class="logo" data-text="Inverted"><span class="l1">Inverted</span><span class="l2" aria-hidden="true"><i>Inverted</i></span></h1>
-      <p class="tag">A giant white box, no gravity and 20 ruthless bots. Swim through the air, and when the lights flash red, everyone slams onto the ceiling.</p>
     </section>
     <section class="loadout" aria-label="Your loadout">
       <div class="lohead">Loadout</div>
@@ -293,24 +291,24 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
     <section class="playcard" aria-label="Game mode">
       <div class="mode">
         <span class="modeart zg" aria-hidden="true"></span>
-        <span class="modetxt"><span class="modekick">Anti-gravity · Solo</span><span class="modename">Zero-G Box</span><span class="modemeta"><b>21</b> players · Swim the air · Ceiling flips</span></span>
+        <span class="modetxt"><span class="modename">Zero-G Box</span><span class="modemeta"><b>21</b> players</span></span>
       </div>
       <button class="btn play" id="playBtn">Enter the box</button>
-      <div class="note">Keyboard and mouse. Click the game to lock your mouse.</div>
       <div id="err"></div>
     </section>
     <aside class="drawer panel" id="controlsDrawer" hidden aria-label="Controls and settings">
       <div class="drawhead"><h2>Controls</h2><button class="chip" id="controlsClose" aria-label="Close">✕</button></div>
       <dl>
-        <dt>WASD</dt><dd>Swim toward where you look</dd>
-        <dt>Mouse</dt><dd>Look around</dd>
-        <dt>Space / C</dt><dd>Swim up / down</dd>
-        <dt>Shift</dt><dd>Propel forward fast (uses stamina); sprint on the ceiling</dd>
-        <dt>Left click</dt><dd>Shoot, swing pickaxe, drink a potion</dd>
-        <dt>Right click</dt><dd>Aim down sights</dd>
+        <dt>WASD</dt><dd>Move</dd>
+        <dt>Mouse</dt><dd>Look</dd>
+        <dt>Space / C</dt><dd>Up / down</dd>
+        <dt>Shift</dt><dd>Boost (uses stamina)</dd>
+        <dt>Left click</dt><dd>Shoot, swing, drink</dd>
+        <dt>Right click</dt><dd>Aim</dd>
         <dt>1 – 6 / wheel</dt><dd>Switch slots</dd>
-        <dt>R</dt><dd>Reload</dd>
-        <dt>Red lights</dt><dd>Gravity flips: you land on the ceiling. Space jumps off it</dd>
+        <dt>Blue pads</dt><dd>Launch you</dd>
+        <dt>Red blocks</dt><dd>Don't touch</dd>
+        <dt>Red lights</dt><dd>Gravity flips</dd>
       </dl>
       <h2>Settings</h2>
       <label class="sens" for="sens">Mouse speed <input type="range" id="sens" min="0.4" max="3" step="0.1" value="1"></label>
@@ -330,12 +328,12 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
     <div class="armtabs" role="group" aria-label="Show"><button id="armGunsTab" aria-pressed="true">Guns</button><button id="armPicksTab" aria-pressed="false">Pickaxes</button><button id="armSkinsTab" aria-pressed="false">Skins</button></div>
     <div id="armSets" role="group" aria-label="Pickaxe set" hidden></div></div>
     <div id="armLabels"></div>
-    <div class="armbottom"><p id="armPower" hidden></p><p id="armStats"></p><p class="note" id="armNote">Higher rarities add attachments and a new finish: worn steel, camo, tech, energy and gold.</p><div class="btnrow"><button class="btn2" id="armEquip" hidden>Equip</button><button class="btn" id="armBack">Back</button></div></div>
+    <div class="armbottom"><p id="armPower" hidden></p><p id="armStats"></p><p class="note" id="armNote"></p><div class="btnrow"><button class="btn2" id="armEquip" hidden>Equip</button><button class="btn" id="armBack">Back</button></div></div>
   </div>
   <div class="overlay" id="pause" hidden>
     <div class="card panel">
       <h2>Paused</h2>
-      <p class="tag" style="margin:6px auto 18px">Your match is frozen until you come back.</p><p class="note vline" id="pauseVer"></p>
+      <p class="note vline" id="pauseVer"></p>
       <div class="btnrow center"><button class="btn" id="resumeBtn">Resume</button><button class="btn2" id="quitBtn">Home</button></div>
       <label class="sens" for="sens2">Mouse speed <input type="range" id="sens2" min="0.4" max="3" step="0.1" value="1"></label>
       <label class="sens" for="vol2">Volume <input type="range" id="vol2" min="0" max="1" step="0.05" value="0.8"></label>

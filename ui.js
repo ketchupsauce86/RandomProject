@@ -7,7 +7,7 @@
 
   // ---- version badge, pause line and What's new
   $('verNum').textContent=V.version;
-  $('pauseVer').textContent=`Inverted v${V.version} · Season ${V.season||''}`;
+  $('pauseVer').textContent=`Inverted v${V.version}`;
   $('wnMeta').textContent=`v${V.version} · build ${V.build} · ${V.date}`;
   const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   $('wnList').innerHTML=(V.notes||[]).map(n=>`<li><span class="v">v${esc(n.v)}</span><span class="t">${esc(n.title)}</span><span class="d">${esc(n.date)}</span></li>`).join('');
@@ -31,10 +31,8 @@
   if(gs&&!calm){
     const tl=gs.timeline({defaults:{ease:'power3.out'}});
     tl.from('.topbar',{y:-30,opacity:0,duration:0.6})
-      .from('.season',{x:-40,opacity:0,duration:0.5},'-=0.3')
       .from('.logo .l1',{x:-120,skewX:-18,opacity:0,duration:0.7},'-=0.3')
       .from('.logo .l2',{x:-120,skewX:-18,opacity:0,duration:0.7},'-=0.55')
-      .from('.tag',{y:20,opacity:0,duration:0.5},'-=0.35')
       .from('.loadout > *',{y:24,opacity:0,stagger:0.08,duration:0.45},'-=0.3')
       .from('.playcard > *',{x:60,opacity:0,stagger:0.1,duration:0.55},'-=0.5');
     // a short burst of jitter on the logo, like a bad signal
