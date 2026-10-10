@@ -240,6 +240,15 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 #stamBar .track{height:10px}
 #gravTxt.flip{color:#fff;background:rgba(220,30,50,.8);border-color:#ff5468}
 #gravTxt.ceil{color:#fff;background:rgba(160,30,60,.75)}
+/* Bouncer Ball ability */
+.hbrow{display:flex;align-items:flex-end}
+#ability{position:relative;width:64px;height:64px;border-radius:50%;border:2px solid var(--edge);background:rgba(14,8,36,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;margin-left:10px;opacity:.6}
+#ability.ready{opacity:1;border-color:#5cc8ff;box-shadow:0 0 16px rgba(92,200,255,.6)}#ability.on{opacity:1;border-color:#fff;box-shadow:0 0 24px rgba(92,200,255,.9)}
+#ability .key{position:absolute;top:2px;left:50%;transform:translateX(-50%);font-size:11px;color:var(--muted)}
+#ability .ball{width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#e6f8ff,#5cc8ff 55%,#1a5a8a)}
+#ability .nm{font-size:10px;font-weight:800;letter-spacing:.04em}
+#abilityCd{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:22px;color:#fff;text-shadow:0 0 4px #000}
+#abilityCd:empty{display:none}
 /* vending machine shop */
 #shop{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,92vw);pointer-events:auto;padding:16px 18px;border-radius:14px;background:rgba(14,8,36,.9);border:2px solid var(--neon);box-shadow:0 0 30px rgba(92,240,255,.35);backdrop-filter:blur(8px)}
 .shophead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
@@ -279,7 +288,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
       <div class="bar"><span class="num" id="shNum">0</span><div class="track"><div class="fill" id="shFill"></div></div></div>
       <div class="bar"><span class="num" id="hpNum">100</span><div class="track"><div class="fill" id="hpFill"></div></div></div>
     </div>
-    <div id="bottom"><div id="ammo"></div><div id="hotbar"></div></div>
+    <div id="bottom"><div id="ammo"></div><div class="hbrow"><div id="hotbar"></div><div id="ability" hidden><span class="key">Q</span><span class="ball"></span><span class="nm">BOUNCE</span><span id="abilityCd"></span></div></div></div>
 
   </div>
 
@@ -319,6 +328,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
         <dt>Right click</dt><dd>Aim</dd>
         <dt>1 – 9 / wheel</dt><dd>Switch slots</dd>
         <dt>E</dt><dd>Vending machine</dd>
+        <dt>Q</dt><dd>Bouncer Ball</dd>
         <dt>Blue pads</dt><dd>Launch you</dd>
         <dt>Red blocks</dt><dd>Don't touch</dd>
         <dt>Red lights</dt><dd>Gravity flips</dd>

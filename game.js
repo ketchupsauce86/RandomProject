@@ -40,6 +40,8 @@
       pistol: { name: "Pistol", short: "PISTOL", dmg: 24, rate: 0.2, mag: 16, reload: 1.4, spread: 0.015, bloom: 0.03, auto: false, ammo: "light", range: 180, pellets: 1, head: 1.8, recoil: 0.012, pref: 18 },
       sniper: { name: "Bolt Sniper", short: "SNIPER", dmg: 105, rate: 1.6, mag: 1, reload: 2.4, spread: 15e-4, bloom: 0, auto: false, ammo: "heavy", range: 700, pellets: 1, head: 2.5, recoil: 0.05, zoom: true, pref: 55 },
       // bought at the vending machines: fires a rocket (see the RPG section) instead of a bullet
+      // two golden winged pistols, fired in turn; each shot is a beam of light that bounces off every surface
+      mf: { name: "Mirror Fractal Guns", short: "MF GUNS", dmg: 16, rate: 0.12, mag: 1, reload: 0, spread: 4e-3, bloom: 0.012, auto: true, ammo: "light", range: 400, pellets: 1, head: 1.5, recoil: 4e-3, pref: 20, beam: true, col: "#ffd23f" },
       rpg: { name: "RPG", short: "RPG", dmg: 140, rate: 1.4, mag: 1, reload: 0, spread: 0, bloom: 0, auto: false, ammo: "heavy", range: 400, pellets: 1, head: 1, recoil: 0.07, pref: 30, proj: "rocket", col: "#4fd34f" }
     };
     const CONS = {
@@ -141,7 +143,10 @@
       glass: new T.MeshPhongMaterial({ color: 1056814, specular: 16777215, shininess: 140, emissive: 529440 }),
       dot: new T.MeshBasicMaterial({ color: 16722474 }),
       green: GPh(5217836, 45, 3824186),
-      olive: GPh(2906652, 30)
+      olive: GPh(2906652, 30),
+      // green and olive: the RPG's warhead
+      gold: GPh(14264110, 120, 16773808),
+      wing: new T.MeshPhongMaterial({ color: 16766810, emissive: 9067008, shininess: 140, specular: 16777215, side: T.DoubleSide })
     };
     const FURN = [GPh(2500394, 14), GPh(4936503, 14), GPh(3886694, 24), GPh(5192550, 24), GPh(13214266, 90, 16773296)];
     function prof(pts, w, bev) {
@@ -256,6 +261,20 @@
         [BX(0.02, 0.07, 0.02), "steel", 0, 0.075, -0.08],
         [BX(0.02, 0.07, 0.02), "steel", 0, 0.075, 0.08]
       ],
+      mf: () => {
+        const W = [[-0.2, 0.07], [-0.05, 0.075], [0.03, 0.1, 0.1, 0.17], [0.16, 0.26], [0.11, 0.215], [0.13, 0.27], [0.07, 0.205], [0.08, 0.25], [0.01, 0.18], [0.01, 0.215], [-0.06, 0.15], [-0.07, 0.17], [-0.13, 0.11]];
+        const one = (x) => [
+          ...GUN_PARTS.pistol().map((q) => {
+            const r = [...q];
+            r[1] = r[1] === "steel" ? "gold" : r[1] === "poly" ? "dark" : r[1];
+            r[2] += x;
+            return r;
+          }),
+          [prof(W, 6e-3, 2e-3), "wing", x + 0.034, 0, 0],
+          [prof(W, 6e-3, 2e-3), "wing", x - 0.034, 0, 0]
+        ];
+        return [...one(0), ...one(-0.3)];
+      },
       rpg: () => [
         // RPG-7 style: black tube with a flared blast cone, two grips and a side optic; the green warhead sits in the muzzle
         [gtube(0.036, 0.036, 0.92, 16), "poly", 0, 0.06, 0.04],
@@ -281,14 +300,15 @@
         [gtube(0.03, 0.05, 0.04, 14), "olive", 0, 0.06, -0.415]
       ]
     };
-    const MUZZLE = { ar: [0.014, -0.67], smg: [0.022, -0.47], pump: [0.025, -0.74], pistol: [0.045, -0.26], sniper: [0.02, -1.06], rpg: [0.06, -0.42] };
+    const MUZZLE = { ar: [0.014, -0.67], smg: [0.022, -0.47], pump: [0.025, -0.74], pistol: [0.045, -0.26], sniper: [0.02, -1.06], rpg: [0.06, -0.42], mf: [0.045, -0.26] };
     const EXTRA = {
       ar: [[2, ...REDDOT(0.1, 0.02)], [3, [prof([[-0.34, -0.04], [-0.38, -0.04], [-0.375, -0.13], [-0.345, -0.13]], 0.03), "poly", 0, 0, 0]], [4, [gtube(0.026, 0.026, 0.18, 16), "dark", 0, 0.014, -0.76]]],
       smg: [[2, ...REDDOT(0.09, 0.02)], [3, [prof([[-0.13, -0.03], [-0.17, -0.03], [-0.165, -0.12], [-0.135, -0.12]], 0.03), "poly", 0, 0, 0]], [4, [gtube(0.024, 0.024, 0.16, 16), "dark", 0, 0.022, -0.55]]],
       pump: [[2, [BX(6e-3, 0.045, 0.1), "dark", 0.034, -5e-3, 0.08], ...[0.05, 0.07, 0.09, 0.11].map((z) => [new T.CylinderGeometry(9e-3, 9e-3, 0.04, 8), "shell", 0.04, -5e-3, z])], [3, [BX(0.03, 0.03, 0.02), "dark", 0, 0.065, 0.16]], [4, ...REDDOT(0.075, 0.05)]],
       pistol: [[2, [BX(0.035, 0.03, 0.06), "dark", 0, -0.03, -0.19], [gtube(0.012, 0.012, 4e-3, 10), "glass", 0, -0.03, -0.221]], [3, ...REDDOT(0.095, 0)], [4, [BX(0.05, 0.07, 0.035), "steel", 0, 0.04, -0.27]]],
       sniper: [[2, [BX(0.012, 0.012, 0.2), "steel", 0.02, -0.08, -0.38], [BX(0.012, 0.012, 0.2), "steel", -0.02, -0.08, -0.38]], [4, [gtube(0.032, 0.032, 0.2, 16), "dark", 0, 0.02, -1.16]]],
-      rpg: []
+      rpg: [],
+      mf: []
     };
     const SUPP = { ar: [4, -0.18], smg: [4, -0.16], pistol: [4, -0.03], sniper: [4, -0.2] };
     const SHELL_MAT = GPh(11740715, 30);
@@ -337,6 +357,7 @@
           m.position.z = -0.38;
           g.userData.pump = m;
         }
+        if (mk === "wing") g.userData.wings = (g.userData.wings || []).concat(m);
         if (mk === "green" || mk === "olive") (g.userData.warhead = g.userData.warhead || []).push(m);
         g.add(m);
       }
@@ -344,8 +365,30 @@
       mz.position.set(0, MUZZLE[id][0], MUZZLE[id][1] + (s && r >= s[0] ? s[1] : 0));
       g.add(mz);
       g.userData.muzzle = mz;
+      if (id === "mf") {
+        const mz2 = new T.Object3D();
+        mz2.position.set(-0.3, MUZZLE.mf[0], MUZZLE.mf[1]);
+        g.add(mz2);
+        g.userData.muzzles = [mz, mz2];
+        g.userData.sparks = [];
+        for (const x of [0, -0.3]) {
+          const h = new T.Sprite(mfAuraMat);
+          h.position.set(x, 0.03, -0.08);
+          h.scale.setScalar(0.55);
+          g.add(h);
+          for (let i = 0; i < 5; i++) {
+            const sp = new T.Sprite(mfSparkMat);
+            sp.scale.setScalar(0.05);
+            sp.userData.o = [x, i / 5 * TAU, 0.13 + 0.04 * (i % 2)];
+            g.add(sp);
+            g.userData.sparks.push(sp);
+          }
+        }
+      }
       return g;
     }
+    const mfAuraMat = new T.SpriteMaterial({ map: glowTex, color: 16763194, transparent: true, opacity: 0.32, depthWrite: false });
+    const mfSparkMat = new T.SpriteMaterial({ map: sparkTex, color: 16756736, transparent: true, depthWrite: false });
     const consGeo = {};
     function makeConsModel(id) {
       const g = new T.Group(), add = (geo, col, x, y, z, rz) => {
@@ -583,6 +626,13 @@
         chk(v, 0.55, 1800, 0.7);
         nz(v, { at: 0.43, type: "bandpass", f: 900, f1: 1600, q: 1.5, dur: 0.1, g: 0.25 });
       },
+      mf: (v, p) => {
+        tn(v, { type: "sawtooth", f: 2600 * p, f1: 220, dur: 0.16, g: 0.16, lp: 6e3 });
+        tn(v, { type: "square", f: 1300 * p, f1: 160, dur: 0.12, g: 0.08, lp: 4e3 });
+        nz(v, { type: "bandpass", f: 5200, q: 4, dur: 0.07, g: 0.45 });
+        tn(v, { at: 0.01, type: "sine", f: 3300 * p, f1: 2600, dur: 0.22, g: 0.07 });
+      },
+      // Mirror Fractal Guns: a crackling zap that sweeps down
       rpg: (v, p) => {
         tn(v, { f: 75 * p, f1: 30, dur: 0.35, g: 1.3 });
         nz(v, { brown: true, type: "lowpass", f: 1e3, f1: 180, dur: 0.6, g: 1.3 });
@@ -798,6 +848,26 @@
         tn(v, { type: "triangle", f: 130, f1: 40, dur: 0.5, g: 0.6 });
         for (let i = 0; i < 9; i++) nz(v, { at: 0.12 + Math.random() * 1.1, type: "bandpass", f: rnd(1500, 4e3), q: 2, dur: 0.03, g: 0.3 });
       },
+      zapB: (v) => {
+        tn(v, { type: "sawtooth", f: rnd(3e3, 4200), f1: 900, dur: 0.08, g: 0.08, lp: 7e3 });
+        nz(v, { type: "bandpass", f: 6e3, q: 5, dur: 0.04, g: 0.3 });
+      },
+      boing: (v, o) => {
+        const k = o && o.small ? 0.4 : 1;
+        tn(v, { type: "sine", f: 180, f1: 520, dur: 0.22, g: 0.5 * k, a: 5e-3 });
+        tn(v, { type: "triangle", f: 90, f1: 260, dur: 0.25, g: 0.35 * k });
+        nz(v, { type: "lowpass", f: 500, dur: 0.06, g: 0.4 * k });
+      },
+      ballOn: (v) => {
+        tn(v, { type: "sine", f: 200, f1: 900, dur: 0.3, g: 0.35, a: 0.01 });
+        nz(v, { type: "bandpass", f: 900, f1: 3e3, dur: 0.3, g: 0.25, a: 0.02 });
+        tn(v, { at: 0.2, type: "triangle", f: 1320, dur: 0.25, g: 0.12 });
+      },
+      ballPop: (v) => {
+        nz(v, { type: "highpass", f: 3e3, dur: 0.08, g: 0.8 });
+        tn(v, { type: "sine", f: 700, f1: 120, dur: 0.25, g: 0.5 });
+        for (let i = 0; i < 6; i++) tn(v, { at: 0.03 + i * 0.025, type: "triangle", f: rnd(2e3, 4e3), dur: 0.06, g: 0.06 });
+      },
       crackle: (v) => {
         for (let i = 0; i < 4; i++) nz(v, { at: Math.random() * 0.15, type: "bandpass", f: rnd(1800, 4500), q: 3, dur: 0.02, g: 0.5 });
         nz(v, { brown: true, type: "lowpass", f: 500, dur: 0.25, g: 0.25, a: 0.05 });
@@ -859,6 +929,10 @@
       }
     };
     const SFX_OPT = {
+      mf: { range: 260 },
+      zapB: { range: 60 },
+      boing: { range: 120 },
+      ballPop: { range: 160 },
       rpg: { range: 420, wet: 0.2 },
       boom: { range: 700, wet: 0.5 },
       crackle: { range: 45, wet: 0.05 },
@@ -876,7 +950,7 @@
       defeat: { wet: 0.3 },
       land: { wet: 0.03 }
     };
-    const SFX_GAP = { crackle: 0.05, clink: 0.03, impact: 0.03, whiz: 0.08, hit: 0.035, head: 0.035, shield: 0.035, step: 0.02 };
+    const SFX_GAP = { zapB: 0.03, crackle: 0.05, clink: 0.03, impact: 0.03, whiz: 0.08, hit: 0.035, head: 0.035, shield: 0.035, step: 0.02 };
     function sfx(kind, pos, o) {
       if (!AC || !bus) return;
       o = o || {};
@@ -1109,6 +1183,8 @@
       pump: { r: [0.015, -0.06, 0.3], l: [-0.03, -0.08, -0.18], g: [-0.04, -0.19, -0.2] },
       pistol: { r: [0.015, -0.05, 0.13], l: [-0.035, -0.08, 0.1], g: [-0.1, -0.13, -0.37], lf: [0.3, -0.3, -0.9], ln: [0.9, 0.4, 0] },
       sniper: { r: [0.015, -0.09, 0.26], l: [-0.03, -0.08, -0.2], g: [-0.04, -0.17, -0.22] },
+      mf: { r: [0.015, -0.05, 0.13], l: [-0.315, -0.05, 0.13], g: [-0.03, -0.13, -0.4], lf: [0.1, -0.1, -0.99], ln: [1, 0, 0.1] },
+      // one gun in each hand
       rpg: { r: [0.015, 0.01, 0.23], l: [-0.035, -0.03, -0.03], g: [-0.02, 0, -0.22], lf: [0.35, -0.25, -0.9], ln: [0.95, 0.2, 0] }
     };
     const SWING_T = 0.42, PICK_HIT = 0.52;
@@ -1724,7 +1800,12 @@
         }
       }
       if (near) {
-        if (e.zgFloat) {
+        if (e.bounceT > 0) {
+          bend("Left", 1.7, -2.3);
+          bend("Right", 1.6, -2.2);
+          rotateBoneWorld(B.Spine1, rightB, 0.35);
+          rotateBoneWorld(B.Neck, rightB, 0.4);
+        } else if (e.zgFloat) {
           const P = A.zgP, Sw = A.zgS * (1 - P), I = (1 - P) * (1 - A.zgS), u = A.zgB, tI = A.zgI;
           const frog = Math.max(0, Math.sin(TAU * (u - 0.5))), snap = Math.max(0, Math.cos(TAU * u * 2.5)) * (u < 0.2 ? 1 : 0);
           for (const [sd, off, sx] of [["Left", 0, -1], ["Right", Math.PI, 1]]) {
@@ -1776,7 +1857,7 @@
         } else rotateBoneWorld(B.Neck, right, pitch * 0.5);
         D(A, "stance", held ? 1 - sp : 0, aS);
         if (A.stance > 0.01) {
-          const st = A.stance * (held && held.id === "pistol" ? 0.5 : 1);
+          const st = A.stance * (held && held.id === "pistol" ? 0.5 : held && held.id === "mf" ? 0.1 : 1);
           rotateBoneWorld(B.Spine1, upB, -0.24 * st);
           rotateBoneWorld(B.Spine2, upB, -0.16 * st);
           rotateBoneWorld(B.Neck, upB, 0.4 * st);
@@ -1805,7 +1886,12 @@
       };
       c.pick.visible = pickaxe && !(e.zgFloat && ((A.zgP || 0) > 0.3 || A.zgS * (1 - A.zgP) > 0.35) && !(e.swingT > 0));
       if (e.isPlayer) syncVest(e);
-      if (e.throwA && near) {
+      if (e.bounceT > 0 && near) {
+        for (const sd of ["Left", "Right"]) {
+          const k = B[sd + "Leg"].getWorldPosition(new V()).addScaledVector(fwdB, 0.12), sh = B[sd + "Arm"].getWorldPosition(new V());
+          solveIK(B[sd + "Arm"], B[sd + "ForeArm"], B[sd + "Hand"], k, sh.clone().addScaledVector(rightB, sd === "Left" ? -0.5 : 0.5).addScaledVector(upB, -0.3));
+        }
+      } else if (e.throwA && near) {
         throwPose(e, c, rightB, fwdB, upB);
       } else if (cons && near) {
         consPose(e, c, cons, useK, rightB, fwdB, upB, dt);
@@ -1878,6 +1964,16 @@
           const lS = B.LeftArm.getWorldPosition(new V());
           solveIK(B.LeftArm, B.LeftForeArm, B.LeftHand, natL.clone().lerp(c.pick.localToWorld(new V(0, 0.15, 0)), w2), lS.clone().addScaledVector(right, -0.6).add(new V(0, -0.5, 0)));
         } else if (e.zgFloat) zgArms(["Left"]);
+      }
+      if (c.held && c.held.userData.sparks) {
+        const t = matchTime;
+        for (const sp2 of c.held.userData.sparks) {
+          const [x, a2, r] = sp2.userData.o;
+          sp2.position.set(x + Math.cos(a2 + t * 3) * r * 0.6, 0.03 + Math.sin(a2 * 2 + t * 4) * 0.06, -0.08 + Math.sin(a2 + t * 3) * r);
+          sp2.scale.setScalar(0.04 + 0.03 * Math.abs(Math.sin(t * 6 + a2 * 3)));
+          sp2.material.rotation = t * 2;
+        }
+        for (const w of c.held.userData.wings) w.scale.y = 1 + 0.06 * Math.sin(matchTime * 5);
       }
       if (c.held && c.held.userData.warhead) {
         const k = e.isPlayer ? clamp(e.fireCd / 0.45, 0, 1) : 0;
@@ -1956,10 +2052,10 @@
     }
     function muzzlePos(e, out) {
       const c = e.ch;
-      if (c.held) return c.held.userData.muzzle.getWorldPosition(out);
+      if (c.held) return (c.held.userData.muzzles ? c.held.userData.muzzles[e.anim.mfSide || 0] : c.held.userData.muzzle).getWorldPosition(out);
       return out.set(e.pos.x, e.pos.y + 1.5, e.pos.z);
     }
-    const KICK = { ar: 0.55, smg: 0.35, pump: 1, pistol: 0.6, sniper: 1, rpg: 1.3 };
+    const KICK = { ar: 0.55, smg: 0.35, pump: 1, pistol: 0.6, sniper: 1, rpg: 1.3, mf: 0.3 };
     function fireFx(e, w, id) {
       const A = e.anim;
       A.recoil = Math.min(1.2, A.recoil + KICK[id]);
@@ -1969,6 +2065,10 @@
       if (id === "pump") A.pumpT = -0.15;
       if (id === "rpg") {
         rpgBackblast(e);
+        return;
+      }
+      if (id === "mf" && e.ch.held) {
+        e.ch.held.userData.muzzles[A.mfSide || 0].add(e.ch.flash);
         return;
       }
       if (!player || e.pos.distanceTo(player.pos) > 45 || !e.ch.held) return;
@@ -2143,7 +2243,10 @@
     }
     function hurt(t, amt, src, info) {
       if (!t.alive) return;
-      info = info || {};
+      if (t.bounceT > 0) {
+        if (src === player || t === player) sfx("boing", t.pos.clone(), { small: true });
+        return;
+      }
       amt = Math.max(1, Math.round(amt));
       let left = amt, sh = 0;
       if (t.shield > 0) {
@@ -2247,6 +2350,20 @@
       const w = WEAP[it.id];
       if (p.reloading || p.fireCd > 0) return;
       p.fireCd = w.rate;
+      if (w.beam) {
+        p.anim.mfSide = (p.anim.mfSide || 0) ^ 1;
+        let spread2 = w.spread + w.bloom * p.bloom;
+        if (ads) spread2 *= 0.5;
+        p.bloom = Math.min(1, p.bloom + 0.12);
+        camera.getWorldDirection(tv1);
+        muzzlePos(p, tv2);
+        const o = tv2.clone(), at = aimPoint(p, tv1, w.range);
+        fireBeam(p, o, jitter(at.sub(o).normalize(), spread2, new V()), w);
+        p.pitch = Math.min(1.25, p.pitch + w.recoil * rnd(0.6, 1));
+        fireFx(p, w, it.id);
+        sfx("mf");
+        return;
+      }
       if (w.proj) {
         camera.getWorldDirection(tv1);
         muzzlePos(p, tv2);
@@ -2572,6 +2689,13 @@
       st.className = ZG.state === "warn" ? "flip" : ZG.state === "ceil" ? "ceil" : "";
       const it = curItem();
       $("bankN").textContent = p.bank;
+      $("ability").hidden = !p.bouncer;
+      if (p.bouncer) {
+        const cd = Math.ceil(p.bouncer.cd);
+        $("abilityCd").textContent = p.bounceT > 0 ? String(Math.ceil(p.bounceT)) : cd > 0 ? String(cd) : "";
+        $("ability").classList.toggle("ready", !cd && !(p.bounceT > 0));
+        $("ability").classList.toggle("on", p.bounceT > 0);
+      }
       if (it && it.kind === "gun") $("ammo").textContent = "\u221E";
       else if (it && it.kind === "vest") $("ammo").textContent = String(it.count);
       else $("ammo").textContent = "";
@@ -2717,7 +2841,7 @@
       camFwd.set(-Math.sin(p.yaw) * cp, Math.sin(p.pitch), -Math.cos(p.yaw) * cp);
       camRight.set(Math.cos(p.yaw), 0, -Math.sin(p.yaw));
       const pivot = tv1.set(p.pos.x, p.pos.y + 1.7 - 0.5 * p.anim.crouch, p.pos.z);
-      const gun = !!curItem() && curItem().kind === "gun", dist = ads ? 2 : gun ? 3.4 : 4.6, side = ads ? 0.8 : gun ? 1.1 : 0.85;
+      const gun = !!curItem() && curItem().kind === "gun", dist = p.bounceT > 0 ? 7.5 : ads ? 2 : gun ? 3.4 : 4.6, side = ads ? 0.8 : gun ? 1.1 : 0.85;
       pivot.y += ads ? 0.05 : gun ? 0.3 : 0.45;
       const sp = p.anim.sprint || 0;
       pivot.y += Math.abs(Math.sin(matchTime * 8.5)) * 0.07 * sp * (p.onGround ? 1 : 0) - (p.anim.land || 0) * 0.25;
@@ -3450,6 +3574,11 @@
         p.wantJump = false;
         return;
       }
+      if (p.bounceT > 0) {
+        p.wantJump = false;
+        updateBounce(p, dt);
+        return;
+      }
       const flip = ZG.camRoll > Math.PI / 2, cp = Math.cos(p.pitch);
       let mx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0), mz = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0);
       if (flip) mx = -mx;
@@ -3687,7 +3816,7 @@
         f.m.rotation.y += f.spin.y * dt;
         f.m.rotation.z += f.spin.z * dt;
         if (matchTime > FLY_GRACE) for (const e of combatants) {
-          if (!e.alive) continue;
+          if (!e.alive || e.bounceT > 0) continue;
           if (Math.abs(e.pos.x - f.pos.x) < f.h.x + e.radius && Math.abs(e.pos.y + 1 - f.pos.y) < f.h.y + 1 && Math.abs(e.pos.z - f.pos.z) < f.h.z + e.radius) {
             puff(e.pos.clone().add(new V(0, 1, 0)), 16724807);
             sfx("impact", e.pos.clone(), { mat: "stone" });
@@ -3791,7 +3920,7 @@
         pd.glow.position.y = 1.25 * (1 + pd.pulse * 1.5);
       }
       for (const e of combatants) {
-        if (!e.alive) continue;
+        if (!e.alive || e.bounceT > 0) continue;
         e.padT = Math.max(0, (e.padT || 0) - dt);
         e.boostT = Math.max(0, (e.boostT || 0) - dt);
         if (e.padT > 0) continue;
@@ -4438,7 +4567,230 @@
         }
       }
     }
-    const SHOP = [{ id: "rpg", name: "RPG", price: 5, col: "#4fd34f" }, { id: "gren", name: "Grenade Launcher", price: 10, col: "#a7b85a" }, { id: "mf", name: "Mirror Fractal Guns", price: 15, col: "#ffd23f", soon: true }, { id: "bounce", name: "Bouncer Ball", price: 20, col: "#5cc8ff", soon: true }];
+    const BEAM_BOUNCES = 16;
+    const beamGeo = new T.CylinderGeometry(1, 1, 1, 6, 1, true);
+    function wallNormal(q) {
+      const L = ZG.L;
+      return q.x <= -L + 0.02 ? new V(1, 0, 0) : q.x >= L - 0.02 ? new V(-1, 0, 0) : q.z <= -L + 0.02 ? new V(0, 0, 1) : q.z >= L - 0.02 ? new V(0, 0, -1) : q.y <= 0.02 ? new V(0, 1, 0) : new V(0, -1, 0);
+    }
+    function fireBeam(src, origin, dir, w) {
+      const pts = [origin.clone()], hitSet = /* @__PURE__ */ new Set();
+      let o = origin.clone(), d = dir.clone(), left = 600;
+      for (let b = 0; b <= BEAM_BOUNCES && left > 1; b++) {
+        const far = Math.min(left, 300);
+        ray.set(o, d);
+        ray.near = 0.02;
+        ray.far = far;
+        const hs = ray.intersectObjects(meshesAlong(o, d, far, false), false);
+        let dist = far, n = null;
+        if (hs.length && hs[0].face) {
+          dist = hs[0].distance;
+          n = hs[0].face.normal.clone().transformDirection(hs[0].object.matrixWorld);
+        }
+        const tb = boxRay(o, d, dist);
+        if (tb < dist) {
+          dist = tb;
+          n = wallNormal(o.clone().addScaledVector(d, tb));
+        }
+        ray.near = 0;
+        ray.far = dist;
+        refreshTargets();
+        for (const h of ray.intersectObjects(charMeshes, false)) {
+          const ent = h.object.userData.ent;
+          if (!ent || ent === src || hitSet.has(ent)) continue;
+          hitSet.add(ent);
+          const head = h.object.userData.part === "head";
+          hurt(ent, w.dmg * (head ? w.head : 1), src, { head, point: h.point, weapon: w.name, dir: d.clone() });
+        }
+        const end = o.clone().addScaledVector(d, dist);
+        pts.push(end);
+        left -= dist;
+        if (!n) break;
+        if (n.dot(d) > 0) n.negate();
+        d.reflect(n).normalize();
+        o = end.clone().addScaledVector(n, 0.03);
+        if (b < 4) sfx("zapB", end.clone());
+      }
+      beamFx(pts);
+    }
+    function beamFx(pts) {
+      const core = new T.MeshBasicMaterial({ color: 16774856, transparent: true, depthWrite: false }), glow = new T.MeshBasicMaterial({ color: 16758810, transparent: true, opacity: 0.45, depthWrite: false });
+      const g = new T.Group(), q = new T.Quaternion();
+      for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i], b = pts[i + 1], len = a.distanceTo(b);
+        if (len < 0.01) continue;
+        _dv.subVectors(b, a).normalize();
+        q.setFromUnitVectors(UP, _dv);
+        for (const [m, r] of [[core, 0.035], [glow, 0.11]]) {
+          const c = new T.Mesh(beamGeo, m);
+          c.scale.set(r, len, r);
+          c.quaternion.copy(q);
+          c.position.copy(a).add(b).multiplyScalar(0.5);
+          g.add(c);
+        }
+        if (i > 0) {
+          const s = new T.Sprite(mfSparkMat.clone());
+          s.position.copy(a);
+          s.scale.setScalar(1.1);
+          s.material.rotation = Math.random() * TAU;
+          g.add(s);
+        }
+      }
+      world.add(g);
+      effects.push({
+        t: 0,
+        dur: 0.32,
+        obj: g,
+        upd: (e, k) => {
+          core.opacity = 1 - k;
+          glow.opacity = 0.45 * (1 - k);
+          for (const c of g.children) if (c.isSprite) {
+            c.material.opacity = 1 - k;
+            c.scale.setScalar(1.1 * (1 - k * 0.6));
+          } else c.scale.x = c.scale.z = (c.material === core ? 0.035 : 0.11) * (1 - k * 0.7);
+        },
+        done: () => {
+          core.dispose();
+          glow.dispose();
+          for (const c of g.children) if (c.isSprite) c.material.dispose();
+        }
+      });
+    }
+    const BOUNCE_T = 5, BOUNCE_CD = 60, BALL_R = 1.4, BALL_V = 42;
+    const ballMat = new T.MeshPhongMaterial({ color: 6080767, emissive: 670298, transparent: true, opacity: 0.32, shininess: 140, specular: 16777215, depthWrite: false, side: T.DoubleSide });
+    const ballEdge = new T.LineBasicMaterial({ color: 14219007, transparent: true, opacity: 0.8 });
+    const ballGeo = new T.IcosahedronGeometry(1, 2), ballEdgeGeo = new T.EdgesGeometry(new T.IcosahedronGeometry(1.01, 1));
+    function startBounce(p) {
+      if (!p.bouncer || !p.alive || p.bounceT > 0) return;
+      if (p.bouncer.cd > 0) {
+        sfx("deny");
+        return;
+      }
+      cancelActions();
+      p.throwA = null;
+      p.bounceT = BOUNCE_T;
+      p.bounceHit = /* @__PURE__ */ new Set();
+      p.bounceKick = 0;
+      const a = Math.random() * TAU, dir = new V(Math.cos(a), rnd(-0.5, 0.5), Math.sin(a)).normalize();
+      camera.getWorldDirection(tv1);
+      p.vel.copy(dir.lerp(tv1, 0.5).normalize().multiplyScalar(BALL_V));
+      if (!p.ball) {
+        const g = new T.Group();
+        g.add(new T.Mesh(ballGeo, ballMat));
+        g.add(new T.LineSegments(ballEdgeGeo, ballEdge));
+        p.ball = g;
+      }
+      p.ball.scale.setScalar(0.01);
+      world.add(p.ball);
+      sfx("ballOn");
+      camShake = Math.max(camShake, 0.3);
+    }
+    const _bc = new V();
+    function updateBounce(p, dt) {
+      p.bounceT -= dt;
+      p.zgPropel = false;
+      p.onGround = false;
+      p.zgFloat = true;
+      p.zgTx = 0;
+      const c = _bc.set(p.pos.x, p.pos.y + 1, p.pos.z), r = BALL_R;
+      let n = null;
+      c.addScaledVector(p.vel, dt);
+      if (c.x < -ZG.L + r) {
+        c.x = -ZG.L + r;
+        n = new V(1, 0, 0);
+      } else if (c.x > ZG.L - r) {
+        c.x = ZG.L - r;
+        n = new V(-1, 0, 0);
+      }
+      if (c.z < -ZG.L + r) {
+        c.z = -ZG.L + r;
+        n = new V(0, 0, 1);
+      } else if (c.z > ZG.L - r) {
+        c.z = ZG.L - r;
+        n = new V(0, 0, -1);
+      }
+      if (c.y < r) {
+        c.y = r;
+        n = new V(0, 1, 0);
+      } else if (c.y > ZG.H - r) {
+        c.y = ZG.H - r;
+        n = new V(0, -1, 0);
+      }
+      for (const b of ZG.blocks) {
+        const px = b.sx / 2 + r - Math.abs(c.x - b.x), py = b.sy / 2 + r - Math.abs(c.y - b.y), pz = b.sz / 2 + r - Math.abs(c.z - b.z);
+        if (px <= 0 || py <= 0 || pz <= 0) continue;
+        if (px < py && px < pz) {
+          const s = c.x > b.x ? 1 : -1;
+          c.x += s * px;
+          n = new V(s, 0, 0);
+        } else if (py < pz) {
+          const s = c.y > b.y ? 1 : -1;
+          c.y += s * py;
+          n = new V(0, s, 0);
+        } else {
+          const s = c.z > b.z ? 1 : -1;
+          c.z += s * pz;
+          n = new V(0, 0, s);
+        }
+        break;
+      }
+      if (n && p.vel.dot(n) < 0) {
+        p.vel.reflect(n).normalize().add(new V(rnd(-1, 1), rnd(-1, 1), rnd(-1, 1)).multiplyScalar(0.45));
+        if (p.vel.dot(n) < 0.2) p.vel.addScaledVector(n, 0.6);
+        p.vel.normalize().multiplyScalar(BALL_V);
+        p.bounceKick = 1;
+        sfx("boing", c.clone());
+        camShake = Math.max(camShake, 0.25);
+        for (let i = 0; i < 4; i++) puff(c.clone().addScaledVector(n, -r), 12577535);
+      }
+      p.pos.set(c.x, c.y - 1, c.z);
+      for (const e of combatants) {
+        if (e === p || !e.alive || p.bounceHit.has(e)) continue;
+        tv3.set(e.pos.x, e.pos.y + 1, e.pos.z).sub(c);
+        const d = tv3.length();
+        if (d > r + 0.7) continue;
+        p.bounceHit.add(e);
+        e.vel.addScaledVector(tv3.normalize(), 30);
+        hurt(e, 30, p, { weapon: "Bouncer Ball", dir: tv3.clone(), point: e.pos.clone().add(new V(0, 1, 0)) });
+        sfx("slam", c.clone(), { v: 0.6 });
+      }
+      const B = p.ball, gin = Math.min(1, (BOUNCE_T - p.bounceT) / 0.2);
+      p.bounceKick = Math.max(0, p.bounceKick - dt * 5);
+      B.position.copy(c);
+      B.scale.setScalar(r * gin * (1 + 0.12 * p.bounceKick));
+      B.children[0].material.opacity = 0.32;
+      _dv.crossVectors(UP, p.vel);
+      if (_dv.lengthSq() > 1e-4) {
+        B.rotateOnWorldAxis(_dv.normalize(), BALL_V * dt / r);
+      }
+      if (p.bounceT <= 0) endBounce(p);
+    }
+    function endBounce(p) {
+      p.bounceT = 0;
+      p.bouncer.cd = BOUNCE_CD;
+      p.vel.multiplyScalar(0.15);
+      if (p.ball) world.remove(p.ball);
+      const c = new V(p.pos.x, p.pos.y + 1, p.pos.z);
+      for (let i = 0; i < 26; i++) {
+        const m = new T.Mesh(shardGeo, shardMats[3].clone());
+        m.position.copy(c).add(new V(rnd(-1, 1), rnd(-1, 1), rnd(-1, 1)).normalize().multiplyScalar(BALL_R));
+        world.add(m);
+        const v = m.position.clone().sub(c).normalize().multiplyScalar(rnd(5, 10));
+        effects.push({ t: 0, dur: rnd(0.5, 0.9), obj: m, upd: (e, k, dt) => {
+          m.position.addScaledVector(v, dt);
+          m.rotation.x += dt * 9;
+          m.scale.setScalar(1 - k);
+          m.material.opacity = 1 - k;
+        }, done: () => m.material.dispose() });
+      }
+      sfx("ballPop", c.clone());
+      camShake = Math.max(camShake, 0.35);
+    }
+    function updateBouncerCd(dt) {
+      const p = player;
+      if (p && p.bouncer && p.bouncer.cd > 0 && !(p.bounceT > 0)) p.bouncer.cd = Math.max(0, p.bouncer.cd - dt);
+    }
+    const SHOP = [{ id: "rpg", name: "RPG", price: 5, col: "#4fd34f" }, { id: "gren", name: "Grenade Launcher", price: 10, col: "#a7b85a" }, { id: "mf", name: "Mirror Fractal Guns", price: 15, col: "#ffd23f" }, { id: "bounce", name: "Bouncer Ball", price: 20, col: "#5cc8ff" }];
     let shopOpen = false;
     function vendFrontSVG() {
       const rows = SHOP.map((it, i) => {
@@ -4510,10 +4862,14 @@
       const p = player;
       $("shopBank").textContent = String(p.bank);
       $("shopList").innerHTML = SHOP.map((it, i) => {
-        const owned = it.id === "rpg" ? p.slots.some((s) => s && s.id === "rpg") : it.id === "gren" ? p.slots.some((s) => s && s.kind === "vest") : false;
-        const st = it.soon ? "Soon" : owned ? "Owned" : it.price + " elims", cls = it.soon ? "soon" : owned ? "owned" : p.bank < it.price ? "poor" : "";
+        const owned = ownsItem(it.id);
+        const st = owned ? "Owned" : it.price + " elims", cls = owned ? "owned" : p.bank < it.price ? "poor" : "";
         return `<button class="shopitem ${cls}" data-i="${i}" style="--ic:${it.col}"><span class="k">${i + 1}</span><span class="ic">${ICONS[it.id]}</span><span class="nm">${it.name}</span><span class="pr">${st}</span></button>`;
       }).join("");
+    }
+    function ownsItem(id) {
+      const p = player;
+      return id === "bounce" ? !!p.bouncer : id === "gren" ? p.slots.some((s) => s && s.kind === "vest") : p.slots.some((s) => s && s.id === id);
     }
     function openShop() {
       shopOpen = true;
@@ -4528,18 +4884,25 @@
     }
     function buyItem(i) {
       const p = player, it = SHOP[i];
-      if (!it || it.soon) {
+      if (!it) {
         sfx("deny");
         return;
       }
-      const owned = it.id === "rpg" ? p.slots.some((s) => s && s.id === "rpg") : p.slots.some((s) => s && s.kind === "vest");
-      if (owned) {
+      if (ownsItem(it.id)) {
         sfx("deny");
         return;
       }
       if (p.bank < it.price) {
         sfx("deny");
         toast("Need " + it.price + " elims");
+        return;
+      }
+      if (it.id === "bounce") {
+        p.bank -= it.price;
+        p.bouncer = { cd: 0 };
+        sfx("buy");
+        renderShop();
+        hudTick();
         return;
       }
       let slot = -1;
@@ -4553,7 +4916,7 @@
         return;
       }
       p.bank -= it.price;
-      p.slots[slot] = it.id === "rpg" ? { kind: "gun", id: "rpg", r: 4, ammo: 1 } : { kind: "vest", id: "gren", count: GREN_N, regen: 0 };
+      p.slots[slot] = it.id === "rpg" ? { kind: "gun", id: "rpg", r: 4, ammo: 1 } : it.id === "mf" ? { kind: "gun", id: "mf", r: 4, ammo: 1 } : { kind: "vest", id: "gren", count: GREN_N, regen: 0 };
       sfx("buy");
       selectSlot(slot);
       renderShop();
@@ -4593,6 +4956,9 @@
         sel: 1,
         bank: 0,
         throwA: null,
+        bouncer: null,
+        bounceT: 0,
+        ball: null,
         ammo: { light: 150, medium: 240, heavy: 12, shells: 48 },
         fireCd: 0,
         bloom: 0,
@@ -4807,6 +5173,7 @@
         return;
       }
       if (c === "KeyE" && p.alive && nearMachine()) openShop();
+      else if (c === "KeyQ") startBounce(p);
       else if (c.startsWith("Digit")) {
         const n = +c.slice(5);
         if (n >= 1 && n <= NSLOT && (n <= 6 || p.slots[n - 1])) selectSlot(n - 1);
@@ -4859,6 +5226,7 @@
       updateActions(dt);
       updateProjs(dt);
       updateFires(dt);
+      updateBouncerCd(dt);
       for (const b of bots) updateBotZG(b, dt);
       for (const e of combatants) animateGLB(e, dt);
       updateEffects(dt);

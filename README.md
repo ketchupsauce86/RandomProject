@@ -1,6 +1,6 @@
 # Inverted
 
-A 3D zero-gravity shooter that runs in the browser. You and 50 bots float inside a huge white box full of floating blocks. Swim through the air, propel yourself into fights, and when the lights flash red, gravity flips and everyone slams onto the ceiling to fight upside down. Red flying blocks zoom around the box and knock out anyone they touch, blue booster pads launch you across it, and every gun has infinite ammo. Last one floating wins, and every elimination heals you and adds shield. Vending machines on the floor and ceiling sell an RPG (5 elims) and a Grenade Launcher vest (10 elims) for the elims you have earned.
+A 3D zero-gravity shooter that runs in the browser. You and 50 bots float inside a huge white box full of floating blocks. Swim through the air, propel yourself into fights, and when the lights flash red, gravity flips and everyone slams onto the ceiling to fight upside down. Red flying blocks zoom around the box and knock out anyone they touch, blue booster pads launch you across it, and every gun has infinite ammo. Last one floating wins, and every elimination heals you and adds shield. Vending machines on the floor and ceiling sell an RPG (5 elims), a Grenade Launcher vest (10 elims), the Mirror Fractal Guns (15 elims, two golden pistols that shoot bouncing light) and the Bouncer Ball armour (20 elims, Q to bounce around the box for 5 seconds, 1 minute to recharge) for the elims you have earned.
 
 **Play online:** https://ketchupsauce86.github.io/RandomProject/ (updates automatically about a minute after `main` changes; hard refresh with Ctrl+Shift+R to get the newest version).
 
@@ -18,6 +18,7 @@ Needs a keyboard and mouse. The **Armory** button shows every gun design, and it
 | Right click | Aim down sights |
 | 1–9 / wheel | Switch slots |
 | E | Use a vending machine |
+| Q | Bouncer Ball |
 
 ## Code
 
