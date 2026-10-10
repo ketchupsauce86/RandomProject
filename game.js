@@ -4952,11 +4952,11 @@
       ZG.flash = 0;
       player = makeCombatant("You", true);
       Object.assign(player, {
-        slots: [null, { kind: "gun", id: "ar", r: 3, ammo: WEAP.ar.mag }, { kind: "gun", id: "pump", r: 3, ammo: WEAP.pump.mag }, { kind: "gun", id: "smg", r: 2, ammo: WEAP.smg.mag }, { kind: "cons", id: "big", count: 2 }, { kind: "cons", id: "mini", count: 3 }, null, null, null],
+        slots: [null, { kind: "gun", id: "ar", r: 3, ammo: WEAP.ar.mag }, { kind: "gun", id: "pump", r: 3, ammo: WEAP.pump.mag }, { kind: "gun", id: "smg", r: 2, ammo: WEAP.smg.mag }, { kind: "cons", id: "big", count: 2 }, { kind: "cons", id: "mini", count: 3 }, { kind: "gun", id: "mf", r: 4, ammo: 1 }, null, null],
         sel: 1,
         bank: 0,
         throwA: null,
-        bouncer: null,
+        bouncer: { cd: 0 },
         bounceT: 0,
         ball: null,
         ammo: { light: 150, medium: 240, heavy: 12, shells: 48 },
