@@ -29,6 +29,8 @@ const WEAP={
   pistol:{name:'Pistol',short:'PISTOL',dmg:24,rate:0.2,mag:16,reload:1.4,spread:0.015,bloom:0.03,auto:false,ammo:'light',range:180,pellets:1,head:1.8,recoil:0.012,pref:18},
   sniper:{name:'Bolt Sniper',short:'SNIPER',dmg:105,rate:1.6,mag:1,reload:2.4,spread:0.0015,bloom:0,auto:false,ammo:'heavy',range:700,pellets:1,head:2.5,recoil:0.05,zoom:true,pref:55},
   // bought at the vending machines: fires a rocket (see the RPG section) instead of a bullet
+  // two golden winged pistols, fired in turn; each shot is a beam of light that bounces off every surface
+  mf:{name:'Mirror Fractal Guns',short:'MF GUNS',dmg:16,rate:0.12,mag:1,reload:0,spread:0.004,bloom:0.012,auto:true,ammo:'light',range:400,pellets:1,head:1.5,recoil:0.004,pref:20,beam:true,col:'#ffd23f'},
   rpg:{name:'RPG',short:'RPG',dmg:140,rate:1.4,mag:1,reload:0,spread:0,bloom:0,auto:false,ammo:'heavy',range:400,pellets:1,head:1,recoil:0.07,pref:30,proj:'rocket',col:'#4fd34f'},
 };
 const CONS={
@@ -78,7 +80,8 @@ const BX=(w,h,d)=>new T.BoxGeometry(w,h,d);
 const GPh=(c,s,sp?)=>new T.MeshPhongMaterial({color:c,shininess:s,specular:sp==null?0x2a2a2a:sp});
 const GUN_MAT={poly:GPh(0x1e1f22,12,0x161616),steel:GPh(0x2f3237,60,0x4a4a4a),dark:GPh(0x151618,35),bare:GPh(0x8a8f96,90,0x888888),wood:GPh(0x6e4325,18),
   glass:new T.MeshPhongMaterial({color:0x10202e,specular:0xffffff,shininess:140,emissive:0x081420}),dot:new T.MeshBasicMaterial({color:0xff2a2a}),
-  green:GPh(0x4f9e2c,45,0x3a5a3a),olive:GPh(0x2c5a1c,30)}; // green and olive: the RPG's warhead
+  green:GPh(0x4f9e2c,45,0x3a5a3a),olive:GPh(0x2c5a1c,30), // green and olive: the RPG's warhead
+  gold:GPh(0xd9a72e,120,0xfff2b0),wing:new T.MeshPhongMaterial({color:0xffd75a,emissive:0x8a5a00,shininess:140,specular:0xffffff,side:T.DoubleSide})}; // the Mirror Fractal Guns
 // rarity shows as the cerakote finish on the furniture: black, olive drab, slate blue, plum, gold
 const FURN=[GPh(0x26272a,14),GPh(0x4b5337,14),GPh(0x3b4e66,24),GPh(0x4f3b66,24),GPh(0xc9a23a,90,0xfff0b0)];
 function prof(pts,w,bev?){
@@ -130,6 +133,11 @@ const GUN_PARTS={
     [gtube(0.02,0.02,0.3,14),'dark',0,0.12,0],[gtube(0.02,0.034,0.08,16),'dark',0,0.12,-0.19],[gtube(0.034,0.034,0.06,16),'dark',0,0.12,-0.26],[gtube(0.031,0.031,0.004,16),'glass',0,0.12,-0.291],
     [gtube(0.03,0.02,0.06,14),'dark',0,0.12,0.18],[new T.CylinderGeometry(0.014,0.014,0.03,10),'dark',0,0.15,0],[new T.CylinderGeometry(0.012,0.012,0.03,10).rotateZ(Math.PI/2),'dark',0.03,0.12,0],
     [gtube(0.024,0.024,0.02,14),'steel',0,0.12,-0.08],[gtube(0.024,0.024,0.02,14),'steel',0,0.12,0.08],[BX(0.02,0.07,0.02),'steel',0,0.075,-0.08],[BX(0.02,0.07,0.02),'steel',0,0.075,0.08]],
+  mf:()=>{ // two gold pistols side by side (the left one 0.3 m over), each with a golden wing on both sides of the slide
+    const W=[[-0.2,0.07],[-0.05,0.075],[0.03,0.1,0.1,0.17],[0.16,0.26],[0.11,0.215],[0.13,0.27],[0.07,0.205],[0.08,0.25],[0.01,0.18],[0.01,0.215],[-0.06,0.15],[-0.07,0.17],[-0.13,0.11]];
+    const one=x=>[...GUN_PARTS.pistol().map(q=>{ const r=[...q]; r[1]=r[1]==='steel'?'gold':r[1]==='poly'?'dark':r[1]; r[2]+=x; return r; }),
+      [prof(W,0.006,0.002),'wing',x+0.034,0,0],[prof(W,0.006,0.002),'wing',x-0.034,0,0]];
+    return [...one(0),...one(-0.3)]; },
   rpg:()=>[ // RPG-7 style: black tube with a flared blast cone, two grips and a side optic; the green warhead sits in the muzzle
     [gtube(0.036,0.036,0.92,16),'poly',0,0.06,0.04],[gtube(0.075,0.042,0.2,18),'poly',0,0.06,0.6],[gtube(0.078,0.078,0.014,18),'dark',0,0.06,0.7],
     [gtube(0.048,0.048,0.26,14),'dark',0,0.06,-0.02],...Array.from({length:5},(_,i)=>[gtube(0.05,0.05,0.008,14),'poly',0,0.06,-0.13+i*0.055]),
@@ -142,7 +150,7 @@ const GUN_PARTS={
     [gtube(0.052,0.052,0.014,18),'olive',0,0.06,-0.455],[gtube(0.03,0.05,0.04,14),'olive',0,0.06,-0.415]],
 };
 // muzzle [y, z] per gun
-const MUZZLE={ar:[0.014,-0.67],smg:[0.022,-0.47],pump:[0.025,-0.74],pistol:[0.045,-0.26],sniper:[0.02,-1.06],rpg:[0.06,-0.42]};
+const MUZZLE={ar:[0.014,-0.67],smg:[0.022,-0.47],pump:[0.025,-0.74],pistol:[0.045,-0.26],sniper:[0.02,-1.06],rpg:[0.06,-0.42],mf:[0.045,-0.26]};
 // attachments unlocked at higher rarities: [minimum rarity, ...parts]; SUPP moves the muzzle out past a suppressor
 const EXTRA={
   ar:[[2,...REDDOT(0.1,0.02)],[3,[prof([[-0.34,-0.04],[-0.38,-0.04],[-0.375,-0.13],[-0.345,-0.13]],0.03),'poly',0,0,0]],[4,[gtube(0.026,0.026,0.18,16),'dark',0,0.014,-0.76]]],
@@ -150,7 +158,7 @@ const EXTRA={
   pump:[[2,[BX(0.006,0.045,0.1),'dark',0.034,-0.005,0.08],...[0.05,0.07,0.09,0.11].map(z=>[new T.CylinderGeometry(0.009,0.009,0.04,8),'shell',0.04,-0.005,z])],[3,[BX(0.03,0.03,0.02),'dark',0,0.065,0.16]],[4,...REDDOT(0.075,0.05)]],
   pistol:[[2,[BX(0.035,0.03,0.06),'dark',0,-0.03,-0.19],[gtube(0.012,0.012,0.004,10),'glass',0,-0.03,-0.221]],[3,...REDDOT(0.095,0.0)],[4,[BX(0.05,0.07,0.035),'steel',0,0.04,-0.27]]],
   sniper:[[2,[BX(0.012,0.012,0.2),'steel',0.02,-0.08,-0.38],[BX(0.012,0.012,0.2),'steel',-0.02,-0.08,-0.38]],[4,[gtube(0.032,0.032,0.2,16),'dark',0,0.02,-1.16]]],
-  rpg:[],
+  rpg:[], mf:[],
 };
 const SUPP={ar:[4,-0.18],smg:[4,-0.16],pistol:[4,-0.03],sniper:[4,-0.2]};
 const SHELL_MAT=GPh(0xb3262b,30);
@@ -171,10 +179,16 @@ function makeGunModel(id,r){
     gunGeoCache[key]=Object.keys(by).map(mk=>[mk,mergeParts(by[mk])]); }
   const g=new T.Group();
   for(const [mk,geo] of gunGeoCache[key]){ const m=new T.Mesh(geo,partMat(mk,r)); m.castShadow=true;
-    if(mk==='pump'){ m.position.z=-0.38; g.userData.pump=m; } if(mk==='green'||mk==='olive') (g.userData.warhead=g.userData.warhead||[]).push(m); g.add(m); }
+    if(mk==='pump'){ m.position.z=-0.38; g.userData.pump=m; } if(mk==='wing') g.userData.wings=(g.userData.wings||[]).concat(m); if(mk==='green'||mk==='olive') (g.userData.warhead=g.userData.warhead||[]).push(m); g.add(m); }
   const s=SUPP[id], mz=new T.Object3D(); mz.position.set(0,MUZZLE[id][0],MUZZLE[id][1]+(s&&r>=s[0]?s[1]:0)); g.add(mz); g.userData.muzzle=mz;
+  if(id==='mf'){ // a second muzzle on the left gun, and a golden aura with sparkles round both
+    const mz2=new T.Object3D(); mz2.position.set(-0.3,MUZZLE.mf[0],MUZZLE.mf[1]); g.add(mz2); g.userData.muzzles=[mz,mz2]; g.userData.sparks=[];
+    for(const x of [0,-0.3]){ const h=new T.Sprite(mfAuraMat); h.position.set(x,0.03,-0.08); h.scale.setScalar(0.55); g.add(h);
+      for(let i=0;i<5;i++){ const sp=new T.Sprite(mfSparkMat); sp.scale.setScalar(0.05); sp.userData.o=[x,i/5*TAU,0.13+0.04*(i%2)]; g.add(sp); g.userData.sparks.push(sp); } } }
   return g;
 }
+const mfAuraMat=new T.SpriteMaterial({map:glowTex,color:0xffc93a,transparent:true,opacity:0.32,depthWrite:false});
+const mfSparkMat=new T.SpriteMaterial({map:sparkTex,color:0xffb000,transparent:true,depthWrite:false});
 const consGeo:Record<string,any>={};
 function makeConsModel(id){
   const g=new T.Group(), add=(geo,col,x?,y?,z?,rz?)=>{ const m=new T.Mesh(geo,typeof col==='number'?colorMat(col):col); m.position.set(x||0,y||0,z||0); if(rz) m.rotation.z=rz; m.castShadow=true; g.add(m); return m; };
@@ -274,6 +288,8 @@ const GUN_SFX={
   pistol:(v,p)=>{ nz(v,{type:'highpass',f:3000,dur:0.035,g:0.9}); nz(v,{type:'bandpass',f:1250*p,q:1,dur:0.1,g:1}); tn(v,{type:'triangle',f:1850*p,f1:1700,dur:0.09,g:0.12}); tn(v,{f:170*p,f1:60,dur:0.08,g:0.7}); nz(v,{brown:true,type:'lowpass',f:1500,f1:300,dur:0.3,g:0.3,a:0.006}); },
   pump:(v,p)=>{ nz(v,{type:'highpass',f:2000,dur:0.05,g:1}); nz(v,{brown:true,type:'lowpass',f:1100*p,f1:200,dur:0.32,g:1.6}); tn(v,{f:95*p,f1:34,dur:0.35,g:1.3}); tn(v,{f:46,f1:28,dur:0.5,g:0.9}); /* pump: a deep sub boom */ nz(v,{brown:true,type:'lowpass',f:600,f1:120,dur:0.8,g:0.5,a:0.02});
     chk(v,0.42,2200,0.6); chk(v,0.55,1800,0.7); nz(v,{at:0.43,type:'bandpass',f:900,f1:1600,q:1.5,dur:0.1,g:0.25}); },
+  mf:(v,p)=>{ tn(v,{type:'sawtooth',f:2600*p,f1:220,dur:0.16,g:0.16,lp:6000}); tn(v,{type:'square',f:1300*p,f1:160,dur:0.12,g:0.08,lp:4000}); nz(v,{type:'bandpass',f:5200,q:4,dur:0.07,g:0.45});
+    tn(v,{at:0.01,type:'sine',f:3300*p,f1:2600,dur:0.22,g:0.07}); }, // Mirror Fractal Guns: a crackling zap that sweeps down
   rpg:(v,p)=>{ tn(v,{f:75*p,f1:30,dur:0.35,g:1.3}); nz(v,{brown:true,type:'lowpass',f:1000,f1:180,dur:0.6,g:1.3}); nz(v,{type:'highpass',f:2500,dur:0.05,g:0.9});
     nz(v,{at:0.03,type:'bandpass',f:500,f1:2200,q:0.8,dur:0.9,g:0.55,a:0.04}); nz(v,{at:0.05,type:'highpass',f:3500,dur:1.1,g:0.25,a:0.1}); }, // RPG: a thump and a long rocket hiss
   sniper:(v,p)=>{ nz(v,{type:'highpass',f:4200,dur:0.06,g:1.3}); nz(v,{type:'bandpass',f:700*p,q:0.8,dur:0.25,g:1.4}); tn(v,{f:80*p,f1:28,dur:0.6,g:1.4}); nz(v,{brown:true,type:'lowpass',f:500,f1:90,dur:1.5,g:0.7,a:0.03});
@@ -329,6 +345,10 @@ const SFX={
   shatter:v=>{ for(let i=0;i<7;i++) tn(v,{at:i*0.035+Math.random()*0.02,type:'triangle',f:rnd(1800,4200),f1:rnd(900,2000),dur:0.12,g:0.07}); nz(v,{type:'highpass',f:5000,dur:0.35,g:0.18,a:0.01}); },
   boom:v=>{ nz(v,{type:'highpass',f:2400,dur:0.07,g:1.1}); tn(v,{f:62,f1:22,dur:1.7,g:1.7,a:0.004}); nz(v,{brown:true,type:'lowpass',f:1500,f1:110,dur:2.3,g:2,a:0.006}); tn(v,{type:'triangle',f:130,f1:40,dur:0.5,g:0.6});
     for(let i=0;i<9;i++) nz(v,{at:0.12+Math.random()*1.1,type:'bandpass',f:rnd(1500,4000),q:2,dur:0.03,g:0.3}); },
+  zapB:v=>{ tn(v,{type:'sawtooth',f:rnd(3000,4200),f1:900,dur:0.08,g:0.08,lp:7000}); nz(v,{type:'bandpass',f:6000,q:5,dur:0.04,g:0.3}); },
+  boing:(v,o)=>{ const k=o&&o.small?0.4:1; tn(v,{type:'sine',f:180,f1:520,dur:0.22,g:0.5*k,a:0.005}); tn(v,{type:'triangle',f:90,f1:260,dur:0.25,g:0.35*k}); nz(v,{type:'lowpass',f:500,dur:0.06,g:0.4*k}); },
+  ballOn:v=>{ tn(v,{type:'sine',f:200,f1:900,dur:0.3,g:0.35,a:0.01}); nz(v,{type:'bandpass',f:900,f1:3000,dur:0.3,g:0.25,a:0.02}); tn(v,{at:0.2,type:'triangle',f:1320,dur:0.25,g:0.12}); },
+  ballPop:v=>{ nz(v,{type:'highpass',f:3000,dur:0.08,g:0.8}); tn(v,{type:'sine',f:700,f1:120,dur:0.25,g:0.5}); for(let i=0;i<6;i++) tn(v,{at:0.03+i*0.025,type:'triangle',f:rnd(2000,4000),dur:0.06,g:0.06}); },
   crackle:v=>{ for(let i=0;i<4;i++) nz(v,{at:Math.random()*0.15,type:'bandpass',f:rnd(1800,4500),q:3,dur:0.02,g:0.5}); nz(v,{brown:true,type:'lowpass',f:500,dur:0.25,g:0.25,a:0.05}); },
   clink:v=>{ tn(v,{type:'triangle',f:rnd(2200,2700),dur:0.07,g:0.25}); nz(v,{type:'bandpass',f:3200,q:3,dur:0.03,g:0.5}); },
   unhook:v=>{ chk(v,0,1600,0.6); nz(v,{at:0.02,type:'bandpass',f:800,f1:1400,q:1.5,dur:0.07,g:0.35}); },
@@ -344,9 +364,9 @@ const SFX={
   ui:v=>{ tn(v,{type:'triangle',f:1200,f1:1500,dur:0.05,g:0.18}); glt(v,0.02,1600,2,0.035,0.02); },
 };
 // range is how far away a sound carries; wet is how much reverb it gets
-const SFX_OPT={rpg:{range:420,wet:0.2},boom:{range:700,wet:0.5},crackle:{range:45,wet:0.05},clink:{range:50},smg:{range:260},pistol:{range:280},pump:{range:300,wet:0.15},sniper:{range:600,wet:0.25},
+const SFX_OPT={mf:{range:260},zapB:{range:60},boing:{range:120},ballPop:{range:160},rpg:{range:420,wet:0.2},boom:{range:700,wet:0.5},crackle:{range:45,wet:0.05},clink:{range:50},smg:{range:260},pistol:{range:280},pump:{range:300,wet:0.15},sniper:{range:600,wet:0.25},
   step:{range:40,wet:0.03},impact:{range:70},whiz:{range:20,wet:0},chop:{range:80},stormWarn:{wet:0.5},victory:{wet:0.3},defeat:{wet:0.3},land:{wet:0.03}};
-const SFX_GAP={crackle:0.05,clink:0.03,impact:0.03,whiz:0.08,hit:0.035,head:0.035,shield:0.035,step:0.02};
+const SFX_GAP={zapB:0.03,crackle:0.05,clink:0.03,impact:0.03,whiz:0.08,hit:0.035,head:0.035,shield:0.035,step:0.02};
 function sfx(kind,pos?,o?){
   if(!AC||!bus) return; o=o||{};
   const gap=SFX_GAP[kind], now=AC.currentTime; if(gap&&kind!=='step'||gap&&!pos){ if(lastSfx[kind]!=null&&now-lastSfx[kind]<gap) return; lastSfx[kind]=now; }
@@ -460,6 +480,7 @@ const GUN_S=0.95;
 const HOLD={ar:{r:[0.015,-0.09,0.21],l:[-0.03,-0.065,-0.17],g:[-0.04,-0.17,-0.24]},smg:{r:[0.015,-0.08,0.2],l:[-0.03,-0.05,-0.1],g:[-0.04,-0.17,-0.26]},
   pump:{r:[0.015,-0.06,0.3],l:[-0.03,-0.08,-0.18],g:[-0.04,-0.19,-0.2]},pistol:{r:[0.015,-0.05,0.13],l:[-0.035,-0.08,0.1],g:[-0.1,-0.13,-0.37],lf:[0.3,-0.3,-0.9],ln:[0.9,0.4,0]},
   sniper:{r:[0.015,-0.09,0.26],l:[-0.03,-0.08,-0.2],g:[-0.04,-0.17,-0.22]},
+  mf:{r:[0.015,-0.05,0.13],l:[-0.315,-0.05,0.13],g:[-0.03,-0.13,-0.4],lf:[0.1,-0.1,-0.99],ln:[1,0,0.1]}, // one gun in each hand
   rpg:{r:[0.015,0.01,0.23],l:[-0.035,-0.03,-0.03],g:[-0.02,0,-0.22],lf:[0.35,-0.25,-0.9],ln:[0.95,0.2,0]}}; // the RPG rests on the shoulder
 // The pickaxe swing: both hands on the pickaxe, quick wind-up over one shoulder, a diagonal chop that
 // lands the head on the crosshair, a follow-through across the body, and alternating forehand/backhand combos.
@@ -740,7 +761,8 @@ function animateGLB(e,dt){
   g.updateMatrixWorld(true);
   if(feet){ for(const [i,sd] of [[0,'Left'],[1,'Right']]){ const hip=B[sd+'UpLeg'].getWorldPosition(new V()); const pole=hip.clone().addScaledVector(fwdV,1.2).add(new V(0,-0.4,0)); solveIK(B[sd+'UpLeg'],B[sd+'Leg'],B[sd+'Foot'],feet[i],pole); } }
   if(near){
-    if(e.zgFloat){
+    if(e.bounceT>0){ bend('Left',1.7,-2.3); bend('Right',1.6,-2.2); rotateBoneWorld(B.Spine1,rightB,0.35); rotateBoneWorld(B.Neck,rightB,0.4); }
+    else if(e.zgFloat){
       // three ways to move in zero-g, blended: drifting (a lazy bicycle with the knees falling apart), swimming
       // (a big frog kick timed to the arm stroke) and propelling (legs pedal like a cartoon character running on air)
       const P=A.zgP, Sw=A.zgS*(1-P), I=(1-P)*(1-A.zgS), u=A.zgB, tI=A.zgI;
@@ -773,7 +795,7 @@ function animateGLB(e,dt){
   if(near){ const lean=-0.28*cr-(held?0.06:0)*Math.min(1,s/4)-0.34*A.sprint; rotateBoneWorld(B.Spine,right,lean); if(A.sprint>0.01) rotateBoneWorld(B.Neck,right,0.2*A.sprint); // lean into a sprint, eyes up
     if(held){ for(const n of ['Spine','Spine1','Spine2']) rotateBoneWorld(B[n],right,pE/3); } else rotateBoneWorld(B.Neck,right,pitch*0.5);
     // rifle stance: the chest turns a little toward the gun side so the left hand can reach under the barrel, eyes stay on target
-    D(A,'stance',held?1-sp:0,aS); if(A.stance>0.01){ const st=A.stance*(held&&held.id==='pistol'?0.5:1);
+    D(A,'stance',held?1-sp:0,aS); if(A.stance>0.01){ const st=A.stance*(held&&held.id==='pistol'?0.5:held&&held.id==='mf'?0.1:1);
       rotateBoneWorld(B.Spine1,upB,-0.24*st); rotateBoneWorld(B.Spine2,upB,-0.16*st); rotateBoneWorld(B.Neck,upB,0.4*st); if(B.LeftShoulder) rotateBoneWorld(B.LeftShoulder,upB,-0.25*st); }
     if(A.hit>0.01){ rotateBoneWorld(B.Spine1,right,0.32*A.hit); rotateBoneWorld(B.Neck,right,0.25*A.hit); }
     if(pickaxe&&e.swingT>0){ const P=pickPose(e); rotateBoneWorld(B.Spine1,UP,P.tw); rotateBoneWorld(B.Spine2,UP,P.tw*0.5); rotateBoneWorld(B.Spine1,right,P.ln); } }
@@ -788,7 +810,10 @@ function animateGLB(e,dt){
       rotateBoneWorld(B[sd+'Hand'],fwdB,sx*(0.45*I*Math.sin(tI*2.1+ph)+0.5*Sw*Math.sin(TAU*u))); } };
   c.pick.visible=pickaxe&&!(e.zgFloat&&((A.zgP||0)>0.3||A.zgS*(1-A.zgP)>0.35)&&!(e.swingT>0)); // tucked away to swim with both arms
   if(e.isPlayer) syncVest(e);
-  if(e.throwA&&near){
+  if(e.bounceT>0&&near){ // hugging the knees inside the ball
+    for(const sd of ['Left','Right']){ const k=B[sd+'Leg'].getWorldPosition(new V()).addScaledVector(fwdB,0.12), sh=B[sd+'Arm'].getWorldPosition(new V());
+      solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],k,sh.clone().addScaledVector(rightB,sd==='Left'?-0.5:0.5).addScaledVector(upB,-0.3)); }
+  } else if(e.throwA&&near){
     throwPose(e,c,rightB,fwdB,upB);
   } else if(cons&&near){
     consPose(e,c,cons,useK,rightB,fwdB,upB,dt);
@@ -844,6 +869,8 @@ function animateGLB(e,dt){
       solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,natL.clone().lerp(c.pick.localToWorld(new V(0,0.15,0)),w2),lS.clone().addScaledVector(right,-0.6).add(new V(0,-0.5,0))); }
     else if(e.zgFloat) zgArms(['Left']);
   }
+  if(c.held&&c.held.userData.sparks){ const t=matchTime; for(const sp of c.held.userData.sparks){ const [x,a,r]=sp.userData.o; sp.position.set(x+Math.cos(a+t*3)*r*0.6,0.03+Math.sin(a*2+t*4)*0.06,-0.08+Math.sin(a+t*3)*r); sp.scale.setScalar(0.04+0.03*Math.abs(Math.sin(t*6+a*3))); sp.material.rotation=t*2; }
+    for(const w of c.held.userData.wings) w.scale.y=1+0.06*Math.sin(matchTime*5); }
   if(c.held&&c.held.userData.warhead){ const k=e.isPlayer?clamp(e.fireCd/0.45,0,1):0; for(const m of c.held.userData.warhead){ m.visible=k<0.98; m.position.z=-0.5*k; } } // a new rocket slides into the muzzle
   if(c.held&&c.held.userData.pump){ const k=clamp(A.pumpT/0.45,0,1); c.held.userData.pump.position.z=-0.38+(A.pumpT>0&&A.pumpT<0.45?Math.sin(k*Math.PI)*0.14:0); }
   // --- hitboxes follow the skeleton
@@ -867,12 +894,13 @@ function setHeld(e,it){
   if(c.held){ c.gunMount.remove(c.held); c.held=null; }
   if(it){ const m=makeGunModel(it.id,it.r); c.gunMount.add(m); c.held=m; m.userData.muzzle.add(c.flash); e.anim.draw=0; }
 }
-function muzzlePos(e,out){ const c=e.ch; if(c.held) return c.held.userData.muzzle.getWorldPosition(out); return out.set(e.pos.x,e.pos.y+1.5,e.pos.z); }
-const KICK={ar:0.55,smg:0.35,pump:1,pistol:0.6,sniper:1,rpg:1.3};
+function muzzlePos(e,out){ const c=e.ch; if(c.held) return (c.held.userData.muzzles?c.held.userData.muzzles[e.anim.mfSide||0]:c.held.userData.muzzle).getWorldPosition(out); return out.set(e.pos.x,e.pos.y+1.5,e.pos.z); }
+const KICK={ar:0.55,smg:0.35,pump:1,pistol:0.6,sniper:1,rpg:1.3,mf:0.3};
 function fireFx(e,w,id){
   const A=e.anim; A.recoil=Math.min(1.2,A.recoil+KICK[id]); A.flash=0.05; e.ch.flash.scale.setScalar(rnd(0.6,1.1)*(id==='pump'||id==='sniper'?1.5:1)); e.ch.flash.material.rotation=Math.random()*6;
   if(id==='pump') A.pumpT=-0.15;
   if(id==='rpg'){ rpgBackblast(e); return; }
+  if(id==='mf'&&e.ch.held){ e.ch.held.userData.muzzles[A.mfSide||0].add(e.ch.flash); return; }
   if(!player||e.pos.distanceTo(player.pos)>45||!e.ch.held) return;
   const m=new T.Mesh(GEO.shell,colorMat(0xd4a64a)); e.ch.held.getWorldPosition(m.position); world.add(m);
   const v=new V(Math.cos(e.yaw)*rnd(2,3.5),rnd(2.5,4),-Math.sin(e.yaw)*rnd(2,3.5));
@@ -946,7 +974,7 @@ function fireRay(shooter,origin,dir,w,rar,mult,muzzle,near){
   tracer(muzzle,end);
 }
 function hurt(t,amt,src,info){
-  if(!t.alive) return; info=info||{};
+  if(!t.alive) return; if(t.bounceT>0){ if(src===player||t===player) sfx('boing',t.pos.clone(),{small:true}); return; } // the Bouncer Ball shrugs everything off info=info||{};
   amt=Math.max(1,Math.round(amt)); let left=amt, sh=0;
   if(t.shield>0){ sh=Math.min(t.shield,left); t.shield-=sh; left-=sh; }
   t.hp-=left; t.anim.hit=Math.min(1,(t.anim.hit||0)+0.35+amt/50);
@@ -992,6 +1020,9 @@ function gunFire(it){
   const w=WEAP[it.id];
   if(p.reloading||p.fireCd>0) return;
   p.fireCd=w.rate; // infinite ammo: no magazines, no reloads
+  if(w.beam){ p.anim.mfSide=(p.anim.mfSide||0)^1; let spread=w.spread+w.bloom*p.bloom; if(ads) spread*=0.5; p.bloom=Math.min(1,p.bloom+0.12);
+    camera.getWorldDirection(tv1); muzzlePos(p,tv2); const o=tv2.clone(), at=aimPoint(p,tv1,w.range); fireBeam(p,o,jitter(at.sub(o).normalize(),spread,new V()),w);
+    p.pitch=Math.min(1.25,p.pitch+w.recoil*rnd(0.6,1)); fireFx(p,w,it.id); sfx('mf'); return; }
   if(w.proj){ camera.getWorldDirection(tv1); muzzlePos(p,tv2); const o=tv2.clone(), at=aimPoint(p,tv1,w.range);
     launchRocket(p,o,at.sub(o).normalize()); p.pitch=Math.min(1.25,p.pitch+w.recoil); fireFx(p,w,it.id); sfx('rpg'); camShake=Math.max(camShake,0.35); return; }
   let spread=w.spread+w.bloom*p.bloom; if(ads) spread*=w.zoom?0.1:0.45; if(Math.hypot(p.vel.x,p.vel.z)>3) spread+=0.01;  if(p.crouch) spread*=0.7;
@@ -1113,6 +1144,7 @@ function hudTick(){
   const st=$('gravTxt'); st.textContent=ZG.state==='warn'?'Gravity flip!':ZG.state==='ceil'?'Ceiling · '+Math.ceil(ZG.t)+'s':'Zero-G'; st.className=ZG.state==='warn'?'flip':ZG.state==='ceil'?'ceil':'';
   const it=curItem();
   $('bankN').textContent=p.bank;
+  $('ability').hidden=!p.bouncer; if(p.bouncer){ const cd=Math.ceil(p.bouncer.cd); $('abilityCd').textContent=p.bounceT>0?String(Math.ceil(p.bounceT)):cd>0?String(cd):''; $('ability').classList.toggle('ready',!cd&&!(p.bounceT>0)); $('ability').classList.toggle('on',p.bounceT>0); }
   if(it&&it.kind==='gun') $('ammo').textContent='∞'; else if(it&&it.kind==='vest') $('ammo').textContent=String(it.count);
   else $('ammo').textContent='';
   refreshHotbar();
@@ -1170,7 +1202,7 @@ function updateCamera(dt){
   if(!p.alive){ const a=matchTime*0.25; camera.position.set(p.pos.x+Math.cos(a)*9,p.pos.y+3.5,p.pos.z+Math.sin(a)*9); clampToBox(camera.position); camera.lookAt(p.pos.x,p.pos.y+1,p.pos.z); return; }
   const cp=Math.cos(p.pitch); camFwd.set(-Math.sin(p.yaw)*cp,Math.sin(p.pitch),-Math.cos(p.yaw)*cp); camRight.set(Math.cos(p.yaw),0,-Math.sin(p.yaw));
   const pivot=tv1.set(p.pos.x,p.pos.y+1.7-0.5*p.anim.crouch,p.pos.z);
-  const gun=!!curItem()&&curItem().kind==='gun', dist=ads?2.0:gun?3.4:4.6, side=ads?0.8:gun?1.1:0.85; pivot.y+=ads?0.05:gun?0.3:0.45;
+  const gun=!!curItem()&&curItem().kind==='gun', dist=p.bounceT>0?7.5:ads?2.0:gun?3.4:4.6, side=ads?0.8:gun?1.1:0.85; pivot.y+=ads?0.05:gun?0.3:0.45;
   // sprinting on the ceiling: a little head bob and the camera eases back
   const sp=p.anim.sprint||0; pivot.y+=Math.abs(Math.sin(matchTime*8.5))*0.07*sp*(p.onGround?1:0)-(p.anim.land||0)*0.25;
   camDist=lerp(camDist,dist+0.45*sp,1-Math.exp(-12*dt));
@@ -1448,6 +1480,7 @@ function zgStamina(e,want,dt){
 const _zf=new V(), _zr=new V(), _zw=new V();
 function updatePlayerZG(dt){
   const p=player; if(!p.alive){ p.wantJump=false; return; }
+  if(p.bounceT>0){ p.wantJump=false; updateBounce(p,dt); return; }
   const flip=ZG.camRoll>Math.PI/2, cp=Math.cos(p.pitch);
   let mx=(keys.KeyD?1:0)-(keys.KeyA?1:0), mz=(keys.KeyW?1:0)-(keys.KeyS?1:0); if(flip) mx=-mx;
   const my=(keys.Space?1:0)-(keys.KeyC||keys.ControlLeft?1:0);
@@ -1550,7 +1583,7 @@ function updateFlyers(dt){
       f.pos[ax]+=sgn*pen; f.vel[ax]=sgn*Math.abs(f.vel[ax]); sfx('impact',f.pos.clone(),{mat:'stone'}); }
     f.m.position.copy(f.pos); f.m.rotation.x+=f.spin.x*dt; f.m.rotation.y+=f.spin.y*dt; f.m.rotation.z+=f.spin.z*dt;
     // anyone touching it is out
-    if(matchTime>FLY_GRACE) for(const e of combatants){ if(!e.alive) continue;
+    if(matchTime>FLY_GRACE) for(const e of combatants){ if(!e.alive||e.bounceT>0) continue;
       if(Math.abs(e.pos.x-f.pos.x)<f.h.x+e.radius&&Math.abs(e.pos.y+1-f.pos.y)<f.h.y+1&&Math.abs(e.pos.z-f.pos.z)<f.h.z+e.radius){
         puff(e.pos.clone().add(new V(0,1,0)),0xff3347); sfx('impact',e.pos.clone(),{mat:'stone'}); if(e===player) camShake=Math.max(camShake,1);
         eliminate(e,null,'flying block',{dir:f.vel.clone(),speed:f.vel.length()}); } }
@@ -1591,7 +1624,7 @@ function buildPads(){
 }
 function updatePads(dt){
   for(const pd of ZG.pads){ pd.pulse=Math.max(0,pd.pulse-dt*2.5); pd.arrows.material.map.offset.y-=dt*0.6; pd.glow.material.opacity=0.14+0.5*pd.pulse; pd.glow.scale.y=1+pd.pulse*1.5; pd.glow.position.y=1.25*(1+pd.pulse*1.5); }
-  for(const e of combatants){ if(!e.alive) continue; e.padT=Math.max(0,(e.padT||0)-dt); e.boostT=Math.max(0,(e.boostT||0)-dt); if(e.padT>0) continue;
+  for(const e of combatants){ if(!e.alive||e.bounceT>0) continue; e.padT=Math.max(0,(e.padT||0)-dt); e.boostT=Math.max(0,(e.boostT||0)-dt); if(e.padT>0) continue;
     for(const pd of ZG.pads){ tv3.set(e.pos.x,e.pos.y+1,e.pos.z).sub(pd.pos); const along=tv3.dot(pd.n); if(along<-0.5||along>2.6) continue;
       tv3.addScaledVector(pd.n,-along); if(tv3.length()>PAD_R+0.3) continue;
       e.vel.addScaledVector(pd.n,-e.vel.dot(pd.n)).addScaledVector(pd.n,PAD_V); e.onGround=false; e.padT=0.6; e.boostT=1.1; pd.pulse=1;
@@ -1827,10 +1860,92 @@ function throwPose(e,c,rightB,fwdB,upB){
     c.g.getWorldQuaternion(_qP); B.RightHand.getWorldQuaternion(_cq); c.handG.quaternion.copy(_qP.invert().multiply(_cq)); c.handG.userData.ring.visible=A.pinned; } }
 }
 
+// ================= Mirror Fractal Guns =================
+// Each shot is a beam of golden light that bounces off walls, floor, ceiling and blocks up to 16 times,
+// going through everyone in its way (each person is hit once per shot). Your own beams never hurt you.
+const BEAM_BOUNCES=16;
+const beamGeo=new T.CylinderGeometry(1,1,1,6,1,true);
+function wallNormal(q){ const L=ZG.L; return q.x<=-L+0.02?new V(1,0,0):q.x>=L-0.02?new V(-1,0,0):q.z<=-L+0.02?new V(0,0,1):q.z>=L-0.02?new V(0,0,-1):q.y<=0.02?new V(0,1,0):new V(0,-1,0); }
+function fireBeam(src,origin,dir,w){
+  const pts=[origin.clone()], hitSet=new Set(); let o=origin.clone(), d=dir.clone(), left=600;
+  for(let b=0;b<=BEAM_BOUNCES&&left>1;b++){
+    const far=Math.min(left,300); ray.set(o,d); ray.near=0.02; ray.far=far;
+    const hs=ray.intersectObjects(meshesAlong(o,d,far,false),false); let dist=far, n=null;
+    if(hs.length&&hs[0].face){ dist=hs[0].distance; n=hs[0].face.normal.clone().transformDirection(hs[0].object.matrixWorld); }
+    const tb=boxRay(o,d,dist); if(tb<dist){ dist=tb; n=wallNormal(o.clone().addScaledVector(d,tb)); }
+    ray.near=0; ray.far=dist; refreshTargets();
+    for(const h of ray.intersectObjects(charMeshes,false)){ const ent=h.object.userData.ent; if(!ent||ent===src||hitSet.has(ent)) continue; hitSet.add(ent);
+      const head=h.object.userData.part==='head'; hurt(ent,w.dmg*(head?w.head:1),src,{head,point:h.point,weapon:w.name,dir:d.clone()}); }
+    const end=o.clone().addScaledVector(d,dist); pts.push(end); left-=dist;
+    if(!n) break; if(n.dot(d)>0) n.negate();
+    d.reflect(n).normalize(); o=end.clone().addScaledVector(n,0.03);
+    if(b<4) sfx('zapB',end.clone());
+  }
+  beamFx(pts);
+}
+// the beam: a white-hot core inside a golden glow, a sparkle where it bounces, fading in a moment
+function beamFx(pts){
+  const core=new T.MeshBasicMaterial({color:0xfff6c8,transparent:true,depthWrite:false}), glow=new T.MeshBasicMaterial({color:0xffb81a,transparent:true,opacity:0.45,depthWrite:false});
+  const g=new T.Group(), q=new T.Quaternion();
+  for(let i=0;i<pts.length-1;i++){ const a=pts[i], b=pts[i+1], len=a.distanceTo(b); if(len<0.01) continue; _dv.subVectors(b,a).normalize(); q.setFromUnitVectors(UP,_dv);
+    for(const [m,r] of [[core,0.035],[glow,0.11]] as [any,number][]){ const c=new T.Mesh(beamGeo,m); c.scale.set(r,len,r); c.quaternion.copy(q); c.position.copy(a).add(b).multiplyScalar(0.5); g.add(c); }
+    if(i>0){ const s=new T.Sprite(mfSparkMat.clone()); s.position.copy(a); s.scale.setScalar(1.1); s.material.rotation=Math.random()*TAU; g.add(s); } }
+  world.add(g);
+  effects.push({t:0,dur:0.32,obj:g,upd:(e,k)=>{ core.opacity=1-k; glow.opacity=0.45*(1-k); for(const c of g.children as any[]) if(c.isSprite){ c.material.opacity=1-k; c.scale.setScalar(1.1*(1-k*0.6)); } else c.scale.x=c.scale.z=(c.material===core?0.035:0.11)*(1-k*0.7); },
+    done:()=>{ core.dispose(); glow.dispose(); for(const c of g.children as any[]) if(c.isSprite) c.material.dispose(); }});
+}
+
+// ================= Bouncer Ball =================
+// Armour you keep once bought. Q wraps you in a glowing ball that bounces around the whole box at high speed
+// for 5 seconds, knocking people out of the way, then pops wherever it ends up. You can't be hurt inside it.
+// One minute to recharge.
+const BOUNCE_T=5, BOUNCE_CD=60, BALL_R=1.4, BALL_V=42;
+const ballMat=new T.MeshPhongMaterial({color:0x5cc8ff,emissive:0x0a3a5a,transparent:true,opacity:0.32,shininess:140,specular:0xffffff,depthWrite:false,side:T.DoubleSide});
+const ballEdge=new T.LineBasicMaterial({color:0xd8f6ff,transparent:true,opacity:0.8});
+const ballGeo=new T.IcosahedronGeometry(1,2), ballEdgeGeo=new T.EdgesGeometry(new T.IcosahedronGeometry(1.01,1));
+function startBounce(p){
+  if(!p.bouncer||!p.alive||p.bounceT>0) return; if(p.bouncer.cd>0){ sfx('deny'); return; }
+  cancelActions(); p.throwA=null; p.bounceT=BOUNCE_T; p.bounceHit=new Set(); p.bounceKick=0;
+  const a=Math.random()*TAU, dir=new V(Math.cos(a),rnd(-0.5,0.5),Math.sin(a)).normalize(); camera.getWorldDirection(tv1); p.vel.copy(dir.lerp(tv1,0.5).normalize().multiplyScalar(BALL_V));
+  if(!p.ball){ const g=new T.Group(); g.add(new T.Mesh(ballGeo,ballMat)); g.add(new T.LineSegments(ballEdgeGeo,ballEdge)); p.ball=g; }
+  p.ball.scale.setScalar(0.01); world.add(p.ball); sfx('ballOn'); camShake=Math.max(camShake,0.3);
+}
+const _bc=new V();
+function updateBounce(p,dt){
+  p.bounceT-=dt; p.zgPropel=false; p.onGround=false; p.zgFloat=true; p.zgTx=0;
+  const c=_bc.set(p.pos.x,p.pos.y+1,p.pos.z), r=BALL_R; let n=null;
+  c.addScaledVector(p.vel,dt);
+  if(c.x<-ZG.L+r){ c.x=-ZG.L+r; n=new V(1,0,0); } else if(c.x>ZG.L-r){ c.x=ZG.L-r; n=new V(-1,0,0); }
+  if(c.z<-ZG.L+r){ c.z=-ZG.L+r; n=new V(0,0,1); } else if(c.z>ZG.L-r){ c.z=ZG.L-r; n=new V(0,0,-1); }
+  if(c.y<r){ c.y=r; n=new V(0,1,0); } else if(c.y>ZG.H-r){ c.y=ZG.H-r; n=new V(0,-1,0); }
+  for(const b of ZG.blocks){ const px=b.sx/2+r-Math.abs(c.x-b.x), py=b.sy/2+r-Math.abs(c.y-b.y), pz=b.sz/2+r-Math.abs(c.z-b.z); if(px<=0||py<=0||pz<=0) continue;
+    if(px<py&&px<pz){ const s=c.x>b.x?1:-1; c.x+=s*px; n=new V(s,0,0); } else if(py<pz){ const s=c.y>b.y?1:-1; c.y+=s*py; n=new V(0,s,0); } else { const s=c.z>b.z?1:-1; c.z+=s*pz; n=new V(0,0,s); } break; }
+  // a bounce: reflect, with a random kick so the path is never the same twice
+  if(n&&p.vel.dot(n)<0){ p.vel.reflect(n).normalize().add(new V(rnd(-1,1),rnd(-1,1),rnd(-1,1)).multiplyScalar(0.45)); if(p.vel.dot(n)<0.2) p.vel.addScaledVector(n,0.6); p.vel.normalize().multiplyScalar(BALL_V);
+    p.bounceKick=1; sfx('boing',c.clone()); camShake=Math.max(camShake,0.25); for(let i=0;i<4;i++) puff(c.clone().addScaledVector(n,-r),0xbfeaff); }
+  p.pos.set(c.x,c.y-1,c.z);
+  // anyone in the way is knocked flying
+  for(const e of combatants){ if(e===p||!e.alive||p.bounceHit.has(e)) continue; tv3.set(e.pos.x,e.pos.y+1,e.pos.z).sub(c); const d=tv3.length(); if(d>r+0.7) continue;
+    p.bounceHit.add(e); e.vel.addScaledVector(tv3.normalize(),30); hurt(e,30,p,{weapon:'Bouncer Ball',dir:tv3.clone(),point:e.pos.clone().add(new V(0,1,0))}); sfx('slam',c.clone(),{v:0.6}); }
+  // the ball: grows in, rolls along its path, squashes on each bounce
+  const B=p.ball, gin=Math.min(1,(BOUNCE_T-p.bounceT)/0.2); p.bounceKick=Math.max(0,p.bounceKick-dt*5);
+  B.position.copy(c); B.scale.setScalar(r*gin*(1+0.12*p.bounceKick)); B.children[0].material.opacity=0.32;
+  _dv.crossVectors(UP,p.vel); if(_dv.lengthSq()>1e-4){ B.rotateOnWorldAxis(_dv.normalize(),BALL_V*dt/r); }
+  if(p.bounceT<=0) endBounce(p);
+}
+function endBounce(p){
+  p.bounceT=0; p.bouncer.cd=BOUNCE_CD; p.vel.multiplyScalar(0.15); if(p.ball) world.remove(p.ball);
+  const c=new V(p.pos.x,p.pos.y+1,p.pos.z);
+  for(let i=0;i<26;i++){ const m=new T.Mesh(shardGeo,shardMats[3].clone()); m.position.copy(c).add(new V(rnd(-1,1),rnd(-1,1),rnd(-1,1)).normalize().multiplyScalar(BALL_R)); world.add(m);
+    const v=m.position.clone().sub(c).normalize().multiplyScalar(rnd(5,10)); effects.push({t:0,dur:rnd(0.5,0.9),obj:m,upd:(e,k,dt)=>{ m.position.addScaledVector(v,dt); m.rotation.x+=dt*9; m.scale.setScalar(1-k); m.material.opacity=1-k; },done:()=>m.material.dispose()}); }
+  sfx('ballPop',c.clone()); camShake=Math.max(camShake,0.35);
+}
+function updateBouncerCd(dt){ const p=player; if(p&&p.bouncer&&p.bouncer.cd>0&&!(p.bounceT>0)) p.bouncer.cd=Math.max(0,p.bouncer.cd-dt); }
+
 // ================= vending machines =================
 // Six vending machines, three standing on the floor and three hanging from the ceiling. Walk up, press E and
 // spend your elims: every elimination you get is one elim to spend.
-const SHOP=[{id:'rpg',name:'RPG',price:5,col:'#4fd34f'},{id:'gren',name:'Grenade Launcher',price:10,col:'#a7b85a'},{id:'mf',name:'Mirror Fractal Guns',price:15,col:'#ffd23f',soon:true},{id:'bounce',name:'Bouncer Ball',price:20,col:'#5cc8ff',soon:true}];
+const SHOP=[{id:'rpg',name:'RPG',price:5,col:'#4fd34f'},{id:'gren',name:'Grenade Launcher',price:10,col:'#a7b85a'},{id:'mf',name:'Mirror Fractal Guns',price:15,col:'#ffd23f'},{id:'bounce',name:'Bouncer Ball',price:20,col:'#5cc8ff'}];
 let shopOpen=false;
 function vendFrontSVG(){
   const rows=SHOP.map((it,i)=>{ const y=84+i*64;
@@ -1875,19 +1990,20 @@ function nearMachine(r?){ const p=player; if(!p||!ZG.vend) return null; r=r||4.5
   for(const v of ZG.vend){ const d=Math.hypot(p.pos.x-v.use.x,p.pos.y+1-v.use.y,p.pos.z-v.use.z); if(d<bd){ bd=d; best=v; } } return best; }
 function renderShop(){
   const p=player; $('shopBank').textContent=String(p.bank);
-  $('shopList').innerHTML=SHOP.map((it,i)=>{ const owned=it.id==='rpg'?p.slots.some(s=>s&&s.id==='rpg'):it.id==='gren'?p.slots.some(s=>s&&s.kind==='vest'):false;
-    const st=it.soon?'Soon':owned?'Owned':it.price+' elims', cls=it.soon?'soon':owned?'owned':p.bank<it.price?'poor':'';
+  $('shopList').innerHTML=SHOP.map((it,i)=>{ const owned=ownsItem(it.id);
+    const st=owned?'Owned':it.price+' elims', cls=owned?'owned':p.bank<it.price?'poor':'';
     return `<button class="shopitem ${cls}" data-i="${i}" style="--ic:${it.col}"><span class="k">${i+1}</span><span class="ic">${ICONS[it.id]}</span><span class="nm">${it.name}</span><span class="pr">${st}</span></button>`; }).join('');
 }
+function ownsItem(id){ const p=player; return id==='bounce'?!!p.bouncer:id==='gren'?p.slots.some(s=>s&&s.kind==='vest'):p.slots.some(s=>s&&s.id===id); }
 function openShop(){ shopOpen=true; renderShop(); $('shop').hidden=false; sfx('ui'); }
 function closeShop(){ if(!shopOpen) return; shopOpen=false; $('shop').hidden=true; }
 function buyItem(i){
-  const p=player, it=SHOP[i]; if(!it||it.soon){ sfx('deny'); return; }
-  const owned=it.id==='rpg'?p.slots.some(s=>s&&s.id==='rpg'):p.slots.some(s=>s&&s.kind==='vest');
-  if(owned){ sfx('deny'); return; }
+  const p=player, it=SHOP[i]; if(!it){ sfx('deny'); return; }
+  if(ownsItem(it.id)){ sfx('deny'); return; }
   if(p.bank<it.price){ sfx('deny'); toast('Need '+it.price+' elims'); return; }
+  if(it.id==='bounce'){ p.bank-=it.price; p.bouncer={cd:0}; sfx('buy'); renderShop(); hudTick(); return; } // armour: no slot, Q to use
   let slot=-1; for(let k=6;k<NSLOT;k++) if(!p.slots[k]){ slot=k; break; } if(slot<0){ sfx('deny'); toast('Hotbar full'); return; }
-  p.bank-=it.price; p.slots[slot]=it.id==='rpg'?{kind:'gun',id:'rpg',r:4,ammo:1}:{kind:'vest',id:'gren',count:GREN_N,regen:0};
+  p.bank-=it.price; p.slots[slot]=it.id==='rpg'?{kind:'gun',id:'rpg',r:4,ammo:1}:it.id==='mf'?{kind:'gun',id:'mf',r:4,ammo:1}:{kind:'vest',id:'gren',count:GREN_N,regen:0};
   sfx('buy'); selectSlot(slot); renderShop(); refreshHotbar(); hudTick();
 }
 $('shopList').addEventListener('click',ev=>{ const b=(ev.target as Element).closest('button'); if(b) buyItem(+(b as HTMLElement).dataset.i); });
@@ -1901,7 +2017,7 @@ function newMatch(){
   ZG.state='float'; ZG.t=rnd(20,26); ZG.camRoll=0; ZG.flash=0;
   player=makeCombatant('You',true);
   Object.assign(player,{slots:[null,{kind:'gun',id:'ar',r:3,ammo:WEAP.ar.mag},{kind:'gun',id:'pump',r:3,ammo:WEAP.pump.mag},{kind:'gun',id:'smg',r:2,ammo:WEAP.smg.mag},{kind:'cons',id:'big',count:2},{kind:'cons',id:'mini',count:3},null,null,null],
-    sel:1,bank:0,throwA:null,ammo:{light:150,medium:240,heavy:12,shells:48},fireCd:0,bloom:0,reloading:null,consuming:null,dmgDealt:0,wantJump:false,shield:50});
+    sel:1,bank:0,throwA:null,bouncer:null,bounceT:0,ball:null,ammo:{light:150,medium:240,heavy:12,shells:48},fireCd:0,bloom:0,reloading:null,consuming:null,dmgDealt:0,wantJump:false,shield:50});
   zgSpawn(player,0,ZG.BOTS+1); player.pitch=0; applyPickSkin(player);
   for(let i=0;i<ZG.BOTS;i++){ const b=makeBot(i); bots.push(b); zgSpawn(b,i+1,ZG.BOTS+1); armBot(b); b.react=rnd(0.14,0.3); b.skill=rnd(0.5,0.8); b.lastPos=b.pos.clone(); }
   aliveCount=combatants.length;
@@ -1979,6 +2095,7 @@ document.addEventListener('keydown',ev=>{
 
   if(shopOpen){ if(c.startsWith('Digit')){ const n=+c.slice(5); if(n>=1&&n<=SHOP.length) buyItem(n-1); } else if(c==='KeyE'||c==='Escape') closeShop(); return; }
   if(c==='KeyE'&&p.alive&&nearMachine()) openShop();
+  else if(c==='KeyQ') startBounce(p);
   else if(c.startsWith('Digit')){ const n=+c.slice(5); if(n>=1&&n<=NSLOT&&(n<=6||p.slots[n-1])) selectSlot(n-1); }
 
 
@@ -2006,7 +2123,7 @@ function update(dt){
   updatePads(dt);
   updatePlayerZG(dt);
   updateActions(dt);
-  updateProjs(dt); updateFires(dt);
+  updateProjs(dt); updateFires(dt); updateBouncerCd(dt);
   for(const b of bots) updateBotZG(b,dt);
   for(const e of combatants) animateGLB(e,dt);
   updateEffects(dt);
