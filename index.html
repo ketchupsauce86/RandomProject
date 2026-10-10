@@ -240,6 +240,17 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 #stamBar .track{height:10px}
 #gravTxt.flip{color:#fff;background:rgba(220,30,50,.8);border-color:#ff5468}
 #gravTxt.ceil{color:#fff;background:rgba(160,30,60,.75)}
+/* vending machine shop */
+#shop{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,92vw);pointer-events:auto;padding:16px 18px;border-radius:14px;background:rgba(14,8,36,.9);border:2px solid var(--neon);box-shadow:0 0 30px rgba(92,240,255,.35);backdrop-filter:blur(8px)}
+.shophead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.shophead h2{margin:0;font-family:var(--display);font-weight:400;font-size:28px;letter-spacing:.06em;color:var(--neon)}
+.shophead .bank{font-size:17px;color:var(--muted)}.shophead .bank b{font-family:var(--display);font-weight:400;font-size:24px;color:var(--sun);margin-right:5px}
+#shopList{display:flex;flex-direction:column;gap:8px}
+.shopitem{--ic:#fff;display:grid;grid-template-columns:22px 64px 1fr auto;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;border:1px solid var(--edge);background:linear-gradient(90deg,color-mix(in srgb,var(--ic) 28%,transparent),rgba(255,255,255,.03));color:var(--text);font:inherit;font-weight:700;font-size:18px;text-align:left;cursor:pointer}
+.shopitem .k{font-size:13px;color:var(--muted)}.shopitem .ic{color:var(--ic);display:flex}.shopitem .pr{color:var(--sun);font-variant-numeric:tabular-nums}
+.shopitem.poor .pr{color:var(--danger)}.shopitem.owned .pr{color:var(--hp)}.shopitem.soon{opacity:.5;cursor:default}.shopitem.soon .pr{color:var(--muted)}
+.shopkeys{margin:12px 0 0;font-size:15px;color:var(--muted);text-align:center}
+.shopkeys kbd{font-family:var(--ui);font-weight:800;background:var(--text);color:var(--night);border-radius:4px;padding:0 6px;margin:0 3px}
 </style>
 
 <div id="app">
@@ -254,13 +265,14 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
     <div id="feed"></div>
     <div id="topright">
       <canvas id="map" width="180" height="180"></canvas>
-      <div id="stats"><span id="gravTxt">Zero-G</span><span><b id="aliveN">20</b>left</span><span><b id="killN">0</b>elims</span></div>
+      <div id="stats"><span id="gravTxt">Zero-G</span><span><b id="aliveN">20</b>left</span><span><b id="killN">0</b>elims</span><span title="Elims to spend"><b id="bankN">0</b>bank</span></div>
     </div>
     <div id="xhair"><i></i><i></i><i></i><i></i></div>
     <div id="hitmark"></div>
     <div id="banner" hidden><div id="bannerMain"></div><div id="bannerSub"></div></div>
     <div id="toast" hidden></div>
     <div id="prompt" hidden></div>
+    <div id="shop" hidden role="dialog" aria-label="Shop"><div class="shophead"><h2>Shop</h2><span class="bank"><b id="shopBank">0</b>elims</span></div><div id="shopList"></div><p class="shopkeys"><kbd>1</kbd>–<kbd>4</kbd> Buy <kbd>E</kbd> Close</p></div>
     <div id="usebar" hidden><span id="uselabel"></span><div class="track"><div id="usefill"></div></div></div>
     <div id="vitals">
       <div class="bar" id="stamBar"><span class="num stam" aria-label="Stamina">⚡</span><div class="track"><div class="fill" id="stFill"></div></div></div>
@@ -291,7 +303,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
     <section class="playcard" aria-label="Game mode">
       <div class="mode">
         <span class="modeart zg" aria-hidden="true"></span>
-        <span class="modetxt"><span class="modename">Zero-G Box</span><span class="modemeta"><b>21</b> players</span></span>
+        <span class="modetxt"><span class="modename">Zero-G Box</span><span class="modemeta"><b>51</b> players</span></span>
       </div>
       <button class="btn play" id="playBtn">Enter the box</button>
       <div id="err"></div>
@@ -305,7 +317,8 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
         <dt>Shift</dt><dd>Boost (uses stamina)</dd>
         <dt>Left click</dt><dd>Shoot, swing, drink</dd>
         <dt>Right click</dt><dd>Aim</dd>
-        <dt>1 – 6 / wheel</dt><dd>Switch slots</dd>
+        <dt>1 – 9 / wheel</dt><dd>Switch slots</dd>
+        <dt>E</dt><dd>Vending machine</dd>
         <dt>Blue pads</dt><dd>Launch you</dd>
         <dt>Red blocks</dt><dd>Don't touch</dd>
         <dt>Red lights</dt><dd>Gravity flips</dd>
