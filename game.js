@@ -1320,22 +1320,48 @@
       c.flaps = [];
       c.bobs = [];
       c.skin = skin;
+      if (c.animeBody) {
+        c.animeBody.parent && c.animeBody.parent.remove(c.animeBody);
+        c.animeBody = null;
+      }
       let geo = null;
       c.model.traverse((o) => {
         if (o.name === "vanguard_Mesh") geo = o.geometry;
       });
-      const mats = skin.def ? null : skinMaterials(skin, c.baseMats.vanguard_Mesh, c.baseMats.vanguard_visor, geo);
+      const mats = skin.def || skin.body ? null : skinMaterials(skin, c.baseMats.vanguard_Mesh, c.baseMats.vanguard_visor, geo);
       c.model.traverse((o) => {
         if (o.isMesh) o.material = mats ? o.name === "vanguard_visor" ? mats.visor : mats.body : c.baseMats[o.name];
-        if (o.name === "vanguard_visor") o.visible = !skin.noVisor;
+        if (o.name === "vanguard_visor") o.visible = !skin.noVisor && !skin.body;
+        if (o.name === "vanguard_Mesh") o.visible = !skin.body;
       });
+      if (skin.body) {
+        let sm = null;
+        c.model.traverse((o) => {
+          if (o.name === "vanguard_Mesh") sm = o;
+        });
+        let bm = skinMats.get("body" + skin.i);
+        if (!bm) {
+          bm = { geo: SK.bodyGeometry(T, sm.skeleton, skin.body), mat: SK.bodyMaterial(T) };
+          skinMats.set("body" + skin.i, bm);
+        }
+        const m = new T.SkinnedMesh(bm.geo, bm.mat);
+        m.name = "animeBody";
+        m.castShadow = true;
+        m.frustumCulled = false;
+        m.position.copy(sm.position);
+        m.quaternion.copy(sm.quaternion);
+        m.scale.copy(sm.scale);
+        sm.parent.add(m);
+        m.bind(sm.skeleton, sm.bindMatrix);
+        c.animeBody = m;
+      }
       const big = skin.big || [1, 1];
       c.model.scale.set(MODEL_SCALE * big[0], MODEL_SCALE * big[1], MODEL_SCALE * big[0]);
       c.g.updateMatrixWorld(true);
       const ws = new V(), sc = new V(), qq = new T.Quaternion();
       c.g.getWorldScale(ws);
       for (const [kind, ...args] of skin.acc) {
-        for (const [bn, obj] of SK.gear(T, kind, args, gearMats)) {
+        for (const [bn, obj] of SK.gear(T, kind, args, gearMats, { slim: !!skin.body })) {
           const bone = c.bones[bn];
           if (!bone) continue;
           bone.matrixWorld.decompose(tv1, qq, sc);
