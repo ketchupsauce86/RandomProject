@@ -2106,7 +2106,7 @@
         rpgBackblast(e);
         return;
       }
-      if (id === "mf" && e.ch.held) {
+      if (id === "mf" && e.ch.held && e.ch.held.userData.muzzles) {
         e.ch.held.userData.muzzles[A.mfSide || 0].add(e.ch.flash);
         return;
       }

@@ -914,7 +914,7 @@ function fireFx(e,w,id){
   const A=e.anim; A.recoil=Math.min(1.2,A.recoil+KICK[id]); A.flash=0.05; e.ch.flash.scale.setScalar(rnd(0.6,1.1)*(id==='pump'||id==='sniper'?1.5:1)); e.ch.flash.material.rotation=Math.random()*6;
   if(id==='pump') A.pumpT=-0.15;
   if(id==='rpg'){ rpgBackblast(e); return; }
-  if(id==='mf'&&e.ch.held){ e.ch.held.userData.muzzles[A.mfSide||0].add(e.ch.flash); return; }
+  if(id==='mf'&&e.ch.held&&e.ch.held.userData.muzzles){ e.ch.held.userData.muzzles[A.mfSide||0].add(e.ch.flash); return; }
   if(!player||e.pos.distanceTo(player.pos)>45||!e.ch.held) return;
   const m=new T.Mesh(GEO.shell,colorMat(0xd4a64a)); e.ch.held.getWorldPosition(m.position); world.add(m);
   const v=new V(Math.cos(e.yaw)*rnd(2,3.5),rnd(2.5,4),-Math.sin(e.yaw)*rnd(2,3.5));
