@@ -1890,7 +1890,7 @@ function throwPose(e,c,rightB,fwdB,upB){
 // going through everyone in its way (each person is hit once per shot). Your own beams never hurt you.
 // Each shot is a bolt of light that ricochets round the whole arena for a few seconds, off every block, wall,
 // floor and ceiling. It hurts anyone it passes through, the shooter included once it has left the muzzle.
-const BOLT_V=110, BOLT_LIFE=4, BOLT_TRAIL=9, BOLT_SELF=0.35, BOLT_RE=0.5;
+const BOLT_V=110, BOLT_LIFE=4, BOLT_TRAIL=14, BOLT_SELF=0.35, BOLT_RE=0.5;
 const beamGeo=new T.CylinderGeometry(1,1,1,6,1,true);
 const boltCore=new T.MeshBasicMaterial({color:0xffe680,transparent:true,depthWrite:false,fog:false});
 const boltGlow=new T.MeshBasicMaterial({color:0xffa31a,transparent:true,opacity:0.6,depthWrite:false,fog:false});
@@ -1899,8 +1899,8 @@ let bolts=[], zapT=0;
 function wallNormal(q){ const L=ZG.L; return q.x<=-L+0.02?new V(1,0,0):q.x>=L-0.02?new V(-1,0,0):q.z<=-L+0.02?new V(0,0,1):q.z>=L-0.02?new V(0,0,-1):q.y<=0.02?new V(0,1,0):new V(0,-1,0); }
 function fireBolt(src,origin,dir,w){
   const g=new T.Group(), segs=[];
-  for(let i=0;i<4;i++){ const sg=new T.Group(); for(const [m,r] of [[boltCore,0.05],[boltGlow,0.15]] as [any,number][]){ const c=new T.Mesh(beamGeo,m); c.scale.set(r,1,r); sg.add(c); } sg.visible=false; g.add(sg); segs.push(sg); }
-  const head=new T.Sprite(boltHeadMat); head.scale.setScalar(1.3); g.add(head); world.add(g);
+  for(let i=0;i<4;i++){ const sg=new T.Group(); for(const [m,r] of [[boltCore,0.09],[boltGlow,0.28]] as [any,number][]){ const c=new T.Mesh(beamGeo,m); c.scale.set(r,1,r); sg.add(c); } sg.visible=false; g.add(sg); segs.push(sg); }
+  const head=new T.Sprite(boltHeadMat); head.scale.setScalar(2); g.add(head); world.add(g);
   bolts.push({src,w,pos:origin.clone(),dir:dir.clone().normalize(),t:0,pts:[origin.clone()],hit:new Map(),g,segs,head,bounces:0});
 }
 function boltSparks(p){ const s=new T.Sprite(mfSparkMat.clone()); s.position.copy(p); s.scale.setScalar(1.4); s.material.rotation=Math.random()*TAU; world.add(s);
@@ -1932,7 +1932,7 @@ function updateBolts(dt){
       budget-=L; a=b; }
     for(;s<B.segs.length;s++) B.segs[s].visible=false;
     if(B.pts.length>8) B.pts.splice(0,B.pts.length-8);
-    B.head.position.copy(B.pos); B.head.scale.setScalar(1.3*fade); B.g.traverse((c:any)=>{ if(c.isMesh) c.scale.x=c.scale.z=(c.material===boltCore?0.05:0.15)*fade; });
+    B.head.position.copy(B.pos); B.head.scale.setScalar(2*fade); B.g.traverse((c:any)=>{ if(c.isMesh) c.scale.x=c.scale.z=(c.material===boltCore?0.09:0.28)*fade; });
   }
 }
 
