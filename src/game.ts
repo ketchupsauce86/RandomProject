@@ -18,7 +18,7 @@ function angLerp(a,b,t){ let d=((b-a+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)
 // ================= constants =================
 const DIFF={easy:{dmg:0.28,spread:1.7,react:[0.9,1.5],cad:2.6,head:0.04,range:65,cover:0.2},normal:{dmg:0.4,spread:1.15,react:[0.6,1.1],cad:2.0,head:0.08,range:80,cover:0.4},hard:{dmg:0.8,spread:0.5,react:[0.18,0.38],cad:1.15,head:0.24,range:130,cover:0.7}};
 // the Zero-G Box: a huge white box (L is half its width, H its height) and 20 bots (see the Zero-G Box section)
-const ZG={L:125,H:90,BOTS:50,state:'float',t:0,camRoll:0,flash:0,blocks:[],flyers:[],pads:[],vend:[]};
+const ZG={L:125,H:90,BOTS:100,state:'float',t:0,camRoll:0,flash:0,blocks:[],flyers:[],pads:[],vend:[]};
 const diff='hard'; // bots always play on hard
 const GRAV=30;
 const RAR=[{n:'Common',c:'#a4abb5',m:1},{n:'Uncommon',c:'#55c95f',m:1.05},{n:'Rare',c:'#3fa0f5',m:1.1},{n:'Epic',c:'#b866f5',m:1.16},{n:'Legendary',c:'#f5a83b',m:1.22}];
@@ -1422,6 +1422,7 @@ function zgGridTex(cells,minor){ return canvasTex(512,512,(g,w)=>{ g.fillStyle='
 function zgMat(hex){ if(!zgMats[hex]) zgMats[hex]=Lam({color:hex}); return zgMats[hex]; }
 const zgEdgeMat=new T.LineBasicMaterial({color:0x8a9099,transparent:true,opacity:0.55});
 function zgSolid(mesh,box){ const p=registerPiece({kind:'zg',hp:1e9,maxHp:1e9,obj:mesh,meshes:[mesh],box}); p.solid=true; return p; }
+const BLK=3; // how much bigger the floating blocks are than they used to be
 function buildZeroG(){
   const L=ZG.L, H=ZG.H;
   // the box itself: floor, ceiling and four walls, faced inward, with a faint measuring grid
@@ -1437,11 +1438,12 @@ function buildZeroG(){
     const m=new T.Mesh(new T.BoxGeometry(sx,sy,sz),zgMat(col)); m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true; world.add(m);
     const ep=new T.EdgesGeometry(m.geometry).attributes.position.array; for(let i=0;i<ep.length;i+=3) edges.push(ep[i]+x,ep[i+1]+y,ep[i+2]+z); zgSolid(m,boxOf(x,y,z,sx,sy,sz)); };
   const edges=[];
-  for(let i=0;i<18;i++){ const s=rnd(4,7), x=rnd(-L+12,L-12), z=rnd(-L+12,L-12); if(fits(x,H/2,z,s,H,s,6)) add(x,H/2,z,s,H,s,pick([0xdfe2e6,0xc9cdd3])); }
+  for(let i=0;i<18;i++){ const s=rnd(4,7)*BLK, x=rnd(-L+12,L-12), z=rnd(-L+12,L-12); if(fits(x,H/2,z,s,H,s,6)) add(x,H/2,z,s,H,s,pick([0xdfe2e6,0xc9cdd3])); }
   let n=0, tries=0;
-  while(n<320&&tries<14000){ tries++; const kind=Math.random(); let sx,sy,sz;
+  while(n<120&&tries<14000){ tries++; const kind=Math.random(); let sx,sy,sz;
     if(kind<0.45){ sx=sy=sz=rnd(3,9); } else if(kind<0.75){ sx=rnd(8,18); sz=rnd(8,18); sy=rnd(1.2,2.5); } else if(kind<0.9){ sx=rnd(2,4); sz=rnd(2,4); sy=rnd(10,22); } else { sx=rnd(10,24); sz=rnd(2,3); sy=rnd(5,10); }
-    const x=rnd(-L+6,L-6), z=rnd(-L+6,L-6), y=Math.random()<0.15?sy/2:rnd(4,H-4);
+    sx*=BLK; sy*=BLK; sz*=BLK; if(sy>H*0.75) sy=H*0.75; // blocks are 3x their old size
+    const x=rnd(-L+6,L-6), z=rnd(-L+6,L-6), y=Math.random()<0.15?sy/2:rnd(sy/2+2,H-sy/2-2);
     if(!fits(x,y,z,sx,sy,sz,3)) continue; add(x,y,z,sx,sy,sz,pick(cols)); n++; }
   const eg=new T.BufferGeometry(); eg.setAttribute('position',new T.Float32BufferAttribute(edges,3)); world.add(new T.LineSegments(eg,zgEdgeMat));
   ZG.blocks=placed;
@@ -1535,7 +1537,7 @@ function updateBotZG(b,dt){
     const pref=WEAP[b.gun.id].pref, fwd=d>pref+5?1:d<pref-4?-0.7:0;
     wish.set(dx/d*fwd+(-dz/dh)*b.strafe*0.9,ceil?0:dy/d*fwd+b.vstrafe*0.7,dz/d*fwd+(dx/dh)*b.strafe*0.9);
     if(!ceil&&d>pref+25) prop=zgStamina(b,true,dt);
-    if(matchTime-b.seenAt>b.react&&b.fireCd<=0&&b.reloadT<=0) botShoot(b,e,d);
+    if(matchTime>SPAWN_GRACE&&matchTime-b.seenAt>b.react&&b.fireCd<=0&&b.reloadT<=0) botShoot(b,e,d); // nobody fires in the first few seconds, so 100 bots don't mob you at the start
   } else if(b.goal){ const g=b.goal, dx=g.x-b.pos.x, dy=g.y-b.pos.y, dz=g.z-b.pos.z, d=Math.hypot(dx,dy,dz);
     if(d<3) b.goal=null; else { wish.set(dx/d,ceil?0:dy/d,dz/d); b.yaw=angLerp(b.yaw,Math.atan2(-dx,-dz),1-Math.exp(-5*dt)); } b.aimPitch=0; }
   if(!prop) zgStamina(b,false,dt); b.zgPropel=prop;
@@ -1553,7 +1555,7 @@ function updateBotZG(b,dt){
 // ================= flying blocks & booster pads =================
 // Flying blocks: dark blocks with red edges that fly around the box and bounce off everything.
 // Touching one is an instant elimination, shield or not.
-const FLY_N=24, FLY_GRACE=3;
+const FLY_N=24, FLY_GRACE=3, SPAWN_GRACE=5;
 const flyMat=Lam({color:0xe8283c,emissive:0x5a0010});
 const flyEdge=new T.LineBasicMaterial({color:0xffd0d5});
 function buildFlyers(){
@@ -1597,7 +1599,7 @@ function dodgeFlyers(b,wish,ceil){
     tv3.multiplyScalar(2/d); if(ceil) tv3.y=0; wish.add(tv3); }
 }
 // Booster pads: glowing pads on the floor, ceiling, walls and big flat blocks that launch you away from them.
-const PAD_R=1.7, PAD_V=34;
+const PAD_R=3.4, PAD_V=34;
 const padTex=canvasTex(128,128,(g,w)=>{ g.clearRect(0,0,w,w); g.strokeStyle='#ffffff'; g.lineWidth=12; g.lineCap='round'; g.lineJoin='round';
   for(const y of [34,70,106]){ g.beginPath(); g.moveTo(26,y); g.lineTo(64,y-26); g.lineTo(102,y); g.stroke(); } });
 padTex.wrapT=T.RepeatWrapping;
@@ -1619,7 +1621,7 @@ function buildPads(){
   for(const [n,wall] of [[new V(1,0,0),new V(-L+0.02,0,0)],[new V(-1,0,0),new V(L-0.02,0,0)],[new V(0,0,1),new V(0,0,-L+0.02)],[new V(0,0,-1),new V(0,0,L-0.02)]] as [any,any][]){
     for(let k=0;k<3;k++){ const t=rnd(-L+15,L-15), y=rnd(12,H-12); const p=wall.clone(); if(n.x) p.z=t; else p.x=t; p.y=y; addPad(p,n); } }
   // on top of and under some big flat blocks
-  const flats=ZG.blocks.filter(b=>b.sx>=8&&b.sz>=8&&b.sy<=2.6); flats.sort(()=>Math.random()-0.5);
+  const flats=ZG.blocks.filter(b=>b.sx>=8*BLK&&b.sz>=8*BLK&&b.sy<=2.6*BLK); flats.sort(()=>Math.random()-0.5);
   for(const b of flats.slice(0,14)){ const top=Math.random()<0.5; addPad(new V(b.x,top?b.y+b.sy/2+0.02:b.y-b.sy/2-0.02,b.z),top?UP:down); }
 }
 function updatePads(dt){

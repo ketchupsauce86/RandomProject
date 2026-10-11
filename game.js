@@ -29,7 +29,7 @@
       return a + d * t;
     }
     const DIFF = { easy: { dmg: 0.28, spread: 1.7, react: [0.9, 1.5], cad: 2.6, head: 0.04, range: 65, cover: 0.2 }, normal: { dmg: 0.4, spread: 1.15, react: [0.6, 1.1], cad: 2, head: 0.08, range: 80, cover: 0.4 }, hard: { dmg: 0.8, spread: 0.5, react: [0.18, 0.38], cad: 1.15, head: 0.24, range: 130, cover: 0.7 } };
-    const ZG = { L: 125, H: 90, BOTS: 50, state: "float", t: 0, camRoll: 0, flash: 0, blocks: [], flyers: [], pads: [], vend: [] };
+    const ZG = { L: 125, H: 90, BOTS: 100, state: "float", t: 0, camRoll: 0, flash: 0, blocks: [], flyers: [], pads: [], vend: [] };
     const diff = "hard";
     const GRAV = 30;
     const RAR = [{ n: "Common", c: "#a4abb5", m: 1 }, { n: "Uncommon", c: "#55c95f", m: 1.05 }, { n: "Rare", c: "#3fa0f5", m: 1.1 }, { n: "Epic", c: "#b866f5", m: 1.16 }, { n: "Legendary", c: "#f5a83b", m: 1.22 }];
@@ -3404,6 +3404,7 @@
       p.solid = true;
       return p;
     }
+    const BLK = 3;
     function buildZeroG() {
       const L = ZG.L, H = ZG.H;
       const faces = [[[0, 0, 0], [-Math.PI / 2, 0, 0], 2 * L, 2 * L], [[0, H, 0], [Math.PI / 2, 0, 0], 2 * L, 2 * L], [[0, H / 2, -L], [0, 0, 0], 2 * L, H], [[0, H / 2, L], [0, Math.PI, 0], 2 * L, H], [[-L, H / 2, 0], [0, Math.PI / 2, 0], 2 * L, H], [[L, H / 2, 0], [0, -Math.PI / 2, 0], 2 * L, H]];
@@ -3435,11 +3436,11 @@
       };
       const edges = [];
       for (let i = 0; i < 18; i++) {
-        const s = rnd(4, 7), x = rnd(-L + 12, L - 12), z = rnd(-L + 12, L - 12);
+        const s = rnd(4, 7) * BLK, x = rnd(-L + 12, L - 12), z = rnd(-L + 12, L - 12);
         if (fits(x, H / 2, z, s, H, s, 6)) add(x, H / 2, z, s, H, s, pick([14672614, 13225427]));
       }
       let n = 0, tries = 0;
-      while (n < 320 && tries < 14e3) {
+      while (n < 120 && tries < 14e3) {
         tries++;
         const kind = Math.random();
         let sx, sy, sz;
@@ -3458,7 +3459,11 @@
           sz = rnd(2, 3);
           sy = rnd(5, 10);
         }
-        const x = rnd(-L + 6, L - 6), z = rnd(-L + 6, L - 6), y = Math.random() < 0.15 ? sy / 2 : rnd(4, H - 4);
+        sx *= BLK;
+        sy *= BLK;
+        sz *= BLK;
+        if (sy > H * 0.75) sy = H * 0.75;
+        const x = rnd(-L + 6, L - 6), z = rnd(-L + 6, L - 6), y = Math.random() < 0.15 ? sy / 2 : rnd(sy / 2 + 2, H - sy / 2 - 2);
         if (!fits(x, y, z, sx, sy, sz, 3)) continue;
         add(x, y, z, sx, sy, sz, pick(cols));
         n++;
@@ -3717,7 +3722,7 @@
         const pref = WEAP[b.gun.id].pref, fwd = d > pref + 5 ? 1 : d < pref - 4 ? -0.7 : 0;
         wish.set(dx / d * fwd + -dz / dh * b.strafe * 0.9, ceil ? 0 : dy / d * fwd + b.vstrafe * 0.7, dz / d * fwd + dx / dh * b.strafe * 0.9);
         if (!ceil && d > pref + 25) prop = zgStamina(b, true, dt);
-        if (matchTime - b.seenAt > b.react && b.fireCd <= 0 && b.reloadT <= 0) botShoot(b, e, d);
+        if (matchTime > SPAWN_GRACE && matchTime - b.seenAt > b.react && b.fireCd <= 0 && b.reloadT <= 0) botShoot(b, e, d);
       } else if (b.goal) {
         const g = b.goal, dx = g.x - b.pos.x, dy = g.y - b.pos.y, dz = g.z - b.pos.z, d = Math.hypot(dx, dy, dz);
         if (d < 3) b.goal = null;
@@ -3764,7 +3769,7 @@
       }
       zgMove(b, dt);
     }
-    const FLY_N = 24, FLY_GRACE = 3;
+    const FLY_N = 24, FLY_GRACE = 3, SPAWN_GRACE = 5;
     const flyMat = Lam({ color: 15214652, emissive: 5898256 });
     const flyEdge = new T.LineBasicMaterial({ color: 16765141 });
     function buildFlyers() {
@@ -3842,7 +3847,7 @@
         wish.add(tv3);
       }
     }
-    const PAD_R = 1.7, PAD_V = 34;
+    const PAD_R = 3.4, PAD_V = 34;
     const padTex = canvasTex(128, 128, (g, w) => {
       g.clearRect(0, 0, w, w);
       g.strokeStyle = "#ffffff";
@@ -3904,7 +3909,7 @@
           addPad(p, n);
         }
       }
-      const flats = ZG.blocks.filter((b) => b.sx >= 8 && b.sz >= 8 && b.sy <= 2.6);
+      const flats = ZG.blocks.filter((b) => b.sx >= 8 * BLK && b.sz >= 8 * BLK && b.sy <= 2.6 * BLK);
       flats.sort(() => Math.random() - 0.5);
       for (const b of flats.slice(0, 14)) {
         const top = Math.random() < 0.5;
