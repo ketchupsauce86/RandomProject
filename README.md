@@ -19,6 +19,7 @@ Needs a keyboard and mouse. The **Armory** button shows every gun design, and it
 | 1–9 / wheel | Switch slots |
 | E | Use a vending machine |
 | Q | Bouncer Ball |
+| R | Reload MF Guns |
 
 ## Code
 

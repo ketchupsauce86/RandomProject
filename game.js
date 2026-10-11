@@ -2400,6 +2400,10 @@
       if (p.reloading || p.fireCd > 0) return;
       p.fireCd = w.rate;
       if (w.beam) {
+        if (!(it.ammo > 0)) {
+          startReload(it);
+          return;
+        }
         p.anim.mfSide = (p.anim.mfSide || 0) ^ 1;
         let spread2 = w.spread + w.bloom * p.bloom;
         if (ads) spread2 *= 0.5;
@@ -2408,6 +2412,8 @@
         muzzlePos(p, tv2);
         const o = tv2.clone(), at = aimPoint(p, tv1, w.range);
         fireBolt(p, o, jitter(at.sub(o).normalize(), spread2, new V()), w);
+        it.ammo--;
+        if (it.ammo <= 0) startReload(it);
         p.pitch = Math.min(1.25, p.pitch + w.recoil * rnd(0.6, 1));
         fireFx(p, w, it.id);
         sfx("mf");
@@ -2459,6 +2465,12 @@
         if (i > 0) p.slots[i] = null;
       }
       refreshHotbar();
+    }
+    function startReload(it) {
+      const p = player;
+      if (!it || it.id !== "mf" || p.reloading || it.ammo >= MF_CLIP) return;
+      p.reloading = { it, t: 0, dur: MF_RELOAD };
+      sfx("clink");
     }
     function selectSlot(n) {
       const p = player;
@@ -2539,6 +2551,18 @@
         else {
           p.consuming.t += dt;
           if (p.consuming.t >= p.consuming.dur) finishConsume();
+        }
+      }
+      if (p.reloading) {
+        const r = p.reloading;
+        if (curItem() !== r.it) p.reloading = null;
+        else {
+          r.t += dt;
+          if (r.t >= r.dur) {
+            r.it.ammo = MF_CLIP;
+            p.reloading = null;
+            sfx("clink");
+          }
         }
       }
       updateThrow(dt);
@@ -2745,7 +2769,8 @@
         $("ability").classList.toggle("ready", !cd && !(p.bounceT > 0));
         $("ability").classList.toggle("on", p.bounceT > 0);
       }
-      if (it && it.kind === "gun") $("ammo").textContent = "\u221E";
+      if (it && it.kind === "gun" && it.id === "mf") $("ammo").innerHTML = it.ammo + "<small>/ " + MF_CLIP + "</small>";
+      else if (it && it.kind === "gun") $("ammo").textContent = "\u221E";
       else if (it && it.kind === "vest") $("ammo").textContent = String(it.count);
       else $("ammo").textContent = "";
       refreshHotbar();
@@ -4633,7 +4658,8 @@
         }
       }
     }
-    const BOLT_V = 420, BOLT_LIFE = 4, BOLT_TRAIL = 22, BOLT_SELF = 0.25, BOLT_RE = 0.35;
+    const MF_CLIP = 30, MF_RELOAD = 1.6;
+    const BOLT_V = 170, BOLT_LIFE = 4, BOLT_TRAIL = 16, BOLT_SELF = 0.25, BOLT_RE = 0.35, BOLT_TURN = 9, BOLT_SEEK = 150;
     const beamGeo = new T.CylinderGeometry(1, 1, 1, 6, 1, true);
     const boltCore = new T.MeshBasicMaterial({ color: 16770688, transparent: true, depthWrite: false, fog: false });
     const boltGlow = new T.MeshBasicMaterial({ color: 16753434, transparent: true, opacity: 0.6, depthWrite: false, fog: false });
@@ -4660,7 +4686,7 @@
       head.scale.setScalar(2);
       g.add(head);
       world.add(g);
-      bolts.push({ src, w, pos: origin.clone(), dir: dir.clone().normalize(), t: 0, pts: [origin.clone()], hit: /* @__PURE__ */ new Map(), g, segs, head, bounces: 0 });
+      bolts.push({ src, w, pos: origin.clone(), dir: dir.clone().normalize(), t: 0, pts: [origin.clone()], hit: /* @__PURE__ */ new Map(), g, segs, head, bounces: 0, tgt: null, seekT: 0 });
     }
     function boltSparks(p) {
       const s = new T.Sprite(mfSparkMat.clone());
@@ -4697,6 +4723,31 @@
         hurt(ent, B.w.dmg * (head ? B.w.head : 1), B.src, { head, point: _bh.clone(), weapon: B.w.name, dir: d.clone() });
       }
     }
+    const _bs = new V();
+    function boltSeek(B, dt) {
+      B.seekT -= dt;
+      const t = B.tgt, lastT2 = t && B.hit.get(t);
+      if (B.seekT <= 0 || !t || !t.alive || lastT2 != null && B.t - lastT2 < BOLT_RE) {
+        B.seekT = 0.2;
+        let best = null, bd = BOLT_SEEK;
+        for (const e of combatants) {
+          if (!e.alive || e === B.src) continue;
+          const h = B.hit.get(e);
+          if (h != null && B.t - h < BOLT_RE) continue;
+          const d = Math.hypot(e.pos.x - B.pos.x, e.pos.y + 1 - B.pos.y, e.pos.z - B.pos.z);
+          if (d < bd) {
+            bd = d;
+            best = e;
+          }
+        }
+        B.tgt = best;
+      }
+      if (!B.tgt) return;
+      _bs.set(B.tgt.pos.x - B.pos.x, B.tgt.pos.y + 1 - B.pos.y, B.tgt.pos.z - B.pos.z).normalize();
+      const ang = Math.acos(clamp(B.dir.dot(_bs), -1, 1)), mx = BOLT_TURN * dt;
+      if (ang <= mx) B.dir.copy(_bs);
+      else B.dir.lerp(_bs, mx / ang).normalize();
+    }
     function updateBolts(dt) {
       for (let i = bolts.length - 1; i >= 0; i--) {
         const B = bolts[i];
@@ -4706,6 +4757,7 @@
           bolts.splice(i, 1);
           continue;
         }
+        boltSeek(B, dt);
         let left = BOLT_V * dt;
         for (let k = 0; k < 6 && left > 1e-3; k++) {
           const o = B.pos, d = B.dir;
@@ -5021,7 +5073,7 @@
         return;
       }
       p.bank -= it.price;
-      p.slots[slot] = it.id === "rpg" ? { kind: "gun", id: "rpg", r: 4, ammo: 1 } : it.id === "mf" ? { kind: "gun", id: "mf", r: 4, ammo: 1 } : { kind: "vest", id: "gren", count: GREN_N, regen: 0 };
+      p.slots[slot] = it.id === "rpg" ? { kind: "gun", id: "rpg", r: 4, ammo: 1 } : it.id === "mf" ? { kind: "gun", id: "mf", r: 4, ammo: MF_CLIP } : { kind: "vest", id: "gren", count: GREN_N, regen: 0 };
       sfx("buy");
       selectSlot(slot);
       renderShop();
@@ -5058,7 +5110,7 @@
       ZG.flash = 0;
       player = makeCombatant("You", true);
       Object.assign(player, {
-        slots: [null, { kind: "gun", id: "ar", r: 3, ammo: WEAP.ar.mag }, { kind: "gun", id: "pump", r: 3, ammo: WEAP.pump.mag }, { kind: "gun", id: "smg", r: 2, ammo: WEAP.smg.mag }, { kind: "cons", id: "big", count: 2 }, { kind: "cons", id: "mini", count: 3 }, { kind: "gun", id: "mf", r: 4, ammo: 1 }, null, null],
+        slots: [null, { kind: "gun", id: "ar", r: 3, ammo: WEAP.ar.mag }, { kind: "gun", id: "pump", r: 3, ammo: WEAP.pump.mag }, { kind: "gun", id: "smg", r: 2, ammo: WEAP.smg.mag }, { kind: "cons", id: "big", count: 2 }, { kind: "cons", id: "mini", count: 3 }, { kind: "gun", id: "mf", r: 4, ammo: MF_CLIP }, null, null],
         sel: 1,
         bank: 0,
         throwA: null,
@@ -5280,6 +5332,7 @@
       }
       if (c === "KeyE" && p.alive && nearMachine()) openShop();
       else if (c === "KeyQ") startBounce(p);
+      else if (c === "KeyR" && p.alive) startReload(curItem());
       else if (c.startsWith("Digit")) {
         const n = +c.slice(5);
         if (n >= 1 && n <= NSLOT && (n <= 6 || p.slots[n - 1])) selectSlot(n - 1);

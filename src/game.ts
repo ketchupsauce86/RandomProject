@@ -1038,8 +1038,8 @@ function gunFire(it){
   const w=WEAP[it.id];
   if(p.reloading||p.fireCd>0) return;
   p.fireCd=w.rate; // infinite ammo: no magazines, no reloads
-  if(w.beam){ p.anim.mfSide=(p.anim.mfSide||0)^1; let spread=w.spread+w.bloom*p.bloom; if(ads) spread*=0.5; p.bloom=Math.min(1,p.bloom+0.12);
-    camera.getWorldDirection(tv1); muzzlePos(p,tv2); const o=tv2.clone(), at=aimPoint(p,tv1,w.range); fireBolt(p,o,jitter(at.sub(o).normalize(),spread,new V()),w);
+  if(w.beam){ if(!(it.ammo>0)){ startReload(it); return; } p.anim.mfSide=(p.anim.mfSide||0)^1; let spread=w.spread+w.bloom*p.bloom; if(ads) spread*=0.5; p.bloom=Math.min(1,p.bloom+0.12);
+    camera.getWorldDirection(tv1); muzzlePos(p,tv2); const o=tv2.clone(), at=aimPoint(p,tv1,w.range); fireBolt(p,o,jitter(at.sub(o).normalize(),spread,new V()),w); it.ammo--; if(it.ammo<=0) startReload(it);
     p.pitch=Math.min(1.25,p.pitch+w.recoil*rnd(0.6,1)); fireFx(p,w,it.id); sfx('mf'); return; }
   if(w.proj){ camera.getWorldDirection(tv1); muzzlePos(p,tv2); const o=tv2.clone(), at=aimPoint(p,tv1,w.range);
     launchRocket(p,o,at.sub(o).normalize()); p.pitch=Math.min(1.25,p.pitch+w.recoil); fireFx(p,w,it.id); sfx('rpg'); camShake=Math.max(camShake,0.35); return; }
@@ -1056,6 +1056,8 @@ function startConsume(it){ const p=player, c=CONS[it.id];
 function finishConsume(){ const p=player, it=p.consuming.it, c=CONS[it.id]; p.consuming=null;
   p.shield=Math.min(c.cap,p.shield+c.shield);
   sfx('healDone'); healFx(p.pos.clone().add(new V(0,p.zgRoll>1.5?0.7:1.3,0)),0x6fb6ff,16,2.4); it.count--; if(it.count<=0){ const i=p.slots.indexOf(it); if(i>0) p.slots[i]=null; } refreshHotbar(); }
+// the MF Guns never run out, but every 30 shots they need a reload (R reloads early)
+function startReload(it){ const p=player; if(!it||it.id!=='mf'||p.reloading||it.ammo>=MF_CLIP) return; p.reloading={it,t:0,dur:MF_RELOAD}; sfx('clink'); }
 function selectSlot(n){ const p=player; if(p.sel!==n) cancelActions(); p.sel=n; refreshHotbar(); }
 // ================= bots =================
 function makeBot(i){
@@ -1090,6 +1092,7 @@ function botShoot(b,e,d){
 function updateActions(dt){
   const p=player; p.fireCd-=dt; p.bloom=Math.max(0,p.bloom-dt*2.2); if(p.swingT>0) p.swingT-=dt; if(p.comboT>0) p.comboT-=dt; if(p.hitT>0){ p.hitT-=dt; if(p.hitT<=0) pickaxeHit(); }
   if(p.consuming){ if(curItem()!==p.consuming.it) p.consuming=null; else { p.consuming.t+=dt; if(p.consuming.t>=p.consuming.dur) finishConsume(); } }
+  if(p.reloading){ const r=p.reloading; if(curItem()!==r.it) p.reloading=null; else { r.t+=dt; if(r.t>=r.dur){ r.it.ammo=MF_CLIP; p.reloading=null; sfx('clink'); } } }
   updateThrow(dt);
   const it=curItem();
   ads=state==='play'&&mouse.r&&p.alive&&!!it&&it.kind==='gun';
@@ -1163,7 +1166,7 @@ function hudTick(){
   const it=curItem();
   $('bankN').textContent=p.bank;
   $('ability').hidden=!p.bouncer; if(p.bouncer){ const cd=Math.ceil(p.bouncer.cd); $('abilityCd').textContent=p.bounceT>0?String(Math.ceil(p.bounceT)):cd>0?String(cd):''; $('ability').classList.toggle('ready',!cd&&!(p.bounceT>0)); $('ability').classList.toggle('on',p.bounceT>0); }
-  if(it&&it.kind==='gun') $('ammo').textContent='∞'; else if(it&&it.kind==='vest') $('ammo').textContent=String(it.count);
+  if(it&&it.kind==='gun'&&it.id==='mf') $('ammo').innerHTML=it.ammo+'<small>/ '+MF_CLIP+'</small>'; else if(it&&it.kind==='gun') $('ammo').textContent='∞'; else if(it&&it.kind==='vest') $('ammo').textContent=String(it.count);
   else $('ammo').textContent='';
   refreshHotbar();
 }
@@ -1890,7 +1893,8 @@ function throwPose(e,c,rightB,fwdB,upB){
 // going through everyone in its way (each person is hit once per shot). Your own beams never hurt you.
 // Each shot is a bolt of light that ricochets round the whole arena for a few seconds, off every block, wall,
 // floor and ceiling. It hurts anyone it passes through, the shooter included once it has left the muzzle.
-const BOLT_V=420, BOLT_LIFE=4, BOLT_TRAIL=22, BOLT_SELF=0.25, BOLT_RE=0.35;
+const MF_CLIP=30, MF_RELOAD=1.6;
+const BOLT_V=170, BOLT_LIFE=4, BOLT_TRAIL=16, BOLT_SELF=0.25, BOLT_RE=0.35, BOLT_TURN=9, BOLT_SEEK=150;
 const beamGeo=new T.CylinderGeometry(1,1,1,6,1,true);
 const boltCore=new T.MeshBasicMaterial({color:0xffe680,transparent:true,depthWrite:false,fog:false});
 const boltGlow=new T.MeshBasicMaterial({color:0xffa31a,transparent:true,opacity:0.6,depthWrite:false,fog:false});
@@ -1901,7 +1905,7 @@ function fireBolt(src,origin,dir,w){
   const g=new T.Group(), segs=[];
   for(let i=0;i<4;i++){ const sg=new T.Group(); for(const [m,r] of [[boltCore,0.09],[boltGlow,0.28]] as [any,number][]){ const c=new T.Mesh(beamGeo,m); c.scale.set(r,1,r); sg.add(c); } sg.visible=false; g.add(sg); segs.push(sg); }
   const head=new T.Sprite(boltHeadMat); head.scale.setScalar(2); g.add(head); world.add(g);
-  bolts.push({src,w,pos:origin.clone(),dir:dir.clone().normalize(),t:0,pts:[origin.clone()],hit:new Map(),g,segs,head,bounces:0});
+  bolts.push({src,w,pos:origin.clone(),dir:dir.clone().normalize(),t:0,pts:[origin.clone()],hit:new Map(),g,segs,head,bounces:0,tgt:null,seekT:0});
 }
 function boltSparks(p){ const s=new T.Sprite(mfSparkMat.clone()); s.position.copy(p); s.scale.setScalar(1.4); s.material.rotation=Math.random()*TAU; world.add(s);
   effects.push({t:0,dur:0.25,obj:s,upd:(e,k)=>{ s.material.opacity=1-k; s.scale.setScalar(1.4*(1-k*0.6)); },done:()=>s.material.dispose()}); }
@@ -1918,9 +1922,23 @@ function boltHits(B,o,d,len){
     const head=dHead<0.35&&dHead<=dChest; _bh.set(cx,cy,cz);
     hurt(ent,B.w.dmg*(head?B.w.head:1),B.src,{head,point:_bh.clone(),weapon:B.w.name,dir:d.clone()}); }
 }
+// homing: each bolt locks on to the nearest enemy (anyone but the shooter it has not just hit) and curves after them
+const _bs=new V();
+function boltSeek(B,dt){
+  B.seekT-=dt; const t=B.tgt, lastT=t&&B.hit.get(t);
+  if(B.seekT<=0||!t||!t.alive||(lastT!=null&&B.t-lastT<BOLT_RE)){ B.seekT=0.2; let best=null, bd=BOLT_SEEK;
+    for(const e of combatants){ if(!e.alive||e===B.src) continue; const h=B.hit.get(e); if(h!=null&&B.t-h<BOLT_RE) continue;
+      const d=Math.hypot(e.pos.x-B.pos.x,e.pos.y+1-B.pos.y,e.pos.z-B.pos.z); if(d<bd){ bd=d; best=e; } }
+    B.tgt=best; }
+  if(!B.tgt) return;
+  _bs.set(B.tgt.pos.x-B.pos.x,B.tgt.pos.y+1-B.pos.y,B.tgt.pos.z-B.pos.z).normalize();
+  const ang=Math.acos(clamp(B.dir.dot(_bs),-1,1)), mx=BOLT_TURN*dt;
+  if(ang<=mx) B.dir.copy(_bs); else B.dir.lerp(_bs,mx/ang).normalize();
+}
 function updateBolts(dt){
   for(let i=bolts.length-1;i>=0;i--){ const B=bolts[i]; B.t+=dt;
     if(B.t>=BOLT_LIFE){ world.remove(B.g); bolts.splice(i,1); continue; }
+    boltSeek(B,dt);
     let left=BOLT_V*dt;
     for(let k=0;k<6&&left>1e-3;k++){ const o=B.pos, d=B.dir;
       ray.set(o,d); ray.near=0.02; ray.far=left; const hs=ray.intersectObjects(meshesAlong(o,d,left,false),false); let dist=left, n=null;
@@ -2051,7 +2069,7 @@ function buyItem(i){
   if(p.bank<it.price){ sfx('deny'); toast('Need '+it.price+' elims'); return; }
   if(it.id==='bounce'){ p.bank-=it.price; p.bouncer={cd:0}; sfx('buy'); renderShop(); hudTick(); return; } // armour: no slot, Q to use
   let slot=-1; for(let k=6;k<NSLOT;k++) if(!p.slots[k]){ slot=k; break; } if(slot<0){ sfx('deny'); toast('Hotbar full'); return; }
-  p.bank-=it.price; p.slots[slot]=it.id==='rpg'?{kind:'gun',id:'rpg',r:4,ammo:1}:it.id==='mf'?{kind:'gun',id:'mf',r:4,ammo:1}:{kind:'vest',id:'gren',count:GREN_N,regen:0};
+  p.bank-=it.price; p.slots[slot]=it.id==='rpg'?{kind:'gun',id:'rpg',r:4,ammo:1}:it.id==='mf'?{kind:'gun',id:'mf',r:4,ammo:MF_CLIP}:{kind:'vest',id:'gren',count:GREN_N,regen:0};
   sfx('buy'); selectSlot(slot); renderShop(); refreshHotbar(); hudTick();
 }
 $('shopList').addEventListener('click',ev=>{ const b=(ev.target as Element).closest('button'); if(b) buyItem(+(b as HTMLElement).dataset.i); });
@@ -2064,7 +2082,7 @@ function newMatch(){
   buildZeroG(); buildVending(); projs=[]; bolts=[]; fires=[]; shopOpen=false; $('shop').hidden=true;
   ZG.state='float'; ZG.t=rnd(20,26); ZG.camRoll=0; ZG.flash=0;
   player=makeCombatant('You',true);
-  Object.assign(player,{slots:[null,{kind:'gun',id:'ar',r:3,ammo:WEAP.ar.mag},{kind:'gun',id:'pump',r:3,ammo:WEAP.pump.mag},{kind:'gun',id:'smg',r:2,ammo:WEAP.smg.mag},{kind:'cons',id:'big',count:2},{kind:'cons',id:'mini',count:3},{kind:'gun',id:'mf',r:4,ammo:1},null,null],
+  Object.assign(player,{slots:[null,{kind:'gun',id:'ar',r:3,ammo:WEAP.ar.mag},{kind:'gun',id:'pump',r:3,ammo:WEAP.pump.mag},{kind:'gun',id:'smg',r:2,ammo:WEAP.smg.mag},{kind:'cons',id:'big',count:2},{kind:'cons',id:'mini',count:3},{kind:'gun',id:'mf',r:4,ammo:MF_CLIP},null,null],
     sel:1,bank:0,throwA:null,bouncer:{cd:0},bounceT:0,ball:null,ammo:{light:150,medium:240,heavy:12,shells:48},fireCd:0,bloom:0,reloading:null,consuming:null,dmgDealt:0,wantJump:false,shield:50});
   zgSpawn(player,0,ZG.BOTS+1); player.pitch=0; applyPickSkin(player);
   for(let i=0;i<ZG.BOTS;i++){ const b=makeBot(i); bots.push(b); zgSpawn(b,i+1,ZG.BOTS+1); armBot(b); b.react=rnd(0.14,0.3); b.skill=rnd(0.5,0.8); b.lastPos=b.pos.clone(); }
@@ -2144,6 +2162,7 @@ document.addEventListener('keydown',ev=>{
   if(shopOpen){ if(c.startsWith('Digit')){ const n=+c.slice(5); if(n>=1&&n<=SHOP.length) buyItem(n-1); } else if(c==='KeyE'||c==='Escape') closeShop(); return; }
   if(c==='KeyE'&&p.alive&&nearMachine()) openShop();
   else if(c==='KeyQ') startBounce(p);
+  else if(c==='KeyR'&&p.alive) startReload(curItem());
   else if(c.startsWith('Digit')){ const n=+c.slice(5); if(n>=1&&n<=NSLOT&&(n<=6||p.slots[n-1])) selectSlot(n-1); }
 
 
