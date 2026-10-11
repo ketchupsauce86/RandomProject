@@ -535,7 +535,7 @@ function applySkin(c,skin){
   if(!c.glb||!SK||!skin) return;
   if(!c.baseMats){ c.baseMats={}; c.model.traverse(o=>{ if(o.isMesh) c.baseMats[o.name]=o.material; }); }
   for(const o of c.gear||[]){ o.parent&&o.parent.remove(o); o.traverse(m=>{ if(m.isMesh) m.geometry.dispose(); }); }
-  c.gear=[]; c.capes=[]; c.flaps=[]; c.bobs=[]; c.skin=skin;
+  c.gear=[]; c.gearFar=false; c.capes=[]; c.flaps=[]; c.bobs=[]; c.skin=skin;
   const mats=skin.def?null:skinMaterials(skin,c.baseMats.vanguard_Mesh,c.baseMats.vanguard_visor);
   c.model.traverse(o=>{ if(o.isMesh) o.material=mats?(o.name==='vanguard_visor'?mats.visor:mats.body):c.baseMats[o.name]; if(o.name==='vanguard_visor') o.visible=!skin.noVisor; }); // masks like the Joker's replace the visor
   const big=skin.big||[1,1]; c.model.scale.set(MODEL_SCALE*big[0],MODEL_SCALE*big[1],MODEL_SCALE*big[0]); // Hulk and Thanos are bigger (looks only)
@@ -709,13 +709,27 @@ function consPose(e,c,id,k,rightB,fwdB,upB,dt){
 const ZG_STROKE=[[0,0.18,0.12,0.38],[0.2,0.12,0.5,0.32],[0.45,0.56,0.3,0.12],[0.66,0.4,-0.18,0.08],[0.86,0.14,-0.04,0.3],[1,0.18,0.12,0.38]];
 function zgStroke(u){ let i=0; while(i<ZG_STROKE.length-2&&u>ZG_STROKE[i+1][0]) i++; const a=ZG_STROKE[i], b=ZG_STROKE[i+1], k=easeIO(clamp((u-a[0])/(b[0]-a[0]),0,1));
   return [lerp(a[1],b[1],k),lerp(a[2],b[2],k),lerp(a[3],b[3],k)]; }
+// ---- with 100 players, only draw the characters the camera can see: far ones drop their gear and gun, and only close ones cast shadows
+const _frus=new T.Frustum(), _pv=new T.Matrix4(), _csph=new T.Sphere(new V(),2.6);
+const SHADOW_D=45, GEAR_D=80;
+function charShadow(c,on){ const k=(on?'1':'0')+c.heldKey+c.consId+(c.gear?c.gear.length:0); if(c.shadK===k) return; c.shadK=k;
+  const f=(o:any)=>{ if(o.isMesh) o.castShadow=on; }; c.spin.traverse(f); c.gunMount.traverse(f); c.consG.traverse(f); }
+function cullChars(){ if(!combatants) return;
+  camera.updateMatrixWorld(); _pv.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse); _frus.setFromProjectionMatrix(_pv);
+  for(const e of combatants){ const c=e.ch; if(!c||!c.glb) continue;
+    _csph.center.set(e.pos.x,e.pos.y+1,e.pos.z); const d=_csph.center.distanceTo(camera.position);
+    const see=e===player||_frus.intersectsSphere(_csph), far=d>GEAR_D&&e!==player;
+    c.inView=see; c.spin.visible=see; c.gunMount.visible=see&&!far;
+    if(c.gear&&c.gearFar!==far){ c.gearFar=far; for(const w of c.gear) w.visible=!far; }
+    charShadow(c,see&&(e===player||d<SHADOW_D)); }
+}
 function animateGLB(e,dt){
   const c=e.ch, A=e.anim, B=c.bones, g=c.g; g.position.copy(e.pos); g.rotation.y=e.yaw;
   const a=1-Math.exp(-14*dt), aS=1-Math.exp(-7*dt);
   if(!e.alive){ c.flash.visible=false; deathPose(e,g,c,dt); return; }
   g.visible=!(e.isPlayer&&ads&&isScoped());
   if(!e.isPlayer){ const cd=e.pos.distanceTo(camera.position);
-    if(cd>70){ e.animAcc=(e.animAcc||0)+dt; if(e.animAcc<(cd>150?0.2:0.1)) return; dt=e.animAcc; e.animAcc=0; } }
+    if(cd>45||c.inView===false){ e.animAcc=(e.animAcc||0)+dt; if(e.animAcc<(c.inView===false?0.3:cd>140?0.2:cd>80?0.1:0.05)) return; dt=e.animAcc; e.animAcc=0; } } // off screen or far away: pose less often
   const {fx,fz,fwd,side,speed}=motionState(e,dt);
   let held=null, pickaxe=false;
   if(e.isPlayer){ const it=curItem(); if(it&&it.kind==='gun') held=it; else if(!it) pickaxe=true; }
@@ -736,7 +750,7 @@ function animateGLB(e,dt){
   D(W,'Idle',wIdle,aS); D(W,'Walk',wWalk,aS); D(W,'Run',wRun,aS); D(W,'TPose',wT,aS);
   for(const n in c.act) c.act[n].setEffectiveWeight(W[n]);
   c.act.Walk.setEffectiveTimeScale(back*clamp(s/1.8,0.7,1.6)); c.act.Run.setEffectiveTimeScale(back*clamp(s/(5.5+1.2*A.sprint),0.8,2.15)); // sprinting takes longer strides instead of faster steps
-  const near=!player||e===player||e.pos.distanceTo(camera.position)<70;
+  const near=!player||e===player||e.pos.distanceTo(camera.position)<50;
   c.mixer.update(dt); swayGear(e,c,s+(e.onGround?0:Math.hypot(e.vel.x,e.vel.z)*0.3),dt);
   bodyPose(e,g,c,a,dt);
   c.model.position.y=0; g.updateMatrixWorld(true);
@@ -924,15 +938,19 @@ class BoxGrid{
 // Meshes that block bullets and sight, bucketed into 48 m cells; a ray only tests the cells its segment crosses.
 const MESH_CS=48; let meshGrid=null;
 function meshKey(ix,iz){ return ix*73856093^iz*19349663; }
-function rebuildMeshGrid(){ meshGrid=new Map(); const w=new V();
-  for(const m of structMeshes){ m.getWorldPosition(w); const k=meshKey(Math.floor(w.x/MESH_CS),Math.floor(w.z/MESH_CS)); let c=meshGrid.get(k); if(!c) meshGrid.set(k,c=[]); c.push(m); } }
+const _mb=new T.Box3();
+function rebuildMeshGrid(){ meshGrid=new Map();
+  for(const m of structMeshes){ _mb.setFromObject(m); // a big block goes in every cell it covers, not just the one under its middle
+    for(let ix=Math.floor(_mb.min.x/MESH_CS);ix<=Math.floor(_mb.max.x/MESH_CS);ix++) for(let iz=Math.floor(_mb.min.z/MESH_CS);iz<=Math.floor(_mb.max.z/MESH_CS);iz++){
+      const k=meshKey(ix,iz); let c=meshGrid.get(k); if(!c) meshGrid.set(k,c=[]); c.push(m); } } }
+let _segSt=0;
 const _segOut=[];
 const structsAlong=(o,d,len)=>meshesAlong(o,d,len,false).filter(m=>m.userData.ent&&m.userData.ent.etype==='piece');
 function meshesAlong(o,d,len,withChars){
   refreshTargets(); const out=_segOut; out.length=0;
   const ex=o.x+d.x*len, ez=o.z+d.z*len, pad=8;
   const x0=Math.floor((Math.min(o.x,ex)-pad)/MESH_CS), x1=Math.floor((Math.max(o.x,ex)+pad)/MESH_CS), z0=Math.floor((Math.min(o.z,ez)-pad)/MESH_CS), z1=Math.floor((Math.max(o.z,ez)+pad)/MESH_CS);
-  for(let ix=x0;ix<=x1;ix++) for(let iz=z0;iz<=z1;iz++){ const c=meshGrid.get(meshKey(ix,iz)); if(c) for(const m of c) out.push(m); }
+  const st=++_segSt; for(let ix=x0;ix<=x1;ix++) for(let iz=z0;iz<=z1;iz++){ const c=meshGrid.get(meshKey(ix,iz)); if(c) for(const m of c) if(m.userData.segSt!==st){ m.userData.segSt=st; out.push(m); } }
   if(withChars) for(const m of charMeshes) out.push(m);
   return out;
 }
@@ -2141,7 +2159,7 @@ function loop(now){
     else if(perfStage===0){ perfStage=1; renderer.setPixelRatio(1); resize(); }
     else if(perfStage===1){ perfStage=2; sun.shadow.mapSize.set(1024,1024); if(sun.shadow.map){ (sun.shadow.map as any).dispose(); sun.shadow.map=null; } }
     else { perfStage=3; if(f<30) sun.castShadow=false; } } }
-  updateCamera(dt); updateSun(); updateAudio(dt);
+  updateCamera(dt); updateSun(); updateAudio(dt); if(state!=='armory') cullChars();
   if(state!=='menu'&&state!=='armory'&&player){ hudAcc+=dt; if(hudAcc>0.1){ hudAcc=0; hudTick(); } hudFrame(dt); drawMap(); }
   renderer.render(scene,camera);
 }
@@ -2154,5 +2172,5 @@ requestAnimationFrame(loop);
 window.__game={keys,camera,sfx:(k,o)=>sfx(k,null,o),get audioOk(){return !!(AC&&bus&&AMB);},setCam:(p,l)=>{ camOverride=p?{pos:new V(...p),look:new V(...l)}:null; },
   openArmory,setArm:i=>{armIdx=i;buildArmory();},setArmMode,setPick:i=>{pxIdx=i;buildArmory();},setSkin:i=>{skIdx=i;buildArmory();},
   lineup:(ids,yaw)=>{ if(armGroup) scene.remove(armGroup); armGroup=new T.Group(); armGroup.position.set(0,ARM_Y,0); skShown=[]; ids.forEach((id,k)=>{ const c=standChar(SK.ITEMS[id]); c.g.position.x=(k-(ids.length-1)/2)*1.25; c.g.userData.o=0; c.g.userData.yaw=yaw; armGroup.add(c.g); skShown.push(c); }); studioLights(armGroup); armGroup.userData.dist=ids.length*0.75+1.6; scene.add(armGroup); },
-  fire:()=>playerFire(),kill:(e,weapon,info)=>eliminate(e,null,weapon,info),colliderCount:()=>colliders.size,get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},get ZG(){return ZG;},startMatch,update,setState:s=>state=s};
+  renderer,scene,fire:()=>playerFire(),kill:(e,weapon,info)=>eliminate(e,null,weapon,info),colliderCount:()=>colliders.size,get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},get ZG(){return ZG;},startMatch,update,setState:s=>state=s};
 })();

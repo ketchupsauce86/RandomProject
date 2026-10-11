@@ -1315,6 +1315,7 @@
         });
       }
       c.gear = [];
+      c.gearFar = false;
       c.capes = [];
       c.flaps = [];
       c.bobs = [];
@@ -1693,6 +1694,40 @@
       const a = ZG_STROKE[i], b = ZG_STROKE[i + 1], k = easeIO(clamp((u - a[0]) / (b[0] - a[0]), 0, 1));
       return [lerp(a[1], b[1], k), lerp(a[2], b[2], k), lerp(a[3], b[3], k)];
     }
+    const _frus = new T.Frustum(), _pv = new T.Matrix4(), _csph = new T.Sphere(new V(), 2.6);
+    const SHADOW_D = 45, GEAR_D = 80;
+    function charShadow(c, on) {
+      const k = (on ? "1" : "0") + c.heldKey + c.consId + (c.gear ? c.gear.length : 0);
+      if (c.shadK === k) return;
+      c.shadK = k;
+      const f = (o) => {
+        if (o.isMesh) o.castShadow = on;
+      };
+      c.spin.traverse(f);
+      c.gunMount.traverse(f);
+      c.consG.traverse(f);
+    }
+    function cullChars() {
+      if (!combatants) return;
+      camera.updateMatrixWorld();
+      _pv.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+      _frus.setFromProjectionMatrix(_pv);
+      for (const e of combatants) {
+        const c = e.ch;
+        if (!c || !c.glb) continue;
+        _csph.center.set(e.pos.x, e.pos.y + 1, e.pos.z);
+        const d = _csph.center.distanceTo(camera.position);
+        const see = e === player || _frus.intersectsSphere(_csph), far = d > GEAR_D && e !== player;
+        c.inView = see;
+        c.spin.visible = see;
+        c.gunMount.visible = see && !far;
+        if (c.gear && c.gearFar !== far) {
+          c.gearFar = far;
+          for (const w of c.gear) w.visible = !far;
+        }
+        charShadow(c, see && (e === player || d < SHADOW_D));
+      }
+    }
     function animateGLB(e, dt) {
       const c = e.ch, A = e.anim, B = c.bones, g = c.g;
       g.position.copy(e.pos);
@@ -1706,9 +1741,9 @@
       g.visible = !(e.isPlayer && ads && isScoped());
       if (!e.isPlayer) {
         const cd = e.pos.distanceTo(camera.position);
-        if (cd > 70) {
+        if (cd > 45 || c.inView === false) {
           e.animAcc = (e.animAcc || 0) + dt;
-          if (e.animAcc < (cd > 150 ? 0.2 : 0.1)) return;
+          if (e.animAcc < (c.inView === false ? 0.3 : cd > 140 ? 0.2 : cd > 80 ? 0.1 : 0.05)) return;
           dt = e.animAcc;
           e.animAcc = 0;
         }
@@ -1752,7 +1787,7 @@
       for (const n in c.act) c.act[n].setEffectiveWeight(W[n]);
       c.act.Walk.setEffectiveTimeScale(back * clamp(s / 1.8, 0.7, 1.6));
       c.act.Run.setEffectiveTimeScale(back * clamp(s / (5.5 + 1.2 * A.sprint), 0.8, 2.15));
-      const near = !player || e === player || e.pos.distanceTo(camera.position) < 70;
+      const near = !player || e === player || e.pos.distanceTo(camera.position) < 50;
       c.mixer.update(dt);
       swayGear(e, c, s + (e.onGround ? 0 : Math.hypot(e.vel.x, e.vel.z) * 0.3), dt);
       bodyPose(e, g, c, a, dt);
@@ -2147,17 +2182,20 @@
     function meshKey(ix, iz) {
       return ix * 73856093 ^ iz * 19349663;
     }
+    const _mb = new T.Box3();
     function rebuildMeshGrid() {
       meshGrid = /* @__PURE__ */ new Map();
-      const w = new V();
       for (const m of structMeshes) {
-        m.getWorldPosition(w);
-        const k = meshKey(Math.floor(w.x / MESH_CS), Math.floor(w.z / MESH_CS));
-        let c = meshGrid.get(k);
-        if (!c) meshGrid.set(k, c = []);
-        c.push(m);
+        _mb.setFromObject(m);
+        for (let ix = Math.floor(_mb.min.x / MESH_CS); ix <= Math.floor(_mb.max.x / MESH_CS); ix++) for (let iz = Math.floor(_mb.min.z / MESH_CS); iz <= Math.floor(_mb.max.z / MESH_CS); iz++) {
+          const k = meshKey(ix, iz);
+          let c = meshGrid.get(k);
+          if (!c) meshGrid.set(k, c = []);
+          c.push(m);
+        }
       }
     }
+    let _segSt = 0;
     const _segOut = [];
     const structsAlong = (o, d, len) => meshesAlong(o, d, len, false).filter((m) => m.userData.ent && m.userData.ent.etype === "piece");
     function meshesAlong(o, d, len, withChars) {
@@ -2166,9 +2204,15 @@
       out.length = 0;
       const ex = o.x + d.x * len, ez = o.z + d.z * len, pad = 8;
       const x0 = Math.floor((Math.min(o.x, ex) - pad) / MESH_CS), x1 = Math.floor((Math.max(o.x, ex) + pad) / MESH_CS), z0 = Math.floor((Math.min(o.z, ez) - pad) / MESH_CS), z1 = Math.floor((Math.max(o.z, ez) + pad) / MESH_CS);
+      const st = ++_segSt;
       for (let ix = x0; ix <= x1; ix++) for (let iz = z0; iz <= z1; iz++) {
         const c = meshGrid.get(meshKey(ix, iz));
-        if (c) for (const m of c) out.push(m);
+        if (c) {
+          for (const m of c) if (m.userData.segSt !== st) {
+            m.userData.segSt = st;
+            out.push(m);
+          }
+        }
       }
       if (withChars) for (const m of charMeshes) out.push(m);
       return out;
@@ -5273,6 +5317,7 @@
       updateCamera(dt);
       updateSun();
       updateAudio(dt);
+      if (state !== "armory") cullChars();
       if (state !== "menu" && state !== "armory" && player) {
         hudAcc += dt;
         if (hudAcc > 0.1) {
@@ -5337,6 +5382,8 @@
         armGroup.userData.dist = ids.length * 0.75 + 1.6;
         scene.add(armGroup);
       },
+      renderer,
+      scene,
       fire: () => playerFire(),
       kill: (e, weapon, info) => eliminate(e, null, weapon, info),
       colliderCount: () => colliders.size,
