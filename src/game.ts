@@ -30,7 +30,7 @@ const WEAP={
   sniper:{name:'Bolt Sniper',short:'SNIPER',dmg:105,rate:1.6,mag:1,reload:2.4,spread:0.0015,bloom:0,auto:false,ammo:'heavy',range:700,pellets:1,head:2.5,recoil:0.05,zoom:true,pref:55},
   // bought at the vending machines: fires a rocket (see the RPG section) instead of a bullet
   // two golden winged pistols, fired in turn; each shot is a beam of light that bounces off every surface
-  mf:{name:'Mirror Fractal Guns',short:'MF GUNS',dmg:16,rate:0.12,mag:1,reload:0,spread:0.004,bloom:0.012,auto:true,ammo:'light',range:400,pellets:1,head:1.5,recoil:0.004,pref:20,beam:true,col:'#ffd23f'},
+  mf:{name:'Mirror Fractal Guns',short:'MF GUNS',dmg:24,rate:0.12,mag:1,reload:0,spread:0.004,bloom:0.012,auto:true,ammo:'light',range:400,pellets:1,head:1.5,recoil:0.004,pref:20,beam:true,col:'#ffd23f'},
   rpg:{name:'RPG',short:'RPG',dmg:140,rate:1.4,mag:1,reload:0,spread:0,bloom:0,auto:false,ammo:'heavy',range:400,pellets:1,head:1,recoil:0.07,pref:30,proj:'rocket',col:'#4fd34f'},
 };
 const CONS={
@@ -1890,7 +1890,7 @@ function throwPose(e,c,rightB,fwdB,upB){
 // going through everyone in its way (each person is hit once per shot). Your own beams never hurt you.
 // Each shot is a bolt of light that ricochets round the whole arena for a few seconds, off every block, wall,
 // floor and ceiling. It hurts anyone it passes through, the shooter included once it has left the muzzle.
-const BOLT_V=110, BOLT_LIFE=4, BOLT_TRAIL=14, BOLT_SELF=0.35, BOLT_RE=0.5;
+const BOLT_V=420, BOLT_LIFE=4, BOLT_TRAIL=22, BOLT_SELF=0.25, BOLT_RE=0.35;
 const beamGeo=new T.CylinderGeometry(1,1,1,6,1,true);
 const boltCore=new T.MeshBasicMaterial({color:0xffe680,transparent:true,depthWrite:false,fog:false});
 const boltGlow=new T.MeshBasicMaterial({color:0xffa31a,transparent:true,opacity:0.6,depthWrite:false,fog:false});
@@ -1905,11 +1905,18 @@ function fireBolt(src,origin,dir,w){
 }
 function boltSparks(p){ const s=new T.Sprite(mfSparkMat.clone()); s.position.copy(p); s.scale.setScalar(1.4); s.material.rotation=Math.random()*TAU; world.add(s);
   effects.push({t:0,dur:0.25,obj:s,upd:(e,k)=>{ s.material.opacity=1-k; s.scale.setScalar(1.4*(1-k*0.6)); },done:()=>s.material.dispose()}); }
+// a bolt is a fat beam of light: anyone whose body comes within a hand's width of its path is hit (head shots near the head)
+const BOLT_R=0.75, _bq=new V(), _bh=new V();
+function segDist(o,d,len,p){ _bq.subVectors(p,o); const t=clamp(_bq.dot(d),0,len); return _bq.addScaledVector(d,-t).length(); }
 function boltHits(B,o,d,len){
-  ray.set(o,d); ray.near=0; ray.far=len; refreshTargets();
-  for(const h of ray.intersectObjects(charMeshes,false)){ const ent=h.object.userData.ent; if(!ent||!ent.alive) continue;
-    if(ent===B.src&&B.t<BOLT_SELF) continue; const last=B.hit.get(ent); if(last!=null&&B.t-last<BOLT_RE) continue; B.hit.set(ent,B.t);
-    const head=h.object.userData.part==='head'; hurt(ent,B.w.dmg*(head?B.w.head:1),B.src,{head,point:h.point,weapon:B.w.name,dir:d.clone()}); }
+  for(const ent of combatants){ if(!ent.alive) continue; if(ent===B.src&&B.t<BOLT_SELF) continue;
+    const cx=ent.pos.x, cy=ent.pos.y+1, cz=ent.pos.z; _bh.set(cx,cy,cz); if(segDist(o,d,len,_bh)>2.2) continue; // quick reject
+    const up=ent.zgRoll>1.5?-1:1; // upside down the head is at the bottom
+    const dHead=segDist(o,d,len,_bh.set(cx,cy+0.72*up,cz)), dChest=segDist(o,d,len,_bh.set(cx,cy+0.25*up,cz)), dLegs=segDist(o,d,len,_bh.set(cx,cy-0.45*up,cz));
+    if(Math.min(dHead,dChest,dLegs)>BOLT_R) continue;
+    const last=B.hit.get(ent); if(last!=null&&B.t-last<BOLT_RE) continue; B.hit.set(ent,B.t);
+    const head=dHead<0.35&&dHead<=dChest; _bh.set(cx,cy,cz);
+    hurt(ent,B.w.dmg*(head?B.w.head:1),B.src,{head,point:_bh.clone(),weapon:B.w.name,dir:d.clone()}); }
 }
 function updateBolts(dt){
   for(let i=bolts.length-1;i>=0;i--){ const B=bolts[i]; B.t+=dt;
