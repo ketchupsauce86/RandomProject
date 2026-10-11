@@ -1264,10 +1264,10 @@
       return { glb: true, g, spin, model, bones, mixer, act, gunMount, pick: pickG, consG, consId: "", flash, hb, parts: [hb.head, hb.chest, hb.legs], head: hb.head, heldKey: "", held: null, w: { Idle: 1, Walk: 0, Run: 0, TPose: 0 } };
     }
     const SK = window.SKINS || null, skinMats = /* @__PURE__ */ new Map(), gearMats = {};
-    function skinMaterials(skin, body, visor) {
+    function skinMaterials(skin, body, visor, geo) {
       let m = skinMats.get(skin.i);
       if (m) return m;
-      const fin = skin.fin || [0.15, 0.7], src = body.map, cv = SK.paint(src.image, skin, 512);
+      const fin = skin.fin || [0.15, 0.7], src = body.map, cv = SK.paint(src.image, skin, 512, geo);
       const tex = (t) => {
         const x = new T.CanvasTexture(t);
         x.flipY = src.flipY;
@@ -1320,7 +1320,11 @@
       c.flaps = [];
       c.bobs = [];
       c.skin = skin;
-      const mats = skin.def ? null : skinMaterials(skin, c.baseMats.vanguard_Mesh, c.baseMats.vanguard_visor);
+      let geo = null;
+      c.model.traverse((o) => {
+        if (o.name === "vanguard_Mesh") geo = o.geometry;
+      });
+      const mats = skin.def ? null : skinMaterials(skin, c.baseMats.vanguard_Mesh, c.baseMats.vanguard_visor, geo);
       c.model.traverse((o) => {
         if (o.isMesh) o.material = mats ? o.name === "vanguard_visor" ? mats.visor : mats.body : c.baseMats[o.name];
         if (o.name === "vanguard_visor") o.visible = !skin.noVisor;

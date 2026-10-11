@@ -521,9 +521,9 @@ function makeCharacterGLB(){
 }
 // ---- outfits: repaint the soldier's armor and hang themed gear on its bones (see skins.js)
 const SK=window.SKINS||null, skinMats=new Map(), gearMats={};
-function skinMaterials(skin,body,visor){
+function skinMaterials(skin,body,visor,geo){
   let m=skinMats.get(skin.i); if(m) return m;
-  const fin=skin.fin||[0.15,0.7], src=body.map, cv=SK.paint(src.image,skin,512);
+  const fin=skin.fin||[0.15,0.7], src=body.map, cv=SK.paint(src.image,skin,512,geo);
   const tex=t=>{ const x=new T.CanvasTexture(t); x.flipY=src.flipY; x.encoding=src.encoding; x.wrapS=src.wrapS; x.wrapT=src.wrapT; x.anisotropy=4; return x; };
   const b=body.clone(); b.map=tex(cv.map); b.color.set(0xffffff); b.metalness=Math.min(fin[0],0.6); b.roughness=fin[1];
   if(cv.glow){ b.emissive=new T.Color(0xffffff); b.emissiveMap=tex(cv.glow); b.emissiveIntensity=0.9; }
@@ -536,7 +536,8 @@ function applySkin(c,skin){
   if(!c.baseMats){ c.baseMats={}; c.model.traverse(o=>{ if(o.isMesh) c.baseMats[o.name]=o.material; }); }
   for(const o of c.gear||[]){ o.parent&&o.parent.remove(o); o.traverse(m=>{ if(m.isMesh) m.geometry.dispose(); }); }
   c.gear=[]; c.gearFar=false; c.capes=[]; c.flaps=[]; c.bobs=[]; c.skin=skin;
-  const mats=skin.def?null:skinMaterials(skin,c.baseMats.vanguard_Mesh,c.baseMats.vanguard_visor);
+  let geo=null; c.model.traverse(o=>{ if(o.name==='vanguard_Mesh') geo=o.geometry; });
+  const mats=skin.def?null:skinMaterials(skin,c.baseMats.vanguard_Mesh,c.baseMats.vanguard_visor,geo);
   c.model.traverse(o=>{ if(o.isMesh) o.material=mats?(o.name==='vanguard_visor'?mats.visor:mats.body):c.baseMats[o.name]; if(o.name==='vanguard_visor') o.visible=!skin.noVisor; }); // masks like the Joker's replace the visor
   const big=skin.big||[1,1]; c.model.scale.set(MODEL_SCALE*big[0],MODEL_SCALE*big[1],MODEL_SCALE*big[0]); // Hulk and Thanos are bigger (looks only)
   c.g.updateMatrixWorld(true); const ws=new V(), sc=new V(), qq=new T.Quaternion(); c.g.getWorldScale(ws);
