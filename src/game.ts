@@ -729,7 +729,7 @@ function animateGLB(e,dt){
   if(!e.alive){ c.flash.visible=false; deathPose(e,g,c,dt); return; }
   g.visible=!(e.isPlayer&&ads&&isScoped());
   if(!e.isPlayer){ const cd=e.pos.distanceTo(camera.position);
-    if(cd>45||c.inView===false){ e.animAcc=(e.animAcc||0)+dt; if(e.animAcc<(c.inView===false?0.3:cd>140?0.2:cd>80?0.1:0.05)) return; dt=e.animAcc; e.animAcc=0; } } // off screen or far away: pose less often
+    if(cd>45||c.inView===false){ e.animAcc=(e.animAcc||0)+dt; if(e.animAcc<(c.inView===false?0.3:cd>140?0.2:cd>80?0.1:0.05)){ _pc.set(0,1,0).applyEuler(g.rotation); g.position.set(e.pos.x-_pc.x,e.pos.y+1-_pc.y,e.pos.z-_pc.z); return; } /* keep the tilt/roll offset between poses, or the body jumps */ dt=e.animAcc; e.animAcc=0; } } // off screen or far away: pose less often
   const {fx,fz,fwd,side,speed}=motionState(e,dt);
   let held=null, pickaxe=false;
   if(e.isPlayer){ const it=curItem(); if(it&&it.kind==='gun') held=it; else if(!it) pickaxe=true; }
@@ -759,9 +759,9 @@ function animateGLB(e,dt){
   const rightB=new V(1,0,0).applyQuaternion(_qm), fwdB=new V(0,0,-1).applyQuaternion(_qm), upB=new V(0,1,0).applyQuaternion(_qm);
   const bend=(sd,th,kn)=>{ rotateBoneWorld(B[sd+'UpLeg'],rightB,th); rotateBoneWorld(B[sd+'Leg'],rightB,kn); };
   // --- legs: crouch and the squash after a landing lower the body while IK keeps the feet planted
-  const cr=A.crouch, crE=Math.max(cr,e.onGround?A.land*0.75:0), right=_v1.set(Math.cos(e.yaw),0,-Math.sin(e.yaw)).clone(), fwdV=new V(fx,0,fz);
+  const cr=A.crouch, crE=Math.max(cr,e.onGround?A.land*0.75:0), right=rightB, fwdV=fwdB; // body axes, so poses still work rolled onto the ceiling
   let feet=null;
-  if(near&&crE>0.01){ feet=[B.LeftFoot.getWorldPosition(new V()),B.RightFoot.getWorldPosition(new V())]; if(A.air>0.5){ feet[0].y+=0.25*A.air; feet[1].y+=0.4*A.air; } }
+  if(near&&crE>0.01){ feet=[B.LeftFoot.getWorldPosition(new V()),B.RightFoot.getWorldPosition(new V())]; if(A.air>0.5){ feet[0].addScaledVector(upB,0.25*A.air); feet[1].addScaledVector(upB,0.4*A.air); } }
   c.model.position.y=-0.48*crE;
   // zero-g: a lazy bob while drifting, and cartoon squash and stretch: long on the kick, squashed on the tuck
   let sqY=1;
@@ -773,7 +773,7 @@ function animateGLB(e,dt){
   else if(A.zgP){ A.zgP=0; A.zgS=0; }
   c.spin.scale.set(1/Math.sqrt(sqY),sqY,1/Math.sqrt(sqY)); c.spin.position.y+=1-sqY; // squash about the middle of the body
   g.updateMatrixWorld(true);
-  if(feet){ for(const [i,sd] of [[0,'Left'],[1,'Right']]){ const hip=B[sd+'UpLeg'].getWorldPosition(new V()); const pole=hip.clone().addScaledVector(fwdV,1.2).add(new V(0,-0.4,0)); solveIK(B[sd+'UpLeg'],B[sd+'Leg'],B[sd+'Foot'],feet[i],pole); } }
+  if(feet){ for(const [i,sd] of [[0,'Left'],[1,'Right']]){ const hip=B[sd+'UpLeg'].getWorldPosition(new V()); const pole=hip.clone().addScaledVector(fwdV,1.2).addScaledVector(upB,-0.4); solveIK(B[sd+'UpLeg'],B[sd+'Leg'],B[sd+'Foot'],feet[i],pole); } }
   if(near){
     if(e.bounceT>0){ bend('Left',1.7,-2.3); bend('Right',1.6,-2.2); rotateBoneWorld(B.Spine1,rightB,0.35); rotateBoneWorld(B.Neck,rightB,0.4); }
     else if(e.zgFloat){
@@ -804,7 +804,7 @@ function animateGLB(e,dt){
   }
   // --- upper body: strafe twist, crouch and sprint lean, aim pitch, flinch when hit
   const twist=speed>1.2?clamp(Math.atan2(side,Math.abs(fwd))*back,-0.85,0.85):0; D(A,'twist',twist,aS);
-  if(near){ rotateBoneWorld(B.Hips,UP,A.twist); rotateBoneWorld(B.Spine,UP,-A.twist*0.5); rotateBoneWorld(B.Spine1,UP,-A.twist*0.5); }
+  if(near){ rotateBoneWorld(B.Hips,upB,A.twist); rotateBoneWorld(B.Spine,upB,-A.twist*0.5); rotateBoneWorld(B.Spine1,upB,-A.twist*0.5); }
   const pitch=e.isPlayer?e.pitch:(e.aimPitch||0), sp=A.sprPose, pE=pitch*(1-sp);
   if(near){ const lean=-0.28*cr-(held?0.06:0)*Math.min(1,s/4)-0.34*A.sprint; rotateBoneWorld(B.Spine,right,lean); if(A.sprint>0.01) rotateBoneWorld(B.Neck,right,0.2*A.sprint); // lean into a sprint, eyes up
     if(held){ for(const n of ['Spine','Spine1','Spine2']) rotateBoneWorld(B[n],right,pE/3); } else rotateBoneWorld(B.Neck,right,pitch*0.5);
@@ -812,7 +812,7 @@ function animateGLB(e,dt){
     D(A,'stance',held?1-sp:0,aS); if(A.stance>0.01){ const st=A.stance*(held&&held.id==='pistol'?0.5:held&&held.id==='mf'?0.1:1);
       rotateBoneWorld(B.Spine1,upB,-0.24*st); rotateBoneWorld(B.Spine2,upB,-0.16*st); rotateBoneWorld(B.Neck,upB,0.4*st); if(B.LeftShoulder) rotateBoneWorld(B.LeftShoulder,upB,-0.25*st); }
     if(A.hit>0.01){ rotateBoneWorld(B.Spine1,right,0.32*A.hit); rotateBoneWorld(B.Neck,right,0.25*A.hit); }
-    if(pickaxe&&e.swingT>0){ const P=pickPose(e); rotateBoneWorld(B.Spine1,UP,P.tw); rotateBoneWorld(B.Spine2,UP,P.tw*0.5); rotateBoneWorld(B.Spine1,right,P.ln); } }
+    if(pickaxe&&e.swingT>0){ const P=pickPose(e); rotateBoneWorld(B.Spine1,upB,P.tw); rotateBoneWorld(B.Spine2,upB,P.tw*0.5); rotateBoneWorld(B.Spine1,right,P.ln); } }
   // --- hands
   // zero-g arms: drifting, they float out and wave like a jellyfish; swimming, a big breaststroke (reach, sweep
   // wide, pull, tuck) on the same beat as the frog kick
@@ -852,8 +852,8 @@ function animateGLB(e,dt){
       const rt=c.gunMount.localToWorld(new V(...H.r)), lt=c.gunMount.localToWorld(new V(...H.l));
       if(A.reload>0.05){ lt.lerp(c.gunMount.localToWorld(new V(0,-0.32,-0.05)),A.reload*(0.5+0.5*Math.sin(matchTime*8))); }
       const rS=B.RightArm.getWorldPosition(new V()), lS=B.LeftArm.getWorldPosition(new V());
-      solveIK(B.RightArm,B.RightForeArm,B.RightHand,rt,rS.clone().addScaledVector(right,0.3).add(new V(0,-0.8,0)).addScaledVector(fwdV,-0.1));
-      solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,lt,lS.clone().addScaledVector(right,-0.5).add(new V(0,-0.7,0)));
+      solveIK(B.RightArm,B.RightForeArm,B.RightHand,rt,rS.clone().addScaledVector(right,0.3).addScaledVector(upB,-0.8).addScaledVector(fwdV,-0.1));
+      solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,lt,lS.clone().addScaledVector(right,-0.5).addScaledVector(upB,-0.7));
       // right hand wrapped round the grip, left hand palm up under the barrel
       const gq=c.gunMount.getWorldQuaternion(new T.Quaternion()), dir=a=>new V(...a).applyQuaternion(gq);
       poseHand(B,'Right',dir([-0.1,-0.1,-0.99]),dir([-1,0,0.1]),0.75);
@@ -867,7 +867,7 @@ function animateGLB(e,dt){
     const pump=e.onGround&&!(e.swingT>0)?A.sprint*(1-cr):0, dn=A.dn||0;
     if(pump>0.01){ rotateBoneWorld(B.LeftArm,rightB,-0.8*dn*pump); rotateBoneWorld(B.RightArm,rightB,0.8*dn*pump); rotateBoneWorld(B.LeftForeArm,rightB,0.55*pump); rotateBoneWorld(B.RightForeArm,rightB,0.55*pump); }
     const natR=B.RightHand.getWorldPosition(new V()), natL=B.LeftHand.getWorldPosition(new V());
-    if(grip) solveIK(B.RightArm,B.RightForeArm,B.RightHand,tgt.lerp(natR,pump),sh.clone().addScaledVector(right,0.6).add(new V(0,-0.5,0)));
+    if(grip) solveIK(B.RightArm,B.RightForeArm,B.RightHand,tgt.lerp(natR,pump),sh.clone().addScaledVector(right,0.6).addScaledVector(upB,-0.5));
     c.pick.quaternion.copy(P.q);
     if(pump>0.01) c.pick.quaternion.premultiply(_qm.setFromAxisAngle(_v2.set(1,0,0),(0.45*dn-0.8)*pump)); // carried tipped forward, rocking with the arm
     // at rest the right fist closes round the handle (knuckles out) and the handle runs through the palm
@@ -880,7 +880,7 @@ function animateGLB(e,dt){
     // swinging, the left hand joins just above the right; at rest it hangs free
     const w2=A.pk2*(1-pump);
     if(grip&&w2>0.01){ c.pick.updateMatrixWorld(true); const lS=B.LeftArm.getWorldPosition(new V());
-      solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,natL.clone().lerp(c.pick.localToWorld(new V(0,0.15,0)),w2),lS.clone().addScaledVector(right,-0.6).add(new V(0,-0.5,0))); }
+      solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,natL.clone().lerp(c.pick.localToWorld(new V(0,0.15,0)),w2),lS.clone().addScaledVector(right,-0.6).addScaledVector(upB,-0.5)); }
     else if(e.zgFloat) zgArms(['Left']);
   }
   if(c.held&&c.held.userData.sparks){ const t=matchTime; for(const sp of c.held.userData.sparks){ const [x,a,r]=sp.userData.o; sp.position.set(x+Math.cos(a+t*3)*r*0.6,0.03+Math.sin(a*2+t*4)*0.06,-0.08+Math.sin(a+t*3)*r); sp.scale.setScalar(0.04+0.03*Math.abs(Math.sin(t*6+a*3))); sp.material.rotation=t*2; }
@@ -1002,7 +1002,7 @@ function hurt(t,amt,src,info){
   if(t.hp<=0) eliminate(t,src,info.weapon,info);
 }
 function eliminate(t,killer,weapon,info?){
-  if(!t.alive) return;
+  if(!t.alive) return; if(killer===t) killer=null; // hit by your own ricochet: no credit
   t.alive=false; t.hp=0; t.deadT=0; aliveCount--; startDeath(t,deathKind(weapon,info),info);
   charMeshes=charMeshes.filter(m=>m.userData.ent!==t); targetsDirty=true;
   feed(killer?`${killer.name} eliminated ${t.name}${weapon?' · '+weapon:''}`:weapon?`${t.name} ${t===player?'were':'was'} hit by a ${weapon}`:`${t.name} was eliminated`,killer===player||t===player);
@@ -1039,7 +1039,7 @@ function gunFire(it){
   if(p.reloading||p.fireCd>0) return;
   p.fireCd=w.rate; // infinite ammo: no magazines, no reloads
   if(w.beam){ p.anim.mfSide=(p.anim.mfSide||0)^1; let spread=w.spread+w.bloom*p.bloom; if(ads) spread*=0.5; p.bloom=Math.min(1,p.bloom+0.12);
-    camera.getWorldDirection(tv1); muzzlePos(p,tv2); const o=tv2.clone(), at=aimPoint(p,tv1,w.range); fireBeam(p,o,jitter(at.sub(o).normalize(),spread,new V()),w);
+    camera.getWorldDirection(tv1); muzzlePos(p,tv2); const o=tv2.clone(), at=aimPoint(p,tv1,w.range); fireBolt(p,o,jitter(at.sub(o).normalize(),spread,new V()),w);
     p.pitch=Math.min(1.25,p.pitch+w.recoil*rnd(0.6,1)); fireFx(p,w,it.id); sfx('mf'); return; }
   if(w.proj){ camera.getWorldDirection(tv1); muzzlePos(p,tv2); const o=tv2.clone(), at=aimPoint(p,tv1,w.range);
     launchRocket(p,o,at.sub(o).normalize()); p.pitch=Math.min(1.25,p.pitch+w.recoil); fireFx(p,w,it.id); sfx('rpg'); camShake=Math.max(camShake,0.35); return; }
@@ -1533,6 +1533,9 @@ function updateZG(dt){
   else if(ZG.state==='ceil'&&ZG.t<=0){ ZG.state='float'; ZG.t=rnd(24,36); ZG.flash=1; for(const e of combatants){ e.zgRoll=0; e.onGround=false; e.vel.y=-rnd(2,4); } sfx('gravDown'); banner('Zero-G','',2); }
   const want=ZG.state==='ceil'?Math.PI:0; ZG.camRoll+=(want-ZG.camRoll)*(1-Math.exp(-5*dt)); if(Math.abs(want-ZG.camRoll)<0.002) ZG.camRoll=want;
 }
+// bots turn smoothly, at most a turn and a bit per second, so they never snap round
+const BOT_TURN=7;
+function botTurn(b,want,k,dt){ const d=wrapPi(want-b.yaw), step=d*(1-Math.exp(-k*dt)), mx=BOT_TURN*dt; b.yaw=wrapPi(b.yaw+clamp(step,-mx,mx)); }
 function updateBotZG(b,dt){
   if(!b.alive) return;
   b.think-=dt; b.fireCd-=dt; b.reloadT-=dt; b.swapT-=dt; b.strafeT-=dt;
@@ -1541,7 +1544,9 @@ function updateBotZG(b,dt){
   if(b.think<=0){ b.think=rnd(0.15,0.3);
     let best=null; const near=[];
     for(const o of combatants){ if(o===b||!o.alive) continue; const d=Math.hypot(o.pos.x-b.pos.x,o.pos.y-b.pos.y,o.pos.z-b.pos.z); if(d<160) near.push([d,o]); }
-    near.sort((x,y)=>x[0]-y[0]); for(let i=0;i<Math.min(6,near.length);i++){ const o=near[i][1]; if(hasLOS(c,tv2.set(o.pos.x,o.pos.y+1,o.pos.z))){ best=o; break; } }
+    near.sort((x,y)=>x[0]-y[0]); let bd=1e9; for(let i=0;i<Math.min(6,near.length);i++){ const o=near[i][1]; if(hasLOS(c,tv2.set(o.pos.x,o.pos.y+1,o.pos.z))){ best=o; bd=near[i][0]; break; } }
+    // stick with the current target while it is still in sight, unless someone much closer turns up (no flicking between targets)
+    const cur=b.enemy; if(cur&&cur!==best&&cur.alive){ const dc=Math.hypot(cur.pos.x-b.pos.x,cur.pos.y-b.pos.y,cur.pos.z-b.pos.z); if(dc<160&&dc<bd*1.6+6&&hasLOS(c,tv2.set(cur.pos.x,cur.pos.y+1,cur.pos.z))) best=cur; }
     if(best){ if(best!==b.enemy) b.seenAt=matchTime; b.enemy=best; b.lastSeen=best.pos.clone(); b.lastSeenT=matchTime; }
     else if(b.enemy&&matchTime-b.lastSeenT>0.8) b.enemy=null;
     if(!b.enemy&&(!b.goal||Math.random()<0.05)){ for(let k=0;k<20;k++){ const x=rnd(-ZG.L+8,ZG.L-8), y=rnd(4,ZG.H-8), z=rnd(-ZG.L+8,ZG.L-8); if(zgFree(x,y,z)){ b.goal=new V(x,y,z); break; } } }
@@ -1550,14 +1555,14 @@ function updateBotZG(b,dt){
   if(b.enemy){ const e=b.enemy, dx=e.pos.x-b.pos.x, dy=e.pos.y-b.pos.y, dz=e.pos.z-b.pos.z, d=Math.hypot(dx,dy,dz)||1, dh=Math.hypot(dx,dz)||1;
     const want=d<12&&b.inv[1]?b.inv[1]:b.inv[0];
     if(want!==b.gun&&b.swapT<=0){ b.gun=want; b.mag=WEAP[want.id].mag; b.fireCd=Math.max(b.fireCd,0.3); b.swapT=1.2; }
-    b.yaw=angLerp(b.yaw,Math.atan2(-dx,-dz),1-Math.exp(-12*dt)); b.aimPitch=Math.atan2(dy,dh)*(b.zgRoll>1.5?-1:1);
+    botTurn(b,Math.atan2(-dx,-dz),12,dt); b.aimPitch=lerp(b.aimPitch||0,Math.atan2(dy,dh)*(b.zgRoll>1.5?-1:1),1-Math.exp(-10*dt));
     if(b.strafeT<=0){ b.strafe=Math.random()<0.5?-1:1; b.vstrafe=rnd(-1,1); b.strafeT=rnd(0.4,1.1); }
     const pref=WEAP[b.gun.id].pref, fwd=d>pref+5?1:d<pref-4?-0.7:0;
     wish.set(dx/d*fwd+(-dz/dh)*b.strafe*0.9,ceil?0:dy/d*fwd+b.vstrafe*0.7,dz/d*fwd+(dx/dh)*b.strafe*0.9);
     if(!ceil&&d>pref+25) prop=zgStamina(b,true,dt);
     if(matchTime>SPAWN_GRACE&&matchTime-b.seenAt>b.react&&b.fireCd<=0&&b.reloadT<=0) botShoot(b,e,d); // nobody fires in the first few seconds, so 100 bots don't mob you at the start
   } else if(b.goal){ const g=b.goal, dx=g.x-b.pos.x, dy=g.y-b.pos.y, dz=g.z-b.pos.z, d=Math.hypot(dx,dy,dz);
-    if(d<3) b.goal=null; else { wish.set(dx/d,ceil?0:dy/d,dz/d); b.yaw=angLerp(b.yaw,Math.atan2(-dx,-dz),1-Math.exp(-5*dt)); } b.aimPitch=0; }
+    if(d<3) b.goal=null; else { wish.set(dx/d,ceil?0:dy/d,dz/d); botTurn(b,Math.atan2(-dx,-dz),5,dt); } b.aimPitch=lerp(b.aimPitch||0,0,1-Math.exp(-6*dt)); }
   if(!prop) zgStamina(b,false,dt); b.zgPropel=prop;
   // keep off the walls
   const m=10; if(b.pos.x<-ZG.L+m) wish.x+=1; if(b.pos.x>ZG.L-m) wish.x-=1; if(b.pos.z<-ZG.L+m) wish.z+=1; if(b.pos.z>ZG.L-m) wish.z-=1;
@@ -1883,36 +1888,52 @@ function throwPose(e,c,rightB,fwdB,upB){
 // ================= Mirror Fractal Guns =================
 // Each shot is a beam of golden light that bounces off walls, floor, ceiling and blocks up to 16 times,
 // going through everyone in its way (each person is hit once per shot). Your own beams never hurt you.
-const BEAM_BOUNCES=16;
+// Each shot is a bolt of light that ricochets round the whole arena for a few seconds, off every block, wall,
+// floor and ceiling. It hurts anyone it passes through, the shooter included once it has left the muzzle.
+const BOLT_V=110, BOLT_LIFE=4, BOLT_TRAIL=14, BOLT_SELF=0.35, BOLT_RE=0.5;
 const beamGeo=new T.CylinderGeometry(1,1,1,6,1,true);
+const boltCore=new T.MeshBasicMaterial({color:0xffe680,transparent:true,depthWrite:false,fog:false});
+const boltGlow=new T.MeshBasicMaterial({color:0xffa31a,transparent:true,opacity:0.6,depthWrite:false,fog:false});
+const boltHeadMat=new T.SpriteMaterial({map:glowTex,color:0xffb21a,transparent:true,depthWrite:false,fog:false}); // normal blending: additive vanishes on the white box
+let bolts=[], zapT=0;
 function wallNormal(q){ const L=ZG.L; return q.x<=-L+0.02?new V(1,0,0):q.x>=L-0.02?new V(-1,0,0):q.z<=-L+0.02?new V(0,0,1):q.z>=L-0.02?new V(0,0,-1):q.y<=0.02?new V(0,1,0):new V(0,-1,0); }
-function fireBeam(src,origin,dir,w){
-  const pts=[origin.clone()], hitSet=new Set(); let o=origin.clone(), d=dir.clone(), left=600;
-  for(let b=0;b<=BEAM_BOUNCES&&left>1;b++){
-    const far=Math.min(left,300); ray.set(o,d); ray.near=0.02; ray.far=far;
-    const hs=ray.intersectObjects(meshesAlong(o,d,far,false),false); let dist=far, n=null;
-    if(hs.length&&hs[0].face){ dist=hs[0].distance; n=hs[0].face.normal.clone().transformDirection(hs[0].object.matrixWorld); }
-    const tb=boxRay(o,d,dist); if(tb<dist){ dist=tb; n=wallNormal(o.clone().addScaledVector(d,tb)); }
-    ray.near=0; ray.far=dist; refreshTargets();
-    for(const h of ray.intersectObjects(charMeshes,false)){ const ent=h.object.userData.ent; if(!ent||ent===src||hitSet.has(ent)) continue; hitSet.add(ent);
-      const head=h.object.userData.part==='head'; hurt(ent,w.dmg*(head?w.head:1),src,{head,point:h.point,weapon:w.name,dir:d.clone()}); }
-    const end=o.clone().addScaledVector(d,dist); pts.push(end); left-=dist;
-    if(!n) break; if(n.dot(d)>0) n.negate();
-    d.reflect(n).normalize(); o=end.clone().addScaledVector(n,0.03);
-    if(b<4) sfx('zapB',end.clone());
-  }
-  beamFx(pts);
+function fireBolt(src,origin,dir,w){
+  const g=new T.Group(), segs=[];
+  for(let i=0;i<4;i++){ const sg=new T.Group(); for(const [m,r] of [[boltCore,0.09],[boltGlow,0.28]] as [any,number][]){ const c=new T.Mesh(beamGeo,m); c.scale.set(r,1,r); sg.add(c); } sg.visible=false; g.add(sg); segs.push(sg); }
+  const head=new T.Sprite(boltHeadMat); head.scale.setScalar(2); g.add(head); world.add(g);
+  bolts.push({src,w,pos:origin.clone(),dir:dir.clone().normalize(),t:0,pts:[origin.clone()],hit:new Map(),g,segs,head,bounces:0});
 }
-// the beam: a white-hot core inside a golden glow, a sparkle where it bounces, fading in a moment
-function beamFx(pts){
-  const core=new T.MeshBasicMaterial({color:0xfff6c8,transparent:true,depthWrite:false}), glow=new T.MeshBasicMaterial({color:0xffb81a,transparent:true,opacity:0.45,depthWrite:false});
-  const g=new T.Group(), q=new T.Quaternion();
-  for(let i=0;i<pts.length-1;i++){ const a=pts[i], b=pts[i+1], len=a.distanceTo(b); if(len<0.01) continue; _dv.subVectors(b,a).normalize(); q.setFromUnitVectors(UP,_dv);
-    for(const [m,r] of [[core,0.035],[glow,0.11]] as [any,number][]){ const c=new T.Mesh(beamGeo,m); c.scale.set(r,len,r); c.quaternion.copy(q); c.position.copy(a).add(b).multiplyScalar(0.5); g.add(c); }
-    if(i>0){ const s=new T.Sprite(mfSparkMat.clone()); s.position.copy(a); s.scale.setScalar(1.1); s.material.rotation=Math.random()*TAU; g.add(s); } }
-  world.add(g);
-  effects.push({t:0,dur:0.32,obj:g,upd:(e,k)=>{ core.opacity=1-k; glow.opacity=0.45*(1-k); for(const c of g.children as any[]) if(c.isSprite){ c.material.opacity=1-k; c.scale.setScalar(1.1*(1-k*0.6)); } else c.scale.x=c.scale.z=(c.material===core?0.035:0.11)*(1-k*0.7); },
-    done:()=>{ core.dispose(); glow.dispose(); for(const c of g.children as any[]) if(c.isSprite) c.material.dispose(); }});
+function boltSparks(p){ const s=new T.Sprite(mfSparkMat.clone()); s.position.copy(p); s.scale.setScalar(1.4); s.material.rotation=Math.random()*TAU; world.add(s);
+  effects.push({t:0,dur:0.25,obj:s,upd:(e,k)=>{ s.material.opacity=1-k; s.scale.setScalar(1.4*(1-k*0.6)); },done:()=>s.material.dispose()}); }
+function boltHits(B,o,d,len){
+  ray.set(o,d); ray.near=0; ray.far=len; refreshTargets();
+  for(const h of ray.intersectObjects(charMeshes,false)){ const ent=h.object.userData.ent; if(!ent||!ent.alive) continue;
+    if(ent===B.src&&B.t<BOLT_SELF) continue; const last=B.hit.get(ent); if(last!=null&&B.t-last<BOLT_RE) continue; B.hit.set(ent,B.t);
+    const head=h.object.userData.part==='head'; hurt(ent,B.w.dmg*(head?B.w.head:1),B.src,{head,point:h.point,weapon:B.w.name,dir:d.clone()}); }
+}
+function updateBolts(dt){
+  for(let i=bolts.length-1;i>=0;i--){ const B=bolts[i]; B.t+=dt;
+    if(B.t>=BOLT_LIFE){ world.remove(B.g); bolts.splice(i,1); continue; }
+    let left=BOLT_V*dt;
+    for(let k=0;k<6&&left>1e-3;k++){ const o=B.pos, d=B.dir;
+      ray.set(o,d); ray.near=0.02; ray.far=left; const hs=ray.intersectObjects(meshesAlong(o,d,left,false),false); let dist=left, n=null;
+      if(hs.length&&hs[0].face){ dist=hs[0].distance; n=hs[0].face.normal.clone().transformDirection(hs[0].object.matrixWorld); }
+      const tb=boxRay(o,d,dist); if(tb<dist){ dist=Math.max(0,tb); n=wallNormal(_dv.copy(o).addScaledVector(d,dist)); }
+      boltHits(B,o,d,dist);
+      o.addScaledVector(d,dist); left-=dist;
+      if(!n) break;
+      if(n.dot(d)>0) n.negate(); d.reflect(n).normalize(); o.addScaledVector(n,0.03); B.pts.push(o.clone()); B.bounces++;
+      if(B.bounces%3===1) boltSparks(o); if(player&&o.distanceTo(player.pos)<35&&matchTime-zapT>0.06){ zapT=matchTime; sfx('zapB',o.clone()); }
+    }
+    // the trail: the last few metres of the path, bending round each bounce
+    const fade=Math.min(1,(BOLT_LIFE-B.t)/0.6); let budget=BOLT_TRAIL, a=B.pos, s=0;
+    for(let j=B.pts.length-1;j>=0&&s<B.segs.length&&budget>0.01;j--){ const b=B.pts[j], len=a.distanceTo(b); if(len<0.01) continue;
+      const L=Math.min(len,budget), sg=B.segs[s++]; _dv.subVectors(b,a).normalize(); sg.visible=true; sg.scale.y=L; sg.quaternion.setFromUnitVectors(UP,_dv); sg.position.copy(a).addScaledVector(_dv,L/2);
+      budget-=L; a=b; }
+    for(;s<B.segs.length;s++) B.segs[s].visible=false;
+    if(B.pts.length>8) B.pts.splice(0,B.pts.length-8);
+    B.head.position.copy(B.pos); B.head.scale.setScalar(2*fade); B.g.traverse((c:any)=>{ if(c.isMesh) c.scale.x=c.scale.z=(c.material===boltCore?0.09:0.28)*fade; });
+  }
 }
 
 // ================= Bouncer Ball =================
@@ -2033,7 +2054,7 @@ function newMatch(){
   world=new T.Group(); scene.add(world);
   colliders=new BoxGrid(8); structMeshes=[]; charMeshes=[]; combatants=[]; bots=[]; effects=[];
   matchTime=0; targetsDirty=true; hurtFlash=0;
-  buildZeroG(); buildVending(); projs=[]; fires=[]; shopOpen=false; $('shop').hidden=true;
+  buildZeroG(); buildVending(); projs=[]; bolts=[]; fires=[]; shopOpen=false; $('shop').hidden=true;
   ZG.state='float'; ZG.t=rnd(20,26); ZG.camRoll=0; ZG.flash=0;
   player=makeCombatant('You',true);
   Object.assign(player,{slots:[null,{kind:'gun',id:'ar',r:3,ammo:WEAP.ar.mag},{kind:'gun',id:'pump',r:3,ammo:WEAP.pump.mag},{kind:'gun',id:'smg',r:2,ammo:WEAP.smg.mag},{kind:'cons',id:'big',count:2},{kind:'cons',id:'mini',count:3},{kind:'gun',id:'mf',r:4,ammo:1},null,null],
@@ -2143,7 +2164,7 @@ function update(dt){
   updatePads(dt);
   updatePlayerZG(dt);
   updateActions(dt);
-  updateProjs(dt); updateFires(dt); updateBouncerCd(dt);
+  updateProjs(dt); updateBolts(dt); updateFires(dt); updateBouncerCd(dt);
   for(const b of bots) updateBotZG(b,dt);
   for(const e of combatants) animateGLB(e,dt);
   updateEffects(dt);

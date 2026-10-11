@@ -1743,7 +1743,11 @@
         const cd = e.pos.distanceTo(camera.position);
         if (cd > 45 || c.inView === false) {
           e.animAcc = (e.animAcc || 0) + dt;
-          if (e.animAcc < (c.inView === false ? 0.3 : cd > 140 ? 0.2 : cd > 80 ? 0.1 : 0.05)) return;
+          if (e.animAcc < (c.inView === false ? 0.3 : cd > 140 ? 0.2 : cd > 80 ? 0.1 : 0.05)) {
+            _pc.set(0, 1, 0).applyEuler(g.rotation);
+            g.position.set(e.pos.x - _pc.x, e.pos.y + 1 - _pc.y, e.pos.z - _pc.z);
+            return;
+          }
           dt = e.animAcc;
           e.animAcc = 0;
         }
@@ -1799,13 +1803,13 @@
         rotateBoneWorld(B[sd + "UpLeg"], rightB, th);
         rotateBoneWorld(B[sd + "Leg"], rightB, kn);
       };
-      const cr = A.crouch, crE = Math.max(cr, e.onGround ? A.land * 0.75 : 0), right = _v1.set(Math.cos(e.yaw), 0, -Math.sin(e.yaw)).clone(), fwdV = new V(fx, 0, fz);
+      const cr = A.crouch, crE = Math.max(cr, e.onGround ? A.land * 0.75 : 0), right = rightB, fwdV = fwdB;
       let feet = null;
       if (near && crE > 0.01) {
         feet = [B.LeftFoot.getWorldPosition(new V()), B.RightFoot.getWorldPosition(new V())];
         if (A.air > 0.5) {
-          feet[0].y += 0.25 * A.air;
-          feet[1].y += 0.4 * A.air;
+          feet[0].addScaledVector(upB, 0.25 * A.air);
+          feet[1].addScaledVector(upB, 0.4 * A.air);
         }
       }
       c.model.position.y = -0.48 * crE;
@@ -1830,7 +1834,7 @@
       if (feet) {
         for (const [i, sd] of [[0, "Left"], [1, "Right"]]) {
           const hip = B[sd + "UpLeg"].getWorldPosition(new V());
-          const pole = hip.clone().addScaledVector(fwdV, 1.2).add(new V(0, -0.4, 0));
+          const pole = hip.clone().addScaledVector(fwdV, 1.2).addScaledVector(upB, -0.4);
           solveIK(B[sd + "UpLeg"], B[sd + "Leg"], B[sd + "Foot"], feet[i], pole);
         }
       }
@@ -1878,9 +1882,9 @@
       const twist = speed > 1.2 ? clamp(Math.atan2(side, Math.abs(fwd)) * back, -0.85, 0.85) : 0;
       D(A, "twist", twist, aS);
       if (near) {
-        rotateBoneWorld(B.Hips, UP, A.twist);
-        rotateBoneWorld(B.Spine, UP, -A.twist * 0.5);
-        rotateBoneWorld(B.Spine1, UP, -A.twist * 0.5);
+        rotateBoneWorld(B.Hips, upB, A.twist);
+        rotateBoneWorld(B.Spine, upB, -A.twist * 0.5);
+        rotateBoneWorld(B.Spine1, upB, -A.twist * 0.5);
       }
       const pitch = e.isPlayer ? e.pitch : e.aimPitch || 0, sp = A.sprPose, pE = pitch * (1 - sp);
       if (near) {
@@ -1904,8 +1908,8 @@
         }
         if (pickaxe && e.swingT > 0) {
           const P = pickPose(e);
-          rotateBoneWorld(B.Spine1, UP, P.tw);
-          rotateBoneWorld(B.Spine2, UP, P.tw * 0.5);
+          rotateBoneWorld(B.Spine1, upB, P.tw);
+          rotateBoneWorld(B.Spine2, upB, P.tw * 0.5);
           rotateBoneWorld(B.Spine1, right, P.ln);
         }
       }
@@ -1958,8 +1962,8 @@
             lt.lerp(c.gunMount.localToWorld(new V(0, -0.32, -0.05)), A.reload * (0.5 + 0.5 * Math.sin(matchTime * 8)));
           }
           const rS = B.RightArm.getWorldPosition(new V()), lS = B.LeftArm.getWorldPosition(new V());
-          solveIK(B.RightArm, B.RightForeArm, B.RightHand, rt, rS.clone().addScaledVector(right, 0.3).add(new V(0, -0.8, 0)).addScaledVector(fwdV, -0.1));
-          solveIK(B.LeftArm, B.LeftForeArm, B.LeftHand, lt, lS.clone().addScaledVector(right, -0.5).add(new V(0, -0.7, 0)));
+          solveIK(B.RightArm, B.RightForeArm, B.RightHand, rt, rS.clone().addScaledVector(right, 0.3).addScaledVector(upB, -0.8).addScaledVector(fwdV, -0.1));
+          solveIK(B.LeftArm, B.LeftForeArm, B.LeftHand, lt, lS.clone().addScaledVector(right, -0.5).addScaledVector(upB, -0.7));
           const gq = c.gunMount.getWorldQuaternion(new T.Quaternion()), dir = (a2) => new V(...a2).applyQuaternion(gq);
           poseHand(B, "Right", dir([-0.1, -0.1, -0.99]), dir([-1, 0, 0.1]), 0.75);
           if (A.reload < 0.5) poseHand(B, "Left", dir(H.lf || [0.45, 0.1, -0.9]), dir(H.ln || [0, 1, 0]), 0.55);
@@ -1976,7 +1980,7 @@
           rotateBoneWorld(B.RightForeArm, rightB, 0.55 * pump);
         }
         const natR = B.RightHand.getWorldPosition(new V()), natL = B.LeftHand.getWorldPosition(new V());
-        if (grip) solveIK(B.RightArm, B.RightForeArm, B.RightHand, tgt.lerp(natR, pump), sh.clone().addScaledVector(right, 0.6).add(new V(0, -0.5, 0)));
+        if (grip) solveIK(B.RightArm, B.RightForeArm, B.RightHand, tgt.lerp(natR, pump), sh.clone().addScaledVector(right, 0.6).addScaledVector(upB, -0.5));
         c.pick.quaternion.copy(P.q);
         if (pump > 0.01) c.pick.quaternion.premultiply(_qm.setFromAxisAngle(_v2.set(1, 0, 0), (0.45 * dn - 0.8) * pump));
         D(A, "pk2", e.swingT > 0 ? 1 : 0, 1 - Math.exp(-20 * dt));
@@ -1997,7 +2001,7 @@
         if (grip && w2 > 0.01) {
           c.pick.updateMatrixWorld(true);
           const lS = B.LeftArm.getWorldPosition(new V());
-          solveIK(B.LeftArm, B.LeftForeArm, B.LeftHand, natL.clone().lerp(c.pick.localToWorld(new V(0, 0.15, 0)), w2), lS.clone().addScaledVector(right, -0.6).add(new V(0, -0.5, 0)));
+          solveIK(B.LeftArm, B.LeftForeArm, B.LeftHand, natL.clone().lerp(c.pick.localToWorld(new V(0, 0.15, 0)), w2), lS.clone().addScaledVector(right, -0.6).addScaledVector(upB, -0.5));
         } else if (e.zgFloat) zgArms(["Left"]);
       }
       if (c.held && c.held.userData.sparks) {
@@ -2323,6 +2327,7 @@
     }
     function eliminate(t, killer, weapon, info) {
       if (!t.alive) return;
+      if (killer === t) killer = null;
       t.alive = false;
       t.hp = 0;
       t.deadT = 0;
@@ -2402,7 +2407,7 @@
         camera.getWorldDirection(tv1);
         muzzlePos(p, tv2);
         const o = tv2.clone(), at = aimPoint(p, tv1, w.range);
-        fireBeam(p, o, jitter(at.sub(o).normalize(), spread2, new V()), w);
+        fireBolt(p, o, jitter(at.sub(o).normalize(), spread2, new V()), w);
         p.pitch = Math.min(1.25, p.pitch + w.recoil * rnd(0.6, 1));
         fireFx(p, w, it.id);
         sfx("mf");
@@ -3703,6 +3708,11 @@
       ZG.camRoll += (want - ZG.camRoll) * (1 - Math.exp(-5 * dt));
       if (Math.abs(want - ZG.camRoll) < 2e-3) ZG.camRoll = want;
     }
+    const BOT_TURN = 7;
+    function botTurn(b, want, k, dt) {
+      const d = wrapPi(want - b.yaw), step = d * (1 - Math.exp(-k * dt)), mx = BOT_TURN * dt;
+      b.yaw = wrapPi(b.yaw + clamp(step, -mx, mx));
+    }
     function updateBotZG(b, dt) {
       if (!b.alive) return;
       b.think -= dt;
@@ -3722,12 +3732,19 @@
           if (d < 160) near.push([d, o]);
         }
         near.sort((x, y) => x[0] - y[0]);
+        let bd = 1e9;
         for (let i = 0; i < Math.min(6, near.length); i++) {
           const o = near[i][1];
           if (hasLOS(c, tv2.set(o.pos.x, o.pos.y + 1, o.pos.z))) {
             best = o;
+            bd = near[i][0];
             break;
           }
+        }
+        const cur = b.enemy;
+        if (cur && cur !== best && cur.alive) {
+          const dc = Math.hypot(cur.pos.x - b.pos.x, cur.pos.y - b.pos.y, cur.pos.z - b.pos.z);
+          if (dc < 160 && dc < bd * 1.6 + 6 && hasLOS(c, tv2.set(cur.pos.x, cur.pos.y + 1, cur.pos.z))) best = cur;
         }
         if (best) {
           if (best !== b.enemy) b.seenAt = matchTime;
@@ -3756,8 +3773,8 @@
           b.fireCd = Math.max(b.fireCd, 0.3);
           b.swapT = 1.2;
         }
-        b.yaw = angLerp(b.yaw, Math.atan2(-dx, -dz), 1 - Math.exp(-12 * dt));
-        b.aimPitch = Math.atan2(dy, dh) * (b.zgRoll > 1.5 ? -1 : 1);
+        botTurn(b, Math.atan2(-dx, -dz), 12, dt);
+        b.aimPitch = lerp(b.aimPitch || 0, Math.atan2(dy, dh) * (b.zgRoll > 1.5 ? -1 : 1), 1 - Math.exp(-10 * dt));
         if (b.strafeT <= 0) {
           b.strafe = Math.random() < 0.5 ? -1 : 1;
           b.vstrafe = rnd(-1, 1);
@@ -3772,9 +3789,9 @@
         if (d < 3) b.goal = null;
         else {
           wish.set(dx / d, ceil ? 0 : dy / d, dz / d);
-          b.yaw = angLerp(b.yaw, Math.atan2(-dx, -dz), 1 - Math.exp(-5 * dt));
+          botTurn(b, Math.atan2(-dx, -dz), 5, dt);
         }
-        b.aimPitch = 0;
+        b.aimPitch = lerp(b.aimPitch || 0, 0, 1 - Math.exp(-6 * dt));
       }
       if (!prop) zgStamina(b, false, dt);
       b.zgPropel = prop;
@@ -4616,94 +4633,125 @@
         }
       }
     }
-    const BEAM_BOUNCES = 16;
+    const BOLT_V = 110, BOLT_LIFE = 4, BOLT_TRAIL = 14, BOLT_SELF = 0.35, BOLT_RE = 0.5;
     const beamGeo = new T.CylinderGeometry(1, 1, 1, 6, 1, true);
+    const boltCore = new T.MeshBasicMaterial({ color: 16770688, transparent: true, depthWrite: false, fog: false });
+    const boltGlow = new T.MeshBasicMaterial({ color: 16753434, transparent: true, opacity: 0.6, depthWrite: false, fog: false });
+    const boltHeadMat = new T.SpriteMaterial({ map: glowTex, color: 16757274, transparent: true, depthWrite: false, fog: false });
+    let bolts = [], zapT = 0;
     function wallNormal(q) {
       const L = ZG.L;
       return q.x <= -L + 0.02 ? new V(1, 0, 0) : q.x >= L - 0.02 ? new V(-1, 0, 0) : q.z <= -L + 0.02 ? new V(0, 0, 1) : q.z >= L - 0.02 ? new V(0, 0, -1) : q.y <= 0.02 ? new V(0, 1, 0) : new V(0, -1, 0);
     }
-    function fireBeam(src, origin, dir, w) {
-      const pts = [origin.clone()], hitSet = /* @__PURE__ */ new Set();
-      let o = origin.clone(), d = dir.clone(), left = 600;
-      for (let b = 0; b <= BEAM_BOUNCES && left > 1; b++) {
-        const far = Math.min(left, 300);
-        ray.set(o, d);
-        ray.near = 0.02;
-        ray.far = far;
-        const hs = ray.intersectObjects(meshesAlong(o, d, far, false), false);
-        let dist = far, n = null;
-        if (hs.length && hs[0].face) {
-          dist = hs[0].distance;
-          n = hs[0].face.normal.clone().transformDirection(hs[0].object.matrixWorld);
-        }
-        const tb = boxRay(o, d, dist);
-        if (tb < dist) {
-          dist = tb;
-          n = wallNormal(o.clone().addScaledVector(d, tb));
-        }
-        ray.near = 0;
-        ray.far = dist;
-        refreshTargets();
-        for (const h of ray.intersectObjects(charMeshes, false)) {
-          const ent = h.object.userData.ent;
-          if (!ent || ent === src || hitSet.has(ent)) continue;
-          hitSet.add(ent);
-          const head = h.object.userData.part === "head";
-          hurt(ent, w.dmg * (head ? w.head : 1), src, { head, point: h.point, weapon: w.name, dir: d.clone() });
-        }
-        const end = o.clone().addScaledVector(d, dist);
-        pts.push(end);
-        left -= dist;
-        if (!n) break;
-        if (n.dot(d) > 0) n.negate();
-        d.reflect(n).normalize();
-        o = end.clone().addScaledVector(n, 0.03);
-        if (b < 4) sfx("zapB", end.clone());
-      }
-      beamFx(pts);
-    }
-    function beamFx(pts) {
-      const core = new T.MeshBasicMaterial({ color: 16774856, transparent: true, depthWrite: false }), glow = new T.MeshBasicMaterial({ color: 16758810, transparent: true, opacity: 0.45, depthWrite: false });
-      const g = new T.Group(), q = new T.Quaternion();
-      for (let i = 0; i < pts.length - 1; i++) {
-        const a = pts[i], b = pts[i + 1], len = a.distanceTo(b);
-        if (len < 0.01) continue;
-        _dv.subVectors(b, a).normalize();
-        q.setFromUnitVectors(UP, _dv);
-        for (const [m, r] of [[core, 0.035], [glow, 0.11]]) {
+    function fireBolt(src, origin, dir, w) {
+      const g = new T.Group(), segs = [];
+      for (let i = 0; i < 4; i++) {
+        const sg = new T.Group();
+        for (const [m, r] of [[boltCore, 0.09], [boltGlow, 0.28]]) {
           const c = new T.Mesh(beamGeo, m);
-          c.scale.set(r, len, r);
-          c.quaternion.copy(q);
-          c.position.copy(a).add(b).multiplyScalar(0.5);
-          g.add(c);
+          c.scale.set(r, 1, r);
+          sg.add(c);
         }
-        if (i > 0) {
-          const s = new T.Sprite(mfSparkMat.clone());
-          s.position.copy(a);
-          s.scale.setScalar(1.1);
-          s.material.rotation = Math.random() * TAU;
-          g.add(s);
-        }
+        sg.visible = false;
+        g.add(sg);
+        segs.push(sg);
       }
+      const head = new T.Sprite(boltHeadMat);
+      head.scale.setScalar(2);
+      g.add(head);
       world.add(g);
-      effects.push({
-        t: 0,
-        dur: 0.32,
-        obj: g,
-        upd: (e, k) => {
-          core.opacity = 1 - k;
-          glow.opacity = 0.45 * (1 - k);
-          for (const c of g.children) if (c.isSprite) {
-            c.material.opacity = 1 - k;
-            c.scale.setScalar(1.1 * (1 - k * 0.6));
-          } else c.scale.x = c.scale.z = (c.material === core ? 0.035 : 0.11) * (1 - k * 0.7);
-        },
-        done: () => {
-          core.dispose();
-          glow.dispose();
-          for (const c of g.children) if (c.isSprite) c.material.dispose();
+      bolts.push({ src, w, pos: origin.clone(), dir: dir.clone().normalize(), t: 0, pts: [origin.clone()], hit: /* @__PURE__ */ new Map(), g, segs, head, bounces: 0 });
+    }
+    function boltSparks(p) {
+      const s = new T.Sprite(mfSparkMat.clone());
+      s.position.copy(p);
+      s.scale.setScalar(1.4);
+      s.material.rotation = Math.random() * TAU;
+      world.add(s);
+      effects.push({ t: 0, dur: 0.25, obj: s, upd: (e, k) => {
+        s.material.opacity = 1 - k;
+        s.scale.setScalar(1.4 * (1 - k * 0.6));
+      }, done: () => s.material.dispose() });
+    }
+    function boltHits(B, o, d, len) {
+      ray.set(o, d);
+      ray.near = 0;
+      ray.far = len;
+      refreshTargets();
+      for (const h of ray.intersectObjects(charMeshes, false)) {
+        const ent = h.object.userData.ent;
+        if (!ent || !ent.alive) continue;
+        if (ent === B.src && B.t < BOLT_SELF) continue;
+        const last = B.hit.get(ent);
+        if (last != null && B.t - last < BOLT_RE) continue;
+        B.hit.set(ent, B.t);
+        const head = h.object.userData.part === "head";
+        hurt(ent, B.w.dmg * (head ? B.w.head : 1), B.src, { head, point: h.point, weapon: B.w.name, dir: d.clone() });
+      }
+    }
+    function updateBolts(dt) {
+      for (let i = bolts.length - 1; i >= 0; i--) {
+        const B = bolts[i];
+        B.t += dt;
+        if (B.t >= BOLT_LIFE) {
+          world.remove(B.g);
+          bolts.splice(i, 1);
+          continue;
         }
-      });
+        let left = BOLT_V * dt;
+        for (let k = 0; k < 6 && left > 1e-3; k++) {
+          const o = B.pos, d = B.dir;
+          ray.set(o, d);
+          ray.near = 0.02;
+          ray.far = left;
+          const hs = ray.intersectObjects(meshesAlong(o, d, left, false), false);
+          let dist = left, n = null;
+          if (hs.length && hs[0].face) {
+            dist = hs[0].distance;
+            n = hs[0].face.normal.clone().transformDirection(hs[0].object.matrixWorld);
+          }
+          const tb = boxRay(o, d, dist);
+          if (tb < dist) {
+            dist = Math.max(0, tb);
+            n = wallNormal(_dv.copy(o).addScaledVector(d, dist));
+          }
+          boltHits(B, o, d, dist);
+          o.addScaledVector(d, dist);
+          left -= dist;
+          if (!n) break;
+          if (n.dot(d) > 0) n.negate();
+          d.reflect(n).normalize();
+          o.addScaledVector(n, 0.03);
+          B.pts.push(o.clone());
+          B.bounces++;
+          if (B.bounces % 3 === 1) boltSparks(o);
+          if (player && o.distanceTo(player.pos) < 35 && matchTime - zapT > 0.06) {
+            zapT = matchTime;
+            sfx("zapB", o.clone());
+          }
+        }
+        const fade = Math.min(1, (BOLT_LIFE - B.t) / 0.6);
+        let budget = BOLT_TRAIL, a = B.pos, s = 0;
+        for (let j = B.pts.length - 1; j >= 0 && s < B.segs.length && budget > 0.01; j--) {
+          const b = B.pts[j], len = a.distanceTo(b);
+          if (len < 0.01) continue;
+          const L = Math.min(len, budget), sg = B.segs[s++];
+          _dv.subVectors(b, a).normalize();
+          sg.visible = true;
+          sg.scale.y = L;
+          sg.quaternion.setFromUnitVectors(UP, _dv);
+          sg.position.copy(a).addScaledVector(_dv, L / 2);
+          budget -= L;
+          a = b;
+        }
+        for (; s < B.segs.length; s++) B.segs[s].visible = false;
+        if (B.pts.length > 8) B.pts.splice(0, B.pts.length - 8);
+        B.head.position.copy(B.pos);
+        B.head.scale.setScalar(2 * fade);
+        B.g.traverse((c) => {
+          if (c.isMesh) c.scale.x = c.scale.z = (c.material === boltCore ? 0.09 : 0.28) * fade;
+        });
+      }
     }
     const BOUNCE_T = 5, BOUNCE_CD = 60, BALL_R = 1.4, BALL_V = 42;
     const ballMat = new T.MeshPhongMaterial({ color: 6080767, emissive: 670298, transparent: true, opacity: 0.32, shininess: 140, specular: 16777215, depthWrite: false, side: T.DoubleSide });
@@ -4992,6 +5040,7 @@
       buildZeroG();
       buildVending();
       projs = [];
+      bolts = [];
       fires = [];
       shopOpen = false;
       $("shop").hidden = true;
@@ -5274,6 +5323,7 @@
       updatePlayerZG(dt);
       updateActions(dt);
       updateProjs(dt);
+      updateBolts(dt);
       updateFires(dt);
       updateBouncerCd(dt);
       for (const b of bots) updateBotZG(b, dt);
