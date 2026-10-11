@@ -1894,7 +1894,7 @@ function throwPose(e,c,rightB,fwdB,upB){
 // Each shot is a bolt of light that ricochets round the whole arena for a few seconds, off every block, wall,
 // floor and ceiling. It hurts anyone it passes through, the shooter included once it has left the muzzle.
 const MF_CLIP=30, MF_RELOAD=1.6;
-const BOLT_V=170, BOLT_LIFE=4, BOLT_TRAIL=16, BOLT_SELF=0.25, BOLT_RE=0.35, BOLT_TURN=9, BOLT_SEEK=150;
+const BOLT_V=260, BOLT_LIFE=4, BOLT_TRAIL=18, BOLT_SELF=0.25, BOLT_RE=0.35, BOLT_SEEK=150, BOLT_BEND=0.8;
 const beamGeo=new T.CylinderGeometry(1,1,1,6,1,true);
 const boltCore=new T.MeshBasicMaterial({color:0xffe680,transparent:true,depthWrite:false,fog:false});
 const boltGlow=new T.MeshBasicMaterial({color:0xffa31a,transparent:true,opacity:0.6,depthWrite:false,fog:false});
@@ -1905,7 +1905,7 @@ function fireBolt(src,origin,dir,w){
   const g=new T.Group(), segs=[];
   for(let i=0;i<4;i++){ const sg=new T.Group(); for(const [m,r] of [[boltCore,0.09],[boltGlow,0.28]] as [any,number][]){ const c=new T.Mesh(beamGeo,m); c.scale.set(r,1,r); sg.add(c); } sg.visible=false; g.add(sg); segs.push(sg); }
   const head=new T.Sprite(boltHeadMat); head.scale.setScalar(2); g.add(head); world.add(g);
-  bolts.push({src,w,pos:origin.clone(),dir:dir.clone().normalize(),t:0,pts:[origin.clone()],hit:new Map(),g,segs,head,bounces:0,tgt:null,seekT:0});
+  bolts.push({src,w,pos:origin.clone(),dir:dir.clone().normalize(),t:0,pts:[origin.clone()],hit:new Map(),g,segs,head,bounces:0});
 }
 function boltSparks(p){ const s=new T.Sprite(mfSparkMat.clone()); s.position.copy(p); s.scale.setScalar(1.4); s.material.rotation=Math.random()*TAU; world.add(s);
   effects.push({t:0,dur:0.25,obj:s,upd:(e,k)=>{ s.material.opacity=1-k; s.scale.setScalar(1.4*(1-k*0.6)); },done:()=>s.material.dispose()}); }
@@ -1922,23 +1922,22 @@ function boltHits(B,o,d,len){
     const head=dHead<0.35&&dHead<=dChest; _bh.set(cx,cy,cz);
     hurt(ent,B.w.dmg*(head?B.w.head:1),B.src,{head,point:_bh.clone(),weapon:B.w.name,dir:d.clone()}); }
 }
-// homing: each bolt locks on to the nearest enemy (anyone but the shooter it has not just hit) and curves after them
+// trick shots: a bolt flies dead straight, but every time it bounces it comes off the surface angled toward the
+// nearest enemy it can see from there (leading them a little), so it finds people through the ricochets
 const _bs=new V();
-function boltSeek(B,dt){
-  B.seekT-=dt; const t=B.tgt, lastT=t&&B.hit.get(t);
-  if(B.seekT<=0||!t||!t.alive||(lastT!=null&&B.t-lastT<BOLT_RE)){ B.seekT=0.2; let best=null, bd=BOLT_SEEK;
-    for(const e of combatants){ if(!e.alive||e===B.src) continue; const h=B.hit.get(e); if(h!=null&&B.t-h<BOLT_RE) continue;
-      const d=Math.hypot(e.pos.x-B.pos.x,e.pos.y+1-B.pos.y,e.pos.z-B.pos.z); if(d<bd){ bd=d; best=e; } }
-    B.tgt=best; }
-  if(!B.tgt) return;
-  _bs.set(B.tgt.pos.x-B.pos.x,B.tgt.pos.y+1-B.pos.y,B.tgt.pos.z-B.pos.z).normalize();
-  const ang=Math.acos(clamp(B.dir.dot(_bs),-1,1)), mx=BOLT_TURN*dt;
-  if(ang<=mx) B.dir.copy(_bs); else B.dir.lerp(_bs,mx/ang).normalize();
+function boltBounceAim(B,o,n){
+  let best=null, bd=BOLT_SEEK;
+  for(const e of combatants){ if(!e.alive||e===B.src) continue; const h=B.hit.get(e); if(h!=null&&B.t-h<BOLT_RE) continue;
+    const dx=e.pos.x-o.x, dy=e.pos.y+1-o.y, dz=e.pos.z-o.z, d=Math.hypot(dx,dy,dz); if(d>=bd||(dx*n.x+dy*n.y+dz*n.z)<0.1*d) continue;
+    if(!hasLOS(o,_bs.set(e.pos.x,e.pos.y+1,e.pos.z))) continue; bd=d; best=e; }
+  if(!best) return;
+  const lead=bd/BOLT_V; _bs.set(best.pos.x+best.vel.x*lead-o.x,best.pos.y+1+best.vel.y*lead-o.y,best.pos.z+best.vel.z*lead-o.z).normalize();
+  _bs.x+=rnd(-0.02,0.02); _bs.y+=rnd(-0.02,0.02); _bs.z+=rnd(-0.02,0.02);
+  B.dir.lerp(_bs.normalize(),BOLT_BEND).normalize(); if(B.dir.dot(n)<0.05) B.dir.addScaledVector(n,0.1-B.dir.dot(n)).normalize();
 }
 function updateBolts(dt){
   for(let i=bolts.length-1;i>=0;i--){ const B=bolts[i]; B.t+=dt;
     if(B.t>=BOLT_LIFE){ world.remove(B.g); bolts.splice(i,1); continue; }
-    boltSeek(B,dt);
     let left=BOLT_V*dt;
     for(let k=0;k<6&&left>1e-3;k++){ const o=B.pos, d=B.dir;
       ray.set(o,d); ray.near=0.02; ray.far=left; const hs=ray.intersectObjects(meshesAlong(o,d,left,false),false); let dist=left, n=null;
@@ -1947,7 +1946,7 @@ function updateBolts(dt){
       boltHits(B,o,d,dist);
       o.addScaledVector(d,dist); left-=dist;
       if(!n) break;
-      if(n.dot(d)>0) n.negate(); d.reflect(n).normalize(); o.addScaledVector(n,0.03); B.pts.push(o.clone()); B.bounces++;
+      if(n.dot(d)>0) n.negate(); d.reflect(n).normalize(); o.addScaledVector(n,0.03); boltBounceAim(B,o,n); B.pts.push(o.clone()); B.bounces++;
       if(B.bounces%3===1) boltSparks(o); if(player&&o.distanceTo(player.pos)<35&&matchTime-zapT>0.06){ zapT=matchTime; sfx('zapB',o.clone()); }
     }
     // the trail: the last few metres of the path, bending round each bounce
