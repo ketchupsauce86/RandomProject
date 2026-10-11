@@ -4659,7 +4659,7 @@
       }
     }
     const MF_CLIP = 30, MF_RELOAD = 1.6;
-    const BOLT_V = 170, BOLT_LIFE = 4, BOLT_TRAIL = 16, BOLT_SELF = 0.25, BOLT_RE = 0.35, BOLT_TURN = 9, BOLT_SEEK = 150;
+    const BOLT_V = 260, BOLT_LIFE = 4, BOLT_TRAIL = 18, BOLT_SELF = 0.25, BOLT_RE = 0.35, BOLT_SEEK = 150, BOLT_BEND = 0.8;
     const beamGeo = new T.CylinderGeometry(1, 1, 1, 6, 1, true);
     const boltCore = new T.MeshBasicMaterial({ color: 16770688, transparent: true, depthWrite: false, fog: false });
     const boltGlow = new T.MeshBasicMaterial({ color: 16753434, transparent: true, opacity: 0.6, depthWrite: false, fog: false });
@@ -4686,7 +4686,7 @@
       head.scale.setScalar(2);
       g.add(head);
       world.add(g);
-      bolts.push({ src, w, pos: origin.clone(), dir: dir.clone().normalize(), t: 0, pts: [origin.clone()], hit: /* @__PURE__ */ new Map(), g, segs, head, bounces: 0, tgt: null, seekT: 0 });
+      bolts.push({ src, w, pos: origin.clone(), dir: dir.clone().normalize(), t: 0, pts: [origin.clone()], hit: /* @__PURE__ */ new Map(), g, segs, head, bounces: 0 });
     }
     function boltSparks(p) {
       const s = new T.Sprite(mfSparkMat.clone());
@@ -4724,29 +4724,26 @@
       }
     }
     const _bs = new V();
-    function boltSeek(B, dt) {
-      B.seekT -= dt;
-      const t = B.tgt, lastT2 = t && B.hit.get(t);
-      if (B.seekT <= 0 || !t || !t.alive || lastT2 != null && B.t - lastT2 < BOLT_RE) {
-        B.seekT = 0.2;
-        let best = null, bd = BOLT_SEEK;
-        for (const e of combatants) {
-          if (!e.alive || e === B.src) continue;
-          const h = B.hit.get(e);
-          if (h != null && B.t - h < BOLT_RE) continue;
-          const d = Math.hypot(e.pos.x - B.pos.x, e.pos.y + 1 - B.pos.y, e.pos.z - B.pos.z);
-          if (d < bd) {
-            bd = d;
-            best = e;
-          }
-        }
-        B.tgt = best;
+    function boltBounceAim(B, o, n) {
+      let best = null, bd = BOLT_SEEK;
+      for (const e of combatants) {
+        if (!e.alive || e === B.src) continue;
+        const h = B.hit.get(e);
+        if (h != null && B.t - h < BOLT_RE) continue;
+        const dx = e.pos.x - o.x, dy = e.pos.y + 1 - o.y, dz = e.pos.z - o.z, d = Math.hypot(dx, dy, dz);
+        if (d >= bd || dx * n.x + dy * n.y + dz * n.z < 0.1 * d) continue;
+        if (!hasLOS(o, _bs.set(e.pos.x, e.pos.y + 1, e.pos.z))) continue;
+        bd = d;
+        best = e;
       }
-      if (!B.tgt) return;
-      _bs.set(B.tgt.pos.x - B.pos.x, B.tgt.pos.y + 1 - B.pos.y, B.tgt.pos.z - B.pos.z).normalize();
-      const ang = Math.acos(clamp(B.dir.dot(_bs), -1, 1)), mx = BOLT_TURN * dt;
-      if (ang <= mx) B.dir.copy(_bs);
-      else B.dir.lerp(_bs, mx / ang).normalize();
+      if (!best) return;
+      const lead = bd / BOLT_V;
+      _bs.set(best.pos.x + best.vel.x * lead - o.x, best.pos.y + 1 + best.vel.y * lead - o.y, best.pos.z + best.vel.z * lead - o.z).normalize();
+      _bs.x += rnd(-0.02, 0.02);
+      _bs.y += rnd(-0.02, 0.02);
+      _bs.z += rnd(-0.02, 0.02);
+      B.dir.lerp(_bs.normalize(), BOLT_BEND).normalize();
+      if (B.dir.dot(n) < 0.05) B.dir.addScaledVector(n, 0.1 - B.dir.dot(n)).normalize();
     }
     function updateBolts(dt) {
       for (let i = bolts.length - 1; i >= 0; i--) {
@@ -4757,7 +4754,6 @@
           bolts.splice(i, 1);
           continue;
         }
-        boltSeek(B, dt);
         let left = BOLT_V * dt;
         for (let k = 0; k < 6 && left > 1e-3; k++) {
           const o = B.pos, d = B.dir;
@@ -4782,6 +4778,7 @@
           if (n.dot(d) > 0) n.negate();
           d.reflect(n).normalize();
           o.addScaledVector(n, 0.03);
+          boltBounceAim(B, o, n);
           B.pts.push(o.clone());
           B.bounces++;
           if (B.bounces % 3 === 1) boltSparks(o);
