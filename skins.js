@@ -626,7 +626,10 @@ function lockMesh(L,c0,c1){
   const K=10, M=6, n0=headAt(L.a,L.e), root=n0.map(v=>v*(L.r||0.93)), nl=Math.hypot(n0[0]/HD[0]**2,n0[1]/HD[1]**2,n0[2]/HD[2]**2), nn=[n0[0]/HD[0]**2/nl,n0[1]/HD[1]**2/nl,n0[2]/HD[2]**2/nl];
   let ea=[nn[2],0,-nn[0]], el=Math.hypot(...ea); ea=el<1e-4?[1,0,0]:ea.map(v=>v/el); const no=[nn[1]*ea[2]-nn[2]*ea[1],nn[2]*ea[0]-nn[0]*ea[2],nn[0]*ea[1]-nn[1]*ea[0]];
   const o=L.o==null?1:L.o, u=L.u||0, s=L.s||0, d0=[0,1,2].map(k=>nn[k]*o+no[k]*u+ea[k]*s), dl=Math.hypot(...d0), dir=d0.map(v=>v/dl), b=L.b||[0,0,0], h=L.h||1.04, l=L.l, w=L.w||0.045;
-  const pts=[]; for(let k=0;k<=K;k++){ const t=k/K; let q=[0,1,2].map(i=>root[i]+dir[i]*l*t+b[i]*l*t*t);
+  const pts=[]; for(let k=0;k<=K;k++){ const t=k/K;
+    // c: the lock clings to the skull, sweeping down over it (and s sideways) and lifting off by c toward the tip
+    if(L.c!=null){ const ang=l/0.1*t; pts.push(headAt(L.a+s*ang,L.e-ang,(k?h:L.r||0.93)+L.c*t*t)); continue; }
+    let q=[0,1,2].map(i=>root[i]+dir[i]*l*t+b[i]*l*t*t);
     if(k>0){ const r=Math.hypot(q[0]/HD[0],q[1]/HD[1],q[2]/HD[2]), sp=headPt(q[0]/HD[0]/r,q[1]/HD[1]/r,q[2]/HD[2]/r), rs=Math.hypot(...sp), rq=Math.hypot(...q); if(rq<rs*h) q=q.map(v=>v*rs*h/rq); }
     pts.push(q); }
   const m={P:[],N:[],UV:[],C:[],I:[]};
@@ -634,7 +637,8 @@ function lockMesh(L,c0,c1){
     const rl=Math.hypot(p[0]/HD[0]**2,p[1]/HD[1]**2,p[2]/HD[2]**2)||1; let nf=[p[0]/HD[0]**2/rl,p[1]/HD[1]**2/rl,p[2]/HD[2]**2/rl]; const dt=nf[0]*tg[0]+nf[1]*tg[1]+nf[2]*tg[2];
     nf=nf.map((v,i)=>v-dt*tg[i]); const nl2=Math.hypot(...nf)||1; nf=nf.map(v=>v/nl2); let bk=[tg[1]*nf[2]-tg[2]*nf[1],tg[2]*nf[0]-tg[0]*nf[2],tg[0]*nf[1]-tg[1]*nf[0]];
     const tw=(L.tw||0)*t; if(tw){ const cb=Math.cos(tw), sb=Math.sin(tw), b2=bk.map((v,i)=>v*cb+nf[i]*sb); nf=nf.map((v,i)=>v*cb-bk[i]*sb); bk=b2; }
-    const pr=Math.pow(1-t,0.85)*(1+0.3*Math.sin(Math.PI*t)), wd=w*pr, th=w*(L.th||0.42)*pr, cc=c1?ss(0.3,1,t):0;
+    const pr=L.sf?Math.pow(1-Math.pow(t,2.2),0.65)*(1+0.1*Math.sin(Math.PI*t)):Math.pow(1-t,0.85)*(1+0.3*Math.sin(Math.PI*t)), // sf: a soft, rounded end instead of a point
+      wd=w*pr, th=w*(L.th||0.42)*pr, cc=c1?ss(0.3,1,t):0;
     for(let q=0;q<M;q++){ const f=q/M*Math.PI*2, cs=Math.cos(f), sn=Math.sin(f);
       m.P.push(...[0,1,2].map(i=>p[i]+bk[i]*cs*wd+nf[i]*sn*th));
       if(wd<1e-5) m.N.push(...tg); else { const nv=[0,1,2].map(i=>bk[i]*cs/wd+nf[i]*sn/th), l2=Math.hypot(...nv); m.N.push(...nv.map(v=>v/l2)); }
@@ -664,29 +668,28 @@ const HAIR={
         [0,1.35,0.16,0.7,0],[2.0,1.25,0.15,0.5,0],[-2.0,1.25,0.15,0.5,0]].map(([a,e,l,u,s])=>({a,e,l,u,s,w:0.072,th:0.5,o:1,b:[0,0.1,-0.04]})),
     ...[[0,0.72,0.075,0.1],[-0.33,0.7,0.045,-0.3],[0.38,0.68,0.045,0.3],[-0.72,0.56,0.065,-0.4],[0.74,0.56,0.065,0.4]].map(([a,e,l,s])=>({a,e,l,s,w:0.052,o:0.45,u:-1,b:[0,-0.2,0.12],h:1.06})),
     ...[-1,1].map(s=>({a:s*1.45,e:0.12,l:0.07,w:0.035,o:0.4,u:-1}))]},
-  eren:{hl:[0.95,1.55,2.0],locks:()=>[
-    ...R(12,0.8,Math.PI*2-0.8,(a,j)=>({e:1.15,l:0.13+j*0.02,w:0.06,o:0.12,u:-1,s:j*0.2,b:[0,-0.25,0],h:1.06})),
-    ...[-0.62,-0.38,-0.13,0.13,0.38,0.62].map((a,i)=>({a,e:1.0,l:[0.09,0.055,0.075,0.075,0.055,0.09][i],w:0.05,o:0.15,u:-1,s:a<0?-0.3:0.3,b:[0,-0.2,0.15],h:1.07})),
-    ...[-1,1].map(s=>({a:s*1.35,e:0.6,l:0.1,w:0.05,o:0.1,u:-1,b:[0,-0.3,0],h:1.06})),
-    ...R(5,2.4,Math.PI*2-2.4,(a,j)=>({e:0.5,l:0.12,w:0.055,o:0.1,u:-1,s:j*0.2,h:1.06})),
-    ...R(4,2.3,Math.PI*2-2.3,(a,j)=>({e:0.85,l:0.07,w:0.05,o:0.7,u:-0.3,s:j*0.4}))]},
+  eren:{hl:[0.92,1.55,2.0],locks:()=>[ // short, straight and layered, parted in the middle with pointed bangs
+    ...R(14,0.6,Math.PI*2-0.6,(a,j)=>({e:1.45,l:0.17+j*0.03,w:0.075,th:0.5,c:0.02,s:j*0.12,h:1.06,sf:1})),
+    ...R(8,1.5,Math.PI*2-1.5,(a,j)=>({e:0.8,l:0.11+j*0.02,w:0.07,o:0.2,u:-1,s:j*0.2,h:1.07})),
+    ...[-1.35,-1.05,1.05,1.35].map(a=>({a,e:0.8,l:0.12,w:0.065,o:0.15,u:-1,s:-Math.sign(a)*0.1,b:[0,-0.3,0.05],h:1.08})),
+    ...[-0.72,-0.46,-0.18,0.08,0.34,0.6].map((a,i)=>({a,e:1.25,l:[0.13,0.1,0.125,0.12,0.1,0.12][i],w:0.06,o:0.2,u:-1,s:a<0?-0.35:0.35,b:[0,-0.2,0.18],h:1.09}))]},
   gojo:{hl:[1.0,1.45,1.75],locks:()=>[
     ...RING(14,(a,j)=>({e:0.62,l:0.085+j*0.022,w:0.056,o:0.9,u:0.6,s:j*0.4,b:[0,0.2,-0.03]})),
     ...RING(10,(a,j)=>({e:1.0,l:0.09+j*0.022,w:0.06,o:0.9,u:0.6,s:j*0.35,b:[0,0.22,-0.03]})),
     ...RING(4,(a,j)=>({e:1.4,l:0.09,w:0.06,o:1,u:0.3,s:j*0.3,b:[0,0.15,0]})),
     ...R(3,-0.4,0.4,(a,j)=>({e:0.74,l:0.1,w:0.055,o:0.9,u:0.8,s:j*0.3,b:[0,0.2,0.06]})),
     ...[-1,1].map(s=>({a:s*0.28,e:0.55,l:0.07,w:0.034,o:0.4,u:-1,s:s*0.2,b:[0,-0.2,0.12],h:1.13}))]},
-  tanjiro:{hl:[0.98,1.5,1.85],locks:()=>[
-    ...R(12,0.9,Math.PI*2-0.9,(a,j)=>({e:0.45+j*0.1,l:0.095+j*0.02,w:0.05,o:0.7,u:-0.75,s:j*0.5,b:[0,-0.12,-0.04]})),
-    ...RING(10,(a,j)=>({e:0.95+j*0.1,l:0.1+j*0.02,w:0.055,o:0.9,u:0.1,s:j*0.4})),
-    ...RING(3,(a,j)=>({e:1.4,l:0.09,w:0.05,o:1,u:0.2})),
-    ...[-0.62,-0.28,0.02,0.68].map((a,i)=>({a,e:0.72,l:[0.075,0.045,0.06,0.075][i],w:0.045,o:0.5,u:-1,s:a*0.3,b:[0,-0.2,0.12],h:1.06})),
-    ...[-1,1].map(s=>({a:s*1.4,e:0.2,l:0.09,w:0.042,o:0.5,u:-1}))]},
-  light:{hl:[0.95,1.55,2.0],locks:()=>[
-    ...R(14,0.8,Math.PI*2-0.8,(a,j)=>({e:1.2,l:0.14+j*0.015,w:0.06,o:0.1,u:-1,s:j*0.15,b:[0,-0.25,0],h:1.06})),
-    ...[-0.7,-0.42,-0.15,0.12,0.4,0.68].map((a,i)=>({a,e:1.05,l:[0.12,0.08,0.1,0.1,0.08,0.12][i],w:0.055,o:0.15,u:-1,s:a*0.45,b:[0,-0.25,0.18],h:1.07})),
-    ...[-1.5,-1.2,1.2,1.5].map(a=>({a,e:0.7,l:0.14,w:0.055,o:0.1,u:-1,b:[0,-0.3,0.05],h:1.06})),
-    ...R(6,2.2,Math.PI*2-2.2,(a,j)=>({e:0.7,l:0.15,w:0.06,o:0.1,u:-1,s:j*0.2,b:[0,-0.25,-0.05],h:1.06}))]},
+  tanjiro:{hl:[0.95,1.5,1.9],locks:()=>[ // thick, messy layers that fall outward in spiky points, dark at the roots and red at the tips
+    ...R(11,0.6,Math.PI*2-0.6,(a,j)=>({e:1.4,l:0.15+j*0.03,w:0.075,th:0.5,c:0.07,s:j*0.25,h:1.07})),
+    ...R(12,0.9,Math.PI*2-0.9,(a,j)=>({e:0.75+j*0.12,l:0.12+j*0.03,w:0.065,o:0.45,u:-1,s:j*0.6,b:[0,-0.1,0],h:1.08})),
+    ...R(7,1.9,Math.PI*2-1.9,(a,j)=>({e:0.25,l:0.1,w:0.055,o:0.5,u:-1,s:j*0.4,h:1.05})),
+    ...[-0.7,-0.4,-0.08,0.72].map((a,i)=>({a,e:1.15,l:[0.13,0.1,0.12,0.13][i],w:0.06,o:0.3,u:-1,s:a*0.3,b:[0,-0.2,0.15],h:1.08})), // a gap over the scar
+    ...[-1,1].map(s=>({a:s*1.35,e:0.5,l:0.1,w:0.05,o:0.4,u:-1}))]},
+  light:{hl:[0.9,1.55,2.05],locks:()=>[ // smooth, full layers: bangs to the eyes, sides over the ears to the jaw, back to the nape
+    ...R(14,0.95,Math.PI*2-0.95,(a,j)=>({e:1.45,l:0.19+j*0.02,w:0.08,th:0.5,c:0.03,s:j*0.06,h:1.07,sf:1})),
+    ...R(9,1.3,Math.PI*2-1.3,(a,j)=>({e:0.85,l:0.13+j*0.02,w:0.075,o:0.15,u:-1,s:j*0.15,b:[0,-0.25,-0.04],h:1.07,sf:1})),
+    ...[-1.3,-1.0,1.0,1.3].map(a=>({a,e:0.85,l:0.15,w:0.07,o:0.15,u:-1,s:-Math.sign(a)*0.1,b:[0,-0.3,0.06],h:1.08,sf:1})),
+    ...[-0.75,-0.48,-0.22,0.04,0.3,0.55,0.78].map((a,i)=>({a,e:1.3,l:[0.13,0.08,0.1,0.105,0.08,0.1,0.13][i],w:0.065,o:0.2,u:-1,s:a*0.35,b:[0,-0.25,0.2],h:1.09}))]},
 };
 function hairGeo(T,style,col,tipCol){
   const st=HAIR[style], c0=new T.Color(col), c1=tipCol?new T.Color(tipCol):null, [hf,hs,hb]=st.hl;

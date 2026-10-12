@@ -1393,7 +1393,7 @@
         }
       }
     }
-    const _cq1 = new T.Quaternion(), _cq2 = new T.Quaternion(), _cq3 = new T.Quaternion(), UPX = new T.Vector3(1, 0, 0), UPY = new T.Vector3(0, 1, 0), _cf = new T.Vector3();
+    const _cq1 = new T.Quaternion(), _cq2 = new T.Quaternion(), _cq3 = new T.Quaternion(), _cu = new T.Vector3(), _cx = new T.Vector3(), _cmat = new T.Matrix4(), UPX = new T.Vector3(1, 0, 0), UPY = new T.Vector3(0, 1, 0), _cf = new T.Vector3();
     function swayGear(e, c, speed, dt) {
       var _a;
       if (!c.capes || !c.capes.length && !c.flaps.length && !c.bobs.length) return;
@@ -1402,15 +1402,20 @@
       for (const o of c.capes) {
         o.userData.rx = lerp(o.userData.rx || 0, tgt, 1 - Math.exp(-6 * dt));
         if (o.userData.cape === "hang") {
+          c.spin.getWorldQuaternion(_cq2);
+          _cu.set(0, 1, 0).applyQuaternion(_cq2);
           o.parent.getWorldQuaternion(_cq1);
           _cf.set(0, 0, 1).applyQuaternion(_cq1);
-          _cf.y = 0;
+          _cf.addScaledVector(_cu, -_cf.dot(_cu));
           if (_cf.lengthSq() < 0.09) {
-            c.spin.getWorldQuaternion(_cq2);
             _cf.set(0, 0, -1).applyQuaternion(_cq2);
-            _cf.y = 0;
+            _cf.addScaledVector(_cu, -_cf.dot(_cu));
           }
-          _cq2.setFromAxisAngle(UPY, Math.atan2(_cf.x, _cf.z)).multiply(_cq3.setFromAxisAngle(UPX, o.userData.rx + 0.08)).premultiply(_cq1.invert());
+          _cf.normalize();
+          _cx.crossVectors(_cu, _cf);
+          _cmat.makeBasis(_cx, _cu, _cf);
+          _cq2.setFromRotationMatrix(_cmat);
+          _cq2.multiply(_cq3.setFromAxisAngle(UPX, o.userData.rx + 0.18)).premultiply(_cq1.invert());
           o.quaternion.copy(_cq2);
         } else o.rotation.x = ((_a = o.userData.baseX) != null ? _a : o.userData.baseX = o.rotation.x) + o.userData.rx;
       }
