@@ -213,6 +213,8 @@ function auraMats(col){
 // panned left/right) and share a reverb. Looping ambience (the rush of air when you propel and the hum of
 // the box's lights) follows what is happening around you.
 let AC=null,NB=null,BB=null,master=null,bus=null,verb=null,AMB=null,volume=0.8;
+// how many sounds are playing right now: far-off ones are dropped once it gets crowded, so the mix never clips or crackles
+const VOICES:number[]=[], VOICE_MAX=36;
 const lastSfx={};
 try{ const v=parseFloat(localStorage.getItem('stormIslandVol')); if(v>=0&&v<=1) volume=v; }catch(e){}
 function noiseBuf(brown,sec){
@@ -252,6 +254,8 @@ function voice(pos,o){
     pan=clamp((dx*rx+dz*rz)/h,-1,1)*0.85;
   }
   if(vol<0.003) return null;
+  const now=AC.currentTime; while(VOICES.length&&VOICES[0]<now) VOICES.shift();
+  if(pos&&(VOICES.length>=VOICE_MAX||VOICES.length>=VOICE_MAX/2&&vol<0.12)) return null;
   const out=AC.createGain(); out.gain.value=vol; let n=out;
   if(cut){ const f=AC.createBiquadFilter(); f.type='lowpass'; f.frequency.value=cut; n.connect(f); n=f; }
   if(pan&&AC.createStereoPanner){ const sp=AC.createStereoPanner(); sp.pan.value=pan; n.connect(sp); n=sp; }
@@ -277,7 +281,7 @@ function tn(v,o){
   g.connect(v.out); s.start(t); s.stop(t+dur+0.05);
   v.end=Math.max(v.end,(o.at||0)+dur);
 }
-function done(v){ const ms=(v.t-AC.currentTime+v.end+0.4)*1000; setTimeout(()=>{ try{ v.out.disconnect(); }catch(e){} },ms); }
+function done(v){ const e=v.t+Math.min(v.end,0.6); let i=VOICES.length; while(i&&VOICES[i-1]>e) i--; VOICES.splice(i,0,e); const ms=(v.t-AC.currentTime+v.end+0.4)*1000; setTimeout(()=>{ try{ v.out.disconnect(); }catch(e){} },ms); }
 // a quick run of stuttering square-wave blips: the Glitched season's sound signature
 const glt=(v,at,f,n,g,step)=>{ const R=[1,1.5,0.75,2,1.25,0.5]; for(let i=0;i<n;i++) tn(v,{at:at+i*(step||0.03),type:'square',f:f*R[(i*7+n)%6],dur:(step||0.03)*0.7,g,lp:3600}); };
 const chk=(v,at,f,g)=>{ nz(v,{at,type:'bandpass',f:f||2600,q:2.5,dur:0.03,g:g||0.7}); nz(v,{at,type:'lowpass',f:500,dur:0.04,g:(g||0.7)*0.6}); };
@@ -534,7 +538,7 @@ function skinMaterials(skin,body,visor,geo){
 function applySkin(c,skin){
   if(!c.glb||!SK||!skin) return;
   if(!c.baseMats){ c.baseMats={}; c.model.traverse(o=>{ if(o.isMesh) c.baseMats[o.name]=o.material; }); }
-  for(const o of c.gear||[]){ o.parent&&o.parent.remove(o); o.traverse(m=>{ if(m.isMesh) m.geometry.dispose(); }); }
+  for(const o of c.gear||[]){ o.parent&&o.parent.remove(o); o.traverse(m=>{ if(m.isMesh&&!m.geometry.userData.keep) m.geometry.dispose(); }); }
   c.gear=[]; c.gearFar=false; c.capes=[]; c.flaps=[]; c.bobs=[]; c.skin=skin;
   if(c.animeBody){ c.animeBody.parent&&c.animeBody.parent.remove(c.animeBody); c.animeBody=null; }
   let geo=null; c.model.traverse(o=>{ if(o.name==='vanguard_Mesh') geo=o.geometry; });
@@ -542,14 +546,14 @@ function applySkin(c,skin){
   c.model.traverse(o=>{ if(o.isMesh) o.material=mats?(o.name==='vanguard_visor'?mats.visor:mats.body):c.baseMats[o.name]; if(o.name==='vanguard_visor') o.visible=!skin.noVisor&&!skin.body; if(o.name==='vanguard_Mesh') o.visible=!skin.body; }); // masks like the Joker's replace the visor
   if(skin.body){ // anime skins swap the armored soldier for a smooth body on the same skeleton (see skins.js)
     let sm=null; c.model.traverse(o=>{ if(o.name==='vanguard_Mesh') sm=o; });
-    let bm=skinMats.get('body'+skin.i); if(!bm){ bm={geo:SK.bodyGeometry(T,sm.skeleton,skin.body),mat:SK.bodyMaterial(T)}; skinMats.set('body'+skin.i,bm); }
+    let bm=skinMats.get('body'+skin.i); if(!bm){ const geo=SK.bodyGeometry(T,sm.skeleton,skin.body); bm={geo,mat:SK.bodyMaterial(T,geo),line:SK.bodyOutline(T,geo)}; skinMats.set('body'+skin.i,bm); }
     const m=new T.SkinnedMesh(bm.geo,bm.mat); m.name='animeBody'; m.castShadow=true; m.frustumCulled=false; m.position.copy(sm.position); m.quaternion.copy(sm.quaternion); m.scale.copy(sm.scale);
     sm.parent.add(m); m.bind(sm.skeleton,sm.bindMatrix); c.animeBody=m;
-    const ol=new T.SkinnedMesh(bm.geo,skinMats.get('bodyLine')||skinMats.set('bodyLine',SK.bodyOutline(T)).get('bodyLine')); ol.name='animeBodyLine'; ol.frustumCulled=false; m.add(ol); ol.bind(sm.skeleton,sm.bindMatrix); }
+    const ol=new T.SkinnedMesh(bm.geo,bm.line); ol.name='animeBodyLine'; ol.frustumCulled=false; m.add(ol); ol.bind(sm.skeleton,sm.bindMatrix); }
   const big=skin.big||[1,1]; c.model.scale.set(MODEL_SCALE*big[0],MODEL_SCALE*big[1],MODEL_SCALE*big[0]); // Hulk and Thanos are bigger (looks only)
   c.g.updateMatrixWorld(true); const ws=new V(), sc=new V(), qq=new T.Quaternion(); c.g.getWorldScale(ws);
   for(const [kind,...args] of skin.acc){
-    for(const [bn,obj] of SK.gear(T,kind,args,gearMats,{slim:!!skin.body})){
+    for(const [bn,obj] of SK.gear(T,kind,args,gearMats,{slim:!!skin.body,build:skin.body&&skin.body.build})){
       const bone=c.bones[bn]; if(!bone) continue; bone.matrixWorld.decompose(tv1,qq,sc);
       const wrap=new T.Group(); wrap.scale.setScalar(ws.x/sc.x); // gear is modelled in metres at the character's own scale
       wrap.add(obj); bone.add(wrap); c.gear.push(wrap);
@@ -558,17 +562,20 @@ function applySkin(c,skin){
   }
 }
 // capes and tails trail behind when running and falling; wings breathe; halos float
-const _cq1=new T.Quaternion(), _cq2=new T.Quaternion(), _cq3=new T.Quaternion(), UPX=new T.Vector3(1,0,0), UPY=new T.Vector3(0,1,0), _cf=new T.Vector3();
+const _cq1=new T.Quaternion(), _cq2=new T.Quaternion(), _cq3=new T.Quaternion(), _cu=new T.Vector3(), _cx=new T.Vector3(), _cmat=new T.Matrix4(), UPX=new T.Vector3(1,0,0), UPY=new T.Vector3(0,1,0), _cf=new T.Vector3();
 function swayGear(e,c,speed,dt){
   if(!c.capes||(!c.capes.length&&!c.flaps.length&&!c.bobs.length)) return;
   const t=performance.now()/1000, air=!e.onGround?0.35:0;
   const tgt=0.06+clamp(speed/7,0,1)*0.55+air+Math.sin(t*(3+speed*0.6)+e.walkT)*0.04*(0.3+clamp(speed/7,0,1));
   for(const o of c.capes){ o.userData.rx=lerp(o.userData.rx||0,tgt,1-Math.exp(-6*dt));
-    if(o.userData.cape==='hang'){ // a cape hangs from the shoulders under gravity, whatever the spine is doing
-      // face the way the chest faces (the torso twists to aim), hang straight down, flare back with speed
-      o.parent.getWorldQuaternion(_cq1); _cf.set(0,0,1).applyQuaternion(_cq1); _cf.y=0;
-      if(_cf.lengthSq()<0.09){ c.spin.getWorldQuaternion(_cq2); _cf.set(0,0,-1).applyQuaternion(_cq2); _cf.y=0; }
-      _cq2.setFromAxisAngle(UPY,Math.atan2(_cf.x,_cf.z)).multiply(_cq3.setFromAxisAngle(UPX,o.userData.rx+0.08)).premultiply(_cq1.invert()); o.quaternion.copy(_cq2); }
+    if(o.userData.cape==='hang'){ // a cape hangs from the shoulders down the length of the body, whatever the spine is doing
+      // face the way the chest faces (the torso twists to aim), hang along the body (not world gravity: in zero-g the
+      // body lies flat and a cape hanging straight down would cut through it), flare back with speed
+      c.spin.getWorldQuaternion(_cq2); _cu.set(0,1,0).applyQuaternion(_cq2);
+      o.parent.getWorldQuaternion(_cq1); _cf.set(0,0,1).applyQuaternion(_cq1); _cf.addScaledVector(_cu,-_cf.dot(_cu));
+      if(_cf.lengthSq()<0.09){ _cf.set(0,0,-1).applyQuaternion(_cq2); _cf.addScaledVector(_cu,-_cf.dot(_cu)); }
+      _cf.normalize(); _cx.crossVectors(_cu,_cf); _cmat.makeBasis(_cx,_cu,_cf); _cq2.setFromRotationMatrix(_cmat);
+      _cq2.multiply(_cq3.setFromAxisAngle(UPX,o.userData.rx+0.18)).premultiply(_cq1.invert()); o.quaternion.copy(_cq2); }
     else o.rotation.x=(o.userData.baseX??(o.userData.baseX=o.rotation.x))+o.userData.rx; }
   for(const o of c.flaps) o.rotation.y=o.userData.flap*(0.45+Math.sin(t*2.2)*0.1+air*0.35);
   for(const o of c.bobs) o.position.y=0.42+Math.sin(t*2)*0.012;
@@ -1392,7 +1399,7 @@ var skIdx=0, skShown=[];
 function studioLights(gr){ const k=new T.DirectionalLight(0xfff4e6,0.9); k.position.set(2,3,5); const r=new T.DirectionalLight(0xbfd8ff,0.6); r.position.set(-3,2,-4); gr.add(k,k.target,r,r.target); }
 function standChar(skin){ const c=makeCharacterGLB(); c.pick.visible=false; applySkin(c,skin); return c; }
 function buildSkinStand(){
-  if(armGroup) scene.remove(armGroup); for(const c of skShown) for(const o of c.gear||[]) o.traverse(m=>{ if(m.isMesh) m.geometry.dispose(); });
+  if(armGroup) scene.remove(armGroup); for(const c of skShown) for(const o of c.gear||[]) o.traverse(m=>{ if(m.isMesh&&!m.geometry.userData.keep) m.geometry.dispose(); });
   armGroup=new T.Group(); armGroup.position.set(0,ARM_Y,0); armGuns=[]; skShown=[];
   const N=SK.ITEMS.length;
   studioLights(armGroup);
@@ -1571,7 +1578,7 @@ function updateBotZG(b,dt){
     const pref=WEAP[b.gun.id].pref, fwd=d>pref+5?1:d<pref-4?-0.7:0;
     wish.set(dx/d*fwd+(-dz/dh)*b.strafe*0.9,ceil?0:dy/d*fwd+b.vstrafe*0.7,dz/d*fwd+(dx/dh)*b.strafe*0.9);
     if(!ceil&&d>pref+25) prop=zgStamina(b,true,dt);
-    if(matchTime>SPAWN_GRACE&&matchTime-b.seenAt>b.react&&b.fireCd<=0&&b.reloadT<=0) botShoot(b,e,d); // nobody fires in the first few seconds, so 100 bots don't mob you at the start
+    if(matchTime>(b.wake||SPAWN_GRACE)&&matchTime-b.seenAt>b.react&&b.fireCd<=0&&b.reloadT<=0) botShoot(b,e,d); // nobody fires in the first few seconds, then bots join in one by one (b.wake) so 100 guns don't all go off on the same frame
   } else if(b.goal){ const g=b.goal, dx=g.x-b.pos.x, dy=g.y-b.pos.y, dz=g.z-b.pos.z, d=Math.hypot(dx,dy,dz);
     if(d<3) b.goal=null; else { wish.set(dx/d,ceil?0:dy/d,dz/d); botTurn(b,Math.atan2(-dx,-dz),5,dt); } b.aimPitch=lerp(b.aimPitch||0,0,1-Math.exp(-6*dt)); }
   if(!prop) zgStamina(b,false,dt); b.zgPropel=prop;
@@ -2092,7 +2099,7 @@ function newMatch(){
   Object.assign(player,{slots:[null,{kind:'gun',id:'ar',r:3,ammo:WEAP.ar.mag},{kind:'gun',id:'pump',r:3,ammo:WEAP.pump.mag},{kind:'gun',id:'smg',r:2,ammo:WEAP.smg.mag},{kind:'cons',id:'big',count:2},{kind:'cons',id:'mini',count:3},{kind:'gun',id:'mf',r:4,ammo:MF_CLIP},null,null],
     sel:1,bank:0,throwA:null,bouncer:{cd:0},bounceT:0,ball:null,ammo:{light:150,medium:240,heavy:12,shells:48},fireCd:0,bloom:0,reloading:null,consuming:null,dmgDealt:0,wantJump:false,shield:50});
   zgSpawn(player,0,ZG.BOTS+1); player.pitch=0; applyPickSkin(player);
-  for(let i=0;i<ZG.BOTS;i++){ const b=makeBot(i); bots.push(b); zgSpawn(b,i+1,ZG.BOTS+1); armBot(b); b.react=rnd(0.14,0.3); b.skill=rnd(0.5,0.8); b.lastPos=b.pos.clone(); }
+  for(let i=0;i<ZG.BOTS;i++){ const b=makeBot(i); bots.push(b); zgSpawn(b,i+1,ZG.BOTS+1); armBot(b); b.react=rnd(0.14,0.3); b.wake=SPAWN_GRACE+rnd(0,6); b.skill=rnd(0.5,0.8); b.lastPos=b.pos.clone(); }
   aliveCount=combatants.length;
   buildFlyers(); buildPads();
   renderMapBase();
@@ -2102,6 +2109,7 @@ function startMatch(){
   if(matchUsed) newMatch(); matchUsed=true;
   $('menu').hidden=true; $('over').hidden=true; $('pause').hidden=true; $('hud').hidden=false; $('feed').innerHTML='';
   state='play'; refreshHotbar(); hudTick();
+  try{ renderer.compile(scene,camera); }catch(e){} // build every skin's shaders now, not in the middle of the first fight
   banner('Inverted','',2.5);
   requestLock();
 }
@@ -2207,8 +2215,8 @@ function loop(now){
   requestAnimationFrame(loop);
   const dt=Math.min(0.15,Math.max(0,(now-lastT)/1000)); lastT=now;
   if(state==='play'||state==='over'){ const n=Math.ceil(dt/0.034); for(let i=0;i<n;i++) update(dt/n); }
-  // slow machine: drop the pixel ratio, then shadow quality, then shadows
-  if(state==='play'&&perfStage<3){ perfFrames++; perfTime+=dt; if(perfTime>4){ const f=perfFrames/perfTime; perfFrames=0; perfTime=0;
+  // slow machine: drop the pixel ratio (measured after the opening seconds, so loading hiccups don't count), then shadow quality, then shadows
+  if(state==='play'&&perfStage<3&&matchTime>2.5){ perfFrames++; perfTime+=dt; if(perfTime>4){ const f=perfFrames/perfTime; perfFrames=0; perfTime=0;
     if(f>=45) perfStage=3;
     else if(perfStage===0){ perfStage=1; renderer.setPixelRatio(1); resize(); }
     else if(perfStage===1){ perfStage=2; sun.shadow.mapSize.set(1024,1024); if(sun.shadow.map){ (sun.shadow.map as any).dispose(); sun.shadow.map=null; } }

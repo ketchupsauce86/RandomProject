@@ -39,23 +39,39 @@ const ITEMS=[
   S('Thanos','heroes',4,{p:'#d4a43a',c:'#2a4aa8',s:'#5a3a7a',k:'#2a4aa8',m:'#f2d27a',x:'#7a4aa8',v:'#7a4a9a',fin:[0.75,0.3],big:[1.24,1.12],
     acc:[['crest','#d4a43a'],['gauntlet','#d4a43a'],['muscles','#7a4a9a'],['pauldrons','#d4a43a']]}),
   // ---------- Anime
-  // Kash's anime picks, in Kash's order: a face and hair over the helmet, the outfit painted on, signature gear
-  S('Naruto','anime',4,{body:{skin:'#eab894',top:'#ff7a1a',pants:'#ff7a1a',collar:'#ff7a1a',shoes:'#1a2a5a',shoeTop:15},zone:{head:'#1a1a1e',chest:'#ff7a1a',belly:'#ff7a1a',upperArm:'#1a1a1e',foreArm:'#ff7a1a',hand:'#eab894',thigh:'#ff7a1a',shin:'#ff7a1a',foot:'#1a1a1e'},p:'#ff7a1a',c:'#1a1a1e',s:'#16161a',k:'#1a1a1e',m:'#2a2a30',x:'#ff7a1a',v:'#1a1a1e',noVisor:1,cel:1,
-    acc:[['animeHead','#eab894','naruto'],['animeHair','#ffd21f','naruto','#ffe35a'],['leafband','#1c3a7a','#c9cfd8']]}),
-  S('Luffy','anime',4,{body:{skin:'#e6b48c',top:'#d0202a',sleeves:'none',inner:'#e6b48c',cut:'open',pants:'#2f5fb0',legs:'knee',shoes:'#b08a5a',shoeTop:5,belt:'#f2c81e'},zone:{head:'#e6b48c',chest:'#d0202a',belly:'#e2a882',upperArm:'#e6b48c',foreArm:'#e6b48c',hand:'#e6b48c',thigh:'#2f5fb0',shin:'#e6b48c',foot:'#c8a070'},p:'#d0202a',c:'#2f5fb0',s:'#e2a882',k:'#f2c81e',m:'#e2a882',x:'#d0202a',v:'#1a1a1e',fin:[0.05,0.8],noVisor:1,cel:1,
-    acc:[['animeHead','#e6b48c','luffy'],['animeHair','#141414','luffy'],['strawHat','#e8c870','#c4161c'],['sash','#f2c81e']]}),
-  S('Saitama','anime',4,{body:{skin:'#eab894',top:'#f2c81e',pants:'#f2c81e',gloves:'#d0202a',shoes:'#d0202a',shoeTop:40,belt:'#141414'},zone:{head:'#f2c81e',chest:'#f2c81e',belly:'#f2c81e',upperArm:'#f2c81e',foreArm:'#f2c81e',hand:'#d0202a',thigh:'#f2c81e',shin:'#d0202a',foot:'#d0202a'},p:'#f2c81e',c:'#f2c81e',s:'#d9ac10',k:'#141414',m:'#d0202a',x:'#f2c81e',v:'#1a1a1e',fin:[0.05,0.6],noVisor:1,cel:1,
-    acc:[['animeHead','#eab894','saitama'],['cape','#f6f6f2','#e6e6e0'],['belt','#141414']]}),
-  S('Goku','anime',4,{body:{skin:'#eab894',top:'#f27a1a',sleeves:'short',sleeve:'#1d3a8f',inner:'#1d3a8f',cut:'v',pants:'#f27a1a',belt:'#1d3a8f',cuff:'#1d3a8f',shoes:'#1d3a8f',shoeTop:34},zone:{head:'#1d3a8f',chest:'#f27a1a',belly:'#f27a1a',upperArm:'#1d3a8f',foreArm:'#eab894',hand:'#eab894',thigh:'#f27a1a',shin:'#1d3a8f',foot:'#1d3a8f'},p:'#f27a1a',c:'#1d3a8f',s:'#16285a',k:'#1d3a8f',m:'#1d3a8f',x:'#f27a1a',v:'#1a1a1e',fin:[0.05,0.8],noVisor:1,cel:1,
-    acc:[['animeHead','#eab894','goku'],['animeHair','#141414','goku'],['emblem','kanji:悟','#141414','#ffffff'],['gloves','#1d3a8f','band'],['sash','#1d3a8f']]}),
-  S('Eren','anime',4,{body:{skin:'#e8b896',top:'#b8935c',inner:'#ece8de',cut:'below',jacketEnd:127,pants:'#ece8de',belt:'#2a1e16',shoes:'#5a3a22',shoeTop:46},zone:{head:'#ece8de',chest:'#b8935c',belly:'#ece8de',upperArm:'#b8935c',foreArm:'#b8935c',hand:'#e8b896',thigh:'#ece8de',shin:'#5a3a22',foot:'#4a2e1a'},p:'#b8935c',c:'#ece8de',s:'#2a2a2a',k:'#2a1e16',m:'#a8b0b8',x:'#ece8de',v:'#1a1a1e',fin:[0.05,0.8],noVisor:1,cel:1,
-    acc:[['animeHead','#e8b896','eren'],['animeHair','#4a2e1c','eren'],['cape','#2f5a3a','#24462e','wings'],['odm','#a8b0b8','#2a1e16']]}),
-  S('Gojo','anime',4,{body:{skin:'#ecc4a4',top:'#14161e',pants:'#14161e',collar:'#14161e',shoes:'#0c0d12',shoeTop:15},zone:{head:'#14161e',chest:'#14161e',belly:'#14161e',upperArm:'#14161e',foreArm:'#14161e',hand:'#ecc4a4',thigh:'#14161e',shin:'#14161e',foot:'#0c0d12'},p:'#14161e',c:'#14161e',s:'#0c0d12',k:'#22252e',m:'#3a3f4a',x:'#2a3a6a',v:'#1a1a1e',fin:[0.1,0.7],noVisor:1,cel:1,
-    acc:[['animeHead','#ecc4a4','gojo'],['animeHair','#f4f6fa','gojo','#dfe6f0'],['collar','#14161e'],['palms','#4ab0ff']]}),
-  S('Tanjiro','anime',4,{body:{skin:'#eab894',top:'#1a1a1e',pants:'#1a1a1e',belt:'#ece8de',wrap:'#ece8de',shoes:'#3a2a20',shoeTop:7},zone:{head:'#1a1a1e',chest:'#1a1a1e',belly:'#1a1a1e',upperArm:'#1a1a1e',foreArm:'#1a1a1e',hand:'#eab894',thigh:'#1a1a1e',shin:'#ece8de',foot:'#2a2a2e'},p:'#1a1a1e',c:'#1a1a1e',s:'#101014',k:'#e8e4da',m:'#3a3a40',x:'#1a1a1e',v:'#1a1a1e',fin:[0.05,0.8],noVisor:1,cel:1,
-    acc:[['animeHead','#eab894','tanjiro'],['animeHair','#3a1212','tanjiro','#8a2420'],['haori','#1f8a6a','#141414'],['earrings'],['katana','#141414'],['sash','#ece8de']]}),
-  S('Light Yagami','anime',4,{body:{skin:'#eabc98',top:'#a07c48',inner:'#f2f0ea',cut:'v',pants:'#4a3428',cuff:'#f2f0ea',shoes:'#2a1e16',shoeTop:12},zone:{head:'#f2f0ea',chest:'#b89a6a',belly:'#b89a6a',upperArm:'#b89a6a',foreArm:'#b89a6a',hand:'#eabc98',thigh:'#4a3428',shin:'#4a3428',foot:'#2a1e16'},p:'#b89a6a',c:'#4a3428',s:'#f2f0ea',k:'#3a2a20',m:'#8a7a60',x:'#b89a6a',v:'#1a1a1e',fin:[0.05,0.75],noVisor:1,cel:1,
-    acc:[['animeHead','#eabc98','light'],['animeHair','#7a4a2a','light'],['tie','#b0202a'],['book']]}),
+  // Kash's anime picks, in Kash's order: a sculpted head and hair, a smooth body in a build that suits them, the
+  // outfit painted on (decals for the fine lines), and signature gear. p..v colour the icon and the armor fallback.
+  S('Naruto','anime',4,{body:{build:'avg',skin:'#f2c49e',top:'#ff7a1a',upper:'#233c7a',upperZ:143,pants:'#ff7a1a',collar:'#f4f4f0',sandals:1,sole:'#1a2440',strap:'#233c7a',
+      decals:[{d:'narutoZip',a:0.42,z0:104,z1:152.5},{d:'narutoSpiral',side:1,a:0.6,z0:126,z1:150}]},
+    p:'#ff7a1a',c:'#233c7a',s:'#16161a',k:'#233c7a',m:'#2a2a30',x:'#ff7a1a',v:'#1a1a1e',noVisor:1,cel:1,
+    acc:[['animeHead','#f2c49e','naruto'],['animeHair','naruto','#f7c516','#ffe27a'],['leafband','#233c7a','#c9cfd8'],['collar','naruto','#f4f4f0']]}),
+  S('Luffy','anime',4,{body:{build:'fit',skin:'#eab58c',top:'#d0202a',sleeves:'elbow',roll:'#a8161e',openW:[5,0.2],pants:'#3a6fc0',legs:'knee',cuffBand:'#8fb4e6',
+      belt:'#f2c81e',beltZ:[102.5,109],sandals:1,sole:'#9a7448',strap:'#5a3a22',decals:[{d:'luffyChest',a:0.95,z0:104,z1:152}]},
+    p:'#d0202a',c:'#3a6fc0',s:'#e2a882',k:'#f2c81e',m:'#e2a882',x:'#d0202a',v:'#1a1a1e',fin:[0.05,0.8],noVisor:1,cel:1,
+    acc:[['animeHead','#eab58c','luffy'],['animeHair','luffy','#141418'],['strawHat','#ecc976','#c4161c'],['sash','#f2c81e','left']]}),
+  S('Saitama','anime',4,{body:{build:'fit',skin:'#f2c49e',top:'#f6cf1e',pants:'#f6cf1e',collar:'#f6cf1e',gloves:'#d42020',shoes:'#d42020',shoeTop:44,belt:'#161616',beltZ:[103,108],
+      decals:[{d:'saitamaZip',a:0.3,z0:104,z1:152.5}]},
+    p:'#f6cf1e',c:'#f6cf1e',s:'#d9ac10',k:'#161616',m:'#d42020',x:'#f6cf1e',v:'#1a1a1e',fin:[0.05,0.6],noVisor:1,cel:1,
+    acc:[['animeHead','#f2c49e','saitama'],['cape','#f8f8f4','#e8e8e2','clasps'],['buckle','#d8b418'],['gloveCuff','#d42020']]}),
+  S('Goku','anime',4,{body:{build:'fit',skin:'#f2c49e',top:'#f47a12',sleeves:'short',sleeve:'#1d3a8f',pants:'#f47a12',collar:'#1d3a8f',belt:'#1d3a8f',beltZ:[103,109],cuff:'#1d3a8f',cuffFrom:56,
+      shoes:'#1d3a8f',shoeTop:34,decals:[{d:'gokuGi',a:0.9,z0:118,z1:153},{d:'gokuBack',side:1,a:0.7,z0:126,z1:150}]},
+    p:'#f47a12',c:'#1d3a8f',s:'#16285a',k:'#1d3a8f',m:'#1d3a8f',x:'#f47a12',v:'#1a1a1e',fin:[0.05,0.8],noVisor:1,cel:1,
+    acc:[['animeHead','#f2c49e','goku'],['animeHair','goku','#141418'],['sash','#1d3a8f','front']]}),
+  S('Eren','anime',4,{body:{build:'avg',skin:'#efc39f',top:'#a07848',inner:'#f2efe8',cut:'below',jacketEnd:127,pants:'#efece4',collar:'#f2efe8',belt:'#4a2f1e',beltZ:[103,108],
+      shoes:'#5a3a24',shoeTop:44,legBands:[[92,1.3,'#4a2f1e'],[80,1.3,'#4a2f1e'],[68,1.2,'#4a2f1e']],decals:[{d:'erenFront',a:1.0,z0:104,z1:152.5}]},
+    p:'#a07848',c:'#efece4',s:'#2a2a2a',k:'#4a2f1e',m:'#a8b0b8',x:'#efece4',v:'#1a1a1e',fin:[0.05,0.8],noVisor:1,cel:1,
+    acc:[['animeHead','#efc39f','eren'],['animeHair','eren','#3a2417','#4e3220'],['cape','#2f5a3a','#24462e','wings'],['odm','#a8b0b8','#3a2a1e']]}),
+  S('Gojo','anime',4,{body:{build:'slim',skin:'#f4d2b6',top:'#1c1e33',pants:'#1c1e33',collar:'#1c1e33',shoes:'#0e0f16',shoeTop:12,coat:{hem:90,gap:0.1,flare:3}},big:[1,1.04],
+    p:'#1c1e33',c:'#1c1e33',s:'#0c0d12',k:'#22252e',m:'#3a3f4a',x:'#2a3a6a',v:'#1a1a1e',fin:[0.1,0.7],noVisor:1,cel:1,
+    acc:[['animeHead','#f4d2b6','gojo'],['animeHair','gojo','#eef1f6','#cdd6e4'],['blindfold','#141418'],['collar','gojo','#1c1e33'],['palms','#4ab0ff']]}),
+  S('Tanjiro','anime',4,{body:{build:'avg',skin:'#f2c49e',top:'#1a1a1e',check:['#1f9a74','#141414'],openW:[4.5,0.12],pants:'#1a1a1e',belt:'#f2efe6',beltZ:[103,108],
+      wrap:'#f2efe6',wrapZ:47,sandals:1,sole:'#cdb37a',strap:'#2a2a2a',toe:'#f2efe6',coat:{hem:80,gap:0.42,flare:4,check:1},sleeveShell:1,collar:'#1a1a1e',decals:[{d:'tanjiroFront',a:0.75,z0:106,z1:152.5}]},
+    p:'#1a1a1e',c:'#1f9a74',s:'#101014',k:'#e8e4da',m:'#3a3a40',x:'#1a1a1e',v:'#1a1a1e',fin:[0.05,0.8],noVisor:1,cel:1,
+    acc:[['animeHead','#f2c49e','tanjiro'],['animeHair','tanjiro','#4a1416','#b83a2e'],['earrings'],['katana','#141414','hip'],['collar','tanjiro','#1a1a1e']]}),
+  S('Light Yagami','anime',4,{body:{build:'slim',skin:'#f4cfae',top:'#7d87b2',pants:'#737ca8',collar:'#f4f2ee',cuff:'#f4f2ee',cuffFrom:63,shoes:'#3a2a22',shoeTop:11,tie:'#3a3d46',lapel:'#646e98',
+      coat:{hem:88,gap:0.14,flare:2},decals:[{d:'lightFront',a:0.85,z0:104,z1:152.5}]},
+    p:'#9aa3c6',c:'#8a93b8',s:'#f2f0ea',k:'#3a3d46',m:'#8a7a60',x:'#9aa3c6',v:'#1a1a1e',fin:[0.05,0.75],noVisor:1,cel:1,
+    acc:[['animeHead','#f4cfae','light'],['animeHair','light','#9a5a2c','#b86e36'],['book']]}),
   S('Kaze Ninja','anime',3,{p:'#ff7a1a',c:'#1c2b4a',s:'#0f1626',k:'#1c2b4a',m:'#c9cfd8',x:'#1c2b4a',v:'#2b3a55',
     acc:[['hair','#ffd21f','spiky'],['headband','#1c2b4a','#c9cfd8'],['katana','#1c2b4a']]}),
   S('Ronin Blade','anime',4,{p:'#a3161a',c:'#141414',s:'#0a0a0a',k:'#d4a13a',m:'#d4a13a',x:'#d4a13a',v:'#141414',fin:[0.3,0.5],
@@ -283,55 +299,64 @@ function emblemCanvas(kind,fg,bg){
 }
 
 // ---------------------------------------------------------------- anime faces
-// A face painted onto a head sphere: the canvas wraps all the way round (x is the angle around the head, with the
-// face centred a quarter of the way in, which is the sphere's front; y runs from the crown down to the chin).
+// A face painted onto the sculpted head: the canvas wraps all the way round (x is the angle around the head with the
+// face in the middle; y runs from the crown down to the chin). Drawn at 512x256 and scaled up 2x for crisp lines.
 const FACES={
-  naruto:{eye:'#2f86e8',brow:'#c99a10',mouth:'grin',marks:'whiskers'},
-  luffy:{eye:'#1a1a1a',brow:'#141414',mouth:'grin',marks:'stitch'},
-  saitama:{eye:null,brow:'#d9a77a',mouth:'flat'},
+  naruto:{eye:'#2f86e8',brow:'#c99a10',mouth:'grin',marks:'whiskers',big:1},
+  luffy:{eye:'#1a1a1a',brow:'#141414',mouth:'grin',marks:'stitch',big:1,round:1},
+  saitama:{eye:'dot',brow:'#c7956a',mouth:'flat',thin:1},
   goku:{eye:'#141414',brow:'#141414',mouth:'smirk',sharp:1},
-  eren:{eye:'#2aa58f',brow:'#4a2e1c',mouth:'frown',sharp:1,angry:1},
-  gojo:{eye:null,brow:null,mouth:'smile',marks:'blindfold'},
-  tanjiro:{eye:'#a8323a',brow:'#5a1a1a',mouth:'smile',marks:'scar'},
-  light:{eye:'#8a4a24',brow:'#5a3420',mouth:'smirk',sharp:1}
+  eren:{eye:'#2aa58f',brow:'#3a2417',mouth:'frown',sharp:1,angry:1},
+  gojo:{eye:null,brow:null,mouth:'teeth'},
+  tanjiro:{eye:'#b0303a',brow:'#5a1a1a',mouth:'smile',marks:'scar',big:1},
+  light:{eye:'#9a4a24',brow:'#7a4422',mouth:'smirk',sharp:1,narrow:1}
 };
 function faceCanvas(kind,skin){
-  const f=FACES[kind]||FACES.naruto, W=512, H=256, cv=document.createElement('canvas'); cv.width=W; cv.height=H; const x=cv.getContext('2d');
-  x.fillStyle=skin; x.fillRect(0,0,W,H);
-  const cx=W*0.25, ey=H*0.5; x.lineCap='round'; x.lineJoin='round';
-  // soft cheek blush and a little shade under the jaw
-  const shade=x.createLinearGradient(0,H*0.72,0,H); shade.addColorStop(0,'rgba(0,0,0,0)'); shade.addColorStop(1,'rgba(90,40,20,.35)'); x.fillStyle=shade; x.fillRect(0,H*0.72,W,H*0.28);
-  for(const s of [-1,1]){ const g=x.createRadialGradient(cx+s*34,ey+24,0,cx+s*34,ey+24,14); g.addColorStop(0,'rgba(255,120,110,.28)'); g.addColorStop(1,'rgba(255,120,110,0)'); x.fillStyle=g; x.fillRect(cx+s*34-14,ey+10,28,28); }
-  if(f.eye) for(const s of [-1,1]){ // big anime eyes: white, iris, pupil, two highlights, a heavy upper lash line
-    const ex=cx+s*29, w=f.sharp?19:18, h=f.sharp?12:17;
-    x.save(); x.beginPath(); if(f.sharp){ x.moveTo(ex-w,ey+2); x.quadraticCurveTo(ex-s*2,ey-h-3,ex+w,ey-3*s*0+(-2)); x.quadraticCurveTo(ex+s*4,ey+h,ex-w,ey+2); }
-    else x.ellipse(ex,ey,w*0.8,h,0,0,7); x.closePath(); x.fillStyle='#fbfbfb'; x.fill(); x.clip();
-    x.fillStyle=f.eye; x.beginPath(); x.ellipse(ex+s*-1,ey+1,w*0.55,h*1.05,0,0,7); x.fill();
-    x.fillStyle='rgba(0,0,0,.35)'; x.beginPath(); x.ellipse(ex+s*-1,ey-h*0.4,w*0.6,h*0.5,0,0,7); x.fill();
-    x.fillStyle='#0a0a0a'; x.beginPath(); x.ellipse(ex+s*-1,ey+1,w*0.24,h*0.5,0,0,7); x.fill();
-    x.fillStyle='#ffffff'; x.beginPath(); x.arc(ex+s*-1-4,ey-4,3.4,0,7); x.fill(); x.beginPath(); x.arc(ex+s*-1+3,ey+4,1.3,0,7); x.fill(); x.restore();
-    x.strokeStyle='#141414'; x.lineWidth=3.2; x.beginPath();
-    if(f.sharp){ x.moveTo(ex-w-1,ey+2); x.quadraticCurveTo(ex-s*2,ey-h-4,ex+w+1,ey-2); }
-    else x.ellipse(ex,ey,w*0.8+0.5,h+0.5,0,Math.PI*1.08,Math.PI*1.92);
-    x.stroke(); x.lineWidth=1.4; x.beginPath(); x.moveTo(ex+s*(w-1),ey-3); x.lineTo(ex+s*(w+4),ey-6); x.stroke(); }
-  else if(kind==='saitama') for(const s of [-1,1]){ x.fillStyle='#1a1a1a'; x.beginPath(); x.ellipse(cx+s*26,ey,5,6,0,0,7); x.fill(); } // the blank "OK." face
-  if(f.brow) for(const s of [-1,1]){ const ex=cx+s*29; x.strokeStyle=f.brow; x.lineWidth=kind==='saitama'?2:4.5; x.beginPath();
-    if(f.angry){ x.moveTo(ex-s*14,ey-22); x.lineTo(ex+s*10,ey-14); }
-    else { x.moveTo(ex-s*14,ey-20); x.quadraticCurveTo(ex,ey-26,ex+s*14,ey-21); } x.stroke(); }
-  // nose: a tiny shadow tick
-  x.strokeStyle='rgba(120,60,40,.6)'; x.lineWidth=2; x.beginPath(); x.moveTo(cx+2,ey+14); x.lineTo(cx-2,ey+20); x.stroke();
-  const my=ey+36; x.save(); x.translate(cx,my); x.scale(1.35,1.35); x.translate(-cx,-my); x.strokeStyle='#5a1f1a'; x.lineWidth=2.6;
-  if(f.mouth==='grin'){ x.fillStyle='#7a1f1f'; x.beginPath(); x.moveTo(cx-16,my-4); x.quadraticCurveTo(cx,my+16,cx+16,my-4); x.closePath(); x.fill(); x.stroke();
-    x.fillStyle='#ffffff'; x.beginPath(); x.moveTo(cx-15,my-3.5); x.quadraticCurveTo(cx,my+2,cx+15,my-3.5); x.closePath(); x.fill(); }
+  const f=FACES[kind]||FACES.naruto, W=1024, H=512, cv=document.createElement('canvas'); cv.width=W; cv.height=H; const x=cv.getContext('2d');
+  x.fillStyle=skin; x.fillRect(0,0,W,H); x.scale(2,2);
+  const cx=256, ey=128; x.lineCap='round'; x.lineJoin='round';
+  // a soft shade under the jaw and a little blush
+  const shade=x.createLinearGradient(0,176,0,256); shade.addColorStop(0,'rgba(0,0,0,0)'); shade.addColorStop(1,'rgba(110,50,30,.3)'); x.fillStyle=shade; x.fillRect(0,176,512,80);
+  for(const s of [-1,1]){ const g=x.createRadialGradient(cx+s*36,ey+24,0,cx+s*36,ey+24,13); g.addColorStop(0,'rgba(255,120,110,.25)'); g.addColorStop(1,'rgba(255,120,110,0)'); x.fillStyle=g; x.fillRect(cx+s*36-13,ey+11,26,26); }
+  const ex0=f.narrow?27:29;
+  if(f.eye==='dot') for(const s of [-1,1]){ const ex=cx+s*ex0; // Saitama's plain, unbothered eyes
+    x.fillStyle='#fbfbfb'; x.beginPath(); x.ellipse(ex,ey+1,9,7,0,0,7); x.fill(); x.fillStyle='#1a1a1a'; x.beginPath(); x.arc(ex,ey+2,2.6,0,7); x.fill();
+    x.strokeStyle='#2a1a14'; x.lineWidth=2; x.beginPath(); x.moveTo(ex-10,ey-2); x.quadraticCurveTo(ex,ey-8,ex+10,ey-2); x.stroke(); }
+  else if(f.eye) for(const s of [-1,1]){ // big anime eyes: white, iris, pupil, two highlights, a heavy upper lash line
+    const ex=cx+s*ex0, w=f.sharp?18:f.big?17:16, h=f.sharp?11:f.round?18:16;
+    x.save(); x.beginPath();
+    if(f.sharp){ x.moveTo(ex-s*w,ey+3); x.quadraticCurveTo(ex,ey-h-2,ex+s*w,ey-4); x.quadraticCurveTo(ex+s*3,ey+h,ex-s*w,ey+3); }
+    else x.ellipse(ex,ey,w*0.82,h,0,0,7);
+    x.closePath(); x.fillStyle='#fbfbfb'; x.fill(); x.clip();
+    const ix=ex-s*1, ir=f.sharp?w*0.5:w*0.6;
+    const ig=x.createLinearGradient(0,ey-h,0,ey+h); ig.addColorStop(0,'#000'); ig.addColorStop(0.45,f.eye); ig.addColorStop(1,f.eye); x.fillStyle=ig; x.beginPath(); x.ellipse(ix,ey+1,ir,h*1.02,0,0,7); x.fill();
+    x.fillStyle='rgba(0,0,0,.85)'; x.beginPath(); x.ellipse(ix,ey+1,ir*0.42,h*0.5,0,0,7); x.fill();
+    x.fillStyle='#ffffff'; x.beginPath(); x.ellipse(ix-s*4,ey-4,3.6,4.2,0,0,7); x.fill(); x.beginPath(); x.arc(ix+s*3,ey+5,1.5,0,7); x.fill(); x.restore();
+    x.strokeStyle='#141414'; x.lineWidth=f.sharp?3.6:3.4; x.beginPath();
+    if(f.sharp){ x.moveTo(ex-s*(w+1),ey+3); x.quadraticCurveTo(ex,ey-h-3,ex+s*(w+2),ey-5); }
+    else x.ellipse(ex,ey,w*0.82+0.6,h+0.6,0,Math.PI*1.05,Math.PI*1.95);
+    x.stroke(); x.lineWidth=1.6; x.beginPath(); x.moveTo(ex+s*(w-1),ey-4); x.lineTo(ex+s*(w+5),ey-8); x.stroke(); // lash flick
+    x.strokeStyle='rgba(60,30,20,.5)'; x.lineWidth=1.2; x.beginPath(); x.moveTo(ex-w*0.6,ey+h*0.85+(f.sharp?-2:0)); x.quadraticCurveTo(ex,ey+h+2,ex+w*0.6,ey+h*0.85+(f.sharp?-2:0)); x.stroke(); }
+  if(f.brow) for(const s of [-1,1]){ const ex=cx+s*ex0, by=f.round?ey-27:ey-23; x.strokeStyle=f.brow; x.lineWidth=f.thin?2:4.6; x.beginPath();
+    if(f.angry){ x.moveTo(ex-s*15,by+1); x.lineTo(ex+s*12,by-6); }
+    else if(f.sharp){ x.moveTo(ex-s*14,by+2); x.quadraticCurveTo(ex,by-4,ex+s*15,by-2); }
+    else { x.moveTo(ex-s*14,by+1); x.quadraticCurveTo(ex,by-6,ex+s*14,by); } x.stroke(); }
+  // nose: a small shadow on one side, the way anime draws it
+  x.fillStyle='rgba(150,80,55,.55)'; x.beginPath(); x.moveTo(cx+1,ey+12); x.lineTo(cx-3,ey+22); x.lineTo(cx+2,ey+21); x.closePath(); x.fill();
+  const my=ey+38; x.strokeStyle='#5a1f1a'; x.lineWidth=2.6;
+  if(f.mouth==='grin'){ x.fillStyle='#7a1f1f'; x.beginPath(); x.moveTo(cx-17,my-5); x.quadraticCurveTo(cx,my+17,cx+17,my-5); x.quadraticCurveTo(cx,my-1,cx-17,my-5); x.fill(); x.stroke();
+    x.fillStyle='#ffffff'; x.beginPath(); x.moveTo(cx-15,my-4); x.quadraticCurveTo(cx,my,cx+15,my-4); x.quadraticCurveTo(cx,my+4,cx-15,my-4); x.fill(); }
+  else if(f.mouth==='teeth'){ x.fillStyle='#ffffff'; x.beginPath(); x.moveTo(cx-18,my-5); x.quadraticCurveTo(cx,my+13,cx+18,my-5); x.quadraticCurveTo(cx,my-1,cx-18,my-5); x.fill(); x.stroke();
+    x.lineWidth=1; x.strokeStyle='rgba(90,40,30,.5)'; x.beginPath(); x.moveTo(cx-16,my-1); x.quadraticCurveTo(cx,my+4,cx+16,my-1); x.stroke(); }
   else if(f.mouth==='smile'){ x.beginPath(); x.moveTo(cx-10,my-2); x.quadraticCurveTo(cx,my+6,cx+10,my-2); x.stroke(); }
   else if(f.mouth==='smirk'){ x.beginPath(); x.moveTo(cx-9,my); x.quadraticCurveTo(cx+2,my+3,cx+11,my-5); x.stroke(); }
   else if(f.mouth==='frown'){ x.beginPath(); x.moveTo(cx-9,my+2); x.quadraticCurveTo(cx,my-3,cx+9,my+2); x.stroke(); }
   else { x.beginPath(); x.moveTo(cx-6,my); x.lineTo(cx+6,my); x.stroke(); }
-  x.restore();
-  if(f.marks==='whiskers') for(const s of [-1,1]) for(let i=0;i<3;i++){ x.strokeStyle='#5a3a24'; x.lineWidth=2.4; x.beginPath(); x.moveTo(cx+s*30,ey+14+i*6); x.lineTo(cx+s*46,ey+12+i*7); x.stroke(); }
-  if(f.marks==='stitch'){ x.strokeStyle='#7a3a2a'; x.lineWidth=2.2; x.beginPath(); x.moveTo(cx-34,ey+16); x.lineTo(cx-18,ey+16); x.stroke(); for(const d of [-30,-26,-22]){ x.beginPath(); x.moveTo(cx+d,ey+12); x.lineTo(cx+d,ey+20); x.stroke(); } }
-  if(f.marks==='scar'){ x.fillStyle='rgba(150,40,40,.9)'; x.beginPath(); x.moveTo(cx-44,ey-24); x.quadraticCurveTo(cx-36,ey-40,cx-16,ey-36); x.quadraticCurveTo(cx-26,ey-33,cx-24,ey-26); x.quadraticCurveTo(cx-34,ey-30,cx-44,ey-24); x.fill(); }
-  if(f.marks==='blindfold'){ x.fillStyle='#121216'; x.fillRect(0,ey-22,W,36); x.fillStyle='rgba(255,255,255,.08)'; x.fillRect(0,ey-20,W,4); }
+  if(f.marks==='whiskers') for(const s of [-1,1]) for(let i=0;i<3;i++){ x.strokeStyle='#4a2e1c'; x.lineWidth=2.6; x.beginPath(); x.moveTo(cx+s*31,ey+15+i*6.5); x.quadraticCurveTo(cx+s*40,ey+13+i*7,cx+s*48,ey+12+i*7.5); x.stroke(); }
+  // Luffy's scar sits under his left eye (the right side of the canvas is the character's left)
+  if(f.marks==='stitch'){ x.strokeStyle='#8a3a2a'; x.lineWidth=2.2; x.beginPath(); x.moveTo(cx+18,ey+19); x.lineTo(cx+38,ey+19); x.stroke(); for(const d of [22,28,34]){ x.beginPath(); x.moveTo(cx+d,ey+15); x.lineTo(cx+d,ey+23); x.stroke(); } }
+  // Tanjiro's scar: a dark red flame-shaped mark on his left forehead
+  if(f.marks==='scar'){ x.fillStyle='rgba(140,30,30,.92)'; x.beginPath(); x.moveTo(cx+14,ey-30); x.quadraticCurveTo(cx+22,ey-52,cx+46,ey-46); x.quadraticCurveTo(cx+34,ey-42,cx+36,ey-34); x.quadraticCurveTo(cx+26,ey-38,cx+14,ey-30); x.fill(); }
   return cv;
 }
 // a hanafuda card: a red rising sun over a mountain, on cream
@@ -360,18 +385,89 @@ function noteCanvas(){ const cv=document.createElement('canvas'); cv.width=64; c
 
 // ---------------------------------------------------------------- anime bodies
 // A smooth body in place of the armored soldier: tubes swept through the skeleton's joints in the bind pose
-// (centimetres, Z up, +Y to the front, arms out in a T) and skinned to the same bones, so every animation and
-// aim pose still drives it. Clothes are vertex colours; skin.body says where shirt, sleeves, trousers and
-// shoes end for each character.
+// (centimetres, Z up, +Y to the front, +X the character's right, arms out in a T) and skinned to the same bones, so
+// every animation and aim pose still drives it. Clothes are vertex colours; skin.body says where shirt, sleeves,
+// trousers and shoes end for each character, and decals paint crisp detail (zips, scars, ties) on a thin skin over it.
 const ss=(a,b,x)=>{ const t=Math.min(1,Math.max(0,(x-a)/(b-a))); return t*t*(3-2*t); };
+const CM=0.011; // gear is modelled in metres at the character's scale: one bind-pose centimetre is 0.011
+// three builds: average, athletic (Saitama, Goku, Luffy) and slim (Light, Gojo). Torso rings are [half width, half depth]
+const BUILDS={
+  avg:{torso:[[14,10],[17.5,12.2],[17,12.8],[17.4,12.6],[18.4,12.4],[18.6,10.6],[6.8,6.6],[6,5.8]],arm:1,leg:1},
+  fit:{torso:[[13.6,9.8],[15.8,11.4],[15,11.4],[16.8,12.6],[19.6,13.2],[20.4,11.2],[7.4,7.2],[6.4,6.2]],arm:1.13,leg:1.03},
+  slim:{torso:[[13,9.4],[15.4,11],[14.4,10.6],[15,10.8],[16.6,11],[17.4,9.8],[6.2,6],[5.6,5.4]],arm:0.9,leg:0.92}};
+const TORSO=[['Hips',97,0.5],['Hips',103,0.5],['Spine',115.6,1.2],['Spine1',126.7,1.6],['Spine2',139.3,1.4],['Spine2',148,-0.5],['Neck',153.6,0],['Head',163,0]];
+let BIND=null; // bone positions in the bind pose, filled in by the first body built
+// the torso at height z: centre y and the two half-axes, for fitting gear to it
+function torsoAt(build,z){ const bd=BUILDS[build]||BUILDS.avg; let i=TORSO.findIndex(t=>t[1]>=z); i=i<1?1:i;
+  const A=TORSO[i-1], B=TORSO[i], t=Math.max(0,Math.min(1,(z-A[1])/(B[1]-A[1]))), y=n=>BIND&&BIND[n]?BIND[n].y:0, r0=bd.torso[i-1], r1=bd.torso[i];
+  return {y:(y(A[0])+A[2])*(1-t)+(y(B[0])+B[2])*t, rx:r0[0]+(r1[0]-r0[0])*t, ry:r0[1]+(r1[1]-r0[1])*t}; }
+// a bind-pose point (cm) in a spine bone's gear frame (+X the character's left, +Y up, +Z front)
+function onBone(bone,x,y,z){ const B=BIND&&BIND[bone]||{x:0,y:0,z:0}; return [-(x-B.x)*CM,(z-B.z)*CM,(y-B.y)*CM]; }
+// a point on the torso's surface at height z, x across (cm, + is the character's right), front or back
+function torsoPt(build,x,z,back,out=0){ const t=torsoAt(build,z), k=Math.min(0.98,Math.abs(x)/(t.rx+out)); return [x,t.y+(back?-1:1)*(t.ry+out)*Math.sqrt(1-k*k),z]; }
+const chk=(i,j)=>((i%2)+2)%2^((j%2)+2)%2; // a check pattern from two cell numbers
+
+// ---- decals: x across the body as seen (cm from the middle, + is the viewer's right), y down from the top edge
+const DECALS={
+  narutoZip:(d,b)=>{ d.band(-1.5,1.5,106,151.5,b.zip||'#233c7a'); d.band(-0.25,0.25,106,151.5,'#9aa6b8'); d.rect(0.2,147,1.4,4.5,'#d8dde4','#5a6270'); },
+  narutoSpiral:d=>{ const x=d.x, [cx,cy]=[d.X(0,138),d.Y(138)], r=d.s*5.5; x.strokeStyle='#c8282a'; x.lineWidth=d.s*1.1; x.lineCap='round'; x.beginPath();
+    for(let t=0;t<11;t+=0.15){ const rr=r*t/11; x.lineTo(cx+Math.cos(t)*rr,cy+Math.sin(t)*rr); } x.stroke(); },
+  luffyChest:(d,b)=>{ d.open(b.skin,b.openW[0],b.openW[1],108.6); const x=d.x, P=(c,z)=>[d.X(c,z),d.Y(z)], ln=(pts,w,c)=>{ x.strokeStyle=c; x.lineWidth=w*d.s; x.lineCap='round'; x.beginPath(); pts.forEach(p=>x.lineTo(...P(...p))); x.stroke(); };
+    // muscle lines: under the chest, down the middle, three rows of abs, the navel
+    for(const s of [-1,1]) ln([[s*13,133],[s*8,130],[s*1.5,130.5]],0.45,'rgba(150,80,50,.55)');
+    ln([[0,129],[0,109]],0.4,'rgba(150,80,50,.45)');
+    for(const z of [124,118.5,113]) for(const s of [-1,1]) ln([[s*1.2,z],[s*4,z+0.6],[s*6.5,z+0.2]],0.38,'rgba(150,80,50,.45)');
+    ln([[0,107.2],[0,106.6]],0.6,'rgba(120,60,40,.6)');
+    // the X-shaped scar, stitched
+    for(const s of [-1,1]){ ln([[s*-8.5,146],[s*8.5,128]],1.3,'#b0503e'); ln([[s*-8.5,146],[s*8.5,128]],0.45,'#e08a74'); }
+    for(let i=0;i<5;i++) for(const s of [-1,1]){ const t=0.12+i*0.19, c=s*(-8.5+17*t), z=146-18*t; ln([[c-1.1,z-1.1*s],[c+1.1,z+1.1*s]],0.3,'#8a3a2a'); }
+    // yellow buttons down the edge of the open shirt
+    for(const z of [146,138,130,122]) d.dot(-(b.openW[0]+(152-z)*b.openW[1]+1.4),z,0.85,'#f2c81e','#8a6a10'); },
+  saitamaZip:d=>{ d.band(-0.2,0.2,106,151.5,'#b8960a'); d.rect(-0.7,148.5,1.4,3,'#d8b418','#8a6a10'); },
+  gokuGi:(d,b)=>{ const x=d.x; x.fillStyle=b.sleeve; x.beginPath(); x.moveTo(d.X(-8,153),d.Y(153)); x.lineTo(d.X(0,129),d.Y(129)); x.lineTo(d.X(8,153),d.Y(153)); x.fill();
+    x.strokeStyle='#c45a0e'; x.lineWidth=d.s*0.6; x.beginPath(); x.moveTo(d.X(-8.4,153),d.Y(153)); x.lineTo(d.X(0,128.5),d.Y(128.5)); x.lineTo(d.X(8.4,153),d.Y(153)); x.stroke();
+    d.kanji(9,140,3.8,'悟'); },
+  gokuBack:d=>d.kanji(0,138,6.5,'悟'),
+  erenFront:(d,b)=>{ const x=d.x; x.fillStyle=b.inner; x.beginPath(); x.moveTo(d.X(-6.5,152),d.Y(152)); x.lineTo(d.X(-5,127),d.Y(127)); x.lineTo(d.X(5,127),d.Y(127)); x.lineTo(d.X(6.5,152),d.Y(152)); x.fill();
+    for(const s of [-1,1]) d.band(s*6.6-0.6,s*6.6+0.6,127,151,'#7a5630');
+    const st='#4a2f1e'; for(const s of [-1,1]) d.band(s*4.5-0.8,s*4.5+0.8,106,152,st); d.band(-11,11,132.2,134,st);
+    for(const s of [-1,1]) d.rect(s*4.5-1,132,2,2.2,'#b8bcc2','#5a5f66');
+    d.img(window.__wingsCv||(window.__wingsCv=wingsCanvas()),10.5,141,4.6); },
+  tanjiroFront:(d,b)=>{ d.open(b.top,b.openW[0],b.openW[1],106); for(const z of [146,138,130,122,114]) d.dot(0,z,0.75,'#d4b040','#6a5010'); },
+  lightFront:(d,b)=>{ const x=d.x, V=[[-7.5,152.5],[0,121],[7.5,152.5]];
+    x.fillStyle='#f4f2ee'; x.beginPath(); V.forEach(([c,z])=>x.lineTo(d.X(c,z),d.Y(z))); x.fill();
+    for(const s of [-1,1]){ x.fillStyle='#e2e0da'; x.strokeStyle='#9a9890'; x.lineWidth=d.s*0.15; x.beginPath(); x.moveTo(d.X(s*1.2,152),d.Y(152)); x.lineTo(d.X(s*6.8,152.5),d.Y(152.5)); x.lineTo(d.X(s*3.6,146.5),d.Y(146.5)); x.closePath(); x.fill(); x.stroke(); }
+    x.fillStyle=b.tie||'#3a3d46'; x.beginPath(); for(const [c,z] of [[-1.5,151],[1.5,151],[1,148],[-1,148]]) x.lineTo(d.X(c,z),d.Y(z)); x.fill();
+    x.beginPath(); for(const [c,z] of [[-1,148],[1,148],[2,123],[0,121.4],[-2,123]]) x.lineTo(d.X(c,z),d.Y(z)); x.fill();
+    x.strokeStyle='rgba(255,255,255,.12)'; x.lineWidth=d.s*0.35; for(let z=124;z<147;z+=3.2){ x.beginPath(); x.moveTo(d.X(-1.8,z),d.Y(z)); x.lineTo(d.X(1.8,z+1.6),d.Y(z+1.6)); x.stroke(); }
+    // lapels: a darker fold of the jacket along each side of the V, with a notch
+    for(const s of [-1,1]){ x.fillStyle=b.lapel||'#7b85ad'; x.beginPath(); for(const [c,z] of [[7.5,152.5],[11.5,147],[10,145.5],[10.6,140],[2.2,124],[0.2,121]]) x.lineTo(d.X(s*c,z),d.Y(z)); x.fill(); }
+    for(const z of [117.5,109.5]) d.dot(0,z,0.75,'#2a2c36','#14151a');
+    x.strokeStyle='rgba(40,44,60,.6)'; x.lineWidth=d.s*0.25; x.beginPath(); x.moveTo(d.X(8,137),d.Y(137)); x.lineTo(d.X(12.5,137.6),d.Y(137.6)); x.stroke(); },
+};
+function decalCanvas(spec,b){
+  const s=10, R=17, w=Math.round(2*spec.a*R*s), h=Math.round((spec.z1-spec.z0)*s), cv=document.createElement('canvas'); cv.width=w; cv.height=h; const x=cv.getContext('2d');
+  const d={x,s,w,h,X:(c,z)=>w/2+c/(torsoAt(b.build,z==null?140:z).rx*spec.a)*(w/2),Y:z=>(spec.z1-z)*s};
+  d.band=(c0,c1,z0,z1,col)=>{ x.fillStyle=col; x.beginPath(); for(let z=z0;z<=z1;z+=2) x.lineTo(d.X(c0,z),d.Y(z)); for(let z=z1;z>=z0;z-=2) x.lineTo(d.X(c1,z),d.Y(z)); x.lineTo(d.X(c1,z0),d.Y(z0)); x.fill(); };
+  d.rect=(c,z,cw,ch,col,line)=>{ const X0=d.X(c,z), X1=d.X(c+cw,z); x.fillStyle=col; x.fillRect(X0,d.Y(z+ch),X1-X0,ch*s); if(line){ x.strokeStyle=line; x.lineWidth=s*0.15; x.strokeRect(X0,d.Y(z+ch),X1-X0,ch*s); } };
+  d.dot=(c,z,r,col,line)=>{ x.fillStyle=col; x.beginPath(); x.arc(d.X(c,z),d.Y(z),r*s,0,7); x.fill(); if(line){ x.strokeStyle=line; x.lineWidth=s*0.18; x.stroke(); } };
+  d.kanji=(c,z,r,ch)=>{ d.dot(c,z,r,'#ffffff','#141414'); x.lineWidth=s*0.35; x.stroke(); x.fillStyle='#141414'; x.font=`bold ${r*1.45*s}px serif`; x.textAlign='center'; x.textBaseline='middle'; x.fillText(ch,d.X(c,z),d.Y(z)+r*0.08*s); };
+  d.open=(col,w0,k,lo)=>{ x.fillStyle=col; x.beginPath(); for(let z=lo;z<=152.6;z+=1) x.lineTo(d.X(-(w0+(152-z)*k),z),d.Y(z)); for(let z=152.6;z>=lo;z-=1) x.lineTo(d.X(w0+(152-z)*k,z),d.Y(z)); x.fill(); };
+  d.img=(im,c,z,size)=>x.drawImage(im,d.X(c,z)-size*s/2,d.Y(z)-size*s/2,size*s,size*s);
+  DECALS[spec.d](d,b); return cv;
+}
+
 function bodyGeometry(T,skel,b){
   const nm=n=>n.replace(/^mixamorig:?/,''), idx={}, at={};
   skel.bones.forEach((bn,i)=>{ idx[nm(bn.name)]=i; at[nm(bn.name)]=new T.Vector3().setFromMatrixPosition(new T.Matrix4().copy(skel.boneInverses[i]).invert()); });
+  if(!BIND){ BIND={}; for(const k in at) BIND[k]={x:at[k].x,y:at[k].y,z:at[k].z}; }
+  const bd=BUILDS[b.build]||BUILDS.avg, AM=bd.arm, LM=bd.leg;
   const P=[], N=[], F=[], SI=[], SW=[], I=[], c=new T.Color(), V=(x,y,z)=>new T.Vector3(x,y,z);
   const K=(bone,p,rx,ry)=>({bone:idx[bone]!=null?idx[bone]:idx.Hips,p,rx,ry});
-  // sweeps a tube through the keys; ref is where the ry radius points (the front, or up for feet)
-  function tube(keys,ref,paint,seg=16,capK=1){
-    const R=[];
+  // sweeps a tube through the keys; ref is where the ry radius points (the front, or up for feet). o.a0/a1 leave
+  // a tube open (a coat's front), o.cap<0 leaves its ends open, o.w(p) overrides the skin weights
+  function tube(keys,ref,paint,o={}){
+    const seg=o.seg||16, capK=o.cap==null?1:o.cap, a0=o.a0==null?Math.PI/2-Math.PI/seg:o.a0, a1=o.a1==null?a0+Math.PI*2:o.a1, R=[];
     for(let k=0;k<keys.length-1;k++){ const A=keys[k], B=keys[k+1], n=Math.max(2,Math.ceil(A.p.distanceTo(B.p)/2.5));
       for(let j=0;j<n;j++){ const t=j/n; R.push({p:A.p.clone().lerp(B.p,t),rx:A.rx+(B.rx-A.rx)*t,ry:A.ry+(B.ry-A.ry)*t,k,t}); } }
     const Z=keys[keys.length-1]; R.push({p:Z.p.clone(),rx:Z.rx,ry:Z.ry,k:keys.length-2,t:1});
@@ -379,83 +475,228 @@ function bodyGeometry(T,skel,b){
     // round both ends off with shrinking rings
     const cap=(r,dir)=>{ const out=[]; for(let q=1;q<=4;q++){ const f=q/4, s=Math.cos(f*Math.PI/2)||0.001, m=Math.min(r.rx,r.ry)*Math.sin(f*Math.PI/2)*capK;
       out.push(Object.assign({},r,{p:r.p.clone().addScaledVector(r.d,dir*m),rx:r.rx*s,ry:r.ry*s})); } return out; };
-    const rings=[...cap(R[0],-1).reverse(),...R,...cap(R[R.length-1],1)], base=P.length/3;
+    const rings=capK>0?[...cap(R[0],-1).reverse(),...R,...cap(R[R.length-1],1)]:R, base=P.length/3;
     for(const r of rings){
-      const fr=ref.clone().addScaledVector(r.d,-ref.dot(r.d)).normalize(), sd=new T.Vector3().crossVectors(fr,r.d).normalize();
+      const fr=ref.clone().addScaledVector(r.d,-ref.dot(r.d)).normalize(), sd=new T.Vector3().crossVectors(fr,r.d).normalize(); r.fr=fr; r.sd=sd;
       // weights: the span's bone, easing into the next joint's bone toward its end and out of the last one at its start
       const A=keys[r.k], B=keys[r.k+1], Pk=keys[r.k-1], w=[[A.bone,1]];
       if(B.bone!==A.bone){ const x=0.5*ss(0.55,1,r.t); w[0][1]-=x; w.push([B.bone,x]); }
       if(Pk&&Pk.bone!==A.bone){ const x=0.5*(1-ss(0,0.45,r.t)); w[0][1]-=x; w.push([Pk.bone,x]); }
-      for(let s=0;s<=seg;s++){ const an=s/seg*Math.PI*2, cs=Math.cos(an), sn=Math.sin(an);
+      r.w=w;
+      for(let s=0;s<=seg;s++){ const an=a0+(a1-a0)*s/seg, cs=Math.cos(an), sn=Math.sin(an);
         const p=r.p.clone().addScaledVector(sd,cs*r.rx).addScaledVector(fr,sn*r.ry), n=sd.clone().multiplyScalar(cs/r.rx).addScaledVector(fr,sn/r.ry).normalize();
-        P.push(p.x,p.y,p.z); N.push(n.x,n.y,n.z);
-        for(let q=0;q<4;q++){ SI.push(w[q]?w[q][0]:0); SW.push(w[q]?Math.max(0,w[q][1]):0); } } }
-    // quads, wound so they face outward
+        P.push(p.x,p.y,p.z); N.push(n.x,n.y,n.z); const ww=o.w?o.w(p,n):w;
+        for(let q=0;q<4;q++){ SI.push(ww[q]?ww[q][0]:0); SW.push(ww[q]?Math.max(0,ww[q][1]):0); } } }
     const v=i=>V(P[i*3],P[i*3+1],P[i*3+2]), nv=i=>V(N[i*3],N[i*3+1],N[i*3+2]);
     // wind every quad to face outward (checked against its own normals: tubes run in different directions)
     const R2=Math.floor(rings.length/2), q0=base+R2*(seg+1)+2, flip=v(q0+seg+1).sub(v(q0)).cross(v(q0+1).sub(v(q0))).dot(nv(q0))<0;
     for(let r=0;r<rings.length-1;r++) for(let s=0;s<seg;s++){ const a=base+r*(seg+1)+s, b2=a+seg+1;
-      if(flip) I.push(a,a+1,b2, a+1,b2+1,b2); else I.push(a,b2,a+1, a+1,b2,b2+1); }
-    // clothes are painted per quad, from its middle, so every hem and cuff is a crisp cel-shaded edge
-    for(let t=F.length/3;t<I.length/3;t+=2){ const vs=new Set(I.slice(t*3,t*3+6)), m=V(0,0,0), n=V(0,0,0); // one colour per quad: clean steps, not zigzags
-      for(const i of vs){ m.x+=P[i*3]/vs.size; m.y+=P[i*3+1]/vs.size; m.z+=P[i*3+2]/vs.size; n.x+=N[i*3]; n.y+=N[i*3+1]; n.z+=N[i*3+2]; }
-      c.set(paint(m,n.normalize())); F.push(c.r,c.g,c.b,c.r,c.g,c.b); }
+      if(flip) I.push(a,a+1,b2, a+1,b2+1,b2); else I.push(a,b2,a+1, a+1,b2,b2+1);
+      // clothes are painted per quad, from its middle, so every hem and cuff is a crisp cel-shaded edge
+      const m=V(0,0,0), n=V(0,0,0); for(const i of [a,a+1,b2,b2+1]){ m.add(v(i)); n.add(nv(i)); } m.multiplyScalar(0.25);
+      c.set(paint(m,n.normalize(),a0+(a1-a0)*(s+0.5)/seg)); F.push(c.r,c.g,c.b,c.r,c.g,c.b); }
+    return rings;
   }
   const sk=b.skin, top=b.top, FRONT=V(0,1,0), UPV=V(0,0,1), y=n=>at[n]?at[n].y:0;
+  const ck=b.check, chkAt=(an,z,cell=7)=>ck[chk(Math.floor(an/(Math.PI/8)),Math.floor(z/cell))];
   // torso and neck
-  tube([K('Hips',V(0,y('Hips')+0.5,97),14,10),K('Hips',V(0,y('Hips')+0.5,103),17.5,12.2),K('Spine',V(0,y('Spine')+1.2,115.6),17,12.8),
-        K('Spine1',V(0,y('Spine1')+1.6,126.7),17.4,12.6),K('Spine2',V(0,y('Spine2')+1.4,139.3),18.4,12.4),K('Spine2',V(0,y('Spine2')-0.5,148),18.6,10.6),
-        K('Neck',V(0,y('Neck'),153.6),6.8,6.6),K('Head',V(0,y('Head'),163),6,5.8)],FRONT,(p,n)=>{
-    const z=p.z;
+  const torso=tube(TORSO.map(([bn,z,dy],i)=>K(bn,V(0,y(bn)+dy,z),bd.torso[i][0],bd.torso[i][1])),FRONT,(p,n,an)=>{
+    const z=p.z, bz=b.beltZ||[103,108.5];
     if(z>151.5) return b.collar||sk;
-    if(b.belt&&z>103&&z<108.5) return b.belt;
+    if(b.belt&&z>bz[0]&&z<bz[1]) return b.belt;
     if(z<106) return b.pants;
-    if(b.inner){ const f=n.y;
-      if(b.cut==='open'&&f>0.5&&z>110) return b.inner;
-      if(b.cut==='v'&&z>130&&f>1-(z-130)/40*0.5) return b.inner;
-      if(b.cut==='below'&&z<b.jacketEnd) return b.inner; }
-    return top; },24,0.3); // a flat seat: a round end would hang between the legs
+    if(b.cut==='open'&&n.y>0.2&&Math.abs(p.x)<b.openW[0]+(152-z)*b.openW[1]) return b.inner;
+    if(b.cut==='below'&&z<b.jacketEnd) return b.inner;
+    if(b.upper&&z>(b.upperZ||142)) return b.upper;
+    return ck?chkAt(an,z):top; },{seg:32,cap:0.3}); // a flat seat: a round end would hang between the legs
+  // a coat's skirt below the waist: flares over the hips and follows the thighs as they swing
+  if(b.coat){ const C=b.coat, t0=torsoAt(b.build,107), hy=y('Hips')+0.5, fl=C.flare||3, g=C.gap||0.1, Hi=idx.Hips, Ll=idx.LeftUpLeg, Rl=idx.RightUpLeg;
+    tube([K('Hips',V(0,hy,107.5),t0.rx+0.7,t0.ry+0.7),K('Hips',V(0,hy,99),Math.max(t0.rx+2.2,21),Math.max(t0.ry+1.6,13.6)),K('Hips',V(0,hy,C.hem),21.5+fl,14.2+fl*0.6)],FRONT,(p,n,an)=>C.check?chkAt(an,p.z):top,
+      {seg:28,cap:-1,a0:Math.PI/2+g,a1:Math.PI*2.5-g,w:p=>{ const t=ss(104,C.hem,p.z)*0.75*(0.4+0.6*Math.max(0,(p.y-hy)/14)), fl2=Math.min(1,Math.max(0,0.5-p.x/24)); return [[Hi,1-t],[Ll,t*fl2],[Rl,t*(1-fl2)]]; }}); }
   for(const s of [-1,1]){ const L=s<0?'Left':'Right', x=v=>s*v;
     // legs
-    tube([K(L+'UpLeg',V(x(9.4),0,104),10,10.2),K(L+'UpLeg',V(x(9.8),0.5,94),10.4,10.8),K(L+'UpLeg',V(x(9.9),1,76),8.8,9.2),K(L+'Leg',V(x(9.9),1.5,57.5),6.6,6.9),
-          K(L+'Leg',V(x(9.9),0.6,44),7,7.8),K(L+'Leg',V(x(9.8),-1.6,21),4.8,5),K(L+'Foot',V(x(9.8),-2.8,13.2),5,5.3)],FRONT,p=>{
-      const z=p.z, st=b.shoeTop||14;
+    tube([K(L+'UpLeg',V(x(9.4),0,104),10*LM,10.2*LM),K(L+'UpLeg',V(x(9.8),0.5,94),10.4*LM,10.8*LM),K(L+'UpLeg',V(x(9.9),1,76),8.8*LM,9.2*LM),K(L+'Leg',V(x(9.9),1.5,57.5),6.6*LM,6.9*LM),
+          K(L+'Leg',V(x(9.9),0.6,44),7*LM,7.8*LM),K(L+'Leg',V(x(9.8),-1.6,21),4.8,5),K(L+'Foot',V(x(9.8),-2.8,13.2),5,5.3)],FRONT,p=>{
+      const z=p.z, st=b.shoeTop||0;
       if(z<st) return b.shoes;
-      if(b.legs==='shorts'&&z<72||b.legs==='knee'&&z<52) return b.shin||sk;
-      if(b.wrap&&z<46) return b.wrap;
+      for(const [bz,h,col] of b.legBands||[]) if(Math.abs(z-bz)<h) return col;
+      if(b.legs==='knee'){ if(z<52) return sk; if(b.cuffBand&&z<55.5) return b.cuffBand; }
+      if(b.wrap&&z<(b.wrapZ||46)) return b.wrap;
+      if(b.sandals&&z<13.5) return b.toe||sk;
       return b.pants; });
-    // feet
-    tube([K(L+'Foot',V(x(9.8),-6.5,7.4),4.8,5.4),K(L+'Foot',V(x(10.2),2,5.4),5.6,5),K(L+'ToeBase',V(x(11.4),12.5,3.6),5.4,3.6),K(L+'ToeBase',V(x(11.8),17.5,3.2),4.4,2.8)],UPV,()=>b.shoes,14);
+    // feet: shoes, or sandals (sole, straps, bare toes or white tabi)
+    tube([K(L+'Foot',V(x(9.8),-6.5,7.4),4.8,5.4),K(L+'Foot',V(x(10.2),2,5.4),5.6,5),K(L+'ToeBase',V(x(11.4),12.5,3.6),5.4,3.6),K(L+'ToeBase',V(x(11.8),17.5,3.2),4.4,2.8)],UPV,p=>{
+      if(!b.sandals) return b.shoes;
+      if(p.z<2.3) return b.sole||b.shoes;
+      if(p.y>3&&p.y<7||p.y<-3&&p.z<9.5&&p.z>6.5) return b.strap||b.sole;
+      return b.toe||sk; },{seg:14});
     // arms and hands
     const H=at[L+'Hand']||V(x(68),-5.7,147.9), hy=H.y, hz=H.z;
-    tube([K(L+'Shoulder',V(x(8),-5.8,149.5),7,7),K(L+'Arm',V(x(20.9),hy,hz),6.8,6.9),K(L+'Arm',V(x(32),hy,hz),6,6.1),K(L+'ForeArm',V(x(44),hy,hz),4.9,5.1),
-          K(L+'ForeArm',V(x(54),hy,hz),5.2,5.5),K(L+'ForeArm',V(x(65),hy,hz),3.7,4.2),K(L+'Hand',V(x(68.1),hy-0.6,hz),2.8,4.3),K(L+'Hand',V(x(76),hy-0.9,hz),2.6,5),
+    tube([K(L+'Shoulder',V(x(8),-5.8,149.5),7*AM,7*AM),K(L+'Arm',V(x(20.9),hy,hz),6.8*AM,6.9*AM),K(L+'Arm',V(x(31),hy,hz),6.1*AM,6.2*AM),K(L+'ForeArm',V(x(44),hy,hz),4.9*AM,5.1*AM),
+          K(L+'ForeArm',V(x(53),hy,hz),5.2*AM,5.5*AM),K(L+'ForeArm',V(x(65),hy,hz),3.7*Math.sqrt(AM),4.2*Math.sqrt(AM)),K(L+'Hand',V(x(68.1),hy-0.6,hz),2.8,4.3),K(L+'Hand',V(x(76),hy-0.9,hz),2.6,5),
           K(L+'HandMiddle1',V(x(82.6),hy-0.9,hz),1.9,4.5),K(L+'HandMiddle2',V(x(86),hy-0.9,hz),1.6,4.1),K(L+'HandMiddle3',V(x(89.5),hy-0.9,hz),1.2,3.3)],FRONT,p=>{
-      const ax=Math.abs(p.x);
+      const ax=Math.abs(p.x), sl=b.sleeves||'long', lim=sl==='long'?66:sl==='short'?33:sl==='elbow'?47:22;
       if(ax>66.5) return b.gloves||sk;
-      if(b.cuff&&ax>58) return b.cuff;
-      const sl=b.sleeves||'long', lim=sl==='long'?66:sl==='short'?33:sl==='elbow'?46:22;
-      return ax<lim?(ax<22?top:b.sleeve||top):sk; },12);
+      if(b.cuff&&ax>(b.cuffFrom||58)) return b.cuff;
+      if(ax>=lim) return sk;
+      if(b.roll&&ax>lim-3.5) return b.roll;
+      if(ax<22) return b.upper&&p.z>(b.upperZ||142)-2?b.upper:top;
+      if(b.upper&&ax<26) return b.upper;
+      return b.sleeve||top; },{seg:12});
     const t1=at[L+'HandThumb1'], t2=at[L+'HandThumb2'];
-    if(t1&&t2) tube([K(L+'HandThumb1',t1.clone().add(V(x(-2),0,0)),1.5,1.6),K(L+'HandThumb2',t2,1.3,1.4),K(L+'HandThumb'+(idx[L+'HandThumb3']!=null?3:2),t2.clone().lerp(t1,-1),1.1,1.1)],UPV,()=>b.gloves||sk,10);
+    if(t1&&t2) tube([K(L+'HandThumb1',t1.clone().add(V(x(-2),0,0)),1.5,1.6),K(L+'HandThumb2',t2,1.3,1.4),K(L+'HandThumb'+(idx[L+'HandThumb3']!=null?3:2),t2.clone().lerp(t1,-1),1.1,1.1)],UPV,()=>b.gloves||sk,{seg:10});
+    // a haori's wide sleeves, hanging open below the arm
+    if(b.sleeveShell) tube([K(L+'Arm',V(x(16),hy,hz-0.5),7.6,8.4),K(L+'Arm',V(x(30),hy,hz-1.6),9,10.4),K(L+'ForeArm',V(x(44),hy,hz-2.6),9.6,11.2),K(L+'ForeArm',V(x(49),hy,hz-2.8),9.8,11.4)],UPV,
+      (p,n,an)=>ck?ck[chk(Math.floor(an/(Math.PI/4)),Math.floor(Math.abs(p.x)/6.5))]:top,{seg:16,cap:-1});
   }
+  // decals: a thin skin over the torso, skinned exactly like it, with a painted texture
+  const D=[]; // [positions, normals, uvs, skin indices, weights] per decal
+  for(const spec of b.decals||[]){
+    const ctr=spec.side?Math.PI*1.5:Math.PI/2, A0=ctr-spec.a, nu=Math.ceil(spec.a*16), nv=Math.ceil((spec.z1-spec.z0)/1.4), main=torso.filter(r=>r.t!=null&&r.p.z>=96.9);
+    const at2=z=>{ let j=main.findIndex(r=>r.p.z>=z); j=Math.max(1,j<0?main.length-1:j); const A=main[j-1], B=main[j], t=Math.max(0,Math.min(1,(z-A.p.z)/(B.p.z-A.p.z)||0)), wm={};
+      for(const [bn,w] of A.w) wm[bn]=(wm[bn]||0)+w*(1-t); for(const [bn,w] of B.w) wm[bn]=(wm[bn]||0)+w*t;
+      return {p:A.p.clone().lerp(B.p,t),rx:A.rx+(B.rx-A.rx)*t,ry:A.ry+(B.ry-A.ry)*t,fr:A.fr.clone().lerp(B.fr,t).normalize(),sd:A.sd.clone().lerp(B.sd,t).normalize(),w:Object.entries(wm).sort((p,q)=>q[1]-p[1]).slice(0,4)}; };
+    const g=[[],[],[],[],[]], grid=[];
+    for(let j=0;j<=nv;j++){ const z=spec.z0+(spec.z1-spec.z0)*j/nv, r=at2(z), row=[];
+      for(let i=0;i<=nu;i++){ const an=A0+2*spec.a*i/nu, cs=Math.cos(an), sn=Math.sin(an), off=0.22;
+        const p=r.p.clone().addScaledVector(r.sd,cs*(r.rx+off)).addScaledVector(r.fr,sn*(r.ry+off)), n=r.sd.clone().multiplyScalar(cs/r.rx).addScaledVector(r.fr,sn/r.ry).normalize();
+        row.push({p,n,u:i/nu,v:j/nv,w:r.w}); } grid.push(row); }
+    const put=q=>{ g[0].push(q.p.x,q.p.y,q.p.z); g[1].push(q.n.x,q.n.y,q.n.z); g[2].push(q.u,q.v); for(let k=0;k<4;k++){ g[3].push(q.w[k]?+q.w[k][0]:0); g[4].push(q.w[k]?q.w[k][1]:0); } };
+    for(let j=0;j<nv;j++) for(let i=0;i<nu;i++){ const a=grid[j][i], b2=grid[j][i+1], c2=grid[j+1][i], d2=grid[j+1][i+1];
+      const fl=b2.p.clone().sub(a.p).cross(c2.p.clone().sub(a.p)).dot(a.n)<0; for(const q of fl?[a,c2,b2,b2,c2,d2]:[a,b2,c2,b2,d2,c2]) put(q); }
+    D.push(g); }
   // unrolled: each triangle gets its own three corners so it can carry one colour
-  const n=I.length, a3=new Float32Array(n*3), n3=new Float32Array(n*3), c3=new Float32Array(n*3), i4=new Uint16Array(n*4), w4=new Float32Array(n*4);
+  const n=I.length, nd=D.reduce((s,g)=>s+g[0].length/3,0), tot=n+nd, a3=new Float32Array(tot*3), n3=new Float32Array(tot*3), c3=new Float32Array(tot*3).fill(1), u2=new Float32Array(tot*2), i4=new Uint16Array(tot*4), w4=new Float32Array(tot*4);
   for(let k=0;k<n;k++){ const v=I[k], f=Math.floor(k/3);
     for(let q=0;q<3;q++){ a3[k*3+q]=P[v*3+q]; n3[k*3+q]=N[v*3+q]; c3[k*3+q]=F[f*3+q]; }
     for(let q=0;q<4;q++){ i4[k*4+q]=SI[v*4+q]; w4[k*4+q]=SW[v*4+q]; } }
-  const g=new T.BufferGeometry();
-  g.setAttribute('position',new T.BufferAttribute(a3,3)); g.setAttribute('normal',new T.BufferAttribute(n3,3)); g.setAttribute('color',new T.BufferAttribute(c3,3));
-  g.setAttribute('skinIndex',new T.BufferAttribute(i4,4)); g.setAttribute('skinWeight',new T.BufferAttribute(w4,4));
-  return g;
+  const geo=new T.BufferGeometry(); let o=n; geo.addGroup(0,n,0);
+  D.forEach((g,k)=>{ const m=g[0].length/3; a3.set(g[0],o*3); n3.set(g[1],o*3); u2.set(g[2],o*2); i4.set(g[3],o*4); w4.set(g[4],o*4); geo.addGroup(o,m,k+1); o+=m; });
+  geo.setAttribute('position',new T.BufferAttribute(a3,3)); geo.setAttribute('normal',new T.BufferAttribute(n3,3)); geo.setAttribute('color',new T.BufferAttribute(c3,3)); geo.setAttribute('uv',new T.BufferAttribute(u2,2));
+  geo.setAttribute('skinIndex',new T.BufferAttribute(i4,4)); geo.setAttribute('skinWeight',new T.BufferAttribute(w4,4));
+  geo.userData.decals=(b.decals||[]).map(spec=>decalCanvas(spec,b));
+  return geo;
 }
 // anime cel shading: three flat bands of light
 let toonRamp=null;
-function bodyMaterial(T){ if(!toonRamp){ toonRamp=new T.DataTexture(new Uint8Array([40,40,40,255,64,64,64,255,86,86,86,255]),3,1,T.RGBAFormat); toonRamp.minFilter=toonRamp.magFilter=T.NearestFilter; toonRamp.generateMipmaps=false; toonRamp.needsUpdate=true; }
-  return new T.MeshToonMaterial({vertexColors:true,gradientMap:toonRamp,skinning:true}); }
-// the ink line round the body: the same mesh drawn inside out and pushed out along its normals
-function bodyOutline(T){ const m=new T.MeshBasicMaterial({color:0x15151a,side:T.BackSide,skinning:true});
-  m.onBeforeCompile=sh=>{ sh.vertexShader=sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n  transformed += normal * 0.6;'); }; return m; }
+function ramp(T){ if(!toonRamp){ toonRamp=new T.DataTexture(new Uint8Array([40,40,40,255,64,64,64,255,86,86,86,255]),3,1,T.RGBAFormat); toonRamp.minFilter=toonRamp.magFilter=T.NearestFilter; toonRamp.generateMipmaps=false; toonRamp.needsUpdate=true; } return toonRamp; }
+function bodyMaterial(T,geo){ const body=new T.MeshToonMaterial({vertexColors:true,gradientMap:ramp(T),skinning:true,side:T.DoubleSide}), dc=geo&&geo.userData.decals||[];
+  if(!dc.length) return body;
+  return [body,...dc.map(cv=>{ const t=new T.CanvasTexture(cv); t.anisotropy=4; return new T.MeshToonMaterial({map:t,gradientMap:ramp(T),skinning:true,transparent:true,alphaTest:0.5,depthWrite:false,side:T.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}); })]; }
+// the ink line round a mesh: the same mesh drawn inside out and pushed out along its normals by w
+function inkMat(T,w,skinning){ const m=new T.MeshBasicMaterial({color:0x15151a,side:T.BackSide,skinning:!!skinning});
+  m.onBeforeCompile=sh=>{ sh.uniforms.inkW={value:w}; sh.vertexShader='uniform float inkW;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n  transformed += normal * inkW;'); }; return m; }
+let bodyInk=null, hiddenM=null;
+function bodyOutline(T,geo){ bodyInk=bodyInk||inkMat(T,0.6,true); const dc=geo&&geo.userData.decals||[];
+  if(!dc.length) return bodyInk; hiddenM=hiddenM||new T.MeshBasicMaterial({visible:false}); return [bodyInk,...dc.map(()=>hiddenM)]; }
+
+// ---------------------------------------------------------------- anime heads and hair
+// Heads are sculpted, not spheres: a unit sphere bent into an anime head (a V jaw and pointed chin, a flat face, a
+// full skull), in the Head bone's frame (+X the character's left, +Y up, +Z the face). Hair is a cap over the skull
+// plus tapered locks that bend and hug the head, all one mesh per style so a crowd of bots stays cheap.
+const HD=[0.094,0.106,0.1], HCN=[0,0.098,0.02];
+function headPt(x,y,z){ // a point on the unit sphere -> the same point on the anime head (gear metres, centred)
+  if(y<0){ const t=Math.min(1,-y); x*=1-0.42*Math.pow(t,1.6); if(z>0){ y*=1+0.35*t*z; z*=1-0.05*t; z+=0.1*t*t*t; } else z*=1-0.3*t*t; }
+  else if(z<0) z*=1+0.06*y;
+  if(z>0.45) z=0.45+(z-0.45)*0.7;
+  return [x*HD[0],y*HD[1],z*HD[2]]; }
+const dirOf=(az,el)=>[Math.sin(az)*Math.cos(el),Math.sin(el),Math.cos(az)*Math.cos(el)];
+const headAt=(az,el,k=1)=>headPt(...dirOf(az,el)).map(v=>v*k);
+// a surface from f(u,v) -> [x,y,z] (u wraps around, v runs top to bottom), with normals facing away from the origin
+function gridGeo(T,nu,nv,f,col){
+  const P=[], N=[], UV=[], C=[], I=[], e=1e-3, A=new T.Vector3(), B=new T.Vector3(), n=new T.Vector3();
+  for(let j=0;j<=nv;j++) for(let i=0;i<=nu;i++){ const u=i/nu, v=j/nv, p=f(u,v); P.push(p[0],p[1],p[2]); UV.push(u,1-v);
+    const a=f(u+e,v), b=f(u-e,v), c=f(u,Math.min(1,v+e)), d=f(u,Math.max(0,v-e)); A.set(a[0]-b[0],a[1]-b[1],a[2]-b[2]); B.set(c[0]-d[0],c[1]-d[1],c[2]-d[2]); n.crossVectors(A,B);
+    if(n.lengthSq()<1e-16) n.set(p[0],p[1],p[2]); if(n.x*p[0]+n.y*p[1]+n.z*p[2]<0) n.negate(); n.normalize(); N.push(n.x,n.y,n.z);
+    if(col){ const cc=col(u,v); C.push(cc.r,cc.g,cc.b); } }
+  for(let j=0;j<nv;j++) for(let i=0;i<nu;i++){ const a=j*(nu+1)+i, b=a+nu+1; I.push(a,b,a+1, a+1,b,b+1); }
+  return orient({P,N,UV,C,I}); }
+// flip the winding if the triangles face inward (the ink line is the back faces, so this matters)
+function orient(m){ for(let t=0;t<m.I.length;t+=3){ const [a,b,c]=[m.I[t],m.I[t+1],m.I[t+2]], p=k=>[m.P[k*3],m.P[k*3+1],m.P[k*3+2]], A=p(a), B=p(b), C=p(c);
+    const u=[B[0]-A[0],B[1]-A[1],B[2]-A[2]], v=[C[0]-A[0],C[1]-A[1],C[2]-A[2]], x=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]], l=Math.hypot(...x);
+    if(l<1e-12) continue; if(x[0]*m.N[a*3]+x[1]*m.N[a*3+1]+x[2]*m.N[a*3+2]<0) for(let q=0;q<m.I.length;q+=3){ const s=m.I[q+1]; m.I[q+1]=m.I[q+2]; m.I[q+2]=s; } break; }
+  return m; }
+function toGeo(T,m){ const g=new T.BufferGeometry(); g.setAttribute('position',new T.Float32BufferAttribute(m.P,3)); g.setAttribute('normal',new T.Float32BufferAttribute(m.N,3));
+  if(m.UV&&m.UV.length) g.setAttribute('uv',new T.Float32BufferAttribute(m.UV,2)); if(m.C&&m.C.length) g.setAttribute('color',new T.Float32BufferAttribute(m.C,3)); g.setIndex(m.I); return g; }
+function merge(ms){ const o={P:[],N:[],UV:[],C:[],I:[]}; for(const m of ms){ const b=o.P.length/3; o.P.push(...m.P); o.N.push(...m.N); o.C.push(...m.C); for(const i of m.I) o.I.push(i+b); } return o; }
+function headGeo(T){ return toGeo(T,gridGeo(T,48,32,(u,v)=>{ const az=-Math.PI+Math.PI*2*u, th=Math.PI*v; return headPt(Math.sin(th)*Math.sin(az),Math.cos(th),Math.sin(th)*Math.cos(az)); })); }
+// one lock of hair: rooted under the cap at (a around from the face, e up from the eyes), heading o out, u up the
+// head, s sideways, bending along b as it goes, never closer to the head than h; flat, tapering to a point
+function lockMesh(L,c0,c1){
+  const K=10, M=6, n0=headAt(L.a,L.e), root=n0.map(v=>v*(L.r||0.93)), nl=Math.hypot(n0[0]/HD[0]**2,n0[1]/HD[1]**2,n0[2]/HD[2]**2), nn=[n0[0]/HD[0]**2/nl,n0[1]/HD[1]**2/nl,n0[2]/HD[2]**2/nl];
+  let ea=[nn[2],0,-nn[0]], el=Math.hypot(...ea); ea=el<1e-4?[1,0,0]:ea.map(v=>v/el); const no=[nn[1]*ea[2]-nn[2]*ea[1],nn[2]*ea[0]-nn[0]*ea[2],nn[0]*ea[1]-nn[1]*ea[0]];
+  const o=L.o==null?1:L.o, u=L.u||0, s=L.s||0, d0=[0,1,2].map(k=>nn[k]*o+no[k]*u+ea[k]*s), dl=Math.hypot(...d0), dir=d0.map(v=>v/dl), b=L.b||[0,0,0], h=L.h||1.04, l=L.l, w=L.w||0.045;
+  const pts=[]; for(let k=0;k<=K;k++){ const t=k/K;
+    // c: the lock clings to the skull, sweeping down over it (and s sideways) and lifting off by c toward the tip
+    if(L.c!=null){ const ang=l/0.1*t; pts.push(headAt(L.a+s*ang,L.e-ang,(k?h:L.r||0.93)+L.c*t*t)); continue; }
+    let q=[0,1,2].map(i=>root[i]+dir[i]*l*t+b[i]*l*t*t);
+    if(k>0){ const r=Math.hypot(q[0]/HD[0],q[1]/HD[1],q[2]/HD[2]), sp=headPt(q[0]/HD[0]/r,q[1]/HD[1]/r,q[2]/HD[2]/r), rs=Math.hypot(...sp), rq=Math.hypot(...q); if(rq<rs*h) q=q.map(v=>v*rs*h/rq); }
+    pts.push(q); }
+  const m={P:[],N:[],UV:[],C:[],I:[]};
+  for(let k=0;k<=K;k++){ const t=k/K, p=pts[k], a=pts[Math.max(0,k-1)], z=pts[Math.min(K,k+1)]; let tg=[z[0]-a[0],z[1]-a[1],z[2]-a[2]]; const tl=Math.hypot(...tg)||1; tg=tg.map(v=>v/tl);
+    const rl=Math.hypot(p[0]/HD[0]**2,p[1]/HD[1]**2,p[2]/HD[2]**2)||1; let nf=[p[0]/HD[0]**2/rl,p[1]/HD[1]**2/rl,p[2]/HD[2]**2/rl]; const dt=nf[0]*tg[0]+nf[1]*tg[1]+nf[2]*tg[2];
+    nf=nf.map((v,i)=>v-dt*tg[i]); const nl2=Math.hypot(...nf)||1; nf=nf.map(v=>v/nl2); let bk=[tg[1]*nf[2]-tg[2]*nf[1],tg[2]*nf[0]-tg[0]*nf[2],tg[0]*nf[1]-tg[1]*nf[0]];
+    const tw=(L.tw||0)*t; if(tw){ const cb=Math.cos(tw), sb=Math.sin(tw), b2=bk.map((v,i)=>v*cb+nf[i]*sb); nf=nf.map((v,i)=>v*cb-bk[i]*sb); bk=b2; }
+    const pr=L.sf?Math.pow(1-Math.pow(t,2.2),0.65)*(1+0.1*Math.sin(Math.PI*t)):Math.pow(1-t,0.85)*(1+0.3*Math.sin(Math.PI*t)), // sf: a soft, rounded end instead of a point
+      wd=w*pr, th=w*(L.th||0.42)*pr, cc=c1?ss(0.3,1,t):0;
+    for(let q=0;q<M;q++){ const f=q/M*Math.PI*2, cs=Math.cos(f), sn=Math.sin(f);
+      m.P.push(...[0,1,2].map(i=>p[i]+bk[i]*cs*wd+nf[i]*sn*th));
+      if(wd<1e-5) m.N.push(...tg); else { const nv=[0,1,2].map(i=>bk[i]*cs/wd+nf[i]*sn/th), l2=Math.hypot(...nv); m.N.push(...nv.map(v=>v/l2)); }
+      m.C.push(c0.r+(c1?(c1.r-c0.r)*cc:0),c0.g+(c1?(c1.g-c0.g)*cc:0),c0.b+(c1?(c1.b-c0.b)*cc:0)); } }
+  for(let k=0;k<K;k++) for(let q=0;q<M;q++){ const a=k*M+q, b2=k*M+(q+1)%M, c2=a+M, d2=b2+M; m.I.push(a,c2,b2, b2,c2,d2); }
+  return orient(m); }
+// hair styles: hl is the hairline (angle down from the crown at the face, the sides and the nape); locks as above
+const R=(n,a0,a1,f)=>Array.from({length:n},(_,i)=>{ const t=n===1?0.5:i/(n-1), a=a0+(a1-a0)*t, j=Math.sin(i*12.9898+n*3.1)*0.5; return Object.assign({a},f(a,j,i)); });
+const RING=(n,f)=>Array.from({length:n},(_,i)=>{ const a=-Math.PI+(i+0.5)/n*Math.PI*2, j=Math.sin(i*12.9898+n*3.1)*0.5; return Object.assign({a},f(a,j,i)); });
+const HAIR={
+  naruto:{hl:[0.95,1.5,1.85],locks:()=>[
+    ...RING(9,(a,j)=>({e:1.0+j*0.15,l:0.12+j*0.03,w:0.052,o:1,u:0.45,s:j*0.3,b:[0,0.22,-0.08]})),
+    ...R(7,1.0,Math.PI*2-1.0,(a,j)=>({e:0.5+j*0.12,l:0.12+j*0.02,w:0.05,o:1,u:0.05,s:j*0.3,b:[0,0.06,-0.12]})),
+    ...R(5,2.1,Math.PI*2-2.1,(a,j)=>({e:0.12,l:0.1,w:0.045,o:1,u:-0.45,s:j*0.3,b:[0,-0.08,-0.15]})),
+    {a:Math.PI,e:1.38,l:0.13,w:0.055,o:1,u:0.35},{a:0,e:1.3,l:0.12,w:0.055,o:1,u:0.6,b:[0,0.15,-0.1]},
+    ...R(3,-0.38,0.38,(a,j)=>({e:0.8,l:0.1,w:0.05,o:0.9,u:0.6,s:a*0.5,b:[0,0.15,0.05]})),
+    ...[-0.85,-0.62,0.62,0.85].map(a=>({a,e:0.62,l:0.085,w:0.042,o:0.4,u:-1,s:Math.sign(a)*0.12,b:[0,-0.25,0.12],h:1.12})),
+    ...[-1,1].map(s=>({a:s*1.55,e:0.3,l:0.1,w:0.046,o:0.8,u:-0.5,b:[0,-0.05,-0.05]}))]},
+  luffy:{hl:[1.0,1.5,1.9],locks:()=>[
+    ...R(7,-0.75,0.75,(a,j)=>({e:0.56,l:0.042+j*0.012,w:0.04,o:0.5,u:-1,s:j*0.45,b:[0,-0.2,0.1],h:1.08})),
+    ...R(12,0.9,Math.PI*2-0.9,(a,j)=>({e:0.32+j*0.1,l:0.065+j*0.02,w:0.042,o:0.9,u:-0.6,s:j*0.7,h:1.0})),
+    ...R(6,2.2,Math.PI*2-2.2,(a,j)=>({e:-0.02,l:0.055,w:0.036,o:0.7,u:-1,s:j*0.5})),
+    ...[-1,1].map(s=>({a:s*1.45,e:0.12,l:0.06,w:0.035,o:0.6,u:-1,s:s*0.3}))]},
+  goku:{hl:[0.95,1.45,1.75],locks:()=>[
+    ...[[0.35,1.15,0.17,0.6,0.4],[-0.45,1.1,0.16,0.6,-0.4],[1.25,0.85,0.17,0.25,0.1],[-1.25,0.85,0.17,0.25,-0.1],[1.75,0.35,0.15,0,0],[-1.75,0.35,0.15,0,0],
+        [2.35,0.8,0.17,0.3,0],[-2.35,0.8,0.17,0.3,0],[Math.PI,1.0,0.18,0.45,0],[2.75,0.3,0.15,-0.2,0],[-2.75,0.3,0.15,-0.2,0],[Math.PI,0.42,0.15,-0.1,0],
+        [0,1.35,0.16,0.7,0],[2.0,1.25,0.15,0.5,0],[-2.0,1.25,0.15,0.5,0]].map(([a,e,l,u,s])=>({a,e,l,u,s,w:0.072,th:0.5,o:1,b:[0,0.1,-0.04]})),
+    ...[[0,0.72,0.075,0.1],[-0.33,0.7,0.045,-0.3],[0.38,0.68,0.045,0.3],[-0.72,0.56,0.065,-0.4],[0.74,0.56,0.065,0.4]].map(([a,e,l,s])=>({a,e,l,s,w:0.052,o:0.45,u:-1,b:[0,-0.2,0.12],h:1.06})),
+    ...[-1,1].map(s=>({a:s*1.45,e:0.12,l:0.07,w:0.035,o:0.4,u:-1}))]},
+  eren:{hl:[0.92,1.55,2.0],locks:()=>[ // short, straight and layered, parted in the middle with pointed bangs
+    ...R(14,0.6,Math.PI*2-0.6,(a,j)=>({e:1.45,l:0.17+j*0.03,w:0.075,th:0.5,c:0.02,s:j*0.12,h:1.06,sf:1})),
+    ...R(8,1.5,Math.PI*2-1.5,(a,j)=>({e:0.8,l:0.11+j*0.02,w:0.07,o:0.2,u:-1,s:j*0.2,h:1.07})),
+    ...[-1.35,-1.05,1.05,1.35].map(a=>({a,e:0.8,l:0.12,w:0.065,o:0.15,u:-1,s:-Math.sign(a)*0.1,b:[0,-0.3,0.05],h:1.08})),
+    ...[-0.72,-0.46,-0.18,0.08,0.34,0.6].map((a,i)=>({a,e:1.25,l:[0.13,0.1,0.125,0.12,0.1,0.12][i],w:0.06,o:0.2,u:-1,s:a<0?-0.35:0.35,b:[0,-0.2,0.18],h:1.09}))]},
+  gojo:{hl:[1.0,1.45,1.75],locks:()=>[
+    ...RING(14,(a,j)=>({e:0.62,l:0.085+j*0.022,w:0.056,o:0.9,u:0.6,s:j*0.4,b:[0,0.2,-0.03]})),
+    ...RING(10,(a,j)=>({e:1.0,l:0.09+j*0.022,w:0.06,o:0.9,u:0.6,s:j*0.35,b:[0,0.22,-0.03]})),
+    ...RING(4,(a,j)=>({e:1.4,l:0.09,w:0.06,o:1,u:0.3,s:j*0.3,b:[0,0.15,0]})),
+    ...R(3,-0.4,0.4,(a,j)=>({e:0.74,l:0.1,w:0.055,o:0.9,u:0.8,s:j*0.3,b:[0,0.2,0.06]})),
+    ...[-1,1].map(s=>({a:s*0.28,e:0.55,l:0.07,w:0.034,o:0.4,u:-1,s:s*0.2,b:[0,-0.2,0.12],h:1.13}))]},
+  tanjiro:{hl:[0.95,1.5,1.9],locks:()=>[ // thick, messy layers that fall outward in spiky points, dark at the roots and red at the tips
+    ...R(11,0.6,Math.PI*2-0.6,(a,j)=>({e:1.4,l:0.15+j*0.03,w:0.075,th:0.5,c:0.07,s:j*0.25,h:1.07})),
+    ...R(12,0.9,Math.PI*2-0.9,(a,j)=>({e:0.75+j*0.12,l:0.12+j*0.03,w:0.065,o:0.45,u:-1,s:j*0.6,b:[0,-0.1,0],h:1.08})),
+    ...R(7,1.9,Math.PI*2-1.9,(a,j)=>({e:0.25,l:0.1,w:0.055,o:0.5,u:-1,s:j*0.4,h:1.05})),
+    ...[-0.7,-0.4,-0.08,0.72].map((a,i)=>({a,e:1.15,l:[0.13,0.1,0.12,0.13][i],w:0.06,o:0.3,u:-1,s:a*0.3,b:[0,-0.2,0.15],h:1.08})), // a gap over the scar
+    ...[-1,1].map(s=>({a:s*1.35,e:0.5,l:0.1,w:0.05,o:0.4,u:-1}))]},
+  light:{hl:[0.9,1.55,2.05],locks:()=>[ // smooth, full layers: bangs to the eyes, sides over the ears to the jaw, back to the nape
+    ...R(14,0.95,Math.PI*2-0.95,(a,j)=>({e:1.45,l:0.19+j*0.02,w:0.08,th:0.5,c:0.03,s:j*0.06,h:1.07,sf:1})),
+    ...R(9,1.3,Math.PI*2-1.3,(a,j)=>({e:0.85,l:0.13+j*0.02,w:0.075,o:0.15,u:-1,s:j*0.15,b:[0,-0.25,-0.04],h:1.07,sf:1})),
+    ...[-1.3,-1.0,1.0,1.3].map(a=>({a,e:0.85,l:0.15,w:0.07,o:0.15,u:-1,s:-Math.sign(a)*0.1,b:[0,-0.3,0.06],h:1.08,sf:1})),
+    ...[-0.75,-0.48,-0.22,0.04,0.3,0.55,0.78].map((a,i)=>({a,e:1.3,l:[0.13,0.08,0.1,0.105,0.08,0.1,0.13][i],w:0.065,o:0.2,u:-1,s:a*0.35,b:[0,-0.25,0.2],h:1.09}))]},
+};
+function hairGeo(T,style,col,tipCol){
+  const st=HAIR[style], c0=new T.Color(col), c1=tipCol?new T.Color(tipCol):null, [hf,hs,hb]=st.hl;
+  const hl=az=>{ const c=Math.cos(az); return hs+(hf-hs)*Math.pow(Math.max(0,c),1.5)+(hb-hs)*Math.pow(Math.max(0,-c),1.5); };
+  const cap=gridGeo(T,40,14,(u,v)=>{ const az=-Math.PI+Math.PI*2*u, th=v*hl(az); return headPt(Math.sin(th)*Math.sin(az),Math.cos(th),Math.sin(th)*Math.cos(az)).map(x=>x*1.035); },()=>c0);
+  return toGeo(T,merge([cap,...st.locks().map(L=>lockMesh(L,c0,c1))]));
+}
 
 // ---------------------------------------------------------------- 3D gear
 // anime heads: centre, radius and stretch of the head sphere in the Head bone's frame (big enough to hide the helmet)
@@ -469,17 +710,23 @@ function gear(T,kind,a,mats,opt){
   const M=(geo,mat,x=0,y=0,z=0)=>{ const m=new T.Mesh(geo,mat); m.position.set(x,y,z); m.castShadow=true; return m; };
   const G=()=>new T.Group(), out=[];
   const TX=(k,f)=>mats['tex:'+k]||(mats['tex:'+k]=new T.CanvasTexture(f())); // painted textures are shared by everyone wearing them
+  // anime pieces: toon materials, shared geometry, and an ink line (the mesh again, inside out, pushed out by w)
+  const BLD=opt&&opt.build||'avg', TN=(c,o={})=>{ const k='toon'+c+JSON.stringify(o); return mats[k]||(mats[k]=new T.MeshToonMaterial(Object.assign({color:c,gradientMap:ramp(T)},o))); };
+  const GEO=(k,f)=>mats['geo:'+k]||(mats['geo:'+k]=f(),mats['geo:'+k].userData.keep=true,mats['geo:'+k]), INKED=(m,w)=>{ const o=new T.Mesh(m.geometry,mats['ink'+w]||(mats['ink'+w]=inkMat(T,w))); m.add(o); return m; };
   switch(kind){
     case 'cape': { // hangs from the shoulders, flaring out; sways in the run (see swayCape)
       // narrow at the shoulders, flaring and folding toward the hem; the sides wrap toward the body
+      // anime bodies: fitted to the build, wider at the shoulders and wrapping further round them
+      const sh=SLIM?torsoAt(BLD,146):null, B2=BIND&&BIND.Spine2?BIND.Spine2.y:0, hw0=SLIM?(sh.rx+2.5)*CM:0.19, wrap=SLIM?0.12:0.07;
       const g=G(), geo=new T.PlaneGeometry(1,1,10,14), p=geo.attributes.position;
-      for(let i=0;i<p.count;i++){ const u=p.getX(i), t=0.5-p.getY(i), hw=0.19+t*0.2, x=u*2*hw;
-        p.setXYZ(i,x,-t*1.12,(u*2)*(u*2)*0.07*(1-t*0.4)-Math.sin(u*Math.PI*5)*0.022*t-0.01); }
+      for(let i=0;i<p.count;i++){ const u=p.getX(i), t=0.5-p.getY(i), hw=hw0+t*0.2, x=u*2*hw;
+        p.setXYZ(i,x,-t*1.12,(u*2)*(u*2)*wrap*(1-t*0.4)-Math.sin(u*Math.PI*5)*0.022*t-0.01); }
       geo.computeVertexNormals();
-      const o=M(geo,L(a[0],{side:T.BackSide,roughness:0.75})), i=M(geo,L(a[1],{side:T.FrontSide,roughness:0.8}));
-      const hinge=G(); hinge.add(o,i); hinge.position.set(0,0.17,SLIM?-0.13:-0.15); hinge.userData.cape='hang'; g.add(hinge);
-      if(a[2]==='wings'){ const w=M(new T.PlaneGeometry(0.3,0.3),mats.wings||(mats.wings=new T.MeshStandardMaterial({map:TX('wings',wingsCanvas),transparent:true,alphaTest:0.5,roughness:0.7,polygonOffset:true,polygonOffsetFactor:-4})),0,-0.6,-0.035); w.rotation.y=Math.PI; hinge.add(w); }
-      for(const s of [-1,1]) g.add(M(new T.SphereGeometry(0.032,10,8),L('#d4a43a',{metalness:0.8,roughness:0.3}),s*(SLIM?0.15:0.17),SLIM?0.12:0.19,SLIM?0.08:0.08));
+      const o=M(geo,SLIM?TN(a[0],{side:T.BackSide}):L(a[0],{side:T.BackSide,roughness:0.75})), i=M(geo,SLIM?TN(a[1]):L(a[1],{side:T.FrontSide,roughness:0.8}));
+      const hinge=G(); hinge.add(o,i); hinge.position.set(0,SLIM?0.15:0.17,SLIM?(sh.y-sh.ry-1.2-B2)*CM:-0.15); hinge.userData.cape='hang'; g.add(hinge);
+      if(a[2]==='wings'){ const w=M(new T.PlaneGeometry(0.3,0.3),mats.wings||(mats.wings=new T.MeshStandardMaterial({map:TX('wings',wingsCanvas),transparent:true,alphaTest:0.5,roughness:0.7,polygonOffset:true,polygonOffsetFactor:-4})),0,-0.6,-0.035); w.rotation.y=Math.PI; hinge.add(w);
+        const hd=INKED(M(GEO('hood',()=>new T.SphereGeometry(0.075,14,10).scale(1.7,0.6,0.85)),SLIM?TN(a[0]):L(a[0])),0.003); hd.position.set(0,0.165,SLIM?(sh.y-sh.ry-2.5-B2)*CM:-0.17); g.add(hd); } // the folded-down hood
+      if(!SLIM||a[2]==='clasps') for(const s of [-1,1]){ const q=SLIM?onBone('Spine2',...torsoPt(BLD,s*8.5,152.5,false,0.9)):[s*0.17,0.19,0.08]; g.add(M(new T.SphereGeometry(SLIM?0.026:0.032,10,8).scale(1,1,SLIM?0.6:1),SLIM?TN('#2a2a2e'):L('#d4a43a',{metalness:0.8,roughness:0.3}),q[0],q[1],q[2])); }
       out.push(['Spine2',g]); break; }
     case 'emblem': {
       const tex=new T.CanvasTexture(emblemCanvas(a[0],a[1],a[2])); tex.anisotropy=4;
@@ -504,11 +751,12 @@ function gear(T,kind,a,mats,opt){
       const plate=M(new T.BoxGeometry(0.11,0.05,0.012),L(a[1],{metalness:0.8,roughness:0.25}),0,0.13,0.152); g.add(plate);
       for(const s of [-1,1]){ const t=M(new T.BoxGeometry(0.04,0.24,0.008),L(a[0]),s*0.03,0.03,-0.17); t.rotation.set(0.35,0,s*0.25); g.add(t); }
       out.push(['Head',g]); break; }
-    case 'katana': { const g=G(); g.position.set(0,0.0,SLIM?-0.165:-0.2); g.rotation.z=0.75;
+    case 'katana': { const g=G(), hip=a[1]==='hip'; // on the back, or at the left hip with the hilt forward (Tanjiro)
+      if(hip){ g.position.set((torsoAt(BLD,104).rx+3)*CM,0.0,0.03); g.rotation.x=1.25; } else { g.position.set(0,0.0,SLIM?-0.165:-0.2); g.rotation.z=0.75; }
       g.add(M(new T.CylinderGeometry(0.022,0.026,0.82,8),L(a[0],{roughness:0.35,metalness:0.2}),0,-0.12,0));
       g.add(M(new T.CylinderGeometry(0.05,0.05,0.012,12),L('#c9a227',{metalness:0.9,roughness:0.3}),0,0.3,0));
       g.add(M(new T.CylinderGeometry(0.018,0.018,0.24,8),L('#141414',{roughness:0.9}),0,0.43,0));
-      out.push(['Spine2',g]); break; }
+      out.push([hip?'Hips':'Spine2',g]); break; }
     case 'hat': { const g=G(), witch=a[2]==='witch';
       const brim=M(new T.CylinderGeometry(witch?0.32:0.3,witch?0.32:0.3,0.015,28),L(a[0],{roughness:0.85}),0,0,0);
       if(!witch){ const p=brim.geometry.attributes.position; for(let i=0;i<p.count;i++){ const x=p.getX(i), z=p.getZ(i); p.setY(i,p.getY(i)+Math.pow(Math.abs(x)/0.3,3)*0.08-Math.max(0,z/0.3)*0.02); } brim.geometry.computeVertexNormals(); }
@@ -610,72 +858,54 @@ function gear(T,kind,a,mats,opt){
         g.add(M(new T.BoxGeometry(0.034,len,0.03),gold,0,len/2,0)); if(k===1) st(g,gems[f],0.011,0.018,0.008,0);
         out.push(['LeftHand'+f+k,g]); }
       break; }
-    // ---- anime heads: a face over the helmet, then hair built out from the scalp
-    case 'animeHead': { // [skin tone, face] covers the whole helmet; the visor is hidden (noVisor)
+    // ---- anime: sculpted head, hair and outfit pieces, cel shaded with an ink line to match the anime body
+    case 'animeHead': { // [skin tone, face]
       const tex=TX('face'+a[1]+a[0],()=>faceCanvas(a[1],a[0])); tex.anisotropy=4;
-      const h=M(new T.SphereGeometry(HR,28,20),mats['head'+a[1]+a[0]]||(mats['head'+a[1]+a[0]]=new T.MeshStandardMaterial({map:tex,roughness:0.62,metalness:0}))); h.position.set(HC[0],HC[1],HC[2]); h.scale.set(HS[0],HS[1],HS[2]);
-      const g=G(); g.add(h);
-      for(const s of [-1,1]){ const e=M(new T.SphereGeometry(0.03,10,8),L(a[0],{roughness:0.62}),HC[0]+s*HR*HS[0]*0.96,HC[1]-0.01,HC[2]-0.01); e.scale.set(0.45,1,0.8); g.add(e); } // ears
+      const g=G(), h=INKED(M(GEO('head',()=>headGeo(T)),mats['head'+a[1]+a[0]]||(mats['head'+a[1]+a[0]]=new T.MeshToonMaterial({map:tex,gradientMap:ramp(T)}))),0.0045);
+      h.position.set(...HCN); g.add(h);
+      for(const s of [-1,1]){ const p=headAt(s*Math.PI/2,-0.14), e=INKED(M(GEO('ear',()=>new T.SphereGeometry(0.018,12,10).scale(0.42,1.15,0.72)),TN(a[0])),0.003);
+        e.position.set(HCN[0]+p[0]*0.97,HCN[1]+p[1],HCN[2]+p[2]-0.006); e.rotation.y=s*0.3; g.add(e); } // small ears, tucked close
       out.push(['Head',g]); break; }
-    case 'animeHair': { // [colour, style, tip colour]
-      const g=G(), mat=L(a[0],{roughness:0.55}), tip=a[2]?L(a[2],{roughness:0.55}):mat, st=a[1];
-      const spike=(az,el,len,r,lift,back,m=mat)=>{ // a cone rooted on the scalp at (az around from the front, el up from the eyes)
-        const d=new T.Vector3(Math.sin(az)*Math.cos(el),Math.sin(el),Math.cos(az)*Math.cos(el));
-        const geo=new T.ConeGeometry(r,len,6); geo.translate(0,len/2,0); const o=M(geo,m);
-        o.position.set(HC[0]+d.x*HR*HS[0]*0.9,HC[1]+d.y*HR*HS[1]*0.9,HC[2]+d.z*HR*HS[2]*0.9);
-        const ax=d.clone().add(new T.Vector3(0,lift,-back)).normalize(); o.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),ax); g.add(o); return o; };
-      const cap=M(new T.SphereGeometry(HR*1.05,24,14,0,Math.PI*2,0,Math.PI*(SLIM?0.72:0.52)),mat); cap.position.set(HC[0],HC[1]+0.005,HC[2]-0.012); cap.scale.set(HS[0],HS[1],HS[2]); cap.rotation.x=SLIM?-0.75:-0.42; g.add(cap);
-      const ring=(n,el,len,r,lift,back,from=-Math.PI,to=Math.PI,jit=0)=>{ for(let i=0;i<n;i++){ const az=from+(to-from)*(n===1?0.5:i/(n-1)); spike(az+jit*Math.sin(i*7.3),el+jit*0.4*Math.cos(i*3.1),len*(1+jit*Math.sin(i*5.7)),r,lift,back,i%2?tip:mat); } };
-      if(st==='naruto'){ ring(9,0.2,0.17,0.05,0.25,0.35,-2.6,2.6,0.25); ring(7,0.75,0.2,0.055,0.4,0.25,-2.4,2.4,0.2); spike(0,1.3,0.18,0.055,0.3,0.3);
-        for(const az of [-0.45,-0.15,0.2,0.5]) spike(az,0.5,0.1,0.04,-1.4,-0.6); }
-      else if(st==='luffy'){ ring(10,0.25,0.07,0.045,0.1,0.3,-2.8,2.8,0.3); ring(7,0.8,0.07,0.045,0.2,0.2,-2.6,2.6,0.3); for(const az of [-0.5,-0.2,0.1,0.4]) spike(az,0.45,0.09,0.035,-1.6,-0.5); }
-      else if(st==='goku'){ for(const [az,el,len] of [[0,1.25,0.3],[-0.9,0.95,0.3],[0.9,0.95,0.3],[-1.7,0.55,0.26],[1.7,0.55,0.26],[-2.5,0.6,0.24],[2.5,0.6,0.24],[3.1,0.8,0.24],[-0.5,1.2,0.26],[0.5,1.2,0.26]]) spike(az,el,len,0.075,0.5,0.15);
-        for(const [az,len] of [[-0.42,0.13],[0,0.16],[0.38,0.12]]) spike(az,0.55,len,0.045,-1.3,-0.8); }
-      else if(st==='gojo'){ ring(10,0.35,0.17,0.05,1.6,0.2,-2.9,2.9,0.2); ring(8,0.85,0.2,0.05,1.8,0.1,-2.6,2.6,0.2); spike(0,1.4,0.18,0.055,1.2,0); }
-      else if(st==='tanjiro'){ ring(10,0.3,0.12,0.05,0.2,0.4,-2.8,2.8,0.3); ring(7,0.85,0.12,0.05,0.4,0.3,-2.6,2.6,0.3); for(const az of [-0.55,-0.25,0.25,0.55]) spike(az,0.5,0.1,0.04,-1.5,-0.5); }
-      else if(st==='eren'){ const bun=M(new T.SphereGeometry(0.06,12,10),mat,HC[0],HC[1]+0.07,HC[2]-HR*HS[2]*0.98); g.add(bun);
-        for(const s of [-1,1]){ spike(s*1.35,0.25,0.17,0.035,-1.6,0.1); spike(s*0.55,0.55,0.15,0.04,-1.5,-0.5); } spike(0.15,0.6,0.12,0.035,-1.5,-0.6); }
-      else if(st==='light'){ for(const az of [-0.6,-0.35,-0.1,0.15,0.4,0.62]) spike(az,0.62,0.13,0.045,-1.2,-0.7); for(const s of [-1,1]) spike(s*1.3,0.3,0.16,0.045,-1.6,0.1); ring(8,0.4,0.12,0.06,-1.2,0.25,2.0,4.3); }
+    case 'animeHair': { // [style, colour, tip colour]
+      const h=INKED(M(GEO('hair'+a.join(),()=>hairGeo(T,a[0],a[1],a[2])),mats.hairToon||(mats.hairToon=new T.MeshToonMaterial({vertexColors:true,gradientMap:ramp(T)}))),0.0035);
+      h.position.set(...HCN); out.push(['Head',h]); break; }
+    case 'leafband': { // [cloth, steel] the leaf-village forehead protector, fitted round the head over the hair cap
+      const g=G(); g.position.set(...HCN);
+      g.add(INKED(M(GEO('band',()=>toGeo(T,gridGeo(T,40,2,(u,v)=>headAt(-Math.PI+Math.PI*2*u,0.52-0.24*v,1.075)))),TN(a[0])),0.003));
+      g.add(INKED(M(GEO('plate',()=>toGeo(T,gridGeo(T,12,3,(u,v)=>headAt(-0.52+1.04*u,0.56-0.31*v,1.1)))),mats.leafT||(mats.leafT=new T.MeshToonMaterial({map:TX('leaf',leafCanvas),gradientMap:ramp(T)}))),0.003));
+      const k=headAt(Math.PI,0.4,1.08); g.add(M(new T.SphereGeometry(0.02,10,8).scale(1.2,0.9,0.7),TN(a[0]),k[0],k[1],k[2]));
+      for(const s of [-1,1]){ const t=M(new T.BoxGeometry(0.034,0.2,0.006).translate(0,-0.1,0),TN(a[0]),k[0]+s*0.018,k[1],k[2]-0.006); t.rotation.set(0.2,0,s*0.22); t.userData.cape=true; g.add(t); }
       out.push(['Head',g]); break; }
-    case 'leafband': { // [cloth, steel] the leaf-village forehead protector
-      const g=G(), cloth=L(a[0],{side:T.DoubleSide,roughness:0.8}), band=M(new T.CylinderGeometry(HR*1.07,HR*1.07,0.05,28,1,true),cloth,HC[0],HC[1]+0.035,HC[2]); band.scale.set(HS[0],1,HS[2]); g.add(band);
-      const pl=M(new T.CylinderGeometry(HR*1.1,HR*1.1,0.055,24,1,true,-0.55,1.1),mats.leaf||(mats.leaf=new T.MeshStandardMaterial({map:TX('leaf',leafCanvas),metalness:0.75,roughness:0.3,side:T.DoubleSide})),HC[0],HC[1]+0.035,HC[2]); pl.scale.set(HS[0],1,HS[2]); g.add(pl);
-      for(const s of [-1,1]){ const t=M(new T.BoxGeometry(0.04,0.22,0.008),cloth,s*0.035,HC[1]-0.06,HC[2]-HR*HS[2]*1.04); t.rotation.set(0.3,0,s*0.3); t.userData.cape=true; g.add(t); }
-      out.push(['Head',g]); break; }
-    case 'strawHat': { // [straw, band]
-      const g=G(), straw=L(a[0],{roughness:0.95}), brim=M(new T.CylinderGeometry(0.3,0.3,0.014,32),straw); g.add(brim);
-      const p=brim.geometry.attributes.position; for(let i=0;i<p.count;i++){ const r=Math.hypot(p.getX(i),p.getZ(i)); p.setY(i,p.getY(i)-Math.max(0,r-0.2)*0.25); } brim.geometry.computeVertexNormals();
-      const crown=M(new T.SphereGeometry(0.175,20,10,0,Math.PI*2,0,Math.PI*0.5),straw,0,0,0); crown.scale.set(1,0.75,1.08); g.add(crown);
-      const b=M(new T.CylinderGeometry(0.176,0.178,0.04,28,1,true),L(a[1],{roughness:0.7}),0,0.022,0); b.scale.z=1.08; g.add(b);
-      g.position.set(HC[0],HC[1]+HR*0.67,HC[2]-0.02); g.scale.setScalar(HR/0.165); g.rotation.x=-0.12; out.push(['Head',g]); break; }
-    case 'gloves': for(const sd of ['Left','Right']){ // [colour, 'mitt' | 'band']
-      const g=G(), m=L(a[0],{roughness:0.55});
-      if(a[1]==='band'){ const b=M(new T.CylinderGeometry(0.055,0.05,0.09,14),m,0,-0.03,0); g.add(b); }
-      else { const h=M(new T.BoxGeometry(0.1,0.15,0.11),m,0,0.07,0.01); g.add(h); const c=M(new T.CylinderGeometry(0.062,0.055,0.07,14),m,0,-0.02,0.01); g.add(c); }
-      out.push([sd+'Hand',g]); } break;
-    case 'boots': for(const sd of ['Left','Right']){ const m=L(a[0],{roughness:0.5}), b=M(new T.CylinderGeometry(0.08,0.075,0.24,14),m,0,0.33,0); out.push([sd+'Leg',b]); } break;
-    case 'sash': { const g=G(), m=L(a[0],{roughness:0.85}), r=M(new T.TorusGeometry(SLIM?0.19:0.17,SLIM?0.025:0.035,8,28),m,0,0.06,0); r.rotation.x=Math.PI/2; r.scale.set(1,SLIM?0.74:0.78,SLIM?1:1.4); g.add(r);
-      const t=M(new T.BoxGeometry(0.07,0.2,0.015),m,0.1,-0.04,0.12); t.rotation.z=0.25; g.add(t); out.push(['Hips',g]); break; }
-    case 'collar': { const m=SLIM?M(new T.CylinderGeometry(0.09,0.1,0.11,20,1,true),L(a[0],{side:T.DoubleSide,roughness:0.7}),0,0.05,0.0):M(new T.CylinderGeometry(0.135,0.15,0.16,20,1,true),L(a[0],{side:T.DoubleSide,roughness:0.7}),0,0.06,0.02); out.push(['Neck',m]); break; }
-    case 'haori': { // [check A, check B] a short open coat over the torso, checked green and black
-      const tex=TX('check'+a[0]+a[1],()=>checkCanvas(a[0],a[1])); tex.wrapS=tex.wrapT=T.RepeatWrapping; tex.repeat.set(4,2);
-      const mat=mats['haori'+a[0]+a[1]]||(mats['haori'+a[0]+a[1]]=new T.MeshStandardMaterial({map:tex,roughness:0.85,side:T.DoubleSide}));
-      const coat=M(new T.CylinderGeometry(SLIM?0.22:0.2,SLIM?0.3:0.29,0.62,20,1,true,Math.PI*0.14,Math.PI*1.72),mat,0,-0.2,-0.01); coat.scale.z=0.82; out.push(['Spine2',coat]);
-      for(const sd of ['Left','Right']){ const sl=M(new T.CylinderGeometry(0.075,0.1,0.26,12,1,true),mat,0,0.13,0); out.push([sd+'Arm',sl]); } break; }
-    case 'earrings': { const mat=mats.hanafuda||(mats.hanafuda=new T.MeshStandardMaterial({map:TX('hanafuda',hanafudaCanvas),roughness:0.5,side:T.DoubleSide}));
-      for(const s of [-1,1]){ const c=M(new T.PlaneGeometry(0.035,0.055),mat,HC[0]+s*HR*HS[0]*1.0,HC[1]-0.07,HC[2]-0.01); c.rotation.y=s*Math.PI/2; out.push(['Head',c]); } break; }
-    case 'tie': { const g=G(), m=L(a[0],{roughness:0.5}), w=L('#f4f2ec',{roughness:0.7});
-      const sh=new T.Shape(); sh.moveTo(-0.02,0); sh.lineTo(0.02,0); sh.lineTo(0.032,-0.24); sh.lineTo(0,-0.28); sh.lineTo(-0.032,-0.24); sh.closePath();
-      const F=SLIM?0.146:0.19, Y=SLIM?0.16:0.2; const t=M(new T.ExtrudeGeometry(sh,{depth:0.008,bevelEnabled:false}),m,0,Y,F); t.rotation.x=-0.12; g.add(t);
-      const k=M(new T.BoxGeometry(0.04,0.035,0.02),m,0,Y+0.005,F); g.add(k);
-      if(!SLIM) for(const s of [-1,1]){ const c=M(new T.BoxGeometry(0.06,0.05,0.01),w,s*0.035,0.22,0.185); c.rotation.z=s*0.6; g.add(c); }
-      out.push(['Spine2',g]); break; }
+    case 'blindfold': { // [cloth] Gojo's black band over the eyes
+      const g=INKED(M(GEO('blind',()=>toGeo(T,gridGeo(T,40,2,(u,v)=>headAt(-Math.PI+Math.PI*2*u,0.24-0.36*v,1.05)))),TN(a[0])),0.003); g.position.set(...HCN); out.push(['Head',g]); break; }
+    case 'strawHat': { // [straw, band] sized to sit over the hair
+      const g=G(), straw=TN(a[0],{side:T.DoubleSide});
+      g.add(INKED(M(GEO('crown',()=>new T.SphereGeometry(1,24,10,0,Math.PI*2,0,Math.PI/2).scale(HD[0]*1.22,0.088,HD[2]*1.26)),TN(a[0])),0.0035));
+      const brim=M(GEO('brim',()=>{ const r=new T.RingGeometry(0.09,0.27,40,3).rotateX(-Math.PI/2).scale(1,1,1.08), p=r.attributes.position;
+        for(let i=0;i<p.count;i++){ const d=Math.hypot(p.getX(i),p.getZ(i)); p.setY(i,-Math.max(0,d-0.15)*0.2); } r.computeVertexNormals(); return r; }),straw); g.add(brim);
+      g.add(M(GEO('hatband',()=>new T.CylinderGeometry(1,1,0.032,28,1,true).translate(0,0.016,0).scale(HD[0]*1.235,1,HD[2]*1.275)),TN(a[1],{side:T.DoubleSide})));
+      g.position.set(HCN[0],HCN[1]+HD[1]*0.42,HCN[2]-0.006); g.rotation.x=-0.12; out.push(['Head',g]); break; }
+    case 'gloveCuff': for(const sd of ['Left','Right']){ // [colour] Saitama's flared red glove cuffs
+      out.push([sd+'Hand',M(GEO('cuff',()=>new T.CylinderGeometry(0.058,0.068,0.06,18,1,true).translate(0,-0.035,0)),TN(a[0],{side:T.DoubleSide}))]); } break;
+    case 'sash': { // [colour, 'left' | 'front'] a knot at the waist with two tails that swing
+      const p=onBone('Hips',...torsoPt(BLD,a[1]==='left'?-9:0,105.5,false,1.4)), g=G(); g.position.set(...p); if(a[1]==='left') g.rotation.y=0.55;
+      g.add(INKED(M(GEO('knot',()=>new T.SphereGeometry(0.026,12,8).scale(1.35,0.85,0.6)),TN(a[0])),0.003));
+      for(const s of [-1,1]){ const t=M(GEO('tail',()=>new T.BoxGeometry(0.045,0.17,0.008).translate(0,-0.085,0)),TN(a[0]),s*0.012,-0.005,0.008); t.rotation.set(0.1,0,s*0.28); t.userData.cape=true; g.add(t); }
+      out.push(['Hips',g]); break; }
+    case 'buckle': { const b=M(GEO('buckle',()=>new T.CylinderGeometry(0.03,0.03,0.012,20).rotateX(Math.PI/2)),TN(a[0])); b.position.set(...onBone('Hips',...torsoPt(BLD,0,105.5,false,0.5))); out.push(['Hips',b]); break; }
+    case 'collar': { // [style, colour] a stand-up collar round the neck, higher at the back
+      const [rb,rt,y0,hf,hb]={naruto:[0.1,0.106,-0.04,0.045,0.07],gojo:[0.092,0.09,-0.045,0.045,0.1],tanjiro:[0.088,0.086,-0.035,0.03,0.06]}[a[0]];
+      const geo=GEO('collar'+a[0],()=>toGeo(T,gridGeo(T,32,2,(u,v)=>{ const az=-Math.PI+Math.PI*2*u, h=hf+(hb-hf)*(1-Math.cos(az))/2, r=rb+(rt-rb)*(1-v);
+        return [Math.sin(az)*r,y0+h*(1-v),Math.cos(az)*r*0.95]; })));
+      out.push(['Neck',M(geo,TN(a[1],{side:T.DoubleSide}))]); break; }
+    case 'earrings': { const mat=mats.hanafuda||(mats.hanafuda=new T.MeshToonMaterial({map:TX('hanafuda',hanafudaCanvas),gradientMap:ramp(T),side:T.DoubleSide}));
+      for(const s of [-1,1]){ const p=headAt(s*Math.PI/2,-0.3), c=M(GEO('card',()=>new T.PlaneGeometry(0.032,0.05).translate(0,-0.03,0)),mat,HCN[0]+p[0]*0.98,HCN[1]+p[1],HCN[2]+p[2]-0.008); c.rotation.y=s*Math.PI/2; out.push(['Head',c]); } break; }
     case 'book': { const cover=mats.note||(mats.note=new T.MeshStandardMaterial({map:TX('note',noteCanvas),roughness:0.6})), dark=L('#121214',{roughness:0.6}), page=L('#ece6d6');
-      const b=M(new T.BoxGeometry(0.03,0.2,0.14),[dark,dark,page,page,cover,dark],SLIM?0.215:0.2,-0.02,0.02); b.rotation.set(0,Math.PI/2,0.1); out.push(['Hips',b]); break; }
-    case 'odm': { // [steel, strap] the maneuver gear's blade boxes on the hips (the gas tanks hide under the cloak)
-      const st=L(a[0],{metalness:0.8,roughness:0.3}), dk=L(a[1],{roughness:0.7}), g=G();
-      const X=SLIM?0.23:0.25; for(const s of [-1,1]){ const bx=M(new T.BoxGeometry(0.07,0.12,0.36),st,s*X,-0.1,-0.02); bx.rotation.x=-0.25; g.add(bx);
-        const hd=M(new T.BoxGeometry(0.05,0.06,0.08),dk,s*X,-0.04,0.18); g.add(hd); }
+      const b=M(new T.BoxGeometry(0.03,0.2,0.14),[dark,dark,page,page,cover,dark],(torsoAt(BLD,100).rx+3.5)*CM,-0.02,0.02); b.rotation.set(0,Math.PI/2,0.1); out.push(['Hips',b]); break; }
+    case 'odm': { // [steel, strap] the maneuver gear's blade boxes on the hips, in front of the cloak
+      const st=L(a[0],{metalness:0.8,roughness:0.3}), dk=TN(a[1]), g=G(), X=(torsoAt(BLD,100).rx+4.5)*CM;
+      for(const s of [-1,1]){ const bx=INKED(M(GEO('odmbox',()=>new T.BoxGeometry(0.05,0.1,0.25)),st,s*X,-0.08,0.04),0.003); bx.rotation.x=-0.22; g.add(bx);
+        g.add(M(GEO('odmgrip',()=>new T.BoxGeometry(0.04,0.05,0.07)),dk,s*X,-0.03,0.19)); }
       out.push(['Hips',g]); break; }
     case 'tail': { const g=G(); for(let i=0;i<6;i++){ const r=0.06+Math.sin(i/5*Math.PI)*0.05; g.add(M(new T.SphereGeometry(r,10,8),L(i>3?a[1]:a[0],{roughness:0.9}),0,-i*0.07,-i*0.06-0.02)); }
       g.position.set(0,-0.05,-0.14); g.rotation.x=-0.5; g.userData.cape=true; out.push(['Hips',g]); break; }

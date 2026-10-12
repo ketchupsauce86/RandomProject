@@ -424,6 +424,7 @@
       return o;
     }
     let AC = null, NB = null, BB = null, master = null, bus = null, verb = null, AMB = null, volume = 0.8;
+    const VOICES = [], VOICE_MAX = 36;
     const lastSfx = {};
     try {
       const v = parseFloat(localStorage.getItem("stormIslandVol"));
@@ -509,6 +510,9 @@
         pan = clamp((dx * rx + dz * rz) / h, -1, 1) * 0.85;
       }
       if (vol < 3e-3) return null;
+      const now = AC.currentTime;
+      while (VOICES.length && VOICES[0] < now) VOICES.shift();
+      if (pos && (VOICES.length >= VOICE_MAX || VOICES.length >= VOICE_MAX / 2 && vol < 0.12)) return null;
       const out = AC.createGain();
       out.gain.value = vol;
       let n = out;
@@ -576,11 +580,15 @@
       v.end = Math.max(v.end, (o.at || 0) + dur);
     }
     function done(v) {
+      const e = v.t + Math.min(v.end, 0.6);
+      let i = VOICES.length;
+      while (i && VOICES[i - 1] > e) i--;
+      VOICES.splice(i, 0, e);
       const ms = (v.t - AC.currentTime + v.end + 0.4) * 1e3;
       setTimeout(() => {
         try {
           v.out.disconnect();
-        } catch (e) {
+        } catch (e2) {
         }
       }, ms);
     }
@@ -1311,7 +1319,7 @@
       for (const o of c.gear || []) {
         o.parent && o.parent.remove(o);
         o.traverse((m) => {
-          if (m.isMesh) m.geometry.dispose();
+          if (m.isMesh && !m.geometry.userData.keep) m.geometry.dispose();
         });
       }
       c.gear = [];
@@ -1341,7 +1349,8 @@
         });
         let bm = skinMats.get("body" + skin.i);
         if (!bm) {
-          bm = { geo: SK.bodyGeometry(T, sm.skeleton, skin.body), mat: SK.bodyMaterial(T) };
+          const geo2 = SK.bodyGeometry(T, sm.skeleton, skin.body);
+          bm = { geo: geo2, mat: SK.bodyMaterial(T, geo2), line: SK.bodyOutline(T, geo2) };
           skinMats.set("body" + skin.i, bm);
         }
         const m = new T.SkinnedMesh(bm.geo, bm.mat);
@@ -1354,7 +1363,7 @@
         sm.parent.add(m);
         m.bind(sm.skeleton, sm.bindMatrix);
         c.animeBody = m;
-        const ol = new T.SkinnedMesh(bm.geo, skinMats.get("bodyLine") || skinMats.set("bodyLine", SK.bodyOutline(T)).get("bodyLine"));
+        const ol = new T.SkinnedMesh(bm.geo, bm.line);
         ol.name = "animeBodyLine";
         ol.frustumCulled = false;
         m.add(ol);
@@ -1366,7 +1375,7 @@
       const ws = new V(), sc = new V(), qq = new T.Quaternion();
       c.g.getWorldScale(ws);
       for (const [kind, ...args] of skin.acc) {
-        for (const [bn, obj] of SK.gear(T, kind, args, gearMats, { slim: !!skin.body })) {
+        for (const [bn, obj] of SK.gear(T, kind, args, gearMats, { slim: !!skin.body, build: skin.body && skin.body.build })) {
           const bone = c.bones[bn];
           if (!bone) continue;
           bone.matrixWorld.decompose(tv1, qq, sc);
@@ -1384,7 +1393,7 @@
         }
       }
     }
-    const _cq1 = new T.Quaternion(), _cq2 = new T.Quaternion(), _cq3 = new T.Quaternion(), UPX = new T.Vector3(1, 0, 0), UPY = new T.Vector3(0, 1, 0), _cf = new T.Vector3();
+    const _cq1 = new T.Quaternion(), _cq2 = new T.Quaternion(), _cq3 = new T.Quaternion(), _cu = new T.Vector3(), _cx = new T.Vector3(), _cmat = new T.Matrix4(), UPX = new T.Vector3(1, 0, 0), UPY = new T.Vector3(0, 1, 0), _cf = new T.Vector3();
     function swayGear(e, c, speed, dt) {
       var _a;
       if (!c.capes || !c.capes.length && !c.flaps.length && !c.bobs.length) return;
@@ -1393,15 +1402,20 @@
       for (const o of c.capes) {
         o.userData.rx = lerp(o.userData.rx || 0, tgt, 1 - Math.exp(-6 * dt));
         if (o.userData.cape === "hang") {
+          c.spin.getWorldQuaternion(_cq2);
+          _cu.set(0, 1, 0).applyQuaternion(_cq2);
           o.parent.getWorldQuaternion(_cq1);
           _cf.set(0, 0, 1).applyQuaternion(_cq1);
-          _cf.y = 0;
+          _cf.addScaledVector(_cu, -_cf.dot(_cu));
           if (_cf.lengthSq() < 0.09) {
-            c.spin.getWorldQuaternion(_cq2);
             _cf.set(0, 0, -1).applyQuaternion(_cq2);
-            _cf.y = 0;
+            _cf.addScaledVector(_cu, -_cf.dot(_cu));
           }
-          _cq2.setFromAxisAngle(UPY, Math.atan2(_cf.x, _cf.z)).multiply(_cq3.setFromAxisAngle(UPX, o.userData.rx + 0.08)).premultiply(_cq1.invert());
+          _cf.normalize();
+          _cx.crossVectors(_cu, _cf);
+          _cmat.makeBasis(_cx, _cu, _cf);
+          _cq2.setFromRotationMatrix(_cmat);
+          _cq2.multiply(_cq3.setFromAxisAngle(UPX, o.userData.rx + 0.18)).premultiply(_cq1.invert());
           o.quaternion.copy(_cq2);
         } else o.rotation.x = ((_a = o.userData.baseX) != null ? _a : o.userData.baseX = o.rotation.x) + o.userData.rx;
       }
@@ -3338,7 +3352,7 @@
     function buildSkinStand() {
       if (armGroup) scene.remove(armGroup);
       for (const c of skShown) for (const o of c.gear || []) o.traverse((m) => {
-        if (m.isMesh) m.geometry.dispose();
+        if (m.isMesh && !m.geometry.userData.keep) m.geometry.dispose();
       });
       armGroup = new T.Group();
       armGroup.position.set(0, ARM_Y, 0);
@@ -3843,7 +3857,7 @@
         const pref = WEAP[b.gun.id].pref, fwd = d > pref + 5 ? 1 : d < pref - 4 ? -0.7 : 0;
         wish.set(dx / d * fwd + -dz / dh * b.strafe * 0.9, ceil ? 0 : dy / d * fwd + b.vstrafe * 0.7, dz / d * fwd + dx / dh * b.strafe * 0.9);
         if (!ceil && d > pref + 25) prop = zgStamina(b, true, dt);
-        if (matchTime > SPAWN_GRACE && matchTime - b.seenAt > b.react && b.fireCd <= 0 && b.reloadT <= 0) botShoot(b, e, d);
+        if (matchTime > (b.wake || SPAWN_GRACE) && matchTime - b.seenAt > b.react && b.fireCd <= 0 && b.reloadT <= 0) botShoot(b, e, d);
       } else if (b.goal) {
         const g = b.goal, dx = g.x - b.pos.x, dy = g.y - b.pos.y, dz = g.z - b.pos.z, d = Math.hypot(dx, dy, dz);
         if (d < 3) b.goal = null;
@@ -5167,6 +5181,7 @@
         zgSpawn(b, i + 1, ZG.BOTS + 1);
         armBot(b);
         b.react = rnd(0.14, 0.3);
+        b.wake = SPAWN_GRACE + rnd(0, 6);
         b.skill = rnd(0.5, 0.8);
         b.lastPos = b.pos.clone();
       }
@@ -5187,6 +5202,10 @@
       state = "play";
       refreshHotbar();
       hudTick();
+      try {
+        renderer.compile(scene, camera);
+      } catch (e) {
+      }
       banner("Inverted", "", 2.5);
       requestLock();
     }
@@ -5432,7 +5451,7 @@
         const n = Math.ceil(dt / 0.034);
         for (let i = 0; i < n; i++) update(dt / n);
       }
-      if (state === "play" && perfStage < 3) {
+      if (state === "play" && perfStage < 3 && matchTime > 2.5) {
         perfFrames++;
         perfTime += dt;
         if (perfTime > 4) {
