@@ -8,7 +8,7 @@ window.GAME_VERSION={
   {
    "v": "1.33.0",
    "date": "2026-10-12",
-   "title": "3D locker and UI polish"
+   "title": "3D locker, new font and real-sounding audio"
   },
   {
    "v": "1.32.0",

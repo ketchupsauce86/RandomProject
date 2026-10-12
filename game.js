@@ -481,6 +481,7 @@
           NB = noiseBuf(false, 2);
           BB = noiseBuf(true, 4);
           initAmbience();
+          warmBank();
         }
         if (AC.state === "suspended") AC.resume();
       } catch (e) {
@@ -592,224 +593,566 @@
         }
       }, ms);
     }
-    const glt = (v, at, f, n, g, step) => {
-      const R = [1, 1.5, 0.75, 2, 1.25, 0.5];
-      for (let i = 0; i < n; i++) tn(v, { at: at + i * (step || 0.03), type: "square", f: f * R[(i * 7 + n) % 6], dur: (step || 0.03) * 0.7, g, lp: 3600 });
+    let SR = 48e3;
+    const rbj = (x, type, f, q) => {
+      const w = 2 * Math.PI * Math.min(f, SR * 0.45) / SR, c = Math.cos(w), s = Math.sin(w), a = s / (2 * q), a0 = 1 + a;
+      let b0, b1, b2;
+      if (type === "lp") {
+        b0 = (1 - c) / 2;
+        b1 = 1 - c;
+        b2 = b0;
+      } else if (type === "hp") {
+        b0 = (1 + c) / 2;
+        b1 = -(1 + c);
+        b2 = b0;
+      } else {
+        b0 = a;
+        b1 = 0;
+        b2 = -a;
+      }
+      b0 /= a0;
+      b1 /= a0;
+      b2 /= a0;
+      const a1 = -2 * c / a0, a2 = (1 - a) / a0;
+      let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+      for (let i = 0; i < x.length; i++) {
+        const xi = x[i], y = b0 * xi + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+        x2 = x1;
+        x1 = xi;
+        y2 = y1;
+        y1 = y;
+        x[i] = y;
+      }
+      return x;
     };
+    const SN = (sec) => new Float32Array(Math.max(1, Math.ceil(sec * SR)));
+    const burst = (sec, decay, brown, att) => {
+      const x = SN(sec);
+      let b = 0;
+      const at = (att || 0) * SR;
+      for (let i = 0; i < x.length; i++) {
+        let w = Math.random() * 2 - 1;
+        if (brown) {
+          b = b * 0.985 + w * 0.12;
+          w = b * 2.5;
+        }
+        x[i] = w * Math.exp(-i / (decay * SR)) * (at && i < at ? i / at : 1);
+      }
+      return x;
+    };
+    const mixIn = (dst, src, at, g) => {
+      const o = Math.round(at * SR);
+      for (let i = 0; i < src.length && i + o < dst.length; i++) dst[i + o] += src[i] * g;
+      return dst;
+    };
+    const modes = (dst, at, list, g) => {
+      const o = Math.round(at * SR);
+      for (const [f, d, a] of list) {
+        if (f > SR * 0.45) continue;
+        const w = 2 * Math.PI * f / SR, ph = Math.random() * 6.283, n = Math.min(dst.length - o, Math.ceil(d * 6 * SR));
+        for (let i = 0; i < n; i++) dst[i + o] += Math.sin(w * i + ph) * Math.exp(-i / (d * SR)) * a * g;
+      }
+      return dst;
+    };
+    const metal = (f, decay, n) => [1, 2.32, 4.25, 6.63, 9.38, 12.1].slice(0, n || 6).map((r, k) => [f * r * rnd(0.97, 1.03), decay / (1 + k * 0.7), 1 / (1 + k * 0.6)]);
+    const glass = (f, decay) => [1, 2.71, 5.12, 8.3].map((r, k) => [f * r * rnd(0.95, 1.05), decay / (1 + k * 0.5), 0.8 / (1 + k * 0.4)]);
+    const panel = () => [[rnd(170, 210), 0.035, 1], [rnd(400, 460), 0.022, 0.7], [rnd(900, 1050), 0.012, 0.45], [rnd(2100, 2500), 6e-3, 0.3]];
+    const comb = (x, f, fb) => {
+      const D2 = Math.max(1, Math.round(SR / f));
+      for (let i = D2; i < x.length; i++) x[i] += x[i - D2] * fb;
+      return x;
+    };
+    const sat = (x, drive) => {
+      for (let i = 0; i < x.length; i++) x[i] = Math.tanh(x[i] * drive);
+      return x;
+    };
+    const norm = (x, peak) => {
+      let m = 0;
+      for (let i = 0; i < x.length; i++) m = Math.max(m, Math.abs(x[i]));
+      if (m > 0) for (let i = 0; i < x.length; i++) x[i] *= peak / m;
+      return x;
+    };
+    const fadeOut = (x) => {
+      const n = Math.min(512, x.length);
+      for (let i = 0; i < n; i++) x[x.length - 1 - i] *= i / n;
+      return x;
+    };
+    const amp = (x, fn) => {
+      for (let i = 0; i < x.length; i++) x[i] *= fn(i / SR);
+      return x;
+    };
+    const sweep = (sec, f0, f1, q, shape) => {
+      const x = SN(sec), blk = 256;
+      let b = 0, x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+      for (let s = 0; s < x.length; s += blk) {
+        const k = s / x.length, f = f0 * Math.pow(f1 / f0, k), w = 2 * Math.PI * Math.min(f, SR * 0.45) / SR, al = Math.sin(w) / (2 * q), a0 = 1 + al, b0 = al / a0, b2 = -al / a0, a1 = -2 * Math.cos(w) / a0, a2 = (1 - al) / a0;
+        for (let i = s; i < Math.min(s + blk, x.length); i++) {
+          const xi = Math.random() * 2 - 1, y = b0 * xi + b2 * x2 - a1 * y1 - a2 * y2;
+          x2 = x1;
+          x1 = xi;
+          y2 = y1;
+          y1 = y;
+          x[i] = y * shape(i / x.length);
+        }
+      }
+      return x;
+    };
+    function gunshot(P) {
+      const x = SN(P.tail + 0.25), nw = Math.round(14e-4 * SR);
+      for (let i = 0; i < nw * 2; i++) x[i] += (i < nw ? 1 : -1) * (1 - i % nw / nw) * P.nw;
+      mixIn(x, rbj(burst(0.02, 15e-4), "hp", P.crack, 0.7), 0, 1.5);
+      mixIn(x, rbj(burst(P.bd * 5, P.bd), "bp", P.body * rnd(0.92, 1.08), P.q), 4e-4, P.bg);
+      mixIn(x, rbj(rbj(burst(P.td * 5, P.td, true), "lp", P.thump, 0.8), "lp", P.thump, 0.7), 1e-3, P.tg);
+      sat(x, P.drive);
+      if (P.mech) modes(x, P.mech * rnd(0.9, 1.1), metal(rnd(2300, 2900), 6e-3, 4), 0.06);
+      const dry = x.slice(0, Math.ceil(0.08 * SR));
+      for (const [d, g] of P.refl) mixIn(x, rbj(dry.slice(), "lp", P.rf || 2800, 0.7), d * rnd(0.85, 1.15), g * rnd(0.8, 1.1));
+      mixIn(x, rbj(burst(P.tail, P.tail / 5, true, 0.01), "lp", P.tf, 0.6), 6e-3, P.tg2);
+      return norm(x, 0.95);
+    }
+    const ROOM = [[0.019, 0.32], [0.034, 0.24], [0.052, 0.2], [0.077, 0.14], [0.11, 0.1], [0.15, 0.07]];
+    const BANK = {
+      ar: () => gunshot({ nw: 0.9, crack: 2600, body: 950, q: 0.9, bd: 0.028, bg: 1.1, thump: 170, td: 0.045, tg: 1.3, drive: 2.4, mech: 0.032, refl: ROOM, tail: 0.9, tf: 900, tg2: 0.32 }),
+      smg: () => gunshot({ nw: 0.6, crack: 3400, body: 1600, q: 1.1, bd: 0.018, bg: 1, thump: 230, td: 0.03, tg: 0.8, drive: 2, mech: 0.025, refl: ROOM.slice(0, 4), tail: 0.55, tf: 1200, tg2: 0.22 }),
+      pistol: () => gunshot({ nw: 0.8, crack: 3e3, body: 1250, q: 1, bd: 0.024, bg: 1, thump: 190, td: 0.04, tg: 1, drive: 2.2, mech: 0.028, refl: ROOM, tail: 0.75, tf: 1e3, tg2: 0.28 }),
+      pump: () => gunshot({ nw: 1.2, crack: 2e3, body: 640, q: 0.7, bd: 0.05, bg: 1.4, thump: 110, td: 0.08, tg: 2, drive: 3, refl: ROOM.map(([d, g]) => [d * 1.1, g * 1.3]), tail: 1.3, tf: 700, tg2: 0.45 }),
+      sniper: () => gunshot({ nw: 1.4, crack: 4e3, body: 620, q: 0.8, bd: 0.045, bg: 1.4, thump: 85, td: 0.12, tg: 2.2, drive: 3.2, refl: [[0.04, 0.4], [0.09, 0.3], [0.16, 0.24], [0.26, 0.18], [0.4, 0.12]], rf: 1800, tail: 2.2, tf: 520, tg2: 0.55 }),
+      // light guns: an electric snap ringing through a metal tube, then a fizzing tail
+      mf: () => {
+        const x = SN(0.4);
+        mixIn(x, rbj(burst(0.02, 2e-3), "hp", 3500, 0.7), 0, 1.2);
+        const s = comb(sweep(0.18, 5200, 900, 3, (k) => Math.pow(1 - k, 2.2)), rnd(1400, 1700), 0.55);
+        mixIn(x, s, 1e-3, 0.9);
+        mixIn(x, rbj(burst(0.35, 0.08), "hp", 5e3, 0.7), 0.01, 0.25);
+        return norm(sat(x, 1.6), 0.9);
+      },
+      zap: () => {
+        const x = SN(0.12);
+        mixIn(x, rbj(burst(0.01, 15e-4), "hp", 4e3, 0.7), 0, 1);
+        mixIn(x, comb(sweep(0.08, 6e3, 2e3, 4, (k) => 1 - k), rnd(2400, 3e3), 0.5), 0, 0.6);
+        return norm(x, 0.8);
+      },
+      rpg: () => {
+        const x = gunshot({ nw: 1.4, crack: 1800, body: 420, q: 0.7, bd: 0.06, bg: 1.2, thump: 90, td: 0.12, tg: 2.2, drive: 2.6, refl: ROOM, tail: 1.2, tf: 600, tg2: 0.4 });
+        const hiss = rbj(sweep(1.1, 700, 2600, 0.8, (k) => Math.min(1, k * 12) * Math.pow(1 - k, 1.5) * (0.8 + 0.2 * Math.random())), "hp", 300, 0.7);
+        const y = SN(1.3);
+        mixIn(y, x, 0, 1);
+        mixIn(y, hiss, 0.03, 0.35);
+        return norm(y, 0.95);
+      },
+      boom: () => {
+        const x = SN(2.6), nw = Math.round(4e-3 * SR);
+        for (let i = 0; i < nw * 2; i++) x[i] += (i < nw ? 1 : -1) * (1 - i % nw / nw);
+        mixIn(x, rbj(burst(0.05, 4e-3), "hp", 1500, 0.7), 0, 1.2);
+        mixIn(x, rbj(rbj(burst(2.5, 0.5, true, 4e-3), "lp", 900, 0.7), "lp", 400, 0.7), 0, 2.4);
+        mixIn(x, rbj(burst(1.6, 0.25, true), "lp", 90, 0.9), 0, 2);
+        for (let i = 0; i < 14; i++) mixIn(x, rbj(burst(0.02, 3e-3), "bp", rnd(1500, 4500), 2), rnd(0.1, 1.3), rnd(0.15, 0.4));
+        for (const [d, g] of ROOM) mixIn(x, rbj(x.slice(0, Math.ceil(0.1 * SR)), "lp", 1500, 0.7), d * 1.6, g);
+        return norm(sat(x, 1.8), 0.95);
+      },
+      // hitmarker: a short, dull thwack; headshot: a helmet ping
+      hit: () => {
+        const x = SN(0.12);
+        mixIn(x, rbj(burst(0.06, 0.012, true), "lp", 420, 0.8), 0, 1.4);
+        mixIn(x, rbj(burst(0.03, 4e-3), "bp", rnd(1e3, 1300), 1.6), 0, 0.7);
+        mixIn(x, rbj(burst(0.01, 12e-4), "hp", 4e3, 0.7), 0, 0.35);
+        return norm(x, 0.8);
+      },
+      head: () => {
+        const x = SN(0.6);
+        mixIn(x, rbj(burst(0.01, 15e-4), "hp", 3e3, 0.7), 0, 0.8);
+        modes(x, 0, metal(rnd(2050, 2250), 0.16, 5), 0.6);
+        mixIn(x, rbj(burst(0.05, 0.01, true), "lp", 500, 0.8), 0, 0.6);
+        return norm(x, 0.85);
+      },
+      shield: () => {
+        const x = SN(0.3);
+        modes(x, 0, glass(rnd(3300, 3900), 0.05), 0.5);
+        mixIn(x, rbj(burst(0.12, 0.03), "hp", 5500, 0.7), 0, 0.5);
+        mixIn(x, rbj(burst(0.03, 6e-3, true), "lp", 600, 0.8), 0, 0.4);
+        return norm(x, 0.75);
+      },
+      shieldBreak: () => {
+        const x = SN(0.7);
+        mixIn(x, rbj(burst(0.02, 3e-3), "hp", 2500, 0.7), 0, 1);
+        for (let i = 0; i < 22; i++) modes(x, rnd(0, 0.22) * rnd(0, 1), glass(rnd(2200, 6500), rnd(0.02, 0.08)), rnd(0.15, 0.35));
+        mixIn(x, rbj(burst(0.6, 0.12), "hp", 4500, 0.7), 0.01, 0.35);
+        mixIn(x, rbj(burst(0.12, 0.03, true), "lp", 300, 0.8), 0, 0.8);
+        return norm(x, 0.9);
+      },
+      hurt: () => {
+        const x = SN(0.25);
+        mixIn(x, rbj(burst(0.2, 0.04, true), "lp", 300, 0.9), 0, 1.5);
+        mixIn(x, rbj(burst(0.06, 0.012), "bp", 800, 1), 0, 0.4);
+        return norm(x, 0.85);
+      },
+      elim: () => {
+        const x = SN(1.1);
+        mixIn(x, rbj(burst(0.4, 0.08, true), "lp", 220, 0.9), 0, 1.6);
+        mixIn(x, rbj(burst(0.02, 3e-3), "hp", 2500, 0.7), 0, 0.6);
+        modes(x, 0.01, metal(rnd(1150, 1250), 0.35, 5), 0.35);
+        modes(x, 0.06, metal(rnd(1700, 1800), 0.3, 4), 0.18);
+        return norm(x, 0.9);
+      },
+      // handling: gun parts clacking, bottles, caps and coins
+      clack: () => {
+        const x = SN(0.12);
+        mixIn(x, rbj(burst(0.02, 25e-4), "bp", rnd(1800, 2600), 1.4), 0, 1);
+        modes(x, 0, metal(rnd(1400, 1900), 0.012, 4), 0.4);
+        mixIn(x, rbj(burst(0.03, 6e-3, true), "lp", 500, 0.8), 0, 0.4);
+        return norm(x, 0.85);
+      },
+      click: () => {
+        const x = SN(0.05);
+        mixIn(x, rbj(burst(8e-3, 9e-4), "hp", 2500, 0.7), 0, 1);
+        modes(x, 0, metal(rnd(3e3, 3600), 4e-3, 3), 0.5);
+        return norm(x, 0.7);
+      },
+      shimmer: () => {
+        const x = SN(1.2);
+        for (let i = 0; i < 6; i++) modes(x, i * 0.045, metal(rnd(2600, 4200), 0.35, 3), 0.25);
+        mixIn(x, rbj(burst(1, 0.25, false, 0.05), "hp", 7e3, 0.7), 0, 0.2);
+        return norm(x, 0.6);
+      },
+      bottle: () => {
+        const x = SN(0.3);
+        modes(x, 0, [[rnd(650, 750), 0.03, 1], [rnd(1600, 1800), 0.018, 0.6], [rnd(3100, 3500), 0.01, 0.4]], 0.6);
+        mixIn(x, rbj(burst(0.01, 2e-3), "hp", 2e3, 0.7), 0, 0.6);
+        mixIn(x, amp(rbj(burst(0.25, 0.08, true, 0.02), "bp", 450, 2.5), (t) => 0.6 + 0.4 * Math.sin(t * 70)), 0.03, 0.5);
+        return norm(x, 0.75);
+      },
+      fizz: () => {
+        const x = SN(0.9);
+        for (let i = 0; i < 40; i++) mixIn(x, rbj(burst(6e-3, 8e-4), "hp", rnd(3e3, 7e3), 0.7), rnd(0, 0.85), rnd(0.1, 0.5));
+        mixIn(x, rbj(burst(0.8, 0.4, false, 0.05), "hp", 6e3, 0.7), 0, 0.12);
+        return norm(x, 0.5);
+      },
+      gulp: () => {
+        const x = SN(0.25);
+        mixIn(x, rbj(rbj(burst(0.1, 0.03, true, 0.01), "bp", rnd(230, 280), 5), "lp", 800, 0.7), 0, 1);
+        mixIn(x, rbj(rbj(burst(0.08, 0.02, true, 0.01), "bp", rnd(450, 520), 5), "lp", 1200, 0.7), 0.07, 0.6);
+        return norm(x, 0.7);
+      },
+      coin: () => {
+        const x = SN(0.5);
+        modes(x, 0, metal(rnd(3600, 4200), 0.12, 4), 0.5);
+        modes(x, rnd(0.08, 0.12), metal(rnd(3600, 4200), 0.09, 4), 0.35);
+        modes(x, rnd(0.16, 0.2), metal(rnd(3600, 4200), 0.06, 4), 0.2);
+        return norm(x, 0.6);
+      },
+      thunk: () => {
+        const x = SN(0.35);
+        mixIn(x, rbj(burst(0.25, 0.05, true), "lp", 260, 0.9), 0, 1.6);
+        modes(x, 0, [[rnd(120, 150), 0.06, 1], [rnd(310, 350), 0.03, 0.5]], 0.5);
+        mixIn(x, rbj(burst(0.02, 4e-3), "bp", 1500, 1.2), 0, 0.4);
+        return norm(x, 0.85);
+      },
+      whir: () => {
+        const x = amp(rbj(burst(0.5, 0.4, true, 0.05), "bp", 380, 3), (t) => 0.7 + 0.3 * Math.sin(t * 2 * Math.PI * 48));
+        return norm(x, 0.5);
+      },
+      // footsteps and hits on the box panels
+      step: () => {
+        const x = SN(0.12);
+        mixIn(x, rbj(burst(6e-3, 9e-4), "hp", 2200, 0.7), 0, 0.5);
+        modes(x, 0, panel(), 0.6);
+        mixIn(x, rbj(burst(0.04, 8e-3, true), "lp", 300, 0.8), 0, 0.6);
+        const toe = rnd(0.025, 0.04);
+        mixIn(x, rbj(burst(5e-3, 8e-4), "hp", 2600, 0.7), toe, 0.25);
+        modes(x, toe, panel(), 0.25);
+        return norm(x, 0.8);
+      },
+      impact: () => {
+        const x = SN(0.2);
+        mixIn(x, rbj(burst(0.01, 12e-4), "hp", 2400, 0.7), 0, 1);
+        modes(x, 0, panel(), 0.5);
+        mixIn(x, rbj(burst(0.06, 0.012), "bp", rnd(1200, 2e3), 1), 0, 0.4);
+        return norm(x, 0.75);
+      },
+      ricochet: () => {
+        const x = SN(0.45);
+        mixIn(x, rbj(burst(0.01, 12e-4), "hp", 2400, 0.7), 0, 1);
+        mixIn(x, sweep(0.4, rnd(3200, 4200), rnd(1200, 1700), 14, (k) => Math.pow(1 - k, 1.6)), 5e-3, 0.5);
+        return norm(x, 0.6);
+      },
+      flesh: () => {
+        const x = SN(0.1);
+        mixIn(x, rbj(burst(0.08, 0.015, true), "lp", 350, 0.9), 0, 1);
+        mixIn(x, rbj(burst(0.02, 4e-3), "bp", 700, 1.2), 0, 0.4);
+        return norm(x, 0.7);
+      },
+      slam: () => {
+        const x = SN(0.6);
+        mixIn(x, rbj(burst(0.5, 0.1, true), "lp", 200, 0.9), 0, 1.8);
+        modes(x, 0, panel().map(([f, d, a]) => [f * 0.7, d * 3, a]), 0.6);
+        mixIn(x, rbj(burst(0.03, 5e-3), "hp", 1800, 0.7), 0, 0.5);
+        return norm(sat(x, 1.4), 0.9);
+      },
+      shatter: () => {
+        const x = SN(0.6);
+        for (let i = 0; i < 16; i++) modes(x, rnd(0, 0.25) * rnd(0, 1), glass(rnd(1800, 5200), rnd(0.02, 0.07)), rnd(0.15, 0.3));
+        mixIn(x, rbj(burst(0.4, 0.08), "hp", 4e3, 0.7), 0, 0.3);
+        return norm(x, 0.7);
+      },
+      clink: () => {
+        const x = SN(0.25);
+        modes(x, 0, metal(rnd(2300, 2800), 0.05, 5), 0.5);
+        modes(x, rnd(0.05, 0.09), metal(rnd(2300, 2800), 0.03, 5), 0.25);
+        return norm(x, 0.5);
+      },
+      crackle: () => {
+        const x = SN(0.3);
+        for (let i = 0; i < 6; i++) mixIn(x, rbj(burst(0.01, 15e-4), "bp", rnd(1500, 4500), 1.5), rnd(0, 0.2), rnd(0.3, 1));
+        mixIn(x, rbj(burst(0.3, 0.08, true), "lp", 500, 0.8), 0, 0.4);
+        return norm(x, 0.6);
+      },
+      // movement: air and the box itself
+      whoosh: () => norm(sweep(0.45, 350, 1800, 0.9, (k) => Math.sin(Math.PI * Math.pow(k, 0.7))), 0.6),
+      launch: () => {
+        const x = SN(0.6);
+        mixIn(x, rbj(burst(0.2, 0.04, true), "lp", 180, 0.9), 0, 1.4);
+        mixIn(x, sweep(0.5, 400, 2400, 0.8, (k) => Math.min(1, k * 15) * Math.pow(1 - k, 1.4)), 0.01, 0.6);
+        return norm(x, 0.8);
+      },
+      groanUp: () => {
+        const x = SN(1.5);
+        mixIn(x, rbj(burst(1.5, 0.6, true, 0.4), "lp", 120, 1), 0, 1.2);
+        modes(x, 0.1, [[rnd(85, 95), 0.6, 1], [rnd(141, 150), 0.45, 0.6], [rnd(229, 240), 0.3, 0.4]], 0.3);
+        mixIn(x, sweep(1.2, 300, 2600, 0.8, (k) => Math.sin(Math.PI * k)), 0.1, 0.5);
+        return norm(x, 0.85);
+      },
+      groanDown: () => {
+        const x = SN(1.5);
+        mixIn(x, sweep(1.1, 2400, 250, 0.8, (k) => Math.sin(Math.PI * k)), 0, 0.6);
+        mixIn(x, rbj(burst(0.6, 0.15, true), "lp", 150, 0.9), 0.9, 1.3);
+        modes(x, 0.9, panel().map(([f, d, a]) => [f * 0.6, d * 4, a]), 0.4);
+        return norm(x, 0.85);
+      },
+      // the gravity alarm: a mechanical bell hammered fast, like a factory klaxon
+      bell: () => {
+        const x = SN(0.4), f = rnd(980, 1040);
+        for (let i = 0; i < 8; i++) modes(x, i * 0.024, [[f, 0.08, 1], [f * 2.76, 0.04, 0.5], [f * 5.4, 0.02, 0.3]], 0.4);
+        return norm(x, 0.7);
+      },
+      quake: () => {
+        const x = SN(2.8);
+        mixIn(x, amp(rbj(burst(2.8, 1.4, true, 0.6), "lp", 110, 1), (t) => 0.75 + 0.25 * Math.sin(t * 9) * Math.sin(t * 3.1)), 0, 1.4);
+        modes(x, 0.3, [[rnd(60, 66), 1, 1], [rnd(97, 104), 0.7, 0.6], [rnd(151, 160), 0.5, 0.4]], 0.3);
+        mixIn(x, rbj(burst(2.2, 0.9, true, 0.3), "bp", 600, 1.5), 0.2, 0.3);
+        return norm(x, 0.85);
+      },
+      pop: () => {
+        const x = SN(0.4);
+        mixIn(x, rbj(burst(0.02, 2e-3), "hp", 2500, 0.7), 0, 1.2);
+        mixIn(x, rbj(burst(0.3, 0.06, true), "lp", 260, 0.9), 0, 1.2);
+        mixIn(x, comb(rbj(burst(0.2, 0.04), "bp", 900, 1), rnd(380, 420), 0.6), 5e-3, 0.4);
+        return norm(x, 0.85);
+      }
+    };
+    const stack = (x, at, freqs, dur, att, cut) => {
+      const o = Math.round(at * SR), n = Math.min(x.length - o, Math.ceil(dur * SR));
+      for (const f of freqs) for (const dt of [-4e-3, 0, 5e-3]) {
+        const w = 2 * Math.PI * f * (1 + dt) / SR;
+        let ph = Math.random() * 6.28;
+        for (let i = 0; i < n; i++) {
+          ph += w;
+          const t = i / SR, e = Math.min(1, t / att) * Math.exp(-t / (dur * 0.6));
+          x[i + o] += (Math.sin(ph) + 0.35 * Math.sin(2 * ph) + 0.18 * Math.sin(3 * ph)) * e * 0.12;
+        }
+      }
+      return x;
+    };
+    const timp = (x, at, f, g) => {
+      modes(x, at, [[f, 0.5, 1], [f * 1.5, 0.35, 0.5], [f * 1.98, 0.25, 0.35]], g);
+      mixIn(x, rbj(burst(0.2, 0.04, true), "lp", 300, 0.8), at, g * 0.8);
+      return x;
+    };
+    BANK.victory = () => {
+      const x = SN(3.2);
+      timp(x, 0, 98, 0.6);
+      timp(x, 0.18, 98, 0.5);
+      timp(x, 0.36, 131, 0.7);
+      stack(x, 0.36, [262, 330, 392, 523], 2.6, 0.06, 0);
+      for (let i = 0; i < 6; i++) modes(x, 0.4 + i * 0.07, metal(rnd(2600, 3600), 0.4, 3), 0.08);
+      return norm(x, 0.85);
+    };
+    BANK.defeat = () => {
+      const x = SN(3);
+      timp(x, 0, 73, 0.8);
+      stack(x, 0.05, [147, 175, 220], 1.1, 0.15, 0);
+      stack(x, 0.9, [131, 156, 196], 1.9, 0.2, 0);
+      return norm(rbj(x, "lp", 2200, 0.7), 0.8);
+    };
+    const SBK = /* @__PURE__ */ new Map();
+    function takes(name) {
+      let a = SBK.get(name);
+      if (a) return a;
+      SR = AC.sampleRate;
+      const N = name === "victory" || name === "defeat" || name === "quake" ? 1 : 4;
+      a = [];
+      for (let i = 0; i < N; i++) {
+        const x = fadeOut(BANK[name]()), b = AC.createBuffer(1, x.length, SR);
+        b.getChannelData(0).set(x);
+        a.push(b);
+      }
+      SBK.set(name, a);
+      return a;
+    }
+    function smp(v, name, o) {
+      o = o || {};
+      const a = takes(name), b = a[Math.floor(Math.random() * a.length)], t = v.t + (o.at || 0), s = AC.createBufferSource(), g = AC.createGain();
+      s.buffer = b;
+      s.playbackRate.value = (o.rate || 1) * rnd(0.97, 1.03);
+      g.gain.value = o.g == null ? 1 : o.g;
+      s.connect(g);
+      g.connect(v.out);
+      s.start(t);
+      v.end = Math.max(v.end, (o.at || 0) + b.duration / s.playbackRate.value);
+    }
+    function warmBank() {
+      const names = Object.keys(BANK);
+      let i = 0;
+      const step = () => {
+        if (i < names.length) {
+          takes(names[i++]);
+          setTimeout(step, 30);
+        }
+      };
+      setTimeout(step, 200);
+    }
     const chk = (v, at, f, g) => {
-      nz(v, { at, type: "bandpass", f: f || 2600, q: 2.5, dur: 0.03, g: g || 0.7 });
-      nz(v, { at, type: "lowpass", f: 500, dur: 0.04, g: (g || 0.7) * 0.6 });
+      smp(v, "click", { at, g: (g || 0.7) * 0.9, rate: (f || 2600) / 2900 });
     };
     const GUN_SFX = {
       ar: (v, p) => {
-        nz(v, { type: "highpass", f: 2600, dur: 0.045, g: 0.9 });
-        nz(v, { type: "bandpass", f: 950 * p, q: 0.9, dur: 0.13, g: 1.2 });
-        tn(v, { f: 150 * p, f1: 48, dur: 0.1, g: 0.9 });
-        nz(v, { brown: true, type: "lowpass", f: 1300, f1: 250, dur: 0.42, g: 0.45, a: 8e-3 });
-        tn(v, { type: "triangle", f: 2900 * p, f1: 2500, dur: 0.07, g: 0.07 });
+        smp(v, "ar", { rate: p });
       },
-      // AR: punchy, with a metallic ring
       smg: (v, p) => {
-        nz(v, { type: "highpass", f: 3400, dur: 0.03, g: 0.8 });
-        nz(v, { type: "bandpass", f: 1700 * p, q: 1.1, dur: 0.07, g: 1 });
-        tn(v, { f: 210 * p, f1: 90, dur: 0.05, g: 0.6 });
-        nz(v, { type: "lowpass", f: 1800, f1: 400, dur: 0.2, g: 0.25, a: 5e-3 });
-        tn(v, { type: "square", f: 330 * p, f1: 260, dur: 0.035, g: 0.07, lp: 2400 });
+        smp(v, "smg", { rate: p });
       },
-      // SMG: a buzzy zip
       pistol: (v, p) => {
-        nz(v, { type: "highpass", f: 3e3, dur: 0.035, g: 0.9 });
-        nz(v, { type: "bandpass", f: 1250 * p, q: 1, dur: 0.1, g: 1 });
-        tn(v, { type: "triangle", f: 1850 * p, f1: 1700, dur: 0.09, g: 0.12 });
-        tn(v, { f: 170 * p, f1: 60, dur: 0.08, g: 0.7 });
-        nz(v, { brown: true, type: "lowpass", f: 1500, f1: 300, dur: 0.3, g: 0.3, a: 6e-3 });
+        smp(v, "pistol", { rate: p });
       },
       pump: (v, p) => {
-        nz(v, { type: "highpass", f: 2e3, dur: 0.05, g: 1 });
-        nz(v, { brown: true, type: "lowpass", f: 1100 * p, f1: 200, dur: 0.32, g: 1.6 });
-        tn(v, { f: 95 * p, f1: 34, dur: 0.35, g: 1.3 });
-        tn(v, { f: 46, f1: 28, dur: 0.5, g: 0.9 });
-        nz(v, { brown: true, type: "lowpass", f: 600, f1: 120, dur: 0.8, g: 0.5, a: 0.02 });
-        chk(v, 0.42, 2200, 0.6);
-        chk(v, 0.55, 1800, 0.7);
-        nz(v, { at: 0.43, type: "bandpass", f: 900, f1: 1600, q: 1.5, dur: 0.1, g: 0.25 });
+        smp(v, "pump", { rate: p });
+        smp(v, "clack", { at: 0.42, g: 0.5, rate: 0.8 });
+        smp(v, "clack", { at: 0.55, g: 0.6, rate: 0.7 });
       },
       mf: (v, p) => {
-        tn(v, { type: "sawtooth", f: 2600 * p, f1: 220, dur: 0.16, g: 0.16, lp: 6e3 });
-        tn(v, { type: "square", f: 1300 * p, f1: 160, dur: 0.12, g: 0.08, lp: 4e3 });
-        nz(v, { type: "bandpass", f: 5200, q: 4, dur: 0.07, g: 0.45 });
-        tn(v, { at: 0.01, type: "sine", f: 3300 * p, f1: 2600, dur: 0.22, g: 0.07 });
+        smp(v, "mf", { rate: p, g: 0.8 });
       },
-      // Mirror Fractal Guns: a crackling zap that sweeps down
+      // Mirror Fractal Guns: an electric snap
       rpg: (v, p) => {
-        tn(v, { f: 75 * p, f1: 30, dur: 0.35, g: 1.3 });
-        nz(v, { brown: true, type: "lowpass", f: 1e3, f1: 180, dur: 0.6, g: 1.3 });
-        nz(v, { type: "highpass", f: 2500, dur: 0.05, g: 0.9 });
-        nz(v, { at: 0.03, type: "bandpass", f: 500, f1: 2200, q: 0.8, dur: 0.9, g: 0.55, a: 0.04 });
-        nz(v, { at: 0.05, type: "highpass", f: 3500, dur: 1.1, g: 0.25, a: 0.1 });
+        smp(v, "rpg", { rate: p });
       },
-      // RPG: a thump and a long rocket hiss
       sniper: (v, p) => {
-        nz(v, { type: "highpass", f: 4200, dur: 0.06, g: 1.3 });
-        nz(v, { type: "bandpass", f: 700 * p, q: 0.8, dur: 0.25, g: 1.4 });
-        tn(v, { f: 80 * p, f1: 28, dur: 0.6, g: 1.4 });
-        nz(v, { brown: true, type: "lowpass", f: 500, f1: 90, dur: 1.5, g: 0.7, a: 0.03 });
-        tn(v, { at: 0.02, f: 2600 * p, f1: 500, dur: 0.55, g: 0.05 });
+        smp(v, "sniper", { rate: p });
         chk(v, 0.75, 2400, 0.6);
-        nz(v, { at: 0.86, type: "bandpass", f: 1400, f1: 3e3, q: 2, dur: 0.09, g: 0.35 });
+        smp(v, "clack", { at: 0.86, g: 0.4 });
         chk(v, 1, 2e3, 0.7);
       }
     };
     const STEP_SFX = {
       magOut: (v) => {
         chk(v, 0, 3e3, 0.5);
-        nz(v, { at: 0.02, type: "bandpass", f: 1200, f1: 700, q: 1.5, dur: 0.09, g: 0.35 });
+        smp(v, "clack", { at: 0.02, g: 0.35, rate: 0.8 });
       },
       magIn: (v) => {
-        nz(v, { type: "bandpass", f: 1700, q: 2, dur: 0.035, g: 1 });
-        tn(v, { type: "triangle", f: 620, f1: 300, dur: 0.05, g: 0.35 });
-        nz(v, { type: "lowpass", f: 350, dur: 0.07, g: 0.6 });
+        smp(v, "clack", { g: 0.9 });
+        chk(v, 0.02, 2200, 0.5);
       },
       charge: (v) => {
         chk(v, 0, 2800, 0.7);
-        nz(v, { at: 0.03, type: "bandpass", f: 1600, f1: 3200, q: 2, dur: 0.06, g: 0.3 });
+        smp(v, "clack", { at: 0.06, g: 0.5, rate: 1.2 });
         chk(v, 0.09, 3200, 0.8);
-        tn(v, { at: 0.09, type: "triangle", f: 2300, dur: 0.1, g: 0.08 });
       },
       slide: (v) => {
-        nz(v, { type: "bandpass", f: 2e3, f1: 3600, q: 2, dur: 0.06, g: 0.35 });
+        smp(v, "clack", { g: 0.5, rate: 1.3 });
         chk(v, 0.07, 3400, 0.8);
       },
       shell: (v) => {
-        nz(v, { type: "bandpass", f: 1400, q: 2, dur: 0.04, g: 0.6 });
-        tn(v, { f: 420, f1: 250, dur: 0.04, g: 0.3 });
+        smp(v, "clack", { g: 0.5, rate: 0.7 });
       },
       pump: (v) => {
-        chk(v, 0, 2200, 0.7);
-        chk(v, 0.13, 1800, 0.8);
+        smp(v, "clack", { g: 0.6, rate: 0.8 });
+        smp(v, "clack", { at: 0.13, g: 0.7, rate: 0.7 });
       },
       boltUp: (v) => {
         chk(v, 0, 2600, 0.6);
-        nz(v, { at: 0.03, type: "bandpass", f: 1500, f1: 900, q: 2, dur: 0.08, g: 0.35 });
+        smp(v, "clack", { at: 0.03, g: 0.4, rate: 0.9 });
       },
       round: (v) => {
-        nz(v, { type: "bandpass", f: 2400, q: 3, dur: 0.03, g: 0.6 });
-        tn(v, { type: "triangle", f: 3100, dur: 0.06, g: 0.08 });
+        smp(v, "clink", { g: 0.5, rate: 1.2 });
       },
       boltDown: (v) => {
-        nz(v, { type: "bandpass", f: 900, f1: 1700, q: 2, dur: 0.08, g: 0.35 });
+        smp(v, "clack", { g: 0.45, rate: 0.9 });
         chk(v, 0.09, 2200, 0.9);
       }
     };
-    const FOOT = {
-      rock: (v, g) => {
-        nz(v, { type: "highpass", f: 1800, dur: 0.025, g: 0.35 * g });
-        nz(v, { type: "lowpass", f: 260, dur: 0.06, g: 0.5 * g });
-      }
-    };
-    const PICK_NOTES = [784, 988, 1175, 1568, 1976];
+    const FOOT = { rock: (v, g) => {
+      smp(v, "step", { g: 0.9 * g });
+    } };
     const SFX = {
       tick: (v) => {
-        tn(v, { type: "triangle", f: 1900, f1: 1500, dur: 0.03, g: 0.1 });
+        smp(v, "click", { g: 0.25, rate: 1.3 });
       },
       // the locker rail clicking past a card
       swing: (v) => {
-        nz(v, { type: "bandpass", f: 500, f1: 2600, q: 1.2, dur: 0.17, g: 0.55, a: 0.04 });
+        smp(v, "whoosh", { g: 0.5, rate: 1.6 });
       },
       chop: (v, o) => {
         if (o.mat === "stone") {
-          nz(v, { type: "highpass", f: 2500, dur: 0.04, g: 0.9 });
-          tn(v, { type: "triangle", f: 1300 * rnd(0.95, 1.05), dur: 0.22, g: 0.2 });
-          tn(v, { type: "triangle", f: 1870 * rnd(0.95, 1.05), dur: 0.16, g: 0.14 });
-          tn(v, { f: 260, f1: 140, dur: 0.08, g: 0.6 });
-        } else {
-          nz(v, { type: "highpass", f: 3e3, dur: 0.02, g: 0.6 });
-          nz(v, { type: "bandpass", f: 520 * rnd(0.9, 1.1), q: 2.5, dur: 0.08, g: 1.2 });
-          tn(v, { f: 220 * rnd(0.9, 1.1), f1: 110, dur: 0.09, g: 0.7 });
-        }
+          smp(v, "impact", { g: 1 });
+          smp(v, "clink", { g: 0.3, rate: 0.6 });
+        } else smp(v, "thunk", { g: 0.9, rate: 1.6 });
       },
       empty: (v) => {
-        nz(v, { type: "bandpass", f: 3e3, q: 4, dur: 0.02, g: 0.6 });
-        tn(v, { type: "square", f: 220, dur: 0.02, g: 0.12, lp: 1500 });
+        smp(v, "click", { g: 0.7, rate: 0.8 });
       },
       hit: (v) => {
-        tn(v, { f: 1250, dur: 0.05, g: 0.45 });
-        tn(v, { type: "triangle", f: 2500, dur: 0.04, g: 0.2 });
-        nz(v, { type: "lowpass", f: 400, dur: 0.06, g: 0.5 });
+        smp(v, "hit", { g: 0.9 });
       },
       head: (v) => {
-        tn(v, { f: 2093, dur: 0.42, g: 0.4 });
-        tn(v, { f: 3136, dur: 0.3, g: 0.22 });
-        tn(v, { f: 4186, dur: 0.18, g: 0.12 });
-        nz(v, { type: "highpass", f: 6e3, dur: 0.03, g: 0.4 });
-        nz(v, { type: "lowpass", f: 400, dur: 0.06, g: 0.5 });
+        smp(v, "head", { g: 0.8 });
+        smp(v, "hit", { g: 0.6 });
       },
       shield: (v) => {
-        tn(v, { f: 1500, f1: 2300, dur: 0.1, g: 0.3 });
-        nz(v, { type: "bandpass", f: 5e3, q: 6, dur: 0.1, g: 0.6 });
+        smp(v, "shield", { g: 0.7 });
       },
       shieldBreak: (v) => {
-        for (let i = 0; i < 9; i++) nz(v, { at: i * 0.02, type: "highpass", f: rnd(4e3, 8e3), dur: 0.05, g: 0.6 });
-        tn(v, { type: "triangle", f: 2400, f1: 500, dur: 0.32, g: 0.3 });
-        tn(v, { f: 300, f1: 120, dur: 0.15, g: 0.5 });
+        smp(v, "shieldBreak", { g: 0.9 });
       },
       hurt: (v) => {
-        nz(v, { type: "lowpass", f: 350, dur: 0.16, g: 1.2 });
-        tn(v, { f: 110, f1: 48, dur: 0.14, g: 0.9 });
-        nz(v, { type: "bandpass", f: 900, q: 1, dur: 0.08, g: 0.3 });
+        smp(v, "hurt", { g: 1 });
       },
       elim: (v) => {
-        glt(v, 0, 880, 5, 0.05, 0.025);
-        tn(v, { type: "triangle", f: 659, dur: 0.13, g: 0.4 });
-        tn(v, { at: 0.07, type: "triangle", f: 988, dur: 0.15, g: 0.4 });
-        tn(v, { at: 0.14, type: "triangle", f: 1319, dur: 0.42, g: 0.45 });
-        tn(v, { at: 0.14, f: 2637, dur: 0.3, g: 0.08 });
-        tn(v, { f: 130, f1: 55, dur: 0.28, g: 0.8 });
-        nz(v, { at: 0.14, type: "highpass", f: 5e3, dur: 0.25, g: 0.18 });
+        smp(v, "elim", { g: 1 });
       },
       pickup: (v, o) => {
         const it = o.item || {};
         if (it.kind === "gun") {
-          chk(v, 0, 1900, 0.6);
-          chk(v, 0.06, 2400, 0.5);
-          const n = (it.r || 0) + 1;
-          for (let i = 0; i < n; i++) tn(v, { at: 0.06 + i * 0.055, type: "triangle", f: PICK_NOTES[i], dur: 0.2, g: 0.2 });
-          if (it.r >= 3) {
-            nz(v, { at: 0.12, type: "highpass", f: 7e3, dur: 0.35, g: 0.12, a: 0.05 });
-            glt(v, 0.3, PICK_NOTES[n - 1], 4, 0.04, 0.03);
-          }
-        } else if (it.kind === "cons") {
-          tn(v, { f: 1700, dur: 0.14, g: 0.22 });
-          tn(v, { at: 0.01, f: 2550, dur: 0.1, g: 0.12 });
-          nz(v, { type: "bandpass", f: 3e3, q: 3, dur: 0.03, g: 0.3 });
-        } else {
-          tn(v, { f: 520, f1: 950, dur: 0.06, g: 0.3 });
-          nz(v, { type: "bandpass", f: 2e3, q: 2, dur: 0.03, g: 0.3 });
-        }
+          smp(v, "clack", { g: 0.7 });
+          smp(v, "clack", { at: 0.07, g: 0.6, rate: 0.85 });
+          if (it.r >= 2) smp(v, "shimmer", { at: 0.05, g: 0.12 + 0.1 * (it.r - 2) });
+        } else if (it.kind === "cons") smp(v, "bottle", { g: 0.7 });
+        else smp(v, "clack", { g: 0.5, rate: 1.2 });
       },
       useStart: (v) => {
-        {
-          tn(v, { f: 400, f1: 1300, dur: 0.04, g: 0.4 });
-          nz(v, { type: "highpass", f: 3e3, dur: 0.02, g: 0.4 });
-          for (let i = 0; i < 4; i++) tn(v, { at: 0.25 + i * 0.2, f: rnd(240, 380), f1: rnd(500, 700), dur: 0.07, g: 0.22 });
-        }
+        smp(v, "click", { g: 0.5, rate: 0.7 });
+        smp(v, "fizz", { at: 0.05, g: 0.35 });
       },
       gulp: (v) => {
-        tn(v, { type: "sine", f: 210, f1: 95, dur: 0.11, g: 0.4 });
-        tn(v, { at: 0.05, type: "sine", f: 520, f1: 900, dur: 0.05, g: 0.12 });
+        smp(v, "gulp", { g: 0.7 });
       },
       healDone: (v) => {
-        tn(v, { type: "triangle", f: 880, f1: 1760, dur: 0.35, g: 0.25 });
-        tn(v, { at: 0.1, f: 1320, dur: 0.45, g: 0.14 });
-        nz(v, { type: "highpass", f: 6e3, dur: 0.4, g: 0.12, a: 0.05 });
+        smp(v, "shimmer", { g: 0.35 });
       },
       jump: (v) => {
-        nz(v, { type: "bandpass", f: 800, f1: 1700, q: 1, dur: 0.13, g: 0.22, a: 0.02 });
+        smp(v, "whoosh", { g: 0.25, rate: 1.3 });
       },
       land: (v, o) => {
         const k = clamp((o.v || 10) / 18, 0.3, 1.3);
-        nz(v, { brown: true, type: "lowpass", f: 320, dur: 0.14, g: k });
-        tn(v, { f: 90, f1: 42, dur: 0.12, g: 0.7 * k });
+        smp(v, "slam", { g: 0.35 * k, rate: 1.3 });
         FOOT.rock(v, 1.2);
       },
       step: (v, o) => {
@@ -817,127 +1160,84 @@
       },
       whiz: (v) => {
         nz(v, { type: "bandpass", f: 3800, f1: 1100, q: 3, dur: 0.17, g: 0.9, a: 0.03 });
-        tn(v, { f: 1500, f1: 600, dur: 0.15, g: 0.07 });
       },
       impact: (v, o) => {
         const m = o.mat;
-        if (m === "wood") {
-          nz(v, { type: "bandpass", f: 620, q: 2, dur: 0.06, g: 0.8 });
-          tn(v, { f: 230, f1: 140, dur: 0.05, g: 0.35 });
-        } else if (m === "stone") {
-          nz(v, { type: "highpass", f: 2200, dur: 0.04, g: 0.7 });
-          if (Math.random() < 0.25) tn(v, { f: rnd(2200, 3e3), f1: 1e3, dur: 0.25, g: 0.12 });
-        } else if (m === "flesh") nz(v, { type: "lowpass", f: 320, dur: 0.08, g: 0.7 });
-        else {
-          nz(v, { type: "lowpass", f: 900, dur: 0.08, g: 0.55 });
-          nz(v, { type: "highpass", f: 3500, dur: 0.02, g: 0.2 });
-        }
+        if (m === "flesh") smp(v, "flesh", { g: 0.8 });
+        else if (m === "wood") smp(v, "thunk", { g: 0.6, rate: 1.8 });
+        else if (Math.random() < 0.2) smp(v, "ricochet", { g: 0.6 });
+        else smp(v, "impact", { g: 0.7 });
       },
       gravUp: (v) => {
-        tn(v, { type: "sawtooth", f: 80, f1: 420, dur: 0.9, g: 0.28, lp: 1600, a: 0.02 });
-        nz(v, { type: "bandpass", f: 700, f1: 2800, dur: 0.8, g: 0.4, a: 0.05 });
-        tn(v, { at: 0.75, type: "sine", f: 70, f1: 40, dur: 0.5, g: 0.5 });
+        smp(v, "groanUp", { g: 0.8 });
       },
       gravDown: (v) => {
-        tn(v, { type: "sine", f: 520, f1: 140, dur: 0.9, g: 0.28, a: 0.02 });
-        tn(v, { at: 0.1, type: "triangle", f: 660, dur: 0.25, g: 0.14 });
-        tn(v, { at: 0.32, type: "triangle", f: 880, dur: 0.35, g: 0.14 });
+        smp(v, "groanDown", { g: 0.8 });
       },
       slam: (v, o) => {
-        const g = o && o.v || 1;
-        tn(v, { type: "sine", f: 110, f1: 38, dur: 0.5, g: 0.7 * g, a: 5e-3 });
-        nz(v, { type: "lowpass", f: 900, f1: 200, dur: 0.35, g: 0.6 * g, a: 5e-3 });
-        nz(v, { at: 0.02, type: "bandpass", f: 2400, q: 1, dur: 0.12, g: 0.35 * g });
+        smp(v, "slam", { g: o && o.v || 1 });
       },
       shatter: (v) => {
-        for (let i = 0; i < 7; i++) tn(v, { at: i * 0.035 + Math.random() * 0.02, type: "triangle", f: rnd(1800, 4200), f1: rnd(900, 2e3), dur: 0.12, g: 0.07 });
-        nz(v, { type: "highpass", f: 5e3, dur: 0.35, g: 0.18, a: 0.01 });
+        smp(v, "shatter", { g: 0.7 });
       },
       boom: (v) => {
-        nz(v, { type: "highpass", f: 2400, dur: 0.07, g: 1.1 });
-        tn(v, { f: 62, f1: 22, dur: 1.7, g: 1.7, a: 4e-3 });
-        nz(v, { brown: true, type: "lowpass", f: 1500, f1: 110, dur: 2.3, g: 2, a: 6e-3 });
-        tn(v, { type: "triangle", f: 130, f1: 40, dur: 0.5, g: 0.6 });
-        for (let i = 0; i < 9; i++) nz(v, { at: 0.12 + Math.random() * 1.1, type: "bandpass", f: rnd(1500, 4e3), q: 2, dur: 0.03, g: 0.3 });
+        smp(v, "boom", { g: 1.2 });
       },
       zapB: (v) => {
-        tn(v, { type: "sawtooth", f: rnd(3e3, 4200), f1: 900, dur: 0.08, g: 0.08, lp: 7e3 });
-        nz(v, { type: "bandpass", f: 6e3, q: 5, dur: 0.04, g: 0.3 });
+        smp(v, "zap", { g: 0.35, rate: rnd(0.9, 1.15) });
       },
       boing: (v, o) => {
-        const k = o && o.small ? 0.4 : 1;
-        tn(v, { type: "sine", f: 180, f1: 520, dur: 0.22, g: 0.5 * k, a: 5e-3 });
-        tn(v, { type: "triangle", f: 90, f1: 260, dur: 0.25, g: 0.35 * k });
-        nz(v, { type: "lowpass", f: 500, dur: 0.06, g: 0.4 * k });
+        smp(v, "launch", { g: o && o.small ? 0.4 : 0.9 });
       },
       ballOn: (v) => {
-        tn(v, { type: "sine", f: 200, f1: 900, dur: 0.3, g: 0.35, a: 0.01 });
-        nz(v, { type: "bandpass", f: 900, f1: 3e3, dur: 0.3, g: 0.25, a: 0.02 });
-        tn(v, { at: 0.2, type: "triangle", f: 1320, dur: 0.25, g: 0.12 });
+        smp(v, "launch", { g: 0.6, rate: 0.8 });
+        smp(v, "zap", { at: 0.12, g: 0.3, rate: 0.6 });
       },
       ballPop: (v) => {
-        nz(v, { type: "highpass", f: 3e3, dur: 0.08, g: 0.8 });
-        tn(v, { type: "sine", f: 700, f1: 120, dur: 0.25, g: 0.5 });
-        for (let i = 0; i < 6; i++) tn(v, { at: 0.03 + i * 0.025, type: "triangle", f: rnd(2e3, 4e3), dur: 0.06, g: 0.06 });
+        smp(v, "pop", { g: 0.9 });
       },
       crackle: (v) => {
-        for (let i = 0; i < 4; i++) nz(v, { at: Math.random() * 0.15, type: "bandpass", f: rnd(1800, 4500), q: 3, dur: 0.02, g: 0.5 });
-        nz(v, { brown: true, type: "lowpass", f: 500, dur: 0.25, g: 0.25, a: 0.05 });
+        smp(v, "crackle", { g: 0.6 });
       },
       clink: (v) => {
-        tn(v, { type: "triangle", f: rnd(2200, 2700), dur: 0.07, g: 0.25 });
-        nz(v, { type: "bandpass", f: 3200, q: 3, dur: 0.03, g: 0.5 });
+        smp(v, "clink", { g: 0.5 });
       },
       unhook: (v) => {
-        chk(v, 0, 1600, 0.6);
-        nz(v, { at: 0.02, type: "bandpass", f: 800, f1: 1400, q: 1.5, dur: 0.07, g: 0.35 });
+        smp(v, "clack", { g: 0.5, rate: 0.8 });
       },
       pin: (v) => {
-        chk(v, 0, 3200, 0.7);
-        tn(v, { at: 0.02, type: "triangle", f: 3400, f1: 2900, dur: 0.12, g: 0.12 });
+        smp(v, "clink", { g: 0.5, rate: 1.4 });
+        chk(v, 0, 3200, 0.5);
       },
       buy: (v) => {
-        tn(v, { type: "triangle", f: 1319, dur: 0.09, g: 0.3 });
-        tn(v, { at: 0.08, type: "triangle", f: 1760, dur: 0.3, g: 0.3 });
-        tn(v, { at: 0.08, f: 3520, dur: 0.2, g: 0.06 });
-        chk(v, 0.25, 1400, 0.7);
+        smp(v, "coin", { g: 0.6 });
+        smp(v, "whir", { at: 0.12, g: 0.3 });
+        smp(v, "thunk", { at: 0.45, g: 0.9 });
       },
       deny: (v) => {
-        tn(v, { type: "square", f: 180, dur: 0.14, g: 0.2, lp: 1200 });
-        tn(v, { at: 0.1, type: "square", f: 140, dur: 0.16, g: 0.2, lp: 1e3 });
+        smp(v, "thunk", { g: 0.5, rate: 1.3 });
+        smp(v, "click", { at: 0.08, g: 0.4, rate: 0.6 });
       },
       boost: (v) => {
-        tn(v, { type: "sine", f: 180, f1: 900, dur: 0.35, g: 0.3, a: 0.01 });
-        nz(v, { type: "bandpass", f: 700, f1: 2400, dur: 0.3, g: 0.3, a: 0.02 });
+        smp(v, "launch", { g: 0.5, rate: 1.2 });
       },
       propel: (v) => {
-        nz(v, { type: "bandpass", f: 500, f1: 1600, dur: 0.4, g: 0.4, a: 0.03 });
+        smp(v, "whoosh", { g: 0.35 });
       },
       alarm: (v, o) => {
-        tn(v, { type: "square", f: o.hi ? 960 : 720, dur: 0.17, g: 0.26, lp: 2600, a: 0.01 });
+        smp(v, "bell", { g: 0.45, rate: o.hi ? 1.2 : 1 });
       },
       stormWarn: (v) => {
-        tn(v, { type: "sawtooth", f: 98, dur: 1.2, g: 0.28, a: 0.25, lp: 700 });
-        tn(v, { type: "sawtooth", f: 98, det: 14, dur: 1.2, g: 0.2, a: 0.25, lp: 700 });
-        tn(v, { at: 1, type: "sawtooth", f: 73, dur: 1.6, g: 0.3, a: 0.25, lp: 600 });
-        tn(v, { at: 1, type: "sawtooth", f: 73, det: -12, dur: 1.6, g: 0.22, a: 0.25, lp: 600 });
-        glt(v, 0.9, 147, 8, 0.08, 0.05);
+        smp(v, "quake", { g: 0.8 });
       },
       victory: (v) => {
-        [523, 659, 784, 1047, 1319].forEach((f, i) => {
-          tn(v, { at: i * 0.12, type: "triangle", f, dur: 0.3, g: 0.3 });
-          tn(v, { at: i * 0.12, f: f / 2, dur: 0.3, g: 0.12 });
-        });
-        [523, 659, 784, 1047].forEach((f) => tn(v, { at: 0.66, type: "triangle", f, dur: 1.6, g: 0.16, a: 0.03 }));
-        nz(v, { at: 0.66, type: "highpass", f: 6e3, dur: 1.2, g: 0.12, a: 0.1 });
+        smp(v, "victory", { g: 0.9 });
       },
       defeat: (v) => {
-        [392, 311, 262].forEach((f, i) => tn(v, { at: i * 0.28, type: "triangle", f, dur: i === 2 ? 1.3 : 0.35, g: 0.3, lp: 1600 }));
-        tn(v, { at: 0.56, f: 131, dur: 1.4, g: 0.25 });
+        smp(v, "defeat", { g: 0.85 });
       },
       ui: (v) => {
-        tn(v, { type: "triangle", f: 1200, f1: 1500, dur: 0.05, g: 0.18 });
-        glt(v, 0.02, 1600, 2, 0.035, 0.02);
+        smp(v, "click", { g: 0.35 });
       }
     };
     const SFX_OPT = {
@@ -1012,14 +1312,10 @@
       A.hum = gainN();
       const trem = gainN(0.5);
       chain(trem, A.hum, out);
-      for (const f of [110, 165, 220]) {
-        const o = AC.createOscillator();
-        o.frequency.value = f;
-        o.connect(trem);
-        o.start();
-      }
-      const lfo = AC.createOscillator(), lg = gainN(0.25);
-      lfo.frequency.value = 0.3;
+      chain(loopSrc(true, 0.6), filt("bandpass", 95, 3), trem);
+      chain(loopSrc(true, 0.9), filt("lowpass", 400, 0.7), gainN(0.35), trem);
+      const lfo = AC.createOscillator(), lg = gainN(0.2);
+      lfo.frequency.value = 0.13;
       chain(lfo, lg, trem.gain);
       lfo.start();
       AMB = A;
@@ -5956,6 +6252,10 @@
         camOverride = p ? { pos: new V(...p), look: new V(...l) } : null;
       },
       pause: () => pauseGame(),
+      bank: (n) => {
+        initAudio();
+        return n ? takes(n) : Object.keys(BANK);
+      },
       openArmory,
       setArm: (i) => {
         armIdx = i;
