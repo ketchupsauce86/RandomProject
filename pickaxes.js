@@ -15,6 +15,7 @@ const SETS=[
  {id:'cosmic',n:'Cosmic',c:'#9d86ff',d:'Mined from meteors and starlight.'},
  {id:'wild',n:'Wild',c:'#53d16b',d:'Straight out of the jungle, teeth included.'},
  {id:'storm',n:'Inverted',c:'#ffd23f',d:'Made for this box and nowhere else.'},
+ {id:'anime',n:'Anime',c:'#ff7a2a',d:'Signature moves from your favourite heroes. Tap and hold for two different attacks.'},
 ];
 
 // [name, rarity, head shape, head top, head bottom, edge, handle style, handle a, handle b, pattern, pattern color, extras{parts,gem,glow,drip,pom}, flavor]
@@ -247,11 +248,19 @@ const EXTRA={
 const SIZES={t:{n:'Tiny',L:72,hs:.72,dmg:14,spd:1.5,hv:8},s:{n:'Short',L:100,hs:.88,dmg:18,spd:1.25,hv:10},m:{n:'Standard',L:130,hs:1,dmg:20,spd:1,hv:12},l:{n:'Long',L:168,hs:1.02,dmg:24,spd:.9,hv:12},g:{n:'Giant',L:156,hs:1.3,dmg:32,spd:.7,hv:16}};
 
 const ITEMS=[];
-SETS.forEach(s=>RAW[s.id].forEach(r=>{
+SETS.forEach(s=>(RAW[s.id]||[]).forEach(r=>{
   const [n,rar,shape,h1,h2,edge,hs,ha,hb,pat,pc,x,flav]=r;
   const [shp,sz,pw,pwd]=EXTRA[n];
   ITEMS.push({i:ITEMS.length,set:s,n,rar,shape:shp||shape,h1,h2,edge,hs,ha,hb,pat,pc,x:x||{},flav,sz,pw,pwd});
 }));
+// the Anime set: not pickaxes at all but each hero's own way of fighting (the game gives them their own models and moves)
+const ANIME=[
+ {n:'Shadow Kunai',hero:'Naruto',anime:'kunai',short:'KUNAI',c:'#ff8a1f',pw:'Shred',pwd:'Tap to slash. Hold to throw fans of kunai that cut straight through.',flav:'Believe it.'},
+ {n:'Gum-Gum Fists',hero:'Luffy',anime:'rubber',short:'FISTS',c:'#e8342c',pw:'Gatling',pwd:'Tap for a stretching Pistol punch. Hold for a Gatling of rubber fists.',flav:'Gonna be King of the Pirates.'},
+ {n:'Serious Fist',hero:'Saitama',anime:'saitama',short:'FISTS',c:'#ffd23f',pw:'Serious Series',pwd:'Tap for a Normal Punch shockwave. Hold for Consecutive Normal Punches.',flav:'OK.'},
+];
+const animeSet=SETS.find(s=>s.id==='anime');
+ANIME.forEach(a=>ITEMS.push(Object.assign({i:ITEMS.length,set:animeSet,rar:4,shape:'classic',h1:a.c,h2:a.c,edge:'#222',hs:'plain',ha:'#333',hb:'#222',pat:'none',pc:'',x:{},sz:'m'},a)));
 
 // ---------- drawing ----------
 function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
@@ -373,7 +382,24 @@ const PART={
  wisps:(R)=>`<circle cx="0" cy="0" r="${2+R()*3}" fill="rgba(210,255,240,.55)"/>`,
 };
 
+const ANIME_ART={
+ // two crossed kunai over Naruto's orange swirl
+ kunai:id=>{ const k=(r)=>`<g transform="rotate(${r} 100 100)"><circle cx="100" cy="168" r="9" fill="none" stroke="#3a3d44" stroke-width="4.5"/><rect x="95" y="122" width="10" height="38" rx="2" fill="#e8dcc0"/>`+
+   [0,1,2,3,4].map(i=>`<path d="M95 ${126+i*7}l10 4" stroke="#a89a78" stroke-width="2"/>`).join('')+`<rect x="92" y="116" width="16" height="7" rx="2" fill="#3a3d44"/><path d="M100 30 L116 92 L100 118 L84 92Z" fill="url(#${id}b)" stroke="#16181c" stroke-width="2.5" stroke-linejoin="round"/><path d="M100 34 L100 116" stroke="#fff" stroke-opacity=".35" stroke-width="2"/></g>`;
+   return `<defs><linearGradient id="${id}b" x1="0" x2="1"><stop offset="0" stop-color="#5a606b"/><stop offset=".5" stop-color="#c9ced6"/><stop offset="1" stop-color="#3b4048"/></linearGradient></defs>`+
+   `<circle cx="100" cy="100" r="62" fill="#ff8a1f" opacity=".22"/><path d="M100 100m-40 0a40 40 0 1 0 40-40a28 28 0 1 1-28 28a16 16 0 1 0 16-16" fill="none" stroke="#ff8a1f" stroke-width="7" stroke-linecap="round" opacity=".7"/>`+k(-32)+k(32); },
+ // a rubber arm stretching out of a red sleeve into a big fist, with the straw hat
+ rubber:id=>`<circle cx="100" cy="100" r="62" fill="#e8342c" opacity=".18"/><path d="M34 150 C70 150 70 92 104 90 C130 88 132 70 140 64" fill="none" stroke="#f2c49a" stroke-width="15" stroke-linecap="round"/><path d="M34 150 C70 150 70 92 104 90 C130 88 132 70 140 64" fill="none" stroke="#c98d66" stroke-width="15" stroke-linecap="round" stroke-dasharray="2 13" opacity=".5"/>`+
+   `<rect x="14" y="136" width="30" height="28" rx="6" fill="#e8342c" stroke="#8a1612" stroke-width="2.5" transform="rotate(-8 29 150)"/><g transform="translate(150 56) rotate(-30)"><rect x="-22" y="-20" width="44" height="40" rx="13" fill="#f2c49a" stroke="#8a5a3a" stroke-width="2.5"/>`+
+   [-13,-4,5,14].map(x=>`<path d="M${x} -20 v14" stroke="#8a5a3a" stroke-width="2"/>`).join('')+`<rect x="-26" y="-2" width="12" height="18" rx="5" fill="#f2c49a" stroke="#8a5a3a" stroke-width="2"/></g>`+
+   `<g transform="translate(64 50)"><ellipse cx="0" cy="8" rx="34" ry="9" fill="#f0cf6a" stroke="#9a7a2a" stroke-width="2"/><path d="M-18 8 C-18 -16 18 -16 18 8Z" fill="#f0cf6a" stroke="#9a7a2a" stroke-width="2"/><rect x="-18" y="0" width="36" height="7" fill="#d4232a"/></g>`,
+ // a red-gloved fist punching out of shockwave rings
+ saitama:id=>`<circle cx="100" cy="100" r="62" fill="#ffd23f" opacity=".2"/>`+[0,1,2].map(i=>`<ellipse cx="${132+i*12}" cy="${76-i*7}" rx="${20+i*12}" ry="${32+i*16}" transform="rotate(-30 ${132+i*12} ${76-i*7})" fill="none" stroke="#fff" stroke-width="${5-i*1.4}" opacity="${0.9-i*0.25}"/>`).join('')+
+   `<path d="M30 168 L70 128" stroke="#ffd23f" stroke-width="26" stroke-linecap="round"/><rect x="58" y="104" width="34" height="34" rx="6" fill="#d4232a" transform="rotate(-45 75 121)"/>`+
+   `<g transform="translate(108 92) rotate(-45)"><rect x="-26" y="-24" width="52" height="46" rx="14" fill="#e8342c" stroke="#7a1010" stroke-width="3"/>`+[-15,-5,5,15].map(x=>`<path d="M${x} -24 v14" stroke="#7a1010" stroke-width="2.5"/>`).join('')+`<rect x="-30" y="-4" width="14" height="20" rx="6" fill="#e8342c" stroke="#7a1010" stroke-width="2.5"/><path d="M-18 -18 h20" stroke="#fff" stroke-opacity=".45" stroke-width="3" stroke-linecap="round"/></g>`,
+};
 function pickSVG(it,suffix){
+  if(it.anime) return `<svg viewBox="0 0 200 200" role="img" aria-label="${it.n}" xmlns="http://www.w3.org/2000/svg"><ellipse cx="100" cy="182" rx="52" ry="7" fill="#000" opacity=".28"/>${ANIME_ART[it.anime]('a'+it.i+(suffix||''))}</svg>`;
   const id='p'+it.i+suffix, R=rng(it.i*9973+7), x=it.x, alpha=x.alpha||1, Z=SIZES[it.sz], L=Z.L, WIDE={mallet:.8,double:.86,crescent:.9,wing:.9,bat:.9,scythe:.9,claw:.92,leaf:.92}, HS=Z.hs*(Z.hs>1?(WIDE[it.shape]||1):1);
   const top=48-56*HS, bot=50+L+18, cy=(top+bot)/2;
   const d=SHAPES[it.shape];
