@@ -370,14 +370,14 @@ function bodyGeometry(T,skel,b){
   const P=[], N=[], F=[], SI=[], SW=[], I=[], c=new T.Color(), V=(x,y,z)=>new T.Vector3(x,y,z);
   const K=(bone,p,rx,ry)=>({bone:idx[bone]!=null?idx[bone]:idx.Hips,p,rx,ry});
   // sweeps a tube through the keys; ref is where the ry radius points (the front, or up for feet)
-  function tube(keys,ref,paint,seg=16){
+  function tube(keys,ref,paint,seg=16,capK=1){
     const R=[];
     for(let k=0;k<keys.length-1;k++){ const A=keys[k], B=keys[k+1], n=Math.max(2,Math.ceil(A.p.distanceTo(B.p)/2.5));
       for(let j=0;j<n;j++){ const t=j/n; R.push({p:A.p.clone().lerp(B.p,t),rx:A.rx+(B.rx-A.rx)*t,ry:A.ry+(B.ry-A.ry)*t,k,t}); } }
     const Z=keys[keys.length-1]; R.push({p:Z.p.clone(),rx:Z.rx,ry:Z.ry,k:keys.length-2,t:1});
     R.forEach((r,i)=>{ const a=R[Math.max(0,i-1)].p, z=R[Math.min(R.length-1,i+1)].p; r.d=z.clone().sub(a).normalize(); });
     // round both ends off with shrinking rings
-    const cap=(r,dir)=>{ const out=[]; for(let q=1;q<=4;q++){ const f=q/4, s=Math.cos(f*Math.PI/2)||0.001, m=Math.min(r.rx,r.ry)*Math.sin(f*Math.PI/2);
+    const cap=(r,dir)=>{ const out=[]; for(let q=1;q<=4;q++){ const f=q/4, s=Math.cos(f*Math.PI/2)||0.001, m=Math.min(r.rx,r.ry)*Math.sin(f*Math.PI/2)*capK;
       out.push(Object.assign({},r,{p:r.p.clone().addScaledVector(r.d,dir*m),rx:r.rx*s,ry:r.ry*s})); } return out; };
     const rings=[...cap(R[0],-1).reverse(),...R,...cap(R[R.length-1],1)], base=P.length/3;
     for(const r of rings){
@@ -391,8 +391,9 @@ function bodyGeometry(T,skel,b){
         P.push(p.x,p.y,p.z); N.push(n.x,n.y,n.z);
         for(let q=0;q<4;q++){ SI.push(w[q]?w[q][0]:0); SW.push(w[q]?Math.max(0,w[q][1]):0); } } }
     // quads, wound so they face outward
-    const v=i=>V(P[i*3],P[i*3+1],P[i*3+2]), o=v(base+seg+2).sub(v(base+1)), e=v(base+2).sub(v(base+1)), nn=V(N[(base+1)*3],N[(base+1)*3+1],N[(base+1)*3+2]);
-    const flip=o.cross(e).dot(nn)<0;
+    const v=i=>V(P[i*3],P[i*3+1],P[i*3+2]), nv=i=>V(N[i*3],N[i*3+1],N[i*3+2]);
+    // wind every quad to face outward (checked against its own normals: tubes run in different directions)
+    const R2=Math.floor(rings.length/2), q0=base+R2*(seg+1)+2, flip=v(q0+seg+1).sub(v(q0)).cross(v(q0+1).sub(v(q0))).dot(nv(q0))<0;
     for(let r=0;r<rings.length-1;r++) for(let s=0;s<seg;s++){ const a=base+r*(seg+1)+s, b2=a+seg+1;
       if(flip) I.push(a,a+1,b2, a+1,b2+1,b2); else I.push(a,b2,a+1, a+1,b2,b2+1); }
     // clothes are painted per quad, from its middle, so every hem and cuff is a crisp cel-shaded edge
@@ -402,9 +403,9 @@ function bodyGeometry(T,skel,b){
   }
   const sk=b.skin, top=b.top, FRONT=V(0,1,0), UPV=V(0,0,1), y=n=>at[n]?at[n].y:0;
   // torso and neck
-  tube([K('Hips',V(0,y('Hips')+0.5,90),12.5,9),K('Hips',V(0,y('Hips')+0.5,100),15,10.2),K('Spine',V(0,y('Spine')+0.5,115.6),13.2,9.2),
-        K('Spine1',V(0,y('Spine1')+1,126.7),15,10.2),K('Spine2',V(0,y('Spine2')+1.2,139.3),16.8,11),K('Spine2',V(0,y('Spine2')-0.5,148),17,9.4),
-        K('Neck',V(0,y('Neck'),153.6),5.8,5.6),K('Head',V(0,y('Head'),163),5.2,5)],FRONT,(p,n)=>{
+  tube([K('Hips',V(0,y('Hips')+0.5,97),14,10),K('Hips',V(0,y('Hips')+0.5,103),17.5,12.2),K('Spine',V(0,y('Spine')+1.2,115.6),17,12.8),
+        K('Spine1',V(0,y('Spine1')+1.6,126.7),17.4,12.6),K('Spine2',V(0,y('Spine2')+1.4,139.3),18.4,12.4),K('Spine2',V(0,y('Spine2')-0.5,148),18.6,10.6),
+        K('Neck',V(0,y('Neck'),153.6),6.8,6.6),K('Head',V(0,y('Head'),163),6,5.8)],FRONT,(p,n)=>{
     const z=p.z;
     if(z>151.5) return b.collar||sk;
     if(b.belt&&z>103&&z<108.5) return b.belt;
@@ -413,22 +414,22 @@ function bodyGeometry(T,skel,b){
       if(b.cut==='open'&&f>0.5&&z>110) return b.inner;
       if(b.cut==='v'&&z>130&&f>1-(z-130)/40*0.5) return b.inner;
       if(b.cut==='below'&&z<b.jacketEnd) return b.inner; }
-    return top; },24);
+    return top; },24,0.3); // a flat seat: a round end would hang between the legs
   for(const s of [-1,1]){ const L=s<0?'Left':'Right', x=v=>s*v;
     // legs
-    tube([K(L+'UpLeg',V(x(9.6),0,103),8.4,8.4),K(L+'UpLeg',V(x(9.8),0.5,94),8.4,8.8),K(L+'UpLeg',V(x(9.9),1,76),7.2,7.6),K(L+'Leg',V(x(9.9),1.5,57.5),5.5,5.8),
-          K(L+'Leg',V(x(9.9),0.6,44),5.6,6.4),K(L+'Leg',V(x(9.8),-1.6,21),4,4.2),K(L+'Foot',V(x(9.8),-2.8,13.2),4.2,4.5)],FRONT,p=>{
+    tube([K(L+'UpLeg',V(x(9.4),0,104),10,10.2),K(L+'UpLeg',V(x(9.8),0.5,94),10.4,10.8),K(L+'UpLeg',V(x(9.9),1,76),8.8,9.2),K(L+'Leg',V(x(9.9),1.5,57.5),6.6,6.9),
+          K(L+'Leg',V(x(9.9),0.6,44),7,7.8),K(L+'Leg',V(x(9.8),-1.6,21),4.8,5),K(L+'Foot',V(x(9.8),-2.8,13.2),5,5.3)],FRONT,p=>{
       const z=p.z, st=b.shoeTop||14;
       if(z<st) return b.shoes;
       if(b.legs==='shorts'&&z<72||b.legs==='knee'&&z<52) return b.shin||sk;
       if(b.wrap&&z<46) return b.wrap;
       return b.pants; });
     // feet
-    tube([K(L+'Foot',V(x(9.8),-6.5,7),4.2,5),K(L+'Foot',V(x(10.2),2,5),5,4.4),K(L+'ToeBase',V(x(11.4),12.5,3.3),4.9,3.3),K(L+'ToeBase',V(x(11.8),17.5,3),4,2.5)],UPV,()=>b.shoes,14);
+    tube([K(L+'Foot',V(x(9.8),-6.5,7.4),4.8,5.4),K(L+'Foot',V(x(10.2),2,5.4),5.6,5),K(L+'ToeBase',V(x(11.4),12.5,3.6),5.4,3.6),K(L+'ToeBase',V(x(11.8),17.5,3.2),4.4,2.8)],UPV,()=>b.shoes,14);
     // arms and hands
     const H=at[L+'Hand']||V(x(68),-5.7,147.9), hy=H.y, hz=H.z;
-    tube([K(L+'Shoulder',V(x(8),-5.8,149.5),5.8,5.8),K(L+'Arm',V(x(20.9),hy,hz),5.5,5.6),K(L+'Arm',V(x(32),hy,hz),4.8,4.9),K(L+'ForeArm',V(x(44),hy,hz),4,4.2),
-          K(L+'ForeArm',V(x(54),hy,hz),4.2,4.5),K(L+'ForeArm',V(x(65),hy,hz),3,3.5),K(L+'Hand',V(x(68.1),hy-0.6,hz),2.4,3.9),K(L+'Hand',V(x(76),hy-0.9,hz),2.3,4.7),
+    tube([K(L+'Shoulder',V(x(8),-5.8,149.5),7,7),K(L+'Arm',V(x(20.9),hy,hz),6.8,6.9),K(L+'Arm',V(x(32),hy,hz),6,6.1),K(L+'ForeArm',V(x(44),hy,hz),4.9,5.1),
+          K(L+'ForeArm',V(x(54),hy,hz),5.2,5.5),K(L+'ForeArm',V(x(65),hy,hz),3.7,4.2),K(L+'Hand',V(x(68.1),hy-0.6,hz),2.8,4.3),K(L+'Hand',V(x(76),hy-0.9,hz),2.6,5),
           K(L+'HandMiddle1',V(x(82.6),hy-0.9,hz),1.9,4.5),K(L+'HandMiddle2',V(x(86),hy-0.9,hz),1.6,4.1),K(L+'HandMiddle3',V(x(89.5),hy-0.9,hz),1.2,3.3)],FRONT,p=>{
       const ax=Math.abs(p.x);
       if(ax>66.5) return b.gloves||sk;
@@ -452,6 +453,9 @@ function bodyGeometry(T,skel,b){
 let toonRamp=null;
 function bodyMaterial(T){ if(!toonRamp){ toonRamp=new T.DataTexture(new Uint8Array([40,40,40,255,64,64,64,255,86,86,86,255]),3,1,T.RGBAFormat); toonRamp.minFilter=toonRamp.magFilter=T.NearestFilter; toonRamp.generateMipmaps=false; toonRamp.needsUpdate=true; }
   return new T.MeshToonMaterial({vertexColors:true,gradientMap:toonRamp,skinning:true}); }
+// the ink line round the body: the same mesh drawn inside out and pushed out along its normals
+function bodyOutline(T){ const m=new T.MeshBasicMaterial({color:0x15151a,side:T.BackSide,skinning:true});
+  m.onBeforeCompile=sh=>{ sh.vertexShader=sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n  transformed += normal * 0.6;'); }; return m; }
 
 // ---------------------------------------------------------------- 3D gear
 // anime heads: centre, radius and stretch of the head sphere in the Head bone's frame (big enough to hide the helmet)
@@ -473,15 +477,15 @@ function gear(T,kind,a,mats,opt){
         p.setXYZ(i,x,-t*1.12,(u*2)*(u*2)*0.07*(1-t*0.4)-Math.sin(u*Math.PI*5)*0.022*t-0.01); }
       geo.computeVertexNormals();
       const o=M(geo,L(a[0],{side:T.BackSide,roughness:0.75})), i=M(geo,L(a[1],{side:T.FrontSide,roughness:0.8}));
-      const hinge=G(); hinge.add(o,i); hinge.position.set(0,0.17,SLIM?-0.105:-0.15); hinge.userData.cape='hang'; g.add(hinge);
+      const hinge=G(); hinge.add(o,i); hinge.position.set(0,0.17,SLIM?-0.13:-0.15); hinge.userData.cape='hang'; g.add(hinge);
       if(a[2]==='wings'){ const w=M(new T.PlaneGeometry(0.3,0.3),mats.wings||(mats.wings=new T.MeshStandardMaterial({map:TX('wings',wingsCanvas),transparent:true,alphaTest:0.5,roughness:0.7,polygonOffset:true,polygonOffsetFactor:-4})),0,-0.6,-0.035); w.rotation.y=Math.PI; hinge.add(w); }
-      for(const s of [-1,1]) g.add(M(new T.SphereGeometry(0.032,10,8),L('#d4a43a',{metalness:0.8,roughness:0.3}),s*(SLIM?0.13:0.17),SLIM?0.12:0.19,SLIM?0.06:0.08));
+      for(const s of [-1,1]) g.add(M(new T.SphereGeometry(0.032,10,8),L('#d4a43a',{metalness:0.8,roughness:0.3}),s*(SLIM?0.15:0.17),SLIM?0.12:0.19,SLIM?0.08:0.08));
       out.push(['Spine2',g]); break; }
     case 'emblem': {
       const tex=new T.CanvasTexture(emblemCanvas(a[0],a[1],a[2])); tex.anisotropy=4;
       const mat=new T.MeshStandardMaterial({map:tex,transparent:true,alphaTest:0.5,roughness:0.35,metalness:0.4,polygonOffset:true,polygonOffsetFactor:-4});
       if(a[3]){ mat.emissive=new T.Color(0xffffff); mat.emissiveMap=tex; mat.emissiveIntensity=0.7; }
-      const m=M(new T.PlaneGeometry(SLIM?0.15:0.2,SLIM?0.15:0.2),mat,SLIM?0.07:0,0.07,SLIM?0.128:0.185); m.rotation.x=-0.12; out.push(['Spine2',m]); break; }
+      const m=M(new T.PlaneGeometry(SLIM?0.15:0.2,SLIM?0.15:0.2),mat,SLIM?0.07:0,0.07,SLIM?0.15:0.185); m.rotation.x=-0.12; out.push(['Spine2',m]); break; }
     case 'pauldrons': for(const sd of ['Left','Right']){
       const g=G(), sh=M(new T.SphereGeometry(0.12,14,8,0,Math.PI*2,0,Math.PI*0.45),L(a[0],{metalness:0.5,roughness:0.35}));
       sh.scale.set(1,0.85,1.15); sh.rotation.z=-Math.PI/2; g.add(sh); g.position.set(0.04,0.03,0); out.push([sd+'Arm',g]); } break;
@@ -500,7 +504,7 @@ function gear(T,kind,a,mats,opt){
       const plate=M(new T.BoxGeometry(0.11,0.05,0.012),L(a[1],{metalness:0.8,roughness:0.25}),0,0.13,0.152); g.add(plate);
       for(const s of [-1,1]){ const t=M(new T.BoxGeometry(0.04,0.24,0.008),L(a[0]),s*0.03,0.03,-0.17); t.rotation.set(0.35,0,s*0.25); g.add(t); }
       out.push(['Head',g]); break; }
-    case 'katana': { const g=G(); g.position.set(0,0.0,SLIM?-0.14:-0.2); g.rotation.z=0.75;
+    case 'katana': { const g=G(); g.position.set(0,0.0,SLIM?-0.165:-0.2); g.rotation.z=0.75;
       g.add(M(new T.CylinderGeometry(0.022,0.026,0.82,8),L(a[0],{roughness:0.35,metalness:0.2}),0,-0.12,0));
       g.add(M(new T.CylinderGeometry(0.05,0.05,0.012,12),L('#c9a227',{metalness:0.9,roughness:0.3}),0,0.3,0));
       g.add(M(new T.CylinderGeometry(0.018,0.018,0.24,8),L('#141414',{roughness:0.9}),0,0.43,0));
@@ -580,7 +584,7 @@ function gear(T,kind,a,mats,opt){
     case 'spiderEyes': for(const sx of [-1,1]){ const g=G(), sh=new T.Shape(); sh.moveTo(0,0); sh.quadraticCurveTo(0.06,0.05,0.07,-0.01); sh.quadraticCurveTo(0.04,-0.04,0,0);
       const o=M(new T.ShapeGeometry(sh),L(a[1]),0,0,0); o.scale.set(1.25,1.25,1); g.add(o); const w=M(new T.ShapeGeometry(sh),L(a[0],{emissive:a[0],emissiveIntensity:0.25}),0.006,0,0.002); g.add(w);
       g.scale.x=sx; g.position.set(sx*0.02,0.16,0.158); g.rotation.y=sx*0.35; out.push(['Head',g]); } break;
-    case 'belt': { const g=G(), r=M(new T.TorusGeometry(0.17,0.025,6,28),L(a[0],{metalness:0.6,roughness:0.35}),0,0.05,0); r.rotation.x=Math.PI/2; r.scale.set(1,0.75,1); g.add(r);
+    case 'belt': { const g=G(), r=M(new T.TorusGeometry(SLIM?0.2:0.17,0.025,6,28),L(a[0],{metalness:0.6,roughness:0.35}),0,0.05,0); r.rotation.x=Math.PI/2; r.scale.set(1,0.75,1); g.add(r);
       for(let i=0;i<6;i++){ const an=-1.1+i*0.45, pz=M(new T.BoxGeometry(0.04,0.05,0.03),L(a[0],{metalness:0.6,roughness:0.35}),Math.sin(an)*0.17,0.05,Math.cos(an)*0.13); pz.rotation.y=an; g.add(pz); } out.push(['Hips',g]); break; }
     case 'hood': { const g=G(), m=L(a[0],{side:T.DoubleSide,roughness:0.9}), h=M(new T.SphereGeometry(0.168,16,12,Math.PI*0.7,Math.PI*1.6,0,Math.PI*0.6),m,0,0.115,-0.025); h.scale.set(1.02,1.08,1.08); g.add(h);
       const tip=M(new T.ConeGeometry(0.05,0.16,8),m,0,0.15,-0.18); tip.rotation.x=-2.3; g.add(tip);
@@ -650,27 +654,27 @@ function gear(T,kind,a,mats,opt){
       else { const h=M(new T.BoxGeometry(0.1,0.15,0.11),m,0,0.07,0.01); g.add(h); const c=M(new T.CylinderGeometry(0.062,0.055,0.07,14),m,0,-0.02,0.01); g.add(c); }
       out.push([sd+'Hand',g]); } break;
     case 'boots': for(const sd of ['Left','Right']){ const m=L(a[0],{roughness:0.5}), b=M(new T.CylinderGeometry(0.08,0.075,0.24,14),m,0,0.33,0); out.push([sd+'Leg',b]); } break;
-    case 'sash': { const g=G(), m=L(a[0],{roughness:0.85}), r=M(new T.TorusGeometry(SLIM?0.16:0.17,SLIM?0.025:0.035,8,28),m,0,0.06,0); r.rotation.x=Math.PI/2; r.scale.set(1,SLIM?0.7:0.78,SLIM?1:1.4); g.add(r);
+    case 'sash': { const g=G(), m=L(a[0],{roughness:0.85}), r=M(new T.TorusGeometry(SLIM?0.19:0.17,SLIM?0.025:0.035,8,28),m,0,0.06,0); r.rotation.x=Math.PI/2; r.scale.set(1,SLIM?0.74:0.78,SLIM?1:1.4); g.add(r);
       const t=M(new T.BoxGeometry(0.07,0.2,0.015),m,0.1,-0.04,0.12); t.rotation.z=0.25; g.add(t); out.push(['Hips',g]); break; }
-    case 'collar': { const m=SLIM?M(new T.CylinderGeometry(0.078,0.088,0.11,20,1,true),L(a[0],{side:T.DoubleSide,roughness:0.7}),0,0.05,0.0):M(new T.CylinderGeometry(0.135,0.15,0.16,20,1,true),L(a[0],{side:T.DoubleSide,roughness:0.7}),0,0.06,0.02); out.push(['Neck',m]); break; }
+    case 'collar': { const m=SLIM?M(new T.CylinderGeometry(0.09,0.1,0.11,20,1,true),L(a[0],{side:T.DoubleSide,roughness:0.7}),0,0.05,0.0):M(new T.CylinderGeometry(0.135,0.15,0.16,20,1,true),L(a[0],{side:T.DoubleSide,roughness:0.7}),0,0.06,0.02); out.push(['Neck',m]); break; }
     case 'haori': { // [check A, check B] a short open coat over the torso, checked green and black
       const tex=TX('check'+a[0]+a[1],()=>checkCanvas(a[0],a[1])); tex.wrapS=tex.wrapT=T.RepeatWrapping; tex.repeat.set(4,2);
       const mat=mats['haori'+a[0]+a[1]]||(mats['haori'+a[0]+a[1]]=new T.MeshStandardMaterial({map:tex,roughness:0.85,side:T.DoubleSide}));
-      const coat=M(new T.CylinderGeometry(0.2,0.29,0.62,20,1,true,Math.PI*0.14,Math.PI*1.72),mat,0,-0.2,-0.01); coat.scale.z=0.82; out.push(['Spine2',coat]);
+      const coat=M(new T.CylinderGeometry(SLIM?0.22:0.2,SLIM?0.3:0.29,0.62,20,1,true,Math.PI*0.14,Math.PI*1.72),mat,0,-0.2,-0.01); coat.scale.z=0.82; out.push(['Spine2',coat]);
       for(const sd of ['Left','Right']){ const sl=M(new T.CylinderGeometry(0.075,0.1,0.26,12,1,true),mat,0,0.13,0); out.push([sd+'Arm',sl]); } break; }
     case 'earrings': { const mat=mats.hanafuda||(mats.hanafuda=new T.MeshStandardMaterial({map:TX('hanafuda',hanafudaCanvas),roughness:0.5,side:T.DoubleSide}));
       for(const s of [-1,1]){ const c=M(new T.PlaneGeometry(0.035,0.055),mat,HC[0]+s*HR*HS[0]*1.0,HC[1]-0.07,HC[2]-0.01); c.rotation.y=s*Math.PI/2; out.push(['Head',c]); } break; }
     case 'tie': { const g=G(), m=L(a[0],{roughness:0.5}), w=L('#f4f2ec',{roughness:0.7});
       const sh=new T.Shape(); sh.moveTo(-0.02,0); sh.lineTo(0.02,0); sh.lineTo(0.032,-0.24); sh.lineTo(0,-0.28); sh.lineTo(-0.032,-0.24); sh.closePath();
-      const F=SLIM?0.122:0.19, Y=SLIM?0.16:0.2; const t=M(new T.ExtrudeGeometry(sh,{depth:0.008,bevelEnabled:false}),m,0,Y,F); t.rotation.x=-0.12; g.add(t);
+      const F=SLIM?0.146:0.19, Y=SLIM?0.16:0.2; const t=M(new T.ExtrudeGeometry(sh,{depth:0.008,bevelEnabled:false}),m,0,Y,F); t.rotation.x=-0.12; g.add(t);
       const k=M(new T.BoxGeometry(0.04,0.035,0.02),m,0,Y+0.005,F); g.add(k);
       if(!SLIM) for(const s of [-1,1]){ const c=M(new T.BoxGeometry(0.06,0.05,0.01),w,s*0.035,0.22,0.185); c.rotation.z=s*0.6; g.add(c); }
       out.push(['Spine2',g]); break; }
     case 'book': { const cover=mats.note||(mats.note=new T.MeshStandardMaterial({map:TX('note',noteCanvas),roughness:0.6})), dark=L('#121214',{roughness:0.6}), page=L('#ece6d6');
-      const b=M(new T.BoxGeometry(0.03,0.2,0.14),[dark,dark,page,page,cover,dark],SLIM?0.185:0.2,-0.02,0.02); b.rotation.set(0,Math.PI/2,0.1); out.push(['Hips',b]); break; }
+      const b=M(new T.BoxGeometry(0.03,0.2,0.14),[dark,dark,page,page,cover,dark],SLIM?0.215:0.2,-0.02,0.02); b.rotation.set(0,Math.PI/2,0.1); out.push(['Hips',b]); break; }
     case 'odm': { // [steel, strap] the maneuver gear's blade boxes on the hips (the gas tanks hide under the cloak)
       const st=L(a[0],{metalness:0.8,roughness:0.3}), dk=L(a[1],{roughness:0.7}), g=G();
-      const X=SLIM?0.2:0.25; for(const s of [-1,1]){ const bx=M(new T.BoxGeometry(0.07,0.12,0.36),st,s*X,-0.1,-0.02); bx.rotation.x=-0.25; g.add(bx);
+      const X=SLIM?0.23:0.25; for(const s of [-1,1]){ const bx=M(new T.BoxGeometry(0.07,0.12,0.36),st,s*X,-0.1,-0.02); bx.rotation.x=-0.25; g.add(bx);
         const hd=M(new T.BoxGeometry(0.05,0.06,0.08),dk,s*X,-0.04,0.18); g.add(hd); }
       out.push(['Hips',g]); break; }
     case 'tail': { const g=G(); for(let i=0;i<6;i++){ const r=0.06+Math.sin(i/5*Math.PI)*0.05; g.add(M(new T.SphereGeometry(r,10,8),L(i>3?a[1]:a[0],{roughness:0.9}),0,-i*0.07,-i*0.06-0.02)); }
@@ -679,5 +683,5 @@ function gear(T,kind,a,mats,opt){
   return out;
 }
 
-window.SKINS={THEMES,ITEMS,paint,gear,emblemCanvas,bodyGeometry,bodyMaterial,RAR_N:['Common','Uncommon','Rare','Epic','Legendary']};
+window.SKINS={THEMES,ITEMS,paint,gear,emblemCanvas,bodyGeometry,bodyMaterial,bodyOutline,RAR_N:['Common','Uncommon','Rare','Epic','Legendary']};
 })();
