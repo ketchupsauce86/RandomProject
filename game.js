@@ -2,7 +2,7 @@
   // src/game.ts
   (function() {
     "use strict";
-    const $ = (id) => document.getElementById(id);
+    const $ = (id) => document.getElementById(id), $q = (sel) => document.querySelector(sel);
     window.addEventListener("error", (e) => {
       const el = $("err");
       if (el) el.textContent = "Something broke: " + e.message;
@@ -709,6 +709,10 @@
     };
     const PICK_NOTES = [784, 988, 1175, 1568, 1976];
     const SFX = {
+      tick: (v) => {
+        tn(v, { type: "triangle", f: 1900, f1: 1500, dur: 0.03, g: 0.1 });
+      },
+      // the locker rail clicking past a card
       swing: (v) => {
         nz(v, { type: "bandpass", f: 500, f1: 2600, q: 1.2, dur: 0.17, g: 0.55, a: 0.04 });
       },
@@ -958,7 +962,7 @@
       defeat: { wet: 0.3 },
       land: { wet: 0.03 }
     };
-    const SFX_GAP = { zapB: 0.03, crackle: 0.05, clink: 0.03, impact: 0.03, whiz: 0.08, hit: 0.035, head: 0.035, shield: 0.035, step: 0.02 };
+    const SFX_GAP = { tick: 0.035, zapB: 0.03, crackle: 0.05, clink: 0.03, impact: 0.03, whiz: 0.08, hit: 0.035, head: 0.035, shield: 0.035, step: 0.02 };
     function sfx(kind, pos, o) {
       if (!AC || !bus) return;
       o = o || {};
@@ -3015,74 +3019,286 @@
     }
     const ARM_IDS = ["ar", "smg", "pump", "pistol", "sniper"], ARM_Y = 420;
     let armIdx = 0, armGroup = null, armGuns = [];
-    function buildArmory() {
-      if (armMode === "picks" && PX) return buildPickStand();
-      if (armMode === "skins" && SK) return buildSkinStand();
-      if (armGroup) scene.remove(armGroup);
-      armGroup = new T.Group();
-      armGroup.position.set(0, ARM_Y, 0);
+    const LK = { stage: null, item: null, orbit: null, idle: 0, kind: "", n: 0, center: -1, shown: -1, step: 128, vx: 0, lx: 0, lt: 0, drag: null, swapT: 0, thumbs: /* @__PURE__ */ new Map(), thumbBusy: 0, wheelT: 0, ring: null, glow: null, rim: null };
+    const GS = window.gsap || null, calmUI = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    function lkRadial(inner, outer) {
+      const cv = document.createElement("canvas");
+      cv.width = cv.height = 128;
+      const x = cv.getContext("2d"), g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+      g.addColorStop(0, inner);
+      g.addColorStop(1, outer);
+      x.fillStyle = g;
+      x.fillRect(0, 0, 128, 128);
+      return new T.CanvasTexture(cv);
+    }
+    function lkStage() {
+      if (LK.stage) return LK.stage;
+      const st = new T.Group();
+      const dome = new T.Mesh(new T.SphereGeometry(40, 32, 16), new T.ShaderMaterial({
+        side: T.BackSide,
+        depthWrite: false,
+        fog: false,
+        vertexShader: "varying vec3 p;void main(){p=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}",
+        fragmentShader: "varying vec3 p;void main(){float h=p.y*0.5+0.5;vec3 c=mix(vec3(0.03,0.02,0.09),vec3(0.19,0.09,0.4),smoothstep(0.3,0.5,h));c=mix(c,vec3(0.06,0.03,0.17),smoothstep(0.52,0.95,h));c+=vec3(0.36,0.94,1.0)*0.16*exp(-pow((h-0.49)*28.0,2.0));gl_FragColor=vec4(c,1.0);}"
+      }));
+      dome.position.y = 1;
+      dome.renderOrder = -1;
+      st.add(dome);
+      const cv = document.createElement("canvas");
+      cv.width = cv.height = 512;
+      const x = cv.getContext("2d");
+      x.strokeStyle = "rgba(140,120,255,0.55)";
+      x.lineWidth = 1.2;
+      for (let i = 0; i <= 512; i += 32) {
+        x.beginPath();
+        x.moveTo(i, 0);
+        x.lineTo(i, 512);
+        x.moveTo(0, i);
+        x.lineTo(512, i);
+        x.stroke();
+      }
+      x.globalCompositeOperation = "destination-in";
+      const fg = x.createRadialGradient(256, 256, 0, 256, 256, 256);
+      fg.addColorStop(0, "rgba(0,0,0,0.9)");
+      fg.addColorStop(1, "rgba(0,0,0,0)");
+      x.fillStyle = fg;
+      x.fillRect(0, 0, 512, 512);
+      const floor = new T.Mesh(new T.PlaneGeometry(24, 24), new T.MeshBasicMaterial({ map: new T.CanvasTexture(cv), transparent: true, depthWrite: false, fog: false }));
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.y = -0.15;
+      st.add(floor);
+      const ped = new T.Mesh(new T.CylinderGeometry(0.85, 0.95, 0.14, 48), new T.MeshPhongMaterial({ color: 1380400, shininess: 70, specular: 4207994 }));
+      ped.position.y = -0.075;
+      st.add(ped);
+      const ring = new T.Mesh(new T.TorusGeometry(0.9, 0.02, 8, 80), new T.MeshBasicMaterial({ color: 6091007, fog: false }));
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = -4e-3;
+      st.add(ring);
+      const glow = new T.Mesh(new T.PlaneGeometry(4.2, 4.2), new T.MeshBasicMaterial({ map: lkRadial("rgba(255,255,255,0.75)", "rgba(255,255,255,0)"), color: 6091007, transparent: true, depthWrite: false, blending: T.AdditiveBlending, fog: false }));
+      glow.rotation.x = -Math.PI / 2;
+      glow.position.y = -0.148;
+      st.add(glow);
+      const blob = new T.Mesh(new T.PlaneGeometry(1.3, 1.3), new T.MeshBasicMaterial({ map: lkRadial("rgba(0,0,0,0.6)", "rgba(0,0,0,0)"), transparent: true, depthWrite: false, fog: false }));
+      blob.rotation.x = -Math.PI / 2;
+      blob.position.y = 2e-3;
+      st.add(blob);
+      const hemi2 = new T.HemisphereLight(14209279, 2758736, 0.55), key = new T.DirectionalLight(16774374, 0.85), rim = new T.DirectionalLight(6091007, 0.9);
+      key.position.set(2.5, 4, 5);
+      rim.position.set(-3, 2.5, -4);
+      st.add(hemi2, key, key.target, rim, rim.target);
+      Object.assign(LK, { stage: st, ring, glow, rim, blob, ped });
+      return st;
+    }
+    function lkTint(col) {
+      const c = new T.Color(col);
+      LK.ring.material.color.copy(c);
+      LK.glow.material.color.copy(c);
+      LK.rim.color.copy(c).lerp(new T.Color(16777215), 0.3);
+    }
+    function lkOrbit() {
+      if (LK.orbit || !T.OrbitControls) return LK.orbit;
+      const o = new T.OrbitControls(camera, canvas);
+      Object.assign(o, { enableDamping: true, dampingFactor: 0.08, enablePan: false, rotateSpeed: 0.75, zoomSpeed: 0.8, autoRotate: true, autoRotateSpeed: 1.3, enabled: false });
+      o.addEventListener("start", () => {
+        LK.idle = 0;
+        o.autoRotate = false;
+      });
+      o.addEventListener("end", () => {
+        LK.idle = 1e-3;
+      });
+      canvas.addEventListener("dblclick", () => {
+        if (state === "armory") lkFrame(true);
+      });
+      LK.orbit = o;
+      return o;
+    }
+    function lkView() {
+      if (armMode === "guns") return { t: [0, 1, 0], d: Math.max(6.5, (ARM_IDS[armIdx] === "sniper" ? 13 : 10.5) / camera.aspect), h: 0.6, min: 3, max: 16, az: 1, spin: false };
+      if (armMode === "picks") return { t: [0, 1.15, 0], d: Math.max(5, 6 / camera.aspect), h: 0.35, min: 2, max: 9, az: Infinity, spin: true };
+      return { t: [0, 0.9, 0], d: Math.max(5.4, 6.6 / camera.aspect), h: 0.5, min: 1.3, max: 8, az: Infinity, spin: true };
+    }
+    function lkFrame(anim) {
+      const v = lkView(), o = lkOrbit(), tg = new V(v.t[0], ARM_Y + v.t[1], v.t[2]), to = new V(tg.x, tg.y + v.h, tg.z + v.d);
+      if (camera.fov !== 40) {
+        camera.fov = 40;
+        camera.updateProjectionMatrix();
+      }
+      lkOffset();
+      if (!o) {
+        camera.position.copy(to);
+        camera.lookAt(tg);
+        return;
+      }
+      Object.assign(o, { minDistance: v.min, maxDistance: v.max, minAzimuthAngle: -v.az, maxAzimuthAngle: v.az, minPolarAngle: 0.25, maxPolarAngle: 1.72, autoRotate: v.spin });
+      LK.idle = 0;
+      if (anim && GS && !calmUI) {
+        GS.to(o.target, { x: tg.x, y: tg.y, z: tg.z, duration: 0.7, ease: "power3.inOut" });
+        GS.to(camera.position, { x: to.x, y: to.y, z: to.z, duration: 0.7, ease: "power3.inOut" });
+      } else {
+        o.target.copy(tg);
+        camera.position.copy(to);
+        o.update();
+      }
+    }
+    function lkOffset() {
+      const r = $("armRail"), h = r ? r.offsetHeight : 0, W = innerWidth, H = innerHeight;
+      if (h) camera.setViewOffset(W, H, 0, h * 0.5, W, H);
+      else camera.clearViewOffset();
+    }
+    function lkDispose(obj) {
+      if (obj.userData.px) disposeObj(obj);
+      const c = obj.userData.ch;
+      if (c) for (const o of c.gear || []) o.traverse((m) => {
+        if (m.isMesh && !m.geometry.userData.keep) m.geometry.dispose();
+      });
+    }
+    function lkPut(obj, dir) {
+      const old = LK.item;
+      LK.item = obj;
+      armGroup.add(obj);
+      if (old) {
+        if (GS && !calmUI && dir) {
+          GS.killTweensOf(old.position);
+          GS.to(old.position, { x: -dir * 2.6, duration: 0.35, ease: "power2.in" });
+          GS.to(old.scale, { x: 0.5, y: 0.5, z: 0.5, duration: 0.35, ease: "power2.in", onComplete: () => {
+            armGroup && armGroup.remove(old);
+            lkDispose(old);
+            skShown = skShown.filter((c) => c.g !== old.userData.chG);
+          } });
+        } else {
+          armGroup.remove(old);
+          lkDispose(old);
+          skShown = skShown.filter((c) => c.g !== old.userData.chG);
+        }
+      }
+      if (GS && !calmUI && dir) {
+        const s = obj.scale.x;
+        obj.position.x = dir * 2.6;
+        obj.scale.setScalar(s * 0.5);
+        GS.to(obj.position, { x: 0, duration: 0.55, ease: "power3.out" });
+        GS.to(obj.scale, { x: s, y: s, z: s, duration: 0.55, ease: "back.out(1.6)" });
+      }
+    }
+    function buildArmory(dir) {
+      if (!armGroup) {
+        armGroup = new T.Group();
+        armGroup.position.set(0, ARM_Y, 0);
+        armGroup.add(lkStage());
+        scene.add(armGroup);
+      }
+      if (armMode === "picks" && PX) return buildPickStand(dir);
+      if (armMode === "skins" && SK) return buildSkinStand(dir);
+      const holder = new T.Group();
       armGuns = [];
       const id = ARM_IDS[armIdx];
       for (let r = 0; r < 5; r++) {
-        const holder = new T.Group();
-        holder.position.x = (r - 2) * (id === "sniper" ? 2.15 : 1.65);
+        const h = new T.Group();
+        h.position.set((r - 2) * (id === "sniper" ? 2.15 : 1.65), 1, 0);
         const gm = makeGunModel(id, r);
         gm.scale.setScalar(id === "pistol" ? 2 : id === "sniper" ? 1.05 : 1.3);
-        holder.add(gm);
+        h.add(gm);
         const halo = new T.Sprite(auraMats(RAR[r].c).halo);
         halo.scale.setScalar(1.6 + r * 0.25);
         halo.position.z = -0.6;
-        holder.add(halo);
-        armGroup.add(holder);
-        armGuns.push(holder);
+        h.add(halo);
+        holder.add(h);
+        armGuns.push(h);
       }
-      scene.add(armGroup);
+      LK.ped.visible = LK.ring.visible = LK.blob.visible = false;
+      lkTint("#5cf0ff");
+      lkPut(holder, dir || 0);
+      lkFrame(true);
       const w = WEAP[id];
-      $("armName").textContent = w.name;
-      $("armName").style.color = "";
-      $("armKick").textContent = "Armory";
+      lkInfo(w.name, "Armory \xB7 " + (armIdx + 1) + " of 5", null, `Damage ${w.dmg * w.pellets > w.dmg ? w.dmg + " \xD7 " + w.pellets : w.dmg} \xB7 ${w.auto ? "Full auto" : "Single shot"}`);
+      $("armLabels").innerHTML = RAR.map((r) => `<span style="color:${r.c}">${r.n}</span>`).join("");
+    }
+    function lkInfo(name, kick, rar, stats) {
+      $("armName").textContent = name;
+      $("armKick").textContent = kick;
+      $("armStats").textContent = stats || "";
       $("armNote").textContent = "";
       $("armPower").hidden = true;
-      $("armStats").textContent = `Damage ${w.dmg * w.pellets > w.dmg ? w.dmg + " \xD7 " + w.pellets : w.dmg} \xB7 ${w.auto ? "Full auto" : "Single shot"}`;
-      $("armLabels").innerHTML = RAR.map((r) => `<span style="color:${r.c}">${r.n}</span>`).join("");
+      const rb = $("armRar");
+      rb.hidden = !rar;
+      if (rar) {
+        rb.textContent = rar.n;
+      }
+      $q(".lk-info").style.setProperty("--rc", rar ? rar.c : "#5cf0ff");
     }
     function openArmory() {
       state = "armory";
       if (world) world.visible = false;
-      $("menu").hidden = true;
-      $("armory").hidden = false;
-      buildArmory();
-      $("armNext").focus();
+      scene.fog.far = 1e5;
+      const o = lkOrbit();
+      if (o) o.enabled = true;
+      if (GS && !calmUI) {
+        $("armory").hidden = false;
+        GS.fromTo("#armory .lk-top, #armory #armSets", { y: -24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out", stagger: 0.06 });
+        GS.fromTo("#armory .lk-info", { x: -40, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: "power3.out", delay: 0.1 });
+        GS.fromTo("#armRail", { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out", delay: 0.12 });
+        GS.to("#menu", { opacity: 0, duration: 0.2, onComplete: () => {
+          $("menu").hidden = true;
+          GS.set("#menu", { opacity: 1 });
+        } });
+      } else {
+        $("menu").hidden = true;
+        $("armory").hidden = false;
+      }
     }
     function closeArmory() {
       state = "menu";
       if (world) world.visible = true;
+      scene.fog.far = 330;
+      const o = LK.orbit;
+      if (o) o.enabled = false;
+      camera.clearViewOffset();
       $("armory").hidden = true;
       $("menu").hidden = false;
+      if (GS && !calmUI) GS.fromTo("#menu", { opacity: 0 }, { opacity: 1, duration: 0.35 });
       if (armGroup) {
+        if (LK.item) {
+          lkDispose(LK.item);
+          LK.item = null;
+        }
         scene.remove(armGroup);
+        armGroup.remove(LK.stage);
         armGroup = null;
       }
-      $("armoryBtn").focus();
+      skShown = [];
+      LK.shown = -1;
+      LK.center = -1;
+      $("armLabels").innerHTML = "";
+      $("lockerBtn").focus();
+      showPickNote();
     }
     function updateArmory(dt) {
       dt = dt || 1 / 60;
       const t = performance.now() / 1e3;
-      if (armMode === "picks" && PX) return updatePickStand(t);
-      if (armMode === "skins" && SK) return updateSkinStand(t, dt);
-      armGuns.forEach((h, i) => {
+      if (armGroup && armGroup.userData.dist) return updateLineup(t, dt);
+      if (armMode === "picks" && PX) updatePickStand(t);
+      else if (armMode === "skins" && SK) updateSkinStand(t, dt);
+      else armGuns.forEach((h, i) => {
         h.rotation.y = Math.PI / 2 + Math.sin(t * 0.8 + i * 0.5) * 0.55;
-        h.position.y = Math.sin(t * 1.6 + i) * 0.06;
+        h.position.y = 1 + Math.sin(t * 1.6 + i) * 0.06;
       });
-      const dist = Math.max(6, (ARM_IDS[armIdx] === "sniper" ? 13 : 10.5) / camera.aspect);
-      camera.position.set(0, ARM_Y + 0.2, dist);
-      camera.lookAt(0, ARM_Y, 0);
-      if (camera.fov !== 50) {
-        camera.fov = 50;
-        camera.updateProjectionMatrix();
-      }
+      if (LK.ring) LK.ring.material.opacity = 1, LK.glow.material.opacity = 0.75 + 0.25 * Math.sin(t * 2.2);
+      const o = LK.orbit;
+      if (o) {
+        if (LK.idle > 0) {
+          LK.idle += dt;
+          if (LK.idle > 3 && lkView().spin) {
+            o.autoRotate = true;
+            LK.idle = 0;
+          }
+        }
+        if (armMode === "skins") {
+          const d = camera.position.distanceTo(o.target), y = ARM_Y + lerp(1.5, 0.95, smooth(1.4, 4, d));
+          o.target.y += (y - o.target.y) * Math.min(1, dt * 6);
+        }
+        o.update();
+      } else lkFrame(false);
       const labels = $("armLabels").children;
-      armGuns.forEach((h, i) => {
+      if (armMode === "guns") armGuns.forEach((h, i) => {
         h.getWorldPosition(tv1);
         tv1.y -= 0.75;
         tv1.project(camera);
@@ -3092,6 +3308,7 @@
           el.style.top = (1 - tv1.y) / 2 * innerHeight + "px";
         }
       });
+      if (armMode === "skins") lkThumbTick();
     }
     const PX = window.PICKAXES || null;
     const PX_TRAIL = { embers: 16747039, snow: 16777215, bubbles: 12578815, bats: 10181887, sparkles: 16777215, stars: 16769658, spray: 16727972, bolts: 16773754, coins: 16765503, leaves: 5493099, ash: 10132130, wisps: 13172718 };
@@ -3260,49 +3477,257 @@
       }
       return m;
     }
-    function buildPickStand() {
-      if (armGroup) scene.remove(armGroup);
-      armGroup = new T.Group();
-      armGroup.position.set(0, ARM_Y, 0);
-      armGuns = [];
-      pxShown = [];
-      const N = PX.ITEMS.length;
-      for (const o of [-1, 1, 0]) {
-        const h = new T.Group();
-        h.add(pickModel((pxIdx + o + N) % N));
-        h.position.set(o * 4.3, 0, o ? -1.5 : 0);
-        h.scale.setScalar(o ? 0.55 : 1);
-        h.userData.o = o;
-        armGroup.add(h);
-        pxShown.push(h);
-      }
-      scene.add(armGroup);
+    function buildPickStand(dir) {
       const it = PX.ITEMS[pxIdx], r = RAR[it.rar], Z = PX.SIZES[it.sz];
-      $("armKick").textContent = `${it.set.n} set \xB7 ${pxIdx + 1} of ${N}`;
-      $("armName").textContent = it.n;
-      $("armName").style.color = r.c;
+      const h = new T.Group(), m = makePickaxe3D(it);
+      h.userData.px = true;
+      h.add(m);
+      h.position.y = 1.15;
+      h.scale.setScalar(0.55);
+      pxShown = [h];
+      LK.ped.visible = LK.ring.visible = LK.blob.visible = true;
+      lkTint(r.c);
+      lkPut(h, dir || 0);
+      if (LK.kind !== "picks" || dir == null) lkFrame(true);
+      lkInfo(it.n, `${it.set.n} set \xB7 ${pxIdx + 1} of ${PX.ITEMS.length}`, r, `${Z.n} size`);
       $("armLabels").innerHTML = "";
-      $("armPower").hidden = true;
-      $("armStats").textContent = `${r.n} \xB7 ${Z.n} size`;
       showEquip();
-      $("armNote").textContent = "";
       [...$("armSets").children].forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.s === it.set.id)));
     }
     function updatePickStand(t) {
       for (const h of pxShown) {
-        const o = h.userData.o;
-        h.rotation.y = o ? Math.sin(t * 0.7 + o) * 0.5 : t * 0.9;
-        h.position.y = Math.sin(t * 1.5 + o) * 0.08;
+        h.position.y = 1.15 + Math.sin(t * 1.5) * 0.06;
         const tr = h.children[0] && h.children[0].userData.trail;
         if (tr) tr.rotation.y = t * 0.8;
       }
-      const dist = Math.max(7.5, 11 / camera.aspect);
-      camera.position.set(0, ARM_Y + 0.3, dist);
-      camera.lookAt(0, ARM_Y, 0);
-      if (camera.fov !== 50) {
-        camera.fov = 50;
-        camera.updateProjectionMatrix();
+    }
+    function lkCards() {
+      const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+      const card = (i, col, name, art) => `<button class="lk-card" role="option" aria-selected="false" data-i="${i}" style="--rc:${col}" aria-label="${esc(name)}">${art}<span class="nm">${esc(name)}</span></button>`;
+      if (armMode === "skins") return SK.ITEMS.map((it, i) => card(i, RAR[it.r].c, it.n, '<span class="ph"></span><canvas width="160" height="200" hidden></canvas>'));
+      if (armMode === "picks") return PX.ITEMS.map((it, i) => card(i, RAR[it.rar].c, it.n, `<span class="art">${PX.pickSVG(it, "lk" + i)}</span>`));
+      return ARM_IDS.map((id, i) => card(i, WEAP[id].col || "#5cf0ff", WEAP[id].name, `<span class="art gun">${ICONS[id]}</span>`));
+    }
+    function lkIdx() {
+      return armMode === "skins" ? skIdx : armMode === "picks" ? pxIdx : armIdx;
+    }
+    function lkRail() {
+      const tr = $("armTrack");
+      LK.kind = armMode;
+      tr.innerHTML = lkCards().join("");
+      LK.n = tr.children.length;
+      LK.center = -1;
+      if (armMode === "skins") for (const [i, cv] of LK.thumbs) lkPaint(i, cv);
+      lkMeasure();
+      lkSetX(lkX(lkIdx()));
+      lkMoved();
+      lkMarkEq();
+    }
+    function lkMeasure() {
+      const c = $("armTrack").children;
+      LK.step = c.length > 1 ? c[1].offsetLeft - c[0].offsetLeft : 128;
+      LK.cw = c[0] ? c[0].offsetWidth : 116;
+      if (LK.drag) LK.drag.applyBounds({ minX: lkX(LK.n - 1) - LK.step * 0.6, maxX: lkX(0) + LK.step * 0.6 });
+    }
+    function lkX(i) {
+      return $("armRail").clientWidth / 2 - (i * LK.step + LK.cw / 2);
+    }
+    function lkGetX() {
+      return GS ? +GS.getProperty("#armTrack", "x") : LK.x || 0;
+    }
+    function lkSetX(x) {
+      LK.x = x;
+      if (GS) GS.set("#armTrack", { x });
+      else $("armTrack").style.transform = `translateX(${x}px)`;
+      if (LK.drag) LK.drag.update();
+    }
+    function lkAt(x) {
+      return clamp(Math.round(($("armRail").clientWidth / 2 - LK.cw / 2 - x) / LK.step), 0, LK.n - 1);
+    }
+    function lkMoved() {
+      const c = lkAt(lkGetX());
+      if (c === LK.center) return;
+      const cards = $("armTrack").children, prev = cards[LK.center];
+      if (prev) {
+        prev.classList.remove("on");
+        prev.setAttribute("aria-selected", "false");
       }
+      LK.center = c;
+      const el = cards[c];
+      if (el) {
+        el.classList.add("on");
+        el.setAttribute("aria-selected", "true");
+      }
+      if (LK.shown !== c && LK.shown >= 0) sfx("tick", null, {});
+      clearTimeout(LK.swapT);
+      LK.swapT = setTimeout(() => lkSelect(c), 160);
+    }
+    function lkSelect(i) {
+      if (i === lkIdx() && LK.shown === i && LK.item) return;
+      const d = Math.sign(i - lkIdx()) || 1;
+      LK.shown = i;
+      if (armMode === "skins") skIdx = i;
+      else if (armMode === "picks") pxIdx = i;
+      else armIdx = i;
+      buildArmory(LK.item ? d : 0);
+    }
+    function lkGo(i, dur) {
+      i = clamp(i, 0, LK.n - 1);
+      const tr = $("armTrack");
+      if (GS) {
+        GS.killTweensOf(tr);
+        GS.to(tr, { x: lkX(i), duration: dur == null ? 0.5 : dur, ease: "power3.out", onUpdate: () => {
+          if (LK.drag) LK.drag.update();
+          lkMoved();
+        }, onComplete: () => {
+          clearTimeout(LK.swapT);
+          lkSelect(i);
+        } });
+      } else {
+        lkSetX(lkX(i));
+        lkMoved();
+        clearTimeout(LK.swapT);
+        lkSelect(i);
+      }
+    }
+    function lkMarkEq() {
+      const cards = $("armTrack").children;
+      let e = -1;
+      if (armMode === "skins") {
+        const s = equippedSkin();
+        e = s ? s.i : -1;
+      } else if (armMode === "picks") {
+        const p = equippedPick();
+        e = p ? p.i : -1;
+      }
+      for (let i = 0; i < cards.length; i++) cards[i].classList.toggle("eq", i === e);
+    }
+    function lkInitRail() {
+      const rail = $("armRail"), tr = $("armTrack"), D2 = window.Draggable;
+      if (GS && D2) {
+        GS.registerPlugin(D2);
+        LK.drag = D2.create(tr, {
+          type: "x",
+          trigger: rail,
+          edgeResistance: 0.8,
+          minimumMovement: 5,
+          dragClickables: true,
+          allowContextMenu: true,
+          onPress() {
+            GS.killTweensOf(tr);
+            LK.vx = 0;
+            LK.lt = performance.now();
+            LK.lx = this.x;
+          },
+          onDrag() {
+            const now = performance.now(), ms = Math.max(1, now - LK.lt);
+            LK.vx = lerp(LK.vx, (this.x - LK.lx) / ms * 1e3, 0.4);
+            LK.lt = now;
+            LK.lx = this.x;
+            lkMoved();
+          },
+          onDragEnd() {
+            if (performance.now() - LK.lt > 90) LK.vx = 0;
+            const land = this.x + clamp(LK.vx, -5e3, 5e3) * 0.45;
+            const i = lkAt(land), dist = Math.abs(lkX(i) - this.x);
+            lkGo(i, clamp(0.35 + dist / 2400, 0.35, 1.1));
+          },
+          onClick(e) {
+            const c = e.target.closest && e.target.closest(".lk-card");
+            if (c) lkGo(+c.dataset.i);
+          }
+        })[0];
+        const sets = $("armSets");
+        D2.create(sets, { type: "scrollLeft", dragClickables: true, minimumMovement: 6, allowContextMenu: true });
+      } else tr.addEventListener("click", (e) => {
+        const c = e.target.closest(".lk-card");
+        if (c) lkGo(+c.dataset.i);
+      });
+      rail.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        const now = performance.now();
+        if (now - LK.wheelT < 110) return;
+        const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+        if (Math.abs(d) < 4) return;
+        LK.wheelT = now;
+        lkGo(LK.center + (d > 0 ? 1 : -1), 0.35);
+      }, { passive: false });
+      addEventListener("resize", () => {
+        if (state === "armory") {
+          lkMeasure();
+          lkSetX(lkX(LK.center));
+          lkFrame(false);
+        }
+      });
+    }
+    let TH = null;
+    function lkThumb(i) {
+      if (!TH) {
+        const W = 160, H = 200, sc = new T.Scene();
+        sc.add(new T.HemisphereLight(15789311, 4864128, 1.05));
+        const k = new T.DirectionalLight(16774374, 1.1);
+        k.position.set(2, 3, 5);
+        const r = new T.DirectionalLight(10479871, 0.8);
+        r.position.set(-3, 2, -4);
+        sc.add(k, r);
+        const cam = new T.PerspectiveCamera(22, W / H, 0.1, 40);
+        cam.position.set(0, 1, 5.9);
+        cam.lookAt(0, 0.9, 0);
+        TH = { W, H, sc, cam, rt: new T.WebGLRenderTarget(W, H), px: new Uint8Array(W * H * 4) };
+      }
+      const c = standChar(SK.ITEMS[i]);
+      c.g.rotation.y = Math.PI - 0.35;
+      c.mixer.update(0.35);
+      swayGear({ onGround: true, walkT: 0 }, c, 0, 1 / 60);
+      TH.sc.add(c.g);
+      c.g.updateMatrixWorld(true);
+      const cc = new T.Color();
+      renderer.getClearColor(cc);
+      const ca = renderer.getClearAlpha();
+      renderer.setRenderTarget(TH.rt);
+      renderer.setClearColor(0, 0);
+      renderer.clear();
+      renderer.render(TH.sc, TH.cam);
+      renderer.readRenderTargetPixels(TH.rt, 0, 0, TH.W, TH.H, TH.px);
+      renderer.setRenderTarget(null);
+      renderer.setClearColor(cc, ca);
+      TH.sc.remove(c.g);
+      for (const o of c.gear || []) o.traverse((m) => {
+        if (m.isMesh && !m.geometry.userData.keep) m.geometry.dispose();
+      });
+      const cv = document.createElement("canvas");
+      cv.width = TH.W;
+      cv.height = TH.H;
+      const x = cv.getContext("2d"), im = x.createImageData(TH.W, TH.H), row = TH.W * 4;
+      for (let y = 0; y < TH.H; y++) im.data.set(TH.px.subarray((TH.H - 1 - y) * row, (TH.H - y) * row), y * row);
+      x.putImageData(im, 0, 0);
+      return cv;
+    }
+    function lkPaint(i, cv) {
+      const el = $("armTrack").children[i];
+      if (!el || LK.kind !== "skins") return;
+      const c = el.querySelector("canvas");
+      if (!c || !c.hidden) return;
+      c.getContext("2d").drawImage(cv, 0, 0);
+      c.hidden = false;
+      const ph = el.querySelector(".ph");
+      if (ph) ph.remove();
+    }
+    function lkThumbTick() {
+      if (LK.kind !== "skins" || (LK.thumbBusy = (LK.thumbBusy + 1) % 2)) return;
+      const n = LK.n, c = Math.max(0, LK.center);
+      let pick2 = -1;
+      for (let d = 0; d < n && pick2 < 0; d++) {
+        for (const i of [c + d, c - d]) if (i >= 0 && i < n && !LK.thumbs.has(i)) {
+          pick2 = i;
+          break;
+        }
+      }
+      if (pick2 < 0) return;
+      const cv = lkThumb(pick2);
+      LK.thumbs.set(pick2, cv);
+      lkPaint(pick2, cv);
+      if (pick2 === (equippedSkin() || {}).i) showPickNote();
     }
     function setArmMode(m) {
       if (m === "picks" && !PX || m === "skins" && !(SK && SOLDIER)) return;
@@ -3311,28 +3736,32 @@
       $("armGunsTab").setAttribute("aria-pressed", String(m === "guns"));
       $("armPicksTab").setAttribute("aria-pressed", String(m === "picks"));
       $("armSkinsTab").setAttribute("aria-pressed", String(m === "skins"));
+      const on = $(m === "guns" ? "armGunsTab" : m === "picks" ? "armPicksTab" : "armSkinsTab"), pill = $q(".seg .pill");
+      if (pill) {
+        const v = { x: on.offsetLeft - 4, width: on.offsetWidth };
+        if (GS && !calmUI && pill.style.width) GS.to(pill, { ...v, duration: 0.35, ease: "power3.out" });
+        else {
+          pill.style.width = v.width + "px";
+          pill.style.transform = `translateX(${v.x}px)`;
+          if (GS) GS.set(pill, v);
+        }
+      }
       $("armSets").hidden = m === "guns";
       $("armSets").setAttribute("aria-label", m === "skins" ? "Skin theme" : "Pickaxe set");
       $("armSets").innerHTML = m === "skins" ? SK.THEMES.map((t) => `<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join("") : m === "picks" ? PX.SETS.map((s) => `<button data-s="${s.id}" aria-pressed="false">${s.n}</button>`).join("") : "";
+      LK.shown = lkIdx();
       buildArmory();
+      lkRail();
+      lkFrame(true);
     }
     function armStep(d) {
-      if (armMode === "picks" && PX) {
-        const N = PX.ITEMS.length;
-        pxIdx = (pxIdx + d + N) % N;
-      } else if (armMode === "skins" && SK) {
-        const N = SK.ITEMS.length;
-        skIdx = (skIdx + d + N) % N;
-      } else armIdx = (armIdx + d + 5) % 5;
-      buildArmory();
+      lkGo(LK.center + d, 0.4);
     }
     if (!PX) $("armPicksTab").hidden = true;
     $("armSets").addEventListener("click", (ev) => {
       const b = ev.target.closest("button");
       if (!b) return;
-      if (armMode === "skins") skIdx = SK.ITEMS.findIndex((i) => i.t === b.dataset.s);
-      else pxIdx = PX.ITEMS.findIndex((i) => i.set.id === b.dataset.s);
-      buildArmory();
+      lkGo(armMode === "skins" ? SK.ITEMS.findIndex((i) => i.t === b.dataset.s) : PX.ITEMS.findIndex((i) => i.set.id === b.dataset.s), 0.8);
     });
     $("armSkinsTab").addEventListener("click", () => setArmMode("skins"));
     var skIdx = 0, skShown = [];
@@ -3349,46 +3778,35 @@
       applySkin(c, skin);
       return c;
     }
-    function buildSkinStand() {
-      if (armGroup) scene.remove(armGroup);
-      for (const c of skShown) for (const o of c.gear || []) o.traverse((m) => {
-        if (m.isMesh && !m.geometry.userData.keep) m.geometry.dispose();
-      });
-      armGroup = new T.Group();
-      armGroup.position.set(0, ARM_Y, 0);
-      armGuns = [];
-      skShown = [];
-      const N = SK.ITEMS.length;
-      studioLights(armGroup);
-      for (const o of [-1, 1, 0]) {
-        const c = standChar(SK.ITEMS[(skIdx + o + N) % N]);
-        c.g.position.set(o * 2.1, o ? 0.15 : 0, o ? -1.6 : 0);
-        c.g.scale.setScalar(o ? 0.7 : 1);
-        c.g.userData.o = o;
-        armGroup.add(c.g);
-        skShown.push(c);
-      }
-      scene.add(armGroup);
-      const it = SK.ITEMS[skIdx], r = RAR[it.r];
-      $("armKick").textContent = `${it.theme.n} \xB7 ${skIdx + 1} of ${N}`;
-      $("armName").textContent = it.n;
-      $("armName").style.color = r.c;
+    function buildSkinStand(dir) {
+      const it = SK.ITEMS[skIdx], r = RAR[it.r], c = standChar(it), h = new T.Group();
+      c.g.rotation.y = Math.PI;
+      h.add(c.g);
+      h.userData.ch = c;
+      h.userData.chG = c.g;
+      skShown.push(c);
+      LK.ped.visible = LK.ring.visible = LK.blob.visible = true;
+      lkTint(r.c);
+      lkPut(h, dir || 0);
+      if (LK.kind !== "skins" || dir == null) lkFrame(true);
+      lkInfo(it.n, `${it.theme.n} \xB7 ${skIdx + 1} of ${SK.ITEMS.length}`, r, "Outfit");
       $("armLabels").innerHTML = "";
-      $("armPower").hidden = true;
-      $("armStats").textContent = `${r.n} outfit`;
-      $("armNote").textContent = "";
       showEquip();
       [...$("armSets").children].forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.s === it.t)));
     }
     function updateSkinStand(t, dt) {
       for (const c of skShown) {
-        const o = c.g.userData.o;
-        c.g.rotation.y = c.g.userData.yaw != null ? c.g.userData.yaw : o ? 0.5 * o : Math.PI + t * 0.6;
         c.mixer.update(dt);
         swayGear({ onGround: true, walkT: 0 }, c, 0, dt);
       }
-      const dist = armGroup.userData.dist || Math.max(4.6, 6.2 / camera.aspect);
-      camera.position.set(0, ARM_Y + 1.25, dist);
+    }
+    function updateLineup(t, dt) {
+      for (const c of skShown) {
+        c.g.rotation.y = c.g.userData.yaw;
+        c.mixer.update(dt);
+        swayGear({ onGround: true, walkT: 0 }, c, 0, dt);
+      }
+      camera.position.set(0, ARM_Y + 1.25, armGroup.userData.dist);
       camera.lookAt(0, ARM_Y + 1, 0);
       if (camera.fov !== 50) {
         camera.fov = 50;
@@ -3396,6 +3814,7 @@
       }
     }
     $("armGunsTab").addEventListener("click", () => setArmMode("guns"));
+    lkInitRail();
     let equippedName = "Standard Issue";
     try {
       const v = localStorage.getItem("stormIslandPick");
@@ -3416,8 +3835,32 @@
     }
     function showPickNote() {
       const eq = equippedPick(), sk = equippedSkin(), esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-      $("pickNote").innerHTML = [["Skin", sk ? sk.n : "Default Trooper"], ["Pickaxe", eq ? eq.n : "Default"]].map(([k, v]) => `<span class="lochip"><i>${esc(k)}</i>${esc(v)}</span>`).join("");
+      let th = null;
+      if (sk && SOLDIER) {
+        th = LK.thumbs.get(sk.i);
+        if (!th) {
+          th = lkThumb(sk.i);
+          LK.thumbs.set(sk.i, th);
+        }
+      }
+      const card = (go, k, v, col, art) => `<button class="locard" data-go="${go}" style="--rc:${col}"><span class="lothumb">${art}</span><span class="lotxt"><i>${esc(k)}</i>${esc(v)}</span></button>`;
+      $("pickNote").innerHTML = (SK ? card("skins", "Skin", sk ? sk.n : "Default Trooper", RAR[sk ? sk.r : 0].c, th ? '<canvas width="160" height="200"></canvas>' : "") : "") + (PX ? card("picks", "Pickaxe", eq ? eq.n : "Default", RAR[eq ? eq.rar : 0].c, eq ? PX.pickSVG(eq, "lo") : ICONS.pick) : "");
+      const cv = $q("#pickNote canvas");
+      if (cv && th) cv.getContext("2d").drawImage(th, 0, 0);
     }
+    function openLocker(mode) {
+      const eq = equippedPick();
+      if (eq) pxIdx = eq.i;
+      const sk = equippedSkin();
+      if (sk) skIdx = sk.i;
+      openArmory();
+      setArmMode(mode);
+      $("armEquip").focus();
+    }
+    $("pickNote").addEventListener("click", (ev) => {
+      const b = ev.target.closest(".locard");
+      if (b) openLocker(b.dataset.go === "skins" && SK && SOLDIER ? "skins" : "picks");
+    });
     var skinName = null;
     function equippedSkinName() {
       if (skinName == null) {
@@ -3459,6 +3902,7 @@
         }
         showEquip();
         showPickNote();
+        lkMarkEq();
         if (player) applySkin(player.ch, it);
         sfx("pickup", null, { item: { kind: "gun", r: it.r } });
         return;
@@ -3470,20 +3914,13 @@
       }
       showEquip();
       showPickNote();
+      lkMarkEq();
       applyPickSkin(player);
       refreshHotbar();
       sfx("pickup", null, { item: { kind: "gun", r: PX.ITEMS[pxIdx].rar } });
     }
     $("armEquip").addEventListener("click", equipCurrent);
-    $("lockerBtn").addEventListener("click", () => {
-      const eq = equippedPick();
-      if (eq) pxIdx = eq.i;
-      const sk = equippedSkin();
-      if (sk) skIdx = sk.i;
-      openArmory();
-      setArmMode(SK && SOLDIER ? "skins" : "picks");
-      $("armEquip").focus();
-    });
+    $("lockerBtn").addEventListener("click", () => openLocker(SK && SOLDIER ? "skins" : "picks"));
     if (!PX && !SK) $("lockerBtn").hidden = true;
     if (!SK) $("armSkinsTab").hidden = true;
     showPickNote();
@@ -5219,6 +5656,7 @@
       ads = false;
       $("overPlace").textContent = "#" + place;
       $("overTitle").textContent = win ? "Victory!" : "Eliminated";
+      $("over").classList.toggle("win", !!win);
       $("overSub").textContent = win ? "" : killer ? "Eliminated by " + killer.name : cause ? "Hit by a " + cause : "Eliminated";
       $("stElims").textContent = player.kills;
       $("stDmg").textContent = Math.round(player.dmgDealt);
@@ -5306,7 +5744,10 @@
       if (t.closest && t.closest("button")) sfx("ui");
     });
     $("playBtn").addEventListener("click", startMatch);
-    $("armoryBtn").addEventListener("click", openArmory);
+    $("armoryBtn").addEventListener("click", () => {
+      openArmory();
+      setArmMode("guns");
+    });
     $("armBack").addEventListener("click", closeArmory);
     $("armPrev").addEventListener("click", () => armStep(-1));
     $("armNext").addEventListener("click", () => armStep(1));
@@ -5501,6 +5942,7 @@
       newMatch();
       $("playBtn").disabled = false;
       $("playBtn").textContent = "Enter the box";
+      showPickNote();
     });
     requestAnimationFrame(loop);
     window.__game = {
@@ -5513,6 +5955,7 @@
       setCam: (p, l) => {
         camOverride = p ? { pos: new V(...p), look: new V(...l) } : null;
       },
+      pause: () => pauseGame(),
       openArmory,
       setArm: (i) => {
         armIdx = i;

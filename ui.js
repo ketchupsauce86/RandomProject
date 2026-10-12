@@ -27,6 +27,20 @@
   wn.addEventListener('click',e=>{ if(e.target===wn) closeWn(); });
   addEventListener('keydown',e=>{ if(e.key!=='Escape'||$('menu').hidden) return; if(!wn.hidden) closeWn(); else if(!drawer.hidden){ closeDrawer(); cBtn.focus(); } });
 
+  // GSAP normally slows its clock after a long frame; the game's loading frames are long, so that froze the intro half way
+  if(gs) gs.ticker.lagSmoothing(0);
+
+  // ---- pause and match-end cards pop in; the end-of-match numbers count up
+  const watch=(el,fn)=>new MutationObserver(()=>{ if(!el.hidden) fn(); }).observe(el,{attributes:true,attributeFilter:['hidden']});
+  if(gs&&!calm){
+    watch($('pause'),()=>gs.fromTo('#pause .card',{y:30,scale:0.94,opacity:0},{y:0,scale:1,opacity:1,duration:0.35,ease:'back.out(1.7)'}));
+    watch($('over'),()=>{ gs.fromTo('#over .card',{y:50,opacity:0},{y:0,opacity:1,duration:0.5,ease:'power3.out'});
+      gs.fromTo('#overPlace',{scale:0.4,opacity:0},{scale:1,opacity:1,duration:0.7,ease:'elastic.out(1,0.55)',delay:0.15});
+      gs.from('#over .statrow div',{y:20,opacity:0,stagger:0.08,duration:0.4,delay:0.35,ease:'power2.out'});
+      gs.from('#over .btnrow > *',{y:16,opacity:0,stagger:0.08,duration:0.35,delay:0.6,ease:'power2.out'});
+      for(const id of ['stElims','stDmg']){ const el=$(id), end=parseInt(el.textContent,10)||0, o={v:0}; gs.to(o,{v:end,duration:1,delay:0.4,ease:'power2.out',onUpdate:()=>{ el.textContent=Math.round(o.v); }}); } });
+  }
+
   // ---- GSAP: the lobby slides in, the logo glitches now and then, the play button breathes
   if(gs&&!calm){
     const tl=gs.timeline({defaults:{ease:'power3.out'}});
@@ -34,14 +48,15 @@
       .from('.logo .l1',{x:-120,skewX:-18,opacity:0,duration:0.7},'-=0.3')
       .from('.logo .l2',{x:-120,skewX:-18,opacity:0,duration:0.7},'-=0.55')
       .from('.loadout > *',{y:24,opacity:0,stagger:0.08,duration:0.45},'-=0.3')
-      .from('.playcard > *',{x:60,opacity:0,stagger:0.1,duration:0.55},'-=0.5');
+      .from('.playcard',{x:60,opacity:0,duration:0.55},'-=0.5');
     // a short burst of jitter on the logo, like a bad signal
     const glitch=()=>{ if(!$('menu').hidden){ const g=gs.timeline();
         for(let i=0;i<5;i++) g.to('.logo span',{x:()=>gs.utils.random(-10,10),skewX:()=>gs.utils.random(-12,12),duration:0.05,ease:'none'});
         g.to('.logo span',{x:0,skewX:0,duration:0.08}); }
       gs.delayedCall(gs.utils.random(2.5,5.5),glitch); };
     gs.delayedCall(2.4,glitch);
-    gs.to('#playBtn',{scale:1.025,duration:1.1,repeat:-1,yoyo:true,ease:'sine.inOut',delay:2});
+    // the play button breathes once it has slid in (starting earlier fought the slide and left it stuck off to the side)
+    tl.call(()=>gs.to('#playBtn',{scale:1.025,duration:1.1,repeat:-1,yoyo:true,ease:'sine.inOut'}));
     // every menu button gets a little lift on hover
     document.querySelectorAll('#menu .btn2, #menu .chip').forEach(b=>{
       b.addEventListener('pointerenter',()=>gs.to(b,{y:-3,duration:0.2,ease:'power2.out'}));
