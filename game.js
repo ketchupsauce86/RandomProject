@@ -1354,6 +1354,11 @@
         sm.parent.add(m);
         m.bind(sm.skeleton, sm.bindMatrix);
         c.animeBody = m;
+        const ol = new T.SkinnedMesh(bm.geo, skinMats.get("bodyLine") || skinMats.set("bodyLine", SK.bodyOutline(T)).get("bodyLine"));
+        ol.name = "animeBodyLine";
+        ol.frustumCulled = false;
+        m.add(ol);
+        ol.bind(sm.skeleton, sm.bindMatrix);
       }
       const big = skin.big || [1, 1];
       c.model.scale.set(MODEL_SCALE * big[0], MODEL_SCALE * big[1], MODEL_SCALE * big[0]);

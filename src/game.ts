@@ -544,7 +544,8 @@ function applySkin(c,skin){
     let sm=null; c.model.traverse(o=>{ if(o.name==='vanguard_Mesh') sm=o; });
     let bm=skinMats.get('body'+skin.i); if(!bm){ bm={geo:SK.bodyGeometry(T,sm.skeleton,skin.body),mat:SK.bodyMaterial(T)}; skinMats.set('body'+skin.i,bm); }
     const m=new T.SkinnedMesh(bm.geo,bm.mat); m.name='animeBody'; m.castShadow=true; m.frustumCulled=false; m.position.copy(sm.position); m.quaternion.copy(sm.quaternion); m.scale.copy(sm.scale);
-    sm.parent.add(m); m.bind(sm.skeleton,sm.bindMatrix); c.animeBody=m; }
+    sm.parent.add(m); m.bind(sm.skeleton,sm.bindMatrix); c.animeBody=m;
+    const ol=new T.SkinnedMesh(bm.geo,skinMats.get('bodyLine')||skinMats.set('bodyLine',SK.bodyOutline(T)).get('bodyLine')); ol.name='animeBodyLine'; ol.frustumCulled=false; m.add(ol); ol.bind(sm.skeleton,sm.bindMatrix); }
   const big=skin.big||[1,1]; c.model.scale.set(MODEL_SCALE*big[0],MODEL_SCALE*big[1],MODEL_SCALE*big[0]); // Hulk and Thanos are bigger (looks only)
   c.g.updateMatrixWorld(true); const ws=new V(), sc=new V(), qq=new T.Quaternion(); c.g.getWorldScale(ws);
   for(const [kind,...args] of skin.acc){
