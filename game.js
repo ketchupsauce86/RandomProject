@@ -42,7 +42,12 @@
       // bought at the vending machines: fires a rocket (see the RPG section) instead of a bullet
       // two golden winged pistols, fired in turn; each shot is a beam of light that bounces off every surface
       mf: { name: "Mirror Fractal Guns", short: "MF GUNS", dmg: 24, rate: 0.12, mag: 1, reload: 0, spread: 4e-3, bloom: 0.012, auto: true, ammo: "light", range: 400, pellets: 1, head: 1.5, recoil: 4e-3, pref: 20, beam: true, col: "#ffd23f" },
-      rpg: { name: "RPG", short: "RPG", dmg: 140, rate: 1.4, mag: 1, reload: 0, spread: 0, bloom: 0, auto: false, ammo: "heavy", range: 400, pellets: 1, head: 1, recoil: 0.07, pref: 30, proj: "rocket", col: "#4fd34f" }
+      rpg: { name: "RPG", short: "RPG", dmg: 140, rate: 1.4, mag: 1, reload: 0, spread: 0, bloom: 0, auto: false, ammo: "heavy", range: 400, pellets: 1, head: 1, recoil: 0.07, pref: 30, proj: "rocket", col: "#4fd34f" },
+      // more vending-machine guns (see the New guns section): sp says which special attack they fire
+      frz: { name: "Freeze Ray", short: "FREEZE", dmg: 5, rate: 0.08, mag: 1, reload: 0, spread: 0, bloom: 0, auto: true, ammo: "light", range: 55, pellets: 1, head: 1.3, recoil: 12e-4, pref: 20, col: "#7fe3ff", sp: "frz" },
+      tsr: { name: "Taser", short: "TASER", dmg: 20, rate: 0.8, mag: 1, reload: 0, spread: 0, bloom: 0, auto: false, ammo: "light", range: 30, pellets: 1, head: 1.3, recoil: 0.03, pref: 14, col: "#ffe14a", sp: "tsr" },
+      flm: { name: "Flamethrower", short: "FLAMES", dmg: 3, rate: 0.06, mag: 1, reload: 0, spread: 0, bloom: 0, auto: true, ammo: "light", range: 17, pellets: 1, head: 1, recoil: 1e-3, pref: 10, col: "#ff7a1a", sp: "flm" },
+      drone: { name: "Robot Drone", short: "DRONE", dmg: 11, rate: 0.3, mag: 1, reload: 0, spread: 0, bloom: 0, auto: false, ammo: "light", range: 90, pellets: 1, head: 1.5, recoil: 0, pref: 30, col: "#ff5a3c", sp: "drone" }
     };
     const CONS = {
       mini: { name: "Small Shield", short: "MINI", time: 2, shield: 25, cap: 50, stack: 6, give: 3, color: "#7cc8ff" },
@@ -146,7 +151,19 @@
       olive: GPh(2906652, 30),
       // green and olive: the RPG's warhead
       gold: GPh(14264110, 120, 16773808),
-      wing: new T.MeshPhongMaterial({ color: 16766810, emissive: 9067008, shininess: 140, specular: 16777215, side: T.DoubleSide })
+      wing: new T.MeshPhongMaterial({ color: 16766810, emissive: 9067008, shininess: 140, specular: 16777215, side: T.DoubleSide }),
+      // the Mirror Fractal Guns
+      ice: new T.MeshPhongMaterial({ color: 10479871, emissive: 2060181, specular: 16777215, shininess: 150, transparent: true, opacity: 0.85 }),
+      frost: GPh(15331060, 70, 10137792),
+      // Freeze Ray
+      volt: GPh(15909912, 55, 9075248),
+      cyan: new T.MeshBasicMaterial({ color: 9430015 }),
+      // Taser
+      tank: GPh(13120030, 80, 10055792),
+      brass: GPh(11569724, 90, 16769184),
+      // Flamethrower
+      white: GPh(15922423, 50, 9079434),
+      red: new T.MeshBasicMaterial({ color: 16726832 })
     };
     const FURN = [GPh(2500394, 14), GPh(4936503, 14), GPh(3886694, 24), GPh(5192550, 24), GPh(13214266, 90, 16773296)];
     function prof(pts, w, bev) {
@@ -298,9 +315,81 @@
         [gtube(0.02, 7e-3, 0.05, 12), "olive", 0, 0.06, -0.745],
         [gtube(0.052, 0.052, 0.014, 18), "olive", 0, 0.06, -0.455],
         [gtube(0.03, 0.05, 0.04, 14), "olive", 0, 0.06, -0.415]
+      ],
+      frz: () => [
+        // Freeze Ray: white body, a glowing coolant canister on top, frost coils round the barrel and a flared emitter dish
+        [prof([[0.18, -0.012], [0.18, 0.062], [0.02, 0.075], [-0.13, 0.07], [-0.17, 0.045], [-0.17, -0.012]], 0.07), "frost", 0, 0, 0],
+        [BX(0.074, 0.012, 0.3), "dark", 0, 0.028, 0],
+        [prof([[0.13, -0.012], [0.075, -0.012], [0.105, -0.2], [0.16, -0.21], [0.17, -0.19]], 0.046), "poly", 0, 0, 0],
+        ...GUARD(0.07, 0, -0.05),
+        [prof([[-0.07, -0.012], [-0.12, -0.012], [-0.112, -0.13], [-0.08, -0.13]], 0.036), "poly", 0, 0, 0],
+        [prof([[0.18, 0.05], [0.42, 0.045], [0.44, 0.025], [0.44, -0.09], [0.41, -0.1], [0.3, -0.03], [0.18, -0.012]], 0.05), "frost", 0, 0, 0],
+        [BX(0.054, 0.12, 0.02), "dark", 0, -0.025, 0.45],
+        [gtube(0.032, 0.026, 0.26, 14), "steel", 0, 0.03, -0.28],
+        ...[0, 1, 2, 3].map((i) => [gtube(0.046, 0.046, 0.014, 18), "ice", 0, 0.03, -0.2 - i * 0.045]),
+        [gtube(0.028, 0.06, 0.05, 18), "frost", 0, 0.03, -0.43],
+        [gtube(0.05, 0.05, 6e-3, 18), "ice", 0, 0.03, -0.456],
+        [gtube(0.028, 0.028, 0.17, 12), "ice", 0, 0.115, 0.02],
+        [gtube(0.032, 0.032, 0.02, 12), "steel", 0, 0.115, 0.115],
+        [gtube(0.032, 0.032, 0.02, 12), "steel", 0, 0.115, -0.075],
+        [BX(0.012, 0.04, 0.012), "steel", 0, 0.085, 0.07],
+        [BX(0.012, 0.04, 0.012), "steel", 0, 0.085, -0.03]
+      ],
+      tsr: () => [
+        // Taser: a chunky yellow pistol with a black cartridge on the front and two blue prongs
+        ...GUN_PARTS.pistol().map((q) => {
+          const r = [...q];
+          r[1] = r[1] === "steel" ? "volt" : r[1] === "poly" ? "dark" : r[1];
+          return r;
+        }),
+        [BX(0.06, 0.07, 0.07), "dark", 0, 0.035, -0.28],
+        [BX(0.064, 0.012, 0.074), "volt", 0, 0.075, -0.28],
+        [BX(8e-3, 8e-3, 0.012), "cyan", 0.016, 0.05, -0.32],
+        [BX(8e-3, 8e-3, 0.012), "cyan", -0.016, 0.05, -0.32],
+        [BX(8e-3, 8e-3, 0.012), "cyan", 0.016, 0.018, -0.32],
+        [BX(8e-3, 8e-3, 0.012), "cyan", -0.016, 0.018, -0.32]
+      ],
+      flm: () => [
+        // Flamethrower: a long steel wand under a ribbed heat shield, twin red fuel tanks on top, a pilot light at the nozzle
+        [gtube(0.03, 0.03, 0.72, 14), "steel", 0, 0.02, -0.16],
+        [gtube(0.036, 0.05, 0.09, 16), "dark", 0, 0.02, -0.56],
+        [gtube(0.05, 0.05, 8e-3, 16), "brass", 0, 0.02, -0.607],
+        [gtube(0.05, 0.05, 0.3, 10, true), "dark", 0, 0.02, -0.33],
+        ...Array.from({ length: 6 }, (_, i) => [gtube(0.054, 0.054, 0.01, 10, true), "steel", 0, 0.02, -0.21 - i * 0.048]),
+        [gtube(8e-3, 8e-3, 0.18, 8), "brass", 0, -0.04, -0.5],
+        [prof([[0.2, -0.01], [0.2, 0.06], [-0.02, 0.06], [-0.04, -0.01]], 0.064), "steel", 0, 0, 0],
+        [prof([[0.13, -0.01], [0.075, -0.01], [0.105, -0.2], [0.16, -0.21], [0.17, -0.19]], 0.046), "poly", 0, 0, 0],
+        ...GUARD(0.07, 0, -0.05),
+        [prof([[-0.17, -0.03], [-0.22, -0.03], [-0.215, -0.17], [-0.175, -0.17]], 0.04), "poly", 0, 0, 0],
+        [gtube(0.045, 0.045, 0.34, 16), "tank", 0.05, 0.12, 0.04],
+        [gtube(0.045, 0.045, 0.34, 16), "tank", -0.05, 0.12, 0.04],
+        [new T.SphereGeometry(0.045, 14, 10), "tank", 0.05, 0.12, 0.21],
+        [new T.SphereGeometry(0.045, 14, 10), "tank", -0.05, 0.12, 0.21],
+        [new T.SphereGeometry(0.045, 14, 10), "tank", 0.05, 0.12, -0.13],
+        [new T.SphereGeometry(0.045, 14, 10), "tank", -0.05, 0.12, -0.13],
+        [gtube(0.016, 0.016, 0.03, 10), "brass", 0.05, 0.12, -0.185],
+        [gtube(0.016, 0.016, 0.03, 10), "brass", -0.05, 0.12, -0.185],
+        [BX(0.15, 0.012, 0.02), "dark", 0, 0.07, 0.12],
+        [BX(0.15, 0.012, 0.02), "dark", 0, 0.07, -0.06],
+        [new T.TorusGeometry(0.03, 7e-3, 6, 14, Math.PI * 1.4).rotateY(Math.PI / 2), "brass", 0, 0.09, -0.23],
+        [prof([[0.2, 0.05], [0.4, 0.035], [0.42, 0.015], [0.42, -0.08], [0.39, -0.09], [0.3, -0.03], [0.2, -0.01]], 0.05), "dark", 0, 0, 0]
+      ],
+      drone: () => [
+        // the drone's remote: a white controller with two sticks, a little screen and an antenna with a red light
+        [BX(0.17, 0.04, 0.1), "white", 0, 0, 0.02],
+        [BX(0.05, 0.04, 0.07), "white", 0.075, -0.01, 0.06],
+        [BX(0.05, 0.04, 0.07), "white", -0.075, -0.01, 0.06],
+        [new T.CylinderGeometry(0.012, 0.016, 0.03, 10), "dark", 0.045, 0.032, 0.03],
+        [new T.CylinderGeometry(0.012, 0.016, 0.03, 10), "dark", -0.045, 0.032, 0.03],
+        [new T.CylinderGeometry(0.018, 0.018, 6e-3, 12), "dark", 0.045, 0.048, 0.03],
+        [new T.CylinderGeometry(0.018, 0.018, 6e-3, 12), "dark", -0.045, 0.048, 0.03],
+        [BX(0.06, 4e-3, 0.035), "glass", 0, 0.022, 0],
+        [BX(0.012, 6e-3, 0.012), "red", 0, 0.022, 0.045],
+        [new T.CylinderGeometry(4e-3, 5e-3, 0.2, 6), "steel", 0.07, 0.1, -0.02],
+        [new T.SphereGeometry(0.012, 8, 6), "red", 0.07, 0.2, -0.02]
       ]
     };
-    const MUZZLE = { ar: [0.014, -0.67], smg: [0.022, -0.47], pump: [0.025, -0.74], pistol: [0.045, -0.26], sniper: [0.02, -1.06], rpg: [0.06, -0.42], mf: [0.045, -0.26] };
+    const MUZZLE = { ar: [0.014, -0.67], smg: [0.022, -0.47], pump: [0.025, -0.74], pistol: [0.045, -0.26], sniper: [0.02, -1.06], rpg: [0.06, -0.42], mf: [0.045, -0.26], frz: [0.03, -0.46], tsr: [0.035, -0.33], flm: [0.02, -0.62], drone: [0.03, -0.05] };
     const EXTRA = {
       ar: [[2, ...REDDOT(0.1, 0.02)], [3, [prof([[-0.34, -0.04], [-0.38, -0.04], [-0.375, -0.13], [-0.345, -0.13]], 0.03), "poly", 0, 0, 0]], [4, [gtube(0.026, 0.026, 0.18, 16), "dark", 0, 0.014, -0.76]]],
       smg: [[2, ...REDDOT(0.09, 0.02)], [3, [prof([[-0.13, -0.03], [-0.17, -0.03], [-0.165, -0.12], [-0.135, -0.12]], 0.03), "poly", 0, 0, 0]], [4, [gtube(0.024, 0.024, 0.16, 16), "dark", 0, 0.022, -0.55]]],
@@ -308,7 +397,11 @@
       pistol: [[2, [BX(0.035, 0.03, 0.06), "dark", 0, -0.03, -0.19], [gtube(0.012, 0.012, 4e-3, 10), "glass", 0, -0.03, -0.221]], [3, ...REDDOT(0.095, 0)], [4, [BX(0.05, 0.07, 0.035), "steel", 0, 0.04, -0.27]]],
       sniper: [[2, [BX(0.012, 0.012, 0.2), "steel", 0.02, -0.08, -0.38], [BX(0.012, 0.012, 0.2), "steel", -0.02, -0.08, -0.38]], [4, [gtube(0.032, 0.032, 0.2, 16), "dark", 0, 0.02, -1.16]]],
       rpg: [],
-      mf: []
+      mf: [],
+      frz: [],
+      tsr: [],
+      flm: [],
+      drone: []
     };
     const SUPP = { ar: [4, -0.18], smg: [4, -0.16], pistol: [4, -0.03], sniper: [4, -0.2] };
     const SHELL_MAT = GPh(11740715, 30);
@@ -385,6 +478,20 @@
           }
         }
       }
+      const glow = (col, x, y, z, s2) => {
+        const h = new T.Sprite(auraMats(col).halo);
+        h.position.set(x, y, z);
+        h.scale.setScalar(s2);
+        g.add(h);
+        return h;
+      };
+      if (id === "frz") {
+        glow(8381439, 0, 0.115, 0.02, 0.28);
+        g.userData.pilot = glow(8381439, 0, 0.03, -0.47, 0.16);
+      }
+      if (id === "flm") g.userData.pilot = glow(4892927, 0, -0.04, -0.6, 0.12);
+      if (id === "tsr") g.userData.pilot = glow(9430015, 0, 0.035, -0.33, 0.1);
+      if (id === "drone") g.userData.pilot = glow(16726832, 0.07, 0.2, -0.02, 0.08);
       return g;
     }
     const mfAuraMat = new T.SpriteMaterial({ map: glowTex, color: 16763194, transparent: true, opacity: 0.32, depthWrite: false });
@@ -941,6 +1048,62 @@
         mixIn(x, rbj(burst(2.2, 0.9, true, 0.3), "bp", 600, 1.5), 0.2, 0.3);
         return norm(x, 0.85);
       },
+      // Freeze Ray: a cold hiss of venting gas with ice ticking in it (one take every shot, so they overlap into a stream)
+      frost: () => {
+        const x = SN(0.32);
+        mixIn(x, sweep(0.32, rnd(7500, 8500), rnd(3800, 4600), 1.1, (k) => Math.sin(Math.PI * Math.min(1, k * 1.6)) * (1 - k * 0.6)), 0, 0.9);
+        mixIn(x, rbj(burst(0.3, 0.2, true, 0.03), "bp", rnd(900, 1200), 0.9), 0, 0.25);
+        for (let i = 0; i < 5; i++) modes(x, rnd(0, 0.25), glass(rnd(3500, 6500), rnd(0.01, 0.03)), rnd(0.04, 0.1));
+        return norm(x, 0.6);
+      },
+      // someone freezing solid: ice crackling over them, a deep creak and a crunch
+      freeze: () => {
+        const x = SN(1);
+        for (let i = 0; i < 30; i++) modes(x, 0.35 * Math.pow(Math.random(), 0.7), glass(rnd(2200, 6500), rnd(0.015, 0.05)), rnd(0.08, 0.22));
+        mixIn(x, rbj(burst(0.4, 0.07, true), "lp", 260, 0.9), 0.32, 1.3);
+        modes(x, 0.3, [[rnd(180, 220), 0.12, 1], [rnd(470, 520), 0.07, 0.5]], 0.4);
+        mixIn(x, sweep(0.4, 1800, 9e3, 1.3, (k) => Math.pow(1 - k, 1.5)), 0, 0.25);
+        return norm(x, 0.85);
+      },
+      // Taser: the snap of the cartridge, then a harsh electric buzz with crackles riding on it
+      taser: () => {
+        const x = SN(0.6);
+        mixIn(x, rbj(burst(0.015, 18e-4), "hp", 3e3, 0.7), 0, 1.3);
+        const hz = rnd(110, 130);
+        mixIn(x, amp(rbj(burst(0.55, 0.3), "bp", rnd(1900, 2400), 1.6), (t) => (0.55 + 0.45 * Math.sign(Math.sin(t * 2 * Math.PI * hz))) * Math.min(1, (0.55 - t) / 0.1)), 0.01, 0.8);
+        for (let i = 0; i < 12; i++) mixIn(x, rbj(burst(6e-3, 8e-4), "hp", rnd(3e3, 7e3), 0.7), rnd(0.02, 0.5), rnd(0.3, 0.8));
+        return norm(sat(x, 2.2), 0.85);
+      },
+      // stunned: the body buzzing and crackling
+      stun: () => {
+        const x = SN(0.4), hz = rnd(95, 110);
+        mixIn(x, amp(rbj(burst(0.4, 0.3), "bp", rnd(2400, 3e3), 1.4), (t) => (0.5 + 0.5 * Math.sign(Math.sin(t * 2 * Math.PI * hz))) * Math.sin(Math.PI * t / 0.4)), 0, 0.7);
+        for (let i = 0; i < 8; i++) mixIn(x, rbj(burst(5e-3, 8e-4), "hp", rnd(3e3, 6e3), 0.7), rnd(0, 0.36), rnd(0.3, 0.9));
+        return norm(sat(x, 1.8), 0.7);
+      },
+      // Flamethrower: a rushing, fluttering roar of burning gas (overlapping takes make it continuous)
+      flame: () => {
+        const x = SN(0.5), fl = rnd(11, 17), win = (t) => Math.min(1, t / 0.05, (0.5 - t) / 0.16);
+        mixIn(x, amp(rbj(rbj(burst(0.5, 9, true), "lp", 650, 0.7), "hp", 60, 0.7), (t) => win(t) * (0.7 + 0.3 * Math.sin(t * 2 * Math.PI * fl))), 0, 1.4);
+        mixIn(x, amp(rbj(burst(0.5, 9), "bp", rnd(1500, 2200), 0.7), (t) => win(t) * (0.6 + 0.4 * Math.random())), 0, 0.3);
+        for (let i = 0; i < 4; i++) mixIn(x, rbj(burst(8e-3, 12e-4), "bp", rnd(1500, 4e3), 1.5), rnd(0.05, 0.4), rnd(0.15, 0.35));
+        return norm(x, 0.75);
+      },
+      // the whoomph when the gas first catches
+      ignite: () => {
+        const x = SN(0.7);
+        mixIn(x, rbj(burst(0.6, 0.15, true, 0.03), "lp", 380, 0.8), 0, 1.5);
+        mixIn(x, sweep(0.5, 300, 1500, 0.9, (k) => Math.sin(Math.PI * Math.pow(k, 0.5)) * (1 - k)), 0, 0.6);
+        return norm(sat(x, 1.4), 0.85);
+      },
+      // the drone: rotor hum (blade-pass flutter) and a small-calibre gun
+      rotor: () => {
+        const x = SN(0.6), bp = rnd(85, 100);
+        mixIn(x, amp(rbj(burst(0.6, 9, true), "bp", rnd(220, 280), 1.5), (t) => Math.sin(Math.PI * t / 0.6) * (0.55 + 0.45 * Math.sin(t * 2 * Math.PI * bp))), 0, 1);
+        modes(x, 0, [[bp * 4, 0.6, 0.25], [bp * 8, 0.4, 0.12]], 0.3);
+        return norm(amp(x, (t) => Math.sin(Math.PI * t / 0.6)), 0.5);
+      },
+      droneShot: () => gunshot({ nw: 0.45, crack: 4200, body: 2100, q: 1.2, bd: 0.012, bg: 0.8, thump: 320, td: 0.02, tg: 0.45, drive: 1.8, mech: 0.02, refl: ROOM.slice(0, 3), tail: 0.35, tf: 1500, tg2: 0.15 }),
       pop: () => {
         const x = SN(0.4);
         mixIn(x, rbj(burst(0.02, 2e-3), "hp", 2500, 0.7), 0, 1.2);
@@ -1044,6 +1207,18 @@
       // Mirror Fractal Guns: an electric snap
       rpg: (v, p) => {
         smp(v, "rpg", { rate: p });
+      },
+      frz: (v, p) => {
+        smp(v, "frost", { rate: p, g: 0.55 });
+      },
+      tsr: (v, p) => {
+        smp(v, "taser", { rate: p, g: 0.9 });
+      },
+      flm: (v, p) => {
+        smp(v, "flame", { rate: p * 0.95, g: 0.8 });
+      },
+      droneShot: (v, p) => {
+        smp(v, "droneShot", { rate: p * 1.1, g: 0.6 });
       },
       sniper: (v, p) => {
         smp(v, "sniper", { rate: p });
@@ -1238,10 +1413,46 @@
       },
       ui: (v) => {
         smp(v, "click", { g: 0.35 });
+      },
+      freeze: (v) => {
+        smp(v, "freeze", { g: 0.9 });
+      },
+      thaw: (v) => {
+        smp(v, "shatter", { g: 0.8, rate: 1.15 });
+        smp(v, "freeze", { g: 0.3, rate: 1.6 });
+      },
+      stun: (v) => {
+        smp(v, "stun", { g: 0.55 });
+      },
+      ignite: (v) => {
+        smp(v, "ignite", { g: 0.8 });
+      },
+      rotor: (v) => {
+        smp(v, "rotor", { g: 0.5 });
+      },
+      droneUp: (v) => {
+        smp(v, "whir", { g: 0.5, rate: 1.4 });
+        smp(v, "launch", { at: 0.05, g: 0.4, rate: 1.4 });
+        chk(v, 0, 2800, 0.6);
+      },
+      droneDown: (v) => {
+        smp(v, "pop", { g: 0.8, rate: 1.2 });
+        smp(v, "shatter", { at: 0.02, g: 0.4, rate: 0.8 });
       }
     };
     const SFX_OPT = {
       mf: { range: 260 },
+      frz: { range: 120 },
+      tsr: { range: 160 },
+      flm: { range: 170, wet: 0.1 },
+      droneShot: { range: 220 },
+      rotor: { range: 55, wet: 0.03 },
+      freeze: { range: 120 },
+      thaw: { range: 120 },
+      stun: { range: 70 },
+      ignite: { range: 140 },
+      droneUp: { range: 80 },
+      droneDown: { range: 160 },
       zapB: { range: 60 },
       boing: { range: 120 },
       ballPop: { range: 160 },
@@ -1262,7 +1473,7 @@
       defeat: { wet: 0.3 },
       land: { wet: 0.03 }
     };
-    const SFX_GAP = { tick: 0.035, zapB: 0.03, crackle: 0.05, clink: 0.03, impact: 0.03, whiz: 0.08, hit: 0.035, head: 0.035, shield: 0.035, step: 0.02 };
+    const SFX_GAP = { frz: 0.07, flm: 0.2, stun: 0.15, freeze: 0.05, thaw: 0.05, tick: 0.035, zapB: 0.03, crackle: 0.05, clink: 0.03, impact: 0.03, whiz: 0.08, hit: 0.035, head: 0.035, shield: 0.035, step: 0.02 };
     function sfx(kind, pos, o) {
       if (!AC || !bus) return;
       o = o || {};
@@ -1493,7 +1704,12 @@
       sniper: { r: [0.015, -0.09, 0.26], l: [-0.03, -0.08, -0.2], g: [-0.04, -0.17, -0.22] },
       mf: { r: [0.015, -0.05, 0.13], l: [-0.315, -0.05, 0.13], g: [-0.03, -0.13, -0.4], lf: [0.1, -0.1, -0.99], ln: [1, 0, 0.1] },
       // one gun in each hand
-      rpg: { r: [0.015, 0.01, 0.23], l: [-0.035, -0.03, -0.03], g: [-0.02, 0, -0.22], lf: [0.35, -0.25, -0.9], ln: [0.95, 0.2, 0] }
+      rpg: { r: [0.015, 0.01, 0.23], l: [-0.035, -0.03, -0.03], g: [-0.02, 0, -0.22], lf: [0.35, -0.25, -0.9], ln: [0.95, 0.2, 0] },
+      // the RPG rests on the shoulder
+      frz: { r: [0.015, -0.09, 0.2], l: [-0.03, -0.075, -0.06], g: [-0.04, -0.17, -0.25] },
+      tsr: { r: [0.015, -0.05, 0.13], l: [-0.035, -0.08, 0.1], g: [-0.1, -0.13, -0.37], lf: [0.3, -0.3, -0.9], ln: [0.9, 0.4, 0] },
+      flm: { r: [0.015, -0.09, 0.2], l: [-0.03, -0.08, -0.15], g: [-0.04, -0.17, -0.23] },
+      drone: { r: [0.085, -0.03, 0.11], l: [-0.085, -0.03, 0.11], g: [-0.16, -0.24, -0.33], lf: [0.2, 0.2, -0.95], ln: [0.3, 0.9, 0] }
     };
     const SWING_T = 0.42, PICK_HIT = 0.52;
     const PICK_REST = [0, 0.2, -0.16, -0.3, 0.55, 0.75, -0.35, -0.7, 0.55, -0.2, 0, 0];
@@ -1773,12 +1989,13 @@
     });
     const shardGeo = new T.BoxGeometry(0.16, 0.16, 0.16), shardMats = [16777215, 14278115, 10134190, 6091007].map((c) => new T.MeshBasicMaterial({ color: c, transparent: true }));
     const _dq = new T.Quaternion(), _dv = new V(), _dn = new V(), BACK = new V(0, 0, 1);
+    const _iceTint = new T.Color(12578559);
     function deathKind(weapon, info) {
-      return info && info.explosive ? "explosion" : weapon === "Fire" ? "burn" : weapon === "flying block" ? "block" : weapon === "Pickaxe" ? "pickaxe" : "shot";
+      return info && info.explosive ? "explosion" : info && info.frozen || weapon === "Freeze Ray" ? "ice" : weapon === "Fire" || weapon === "Flamethrower" ? "burn" : weapon === "flying block" ? "block" : weapon === "Pickaxe" ? "pickaxe" : "shot";
     }
     function startDeath(t, kind, info) {
       const dir = (info && info.dir ? info.dir.clone() : new V(rnd(-1, 1), rnd(-0.3, 0.3), rnd(-1, 1))).normalize();
-      const sp = { shot: info && info.head ? 11 : 7, pickaxe: 24, block: Math.max(30, (info && info.speed || 0) * 1.7), explosion: 30, burn: 3 }[kind];
+      const sp = { shot: info && info.head ? 11 : 7, pickaxe: 24, block: Math.max(30, (info && info.speed || 0) * 1.7), explosion: 30, burn: 3, ice: 3 }[kind];
       const d = t.death = {
         kind,
         t: 0,
@@ -1787,10 +2004,20 @@
         q: new T.Quaternion().setFromEuler(new T.Euler(t.zgRoll > 1.5 ? 0 : 0, t.yaw, t.zgRoll || 0, "YXZ")),
         av: new V(rnd(-1, 1), rnd(-1, 1), rnd(-1, 1)).normalize().multiplyScalar(kind === "shot" ? info && info.head ? 7 : 2.5 : kind === "burn" ? 1.5 : kind === "pickaxe" ? 14 : 9),
         stuck: null,
-        shatterAt: kind === "shot" ? 2.2 : kind === "burn" ? 2.6 : 3,
+        shatterAt: kind === "shot" ? 2.2 : kind === "burn" ? 2.6 : kind === "ice" ? 0.55 : 3,
         spread: 0,
         fx: 0
       };
+      if (kind === "ice") {
+        d.av.multiplyScalar(0.15);
+        t.ch.model.traverse((o) => {
+          if (o.isMesh && o.material && o.material.color) {
+            o.material = o.material.clone();
+            o.material.color.lerp(_iceTint, 0.65);
+            if (o.material.emissive) o.material.emissive.setHex(866898);
+          }
+        });
+      }
       if (kind === "shot" && info && info.head) d.av.set(-dir.z, 0, dir.x).multiplyScalar(9);
       if (kind === "explosion" || kind === "burn") t.ch.model.traverse((o) => {
         if (o.isMesh && o.material && o.material.color) {
@@ -1802,7 +2029,7 @@
     }
     function deathMove(d, dt) {
       if (ZG.state === "ceil") d.vel.y += GRAV * dt;
-      if (d.kind === "shot" || d.kind === "burn") d.vel.multiplyScalar(Math.exp(-0.5 * dt));
+      if (d.kind === "shot" || d.kind === "burn" || d.kind === "ice") d.vel.multiplyScalar(Math.exp(-(d.kind === "ice" ? 3 : 0.5) * dt));
       d.c.addScaledVector(d.vel, dt);
       const r = 0.7;
       _dn.set(0, 0, 0);
@@ -1910,7 +2137,7 @@
         d.av.multiplyScalar(Math.exp(-(d.kind === "shot" ? 0.6 : 0.2) * dt));
         const n = deathMove(d, dt);
         if (n) {
-          const hard = d.vel.length() > 12 || d.kind !== "shot" && d.kind !== "burn";
+          const hard = d.vel.length() > 12 || d.kind !== "shot" && d.kind !== "burn" && d.kind !== "ice";
           if (hard) {
             d.stuck = { n: n.clone(), t: 0 };
             d.vel.set(0, 0, 0);
@@ -1926,7 +2153,7 @@
           }
         }
       } else d.stuck.t += dt;
-      d.spread = Math.min(d.kind === "shot" || d.kind === "burn" ? 0.45 : 1, d.spread + dt * (d.stuck ? 8 : 3));
+      d.spread = d.kind === "ice" ? 0 : Math.min(d.kind === "shot" || d.kind === "burn" ? 0.45 : 1, d.spread + dt * (d.stuck ? 8 : 3));
       if ((d.kind === "explosion" || d.kind === "burn") && g.visible) {
         d.fx += dt;
         if (d.fx > 0.06) {
@@ -1939,7 +2166,7 @@
       W.Idle = 1 - d.spread;
       W.Walk = W.Run = 0;
       for (const k in c.act) c.act[k].setEffectiveWeight(W[k]);
-      c.mixer.update(d.t < 0.3 ? dt * 0.3 : 0);
+      c.mixer.update(d.kind === "ice" ? 0 : d.t < 0.3 ? dt * 0.3 : 0);
       const s = d.stuck ? Math.exp(-d.stuck.t * 7) * Math.sin(Math.min(1, d.stuck.t * 12) * Math.PI) : 0;
       c.spin.scale.set(1 + 0.3 * s, 1 + 0.15 * s, 1 - 0.55 * s);
       g.quaternion.copy(d.q);
@@ -2085,6 +2312,18 @@
       if (!e.alive) {
         c.flash.visible = false;
         deathPose(e, g, c, dt);
+        return;
+      }
+      if (lockedUp(e)) {
+        c.flash.visible = false;
+        _pc.set(0, 1, 0).applyEuler(g.rotation);
+        g.position.set(e.pos.x - _pc.x, e.pos.y + 1 - _pc.y, e.pos.z - _pc.z);
+        if (e.stun > 0 && !(e.frozen > 0)) {
+          const j = 0.045 * Math.min(1, e.stun * 2);
+          g.position.x += rnd(-j, j);
+          g.position.y += rnd(-j, j);
+          g.position.z += rnd(-j, j);
+        }
         return;
       }
       g.visible = !(e.isPlayer && ads && isScoped());
@@ -2443,7 +2682,7 @@
       if (c.held) return (c.held.userData.muzzles ? c.held.userData.muzzles[e.anim.mfSide || 0] : c.held.userData.muzzle).getWorldPosition(out);
       return out.set(e.pos.x, e.pos.y + 1.5, e.pos.z);
     }
-    const KICK = { ar: 0.55, smg: 0.35, pump: 1, pistol: 0.6, sniper: 1, rpg: 1.3, mf: 0.3 };
+    const KICK = { ar: 0.55, smg: 0.35, pump: 1, pistol: 0.6, sniper: 1, rpg: 1.3, mf: 0.3, frz: 0.1, tsr: 0.8, flm: 0.06, drone: 0.15 };
     function fireFx(e, w, id) {
       const A = e.anim;
       A.recoil = Math.min(1.2, A.recoil + KICK[id]);
@@ -2453,6 +2692,10 @@
       if (id === "pump") A.pumpT = -0.15;
       if (id === "rpg") {
         rpgBackblast(e);
+        return;
+      }
+      if (WEAP[id].sp) {
+        A.flash = 0;
         return;
       }
       if (id === "mf" && e.ch.held && e.ch.held.userData.muzzles) {
@@ -2657,7 +2900,7 @@
         player.dmgDealt += amt;
         showDmg(info.point || t.pos.clone().add(new V(0, 1.4, 0)), amt, info.head ? "head" : sh > 0 ? "shield" : "");
         hitMarker(info.head);
-        sfx(sh > 0 && t.shield <= 0 ? "shieldBreak" : info.head ? "head" : sh > 0 ? "shield" : "hit");
+        if (!info.soft || sh > 0 && t.shield <= 0) sfx(sh > 0 && t.shield <= 0 ? "shieldBreak" : info.head ? "head" : sh > 0 ? "shield" : "hit");
       }
       if (t === player) {
         hurtFlash = Math.min(1, hurtFlash + 0.3 + amt / 90);
@@ -2672,7 +2915,10 @@
         t.lastSeen = src.pos.clone();
         t.lastSeenT = matchTime;
       }
-      if (t.hp <= 0) eliminate(t, src, info.weapon, info);
+      if (t.hp <= 0) {
+        if (t.frozen > 0) info.frozen = true;
+        eliminate(t, src, info.weapon, info);
+      }
     }
     function eliminate(t, killer, weapon, info) {
       if (!t.alive) return;
@@ -2712,7 +2958,7 @@
     }
     function playerFire() {
       const p = player;
-      if (p.consuming) return;
+      if (p.consuming || lockedUp(p)) return;
       const it = curItem();
       if (!it) {
         if (p.fireCd > 0) return;
@@ -2748,6 +2994,10 @@
       const w = WEAP[it.id];
       if (p.reloading || p.fireCd > 0) return;
       p.fireCd = w.rate;
+      if (w.sp) {
+        specialFire(p, it, w);
+        return;
+      }
       if (w.beam) {
         if (!(it.ammo > 0)) {
           startReload(it);
@@ -2966,6 +3216,10 @@
       rpg: '<rect x="6" y="9" width="40" height="5" rx="1"/><polygon points="2,7 8,9 8,14 2,16"/><path d="M46 8h6l9 3.5-9 3.5h-6z" fill="#4fd34f"/><polygon points="20,14 25,14 23,21 18,21"/><polygon points="33,14 37,14 37,19 33,19"/><rect x="18" y="4" width="9" height="4" rx="1"/>',
       gren: '<rect x="20" y="2" width="22" height="20" rx="4" opacity=".45"/><ellipse cx="31" cy="14" rx="7" ry="8"/><rect x="28" y="3" width="6" height="4" rx="1"/><path d="M34 4h4l2 9-2 1z"/><circle cx="25" cy="5" r="3" fill="none" stroke="currentColor" stroke-width="1.4"/>',
       mf: '<path d="M14 10h14v5h-6l-2 7h-5l1-7h-2z"/><path d="M36 10h14v5h-2l1 7h-5l-2-7h-6z"/><path d="M14 10C8 4 4 6 2 3c4 1 6 0 12 4z" fill="#ffd23f"/><path d="M50 10c6-6 10-4 12-7-4 1-6 0-12 4z" fill="#ffd23f"/>',
+      frz: '<path d="M4 9h10v6H6z"/><path d="M14 8h24l4 3v4H22l-2 7h-6l2-7h-2z"/><rect x="21" y="2" width="13" height="5" rx="2.5" fill="#bff3ff"/><path d="M42 9h5l9-5v15l-9-5h-5z" fill="#bff3ff"/><path d="M58 6l4-2M58 11.5h5M58 17l4 2" stroke="#bff3ff" stroke-width="1.5"/>',
+      tsr: '<path d="M16 7h28v8H30l-2 8h-8l2-8h-6z"/><rect x="44" y="6" width="7" height="10" rx="1" fill="#202226"/><path d="M51 8h3M51 14h3" stroke="#8fe3ff" stroke-width="1.6"/><path d="M57 3l-2 6h4l-3 7" fill="none" stroke="#8fe3ff" stroke-width="1.5"/>',
+      flm: '<path d="M3 9h7v5H5z"/><rect x="10" y="9" width="38" height="4" rx="1"/><rect x="34" y="8" width="14" height="6" rx="1" opacity=".7"/><rect x="48" y="8" width="4" height="6"/><rect x="14" y="2" width="22" height="6" rx="3" fill="#c8321e"/><path d="M17 13h5l-2 8h-5z"/><path d="M38 13h4v6h-4z"/><path d="M53 11c3-5 7-4 9-8-1 5 1 7-3 12 0-2-3-3-6-4z" fill="#ffb02a"/>',
+      drone: '<rect x="24" y="8" width="16" height="9" rx="4.5"/><rect x="6" y="9.5" width="52" height="2.5" rx="1"/><rect x="1" y="5" width="16" height="2" rx="1"/><rect x="47" y="5" width="16" height="2" rx="1"/><rect x="8" y="6" width="2" height="5"/><rect x="54" y="6" width="2" height="5"/><circle cx="32" cy="13" r="2.2" fill="#ff3b30"/><rect x="30.5" y="17" width="3" height="4"/>',
       bounce: '<circle cx="32" cy="12" r="10"/><path d="M22 12c4-3 16-3 20 0M24 6c4 3 12 3 16 0M24 18c4-3 12-3 16 0" fill="none" stroke="#000" stroke-opacity=".35" stroke-width="1.4"/>'
     };
     const SVG = (inner) => `<svg viewBox="0 0 64 24" width="52" height="20" fill="currentColor" aria-hidden="true">${inner}</svg>`;
@@ -2980,6 +3234,10 @@
       gren: SVG(ICON_IN.gren),
       mf: SVG(ICON_IN.mf),
       bounce: SVG(ICON_IN.bounce),
+      frz: SVG(ICON_IN.frz),
+      tsr: SVG(ICON_IN.tsr),
+      flm: SVG(ICON_IN.flm),
+      drone: SVG(ICON_IN.drone),
       mini: SVG('<rect x="29" y="3" width="6" height="5" rx="1"/><circle cx="32" cy="15" r="7"/>'),
       big: SVG('<rect x="28" y="1" width="8" height="5" rx="1"/><path d="M27 6h10l5 7v8a2 2 0 0 1-2 2H24a2 2 0 0 1-2-2v-8z"/>')
     };
@@ -3008,7 +3266,7 @@
         } else if (it && it.kind === "gun") {
           nm = WEAP[it.id].short;
           col = WEAP[it.id].col || RAR[it.r].c;
-          sb = "\u221E";
+          sb = it.id === "drone" ? p.drone ? "LIVE" : it.cd > 0 ? Math.ceil(it.cd) + "s" : "" : "\u221E";
           ic = it.id;
         } else if (it && it.kind === "vest") {
           nm = "GRENADES";
@@ -3118,7 +3376,8 @@
         $("ability").classList.toggle("ready", !cd && !(p.bounceT > 0));
         $("ability").classList.toggle("on", p.bounceT > 0);
       }
-      if (it && it.kind === "gun" && it.id === "mf") $("ammo").innerHTML = it.ammo + "<small>/ " + MF_CLIP + "</small>";
+      if (it && it.kind === "gun" && it.id === "drone") $("ammo").textContent = p.drone ? String(Math.max(0, Math.ceil(DRONE_LIFE - p.drone.t))) : it.cd > 0 ? Math.ceil(it.cd) + "s" : "READY";
+      else if (it && it.kind === "gun" && it.id === "mf") $("ammo").innerHTML = it.ammo + "<small>/ " + MF_CLIP + "</small>";
       else if (it && it.kind === "gun") $("ammo").textContent = "\u221E";
       else if (it && it.kind === "vest") $("ammo").textContent = String(it.count);
       else $("ammo").textContent = "";
@@ -3313,7 +3572,8 @@
       sun.position.copy(f).addScaledVector(SUN_DIR, 200);
       sun.target.position.copy(f);
     }
-    const ARM_IDS = ["ar", "smg", "pump", "pistol", "sniper"], ARM_Y = 420;
+    const ARM_IDS = ["ar", "smg", "pump", "pistol", "sniper", "rpg", "mf", "tsr", "frz", "flm", "drone"], ARM_Y = 420;
+    const SHOP_GUN = (id) => SHOP.find((x) => x.id === id);
     let armIdx = 0, armGroup = null, armGuns = [];
     const LK = { stage: null, item: null, orbit: null, idle: 0, kind: "", n: 0, center: -1, shown: -1, step: 128, vx: 0, lx: 0, lt: 0, drag: null, swapT: 0, thumbs: /* @__PURE__ */ new Map(), thumbBusy: 0, wheelT: 0, ring: null, glow: null, rim: null };
     const GS = window.gsap || null, calmUI = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -3409,7 +3669,7 @@
       return o;
     }
     function lkView() {
-      if (armMode === "guns") return { t: [0, 1, 0], d: Math.max(6.5, (ARM_IDS[armIdx] === "sniper" ? 13 : 10.5) / camera.aspect), h: 0.6, min: 3, max: 16, az: 1, spin: false };
+      if (armMode === "guns") return { t: [0, 1, 0], d: SHOP_GUN(ARM_IDS[armIdx]) ? Math.max(4.5, 6 / camera.aspect) : Math.max(6.5, (ARM_IDS[armIdx] === "sniper" ? 13 : 10.5) / camera.aspect), h: 0.6, min: 3, max: 16, az: 1, spin: false };
       if (armMode === "picks") return { t: [0, 1.15, 0], d: Math.max(5, 6 / camera.aspect), h: 0.35, min: 2, max: 9, az: Infinity, spin: true };
       return { t: [0, 0.9, 0], d: Math.max(5.4, 6.6 / camera.aspect), h: 0.5, min: 1.3, max: 8, az: Infinity, spin: true };
     }
@@ -3486,8 +3746,20 @@
       if (armMode === "skins" && SK) return buildSkinStand(dir);
       const holder = new T.Group();
       armGuns = [];
-      const id = ARM_IDS[armIdx];
-      for (let r = 0; r < 5; r++) {
+      const id = ARM_IDS[armIdx], shopIt = SHOP_GUN(id);
+      if (shopIt) {
+        const h = new T.Group();
+        h.position.set(0, 1, 0);
+        const gm = makeGunModel(id, 4);
+        gm.scale.setScalar(id === "drone" ? 5 : id === "tsr" ? 3.2 : id === "mf" ? 2.4 : 2.1);
+        h.add(gm);
+        const halo = new T.Sprite(auraMats(shopIt.col).halo);
+        halo.scale.setScalar(2.6);
+        halo.position.z = -0.6;
+        h.add(halo);
+        holder.add(h);
+        armGuns.push(h);
+      } else for (let r = 0; r < 5; r++) {
         const h = new T.Group();
         h.position.set((r - 2) * (id === "sniper" ? 2.15 : 1.65), 1, 0);
         const gm = makeGunModel(id, r);
@@ -3504,12 +3776,13 @@
       lkTint("#5cf0ff");
       lkPut(holder, dir || 0);
       lkFrame(true);
-      const w = WEAP[id];
-      lkInfo(w.name, "Armory \xB7 " + (armIdx + 1) + " of 5", null, `Damage ${w.dmg * w.pellets > w.dmg ? w.dmg + " \xD7 " + w.pellets : w.dmg} \xB7 ${w.auto ? "Full auto" : "Single shot"}`);
-      $("armLabels").innerHTML = RAR.map((r) => `<span style="color:${r.c}">${r.n}</span>`).join("");
+      const w = WEAP[id], fx = { frz: "Freezes", tsr: "Stuns", flm: "Burns", drone: "Hunts for 15s" }[id];
+      lkInfo(w.name, (shopIt ? "Shop \xB7 " + shopIt.price + " elims" : "Armory") + " \xB7 " + (armIdx + 1) + " of " + ARM_IDS.length, null, id === "drone" ? `Damage ${DRONE_W.dmg} \xB7 ${fx}` : `Damage ${w.dmg * w.pellets > w.dmg ? w.dmg + " \xD7 " + w.pellets : w.dmg} \xB7 ${w.auto ? "Full auto" : "Single shot"}${fx ? " \xB7 " + fx : ""}`);
+      $("armLabels").innerHTML = shopIt ? "" : RAR.map((r) => `<span style="color:${r.c}">${r.n}</span>`).join("");
     }
     function lkInfo(name, kick, rar, stats) {
       $("armName").textContent = name;
+      $("armName").style.fontSize = name.length > 11 ? "clamp(24px,2.6vw,34px)" : "";
       $("armKick").textContent = kick;
       $("armStats").textContent = stats || "";
       $("armNote").textContent = "";
@@ -4440,6 +4713,13 @@
         updateBounce(p, dt);
         return;
       }
+      if (lockedUp(p)) {
+        p.wantJump = false;
+        p.zgPropel = false;
+        p.vel.multiplyScalar(Math.exp(-(p.frozen > 0 ? 8 : 3) * dt));
+        zgMove(p, dt);
+        return;
+      }
       const flip = ZG.camRoll > Math.PI / 2, cp = Math.cos(p.pitch);
       let mx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0), mz = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0);
       if (flip) mx = -mx;
@@ -4451,7 +4731,7 @@
         if (prop && !p.zgPropel) sfx("propel");
         p.zgPropel = prop;
         _zf.set(-Math.sin(p.yaw) * cp, Math.sin(p.pitch), -Math.cos(p.yaw) * cp);
-        const sp = prop ? 22 : ads ? 5.5 : 9;
+        const sp = (prop ? 22 : ads ? 5.5 : 9) * slowK(p);
         _zw.set(0, 0, 0).addScaledVector(_zf, mz).addScaledVector(_zr, mx);
         _zw.y += my;
         if (_zw.lengthSq() > 1) _zw.normalize();
@@ -4464,7 +4744,7 @@
         zgStamina(p, false, dt);
         const sprint = (keys.ShiftLeft || keys.ShiftRight) && mz > 0 && !ads;
         p.sprinting = sprint && p.onGround;
-        const sp = ads ? 4.5 : sprint ? 11 : 7.5, fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), k = 1 - Math.exp(-(p.onGround ? 14 : 3) * dt);
+        const sp = (ads ? 4.5 : sprint ? 11 : 7.5) * slowK(p), fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), k = 1 - Math.exp(-(p.onGround ? 14 : 3) * dt);
         p.vel.x = lerp(p.vel.x, (fx * mz + _zr.x * mx) * sp, k);
         p.vel.z = lerp(p.vel.z, (fz * mz + _zr.z * mx) * sp, k);
         if (p.onGround && p.wantJump) {
@@ -4522,6 +4802,13 @@
     }
     function updateBotZG(b, dt) {
       if (!b.alive) return;
+      if (lockedUp(b)) {
+        b.zgPropel = false;
+        b.zgTx = 0;
+        b.vel.multiplyScalar(Math.exp(-(b.frozen > 0 ? 8 : 3) * dt));
+        zgMove(b, dt);
+        return;
+      }
       b.think -= dt;
       b.fireCd -= dt;
       b.reloadT -= dt;
@@ -4613,15 +4900,16 @@
       }
       dodgeFlyers(b, wish, ceil);
       if (wish.lengthSq() > 1) wish.normalize();
+      const slow = slowK(b);
       if (ceil) {
-        speed = 7.5;
+        speed = 7.5 * slow;
         const k = 1 - Math.exp(-(b.onGround ? 12 : 3) * dt);
         b.vel.x = lerp(b.vel.x, wish.x * speed, k);
         b.vel.z = lerp(b.vel.z, wish.z * speed, k);
         if (b.enemy && b.onGround && Math.random() < dt * 0.6) b.vel.y = -10.5;
         b.zgTx = 0;
       } else {
-        speed = prop ? 21 : 9;
+        speed = (prop ? 21 : 9) * slow;
         b.vel.lerp(wish.multiplyScalar(speed), 1 - Math.exp(-2.4 * (b.boostT > 0 ? 0.12 : 1) * dt));
         b.zgTx = prop ? -1.25 : b.enemy ? -0.1 : -0.6;
       }
@@ -5726,13 +6014,618 @@
       const p = player;
       if (p && p.bouncer && p.bouncer.cd > 0 && !(p.bounceT > 0)) p.bouncer.cd = Math.max(0, p.bouncer.cd - dt);
     }
-    const SHOP = [{ id: "rpg", name: "RPG", price: 5, col: "#4fd34f" }, { id: "gren", name: "Grenade Launcher", price: 10, col: "#a7b85a" }, { id: "mf", name: "Mirror Fractal Guns", price: 15, col: "#ffd23f" }, { id: "bounce", name: "Bouncer Ball", price: 20, col: "#5cc8ff" }];
+    const FRZ_T = 2.4, FRZ_IMMUNE = 1, STUN_T = 1.5, BURN_T = 3;
+    function aimHit(src, dir, range) {
+      const o = camera.position;
+      ray.set(o, dir);
+      ray.near = camDistNow + 0.4;
+      ray.far = range;
+      const hits = ray.intersectObjects(meshesAlong(o, dir, range, true), false), h = hits.find((x) => x.object.userData.ent !== src);
+      const hd = h ? h.distance : range, td = boxRay(o, dir, hd);
+      if (td < hd) return { p: o.clone().addScaledVector(dir, td), ent: null, head: false, wall: true };
+      if (h) {
+        const ent = h.object.userData.ent, ch = ent && ent.etype === "char";
+        return { p: h.point.clone(), ent: ch ? ent : null, head: ch && h.object.userData.part === "head", wall: !ch };
+      }
+      return { p: o.clone().addScaledVector(dir, range), ent: null, head: false, wall: false };
+    }
+    const _sg = new V();
+    function placeSeg(m, a, b, r) {
+      _sg.subVectors(b, a);
+      const L = _sg.length() || 1e-3;
+      m.scale.set(r, L, r);
+      m.quaternion.setFromUnitVectors(UP, _sg.divideScalar(L));
+      m.position.copy(a).addScaledVector(_sg, L / 2);
+    }
+    const coldCore = new T.MeshBasicMaterial({ color: 14087935, transparent: true, depthWrite: false, fog: false });
+    const coldGlow = new T.MeshBasicMaterial({ color: 3647984, transparent: true, depthWrite: false, fog: false, side: T.DoubleSide, opacity: 0.45 });
+    const zapCore = new T.MeshBasicMaterial({ color: 13234431, transparent: true, depthWrite: false, fog: false });
+    const zapGlow = new T.MeshBasicMaterial({ color: 2784767, transparent: true, depthWrite: false, fog: false, opacity: 0.4 });
+    const snowMat = new T.SpriteMaterial({ map: sparkTex, color: 9428223, transparent: true, depthWrite: false });
+    const mistMat = new T.SpriteMaterial({ map: glowTex, color: 8179189, transparent: true, depthWrite: false, opacity: 0.6 });
+    const voltMat = new T.SpriteMaterial({ map: sparkTex, color: 4168703, transparent: true, depthWrite: false });
+    const jetMat = new T.SpriteMaterial({ map: glowTex, color: 16765562, transparent: true, depthWrite: false });
+    function mote(mat, p, size, life, vel, spin) {
+      const m = mat.clone(), s = new T.Sprite(m);
+      s.position.copy(p);
+      s.scale.setScalar(size);
+      m.rotation = Math.random() * TAU;
+      world.add(s);
+      const v = vel.clone(), w = spin || 0;
+      effects.push({ t: 0, dur: life, obj: s, upd: (e, k, dt) => {
+        s.position.addScaledVector(v, dt);
+        v.multiplyScalar(Math.exp(-2 * dt));
+        m.rotation += w * dt;
+        m.opacity = (1 - k) * (mat.opacity == null ? 1 : mat.opacity);
+        s.scale.setScalar(size * (1 + k * 0.6));
+      }, done: () => m.dispose() });
+    }
+    const rv = (s) => new V(rnd(-s, s), rnd(-s, s), rnd(-s, s));
+    function frostBeam(a, b, hit) {
+      const g = new T.Group(), core = new T.Mesh(beamGeo, coldCore), glw = new T.Mesh(beamGeo, coldGlow);
+      g.add(glw);
+      g.add(core);
+      world.add(g);
+      const ph = Math.random() * TAU, len = a.distanceTo(b);
+      effects.push({ t: 0, dur: 0.11, obj: g, upd: (e, k) => {
+        const f = 1 - k;
+        placeSeg(core, a, b, 0.035 * f + 0.012);
+        placeSeg(glw, a, b, (0.17 + 0.05 * Math.sin(ph + matchTime * 40)) * f);
+      } });
+      _dv.subVectors(b, a).normalize();
+      for (let i = 0; i < 2; i++) {
+        const q = a.clone().addScaledVector(_dv, Math.random() * len);
+        mote(snowMat, q.add(rv(0.25)), rnd(0.12, 0.25), rnd(0.35, 0.6), rv(0.8).addScaledVector(_dv, 2), rnd(-4, 4));
+      }
+      if (hit) {
+        mote(mistMat, b.clone().add(rv(0.2)), rnd(0.6, 1), rnd(0.3, 0.5), rv(1.2));
+        mote(snowMat, b.clone(), rnd(0.3, 0.5), 0.25, rv(3), 6);
+      }
+    }
+    function frzFire(p, w) {
+      camera.getWorldDirection(tv1);
+      const m = muzzlePos(p, new V()), h = nearMiss(p, tv1, aimHit(p, tv1, w.range + camDistNow), m, 0.8);
+      frostBeam(m, h.p, !!h.ent || h.wall);
+      if (h.ent) chill(h.ent, p, w, h.head, h.p, tv1);
+      p.pitch = Math.min(1.25, p.pitch + w.recoil * rnd(0.5, 1));
+      fireFx(p, w, "frz");
+      sfx("frz");
+    }
+    function chill(t, src, w, head, pt, dir) {
+      hurt(t, w.dmg * (head ? w.head : 1), src, { head, point: pt, weapon: w.name, dir: dir.clone(), soft: true });
+      if (!t.alive || t.bounceT > 0 || t.frozen > 0 || t.frzImm > 0) return;
+      t.chill = Math.min(1, (t.chill || 0) + 0.12);
+      if (t.chill >= 1) freezeChar(t);
+    }
+    const iceGeo = new T.BoxGeometry(1.3, 2.4, 1.3, 2, 3, 2), iceEdge = new T.EdgesGeometry(new T.BoxGeometry(1.3, 2.4, 1.3));
+    {
+      const a = iceGeo.attributes.position;
+      for (let i = 0; i < a.count; i++) a.setXYZ(i, a.getX(i) * rnd(0.94, 1.08), a.getY(i) * rnd(0.97, 1.04), a.getZ(i) * rnd(0.94, 1.08));
+      iceGeo.computeVertexNormals();
+    }
+    const iceMat = new T.MeshPhongMaterial({ color: 12907007, emissive: 1726584, specular: 16777215, shininess: 140, transparent: true, opacity: 0.5, depthWrite: false, flatShading: true });
+    const iceEdgeMat = new T.LineBasicMaterial({ color: 15924479, transparent: true, opacity: 0.8 });
+    const icicleGeo = new T.ConeGeometry(0.09, 0.5, 5);
+    function freezeChar(t) {
+      t.chill = 0;
+      t.frozen = FRZ_T;
+      t.vel.multiplyScalar(0.15);
+      t.burn = null;
+      if (!t.ice) {
+        const g = new T.Group(), m = new T.Mesh(iceGeo, iceMat);
+        g.add(m);
+        g.add(new T.LineSegments(iceEdge, iceEdgeMat));
+        for (let i = 0; i < 7; i++) {
+          const c2 = new T.Mesh(icicleGeo, iceMat), a = Math.random() * TAU, y = rnd(-1.1, 1.1);
+          c2.position.set(Math.cos(a) * 0.66, y, Math.sin(a) * 0.66);
+          c2.rotation.set(rnd(-0.6, 0.6) + (y > 0 ? 0 : Math.PI), 0, rnd(-0.6, 0.6));
+          c2.scale.setScalar(rnd(0.6, 1.3));
+          g.add(c2);
+        }
+        g.rotation.y = Math.random() * TAU;
+        g.scale.setScalar(0.2);
+        world.add(g);
+        t.ice = g;
+        t.iceT = 0;
+      }
+      placeIce(t);
+      const c = new V(t.pos.x, t.pos.y + 1, t.pos.z);
+      for (let i = 0; i < 10; i++) mote(mistMat, c.clone().add(rv(0.6)), rnd(0.8, 1.4), rnd(0.5, 0.9), rv(2.5));
+      for (let i = 0; i < 8; i++) mote(snowMat, c.clone().add(rv(0.7)), rnd(0.2, 0.4), rnd(0.4, 0.7), rv(4), rnd(-6, 6));
+      sfx("freeze", c);
+    }
+    function placeIce(t) {
+      const g = t.ice;
+      if (!g) return;
+      t.iceT = (t.iceT || 0) + 0.016;
+      g.position.set(t.pos.x, t.pos.y + 1, t.pos.z);
+      const k = Math.min(1, g.scale.x + 0.12);
+      g.scale.setScalar(k < 1 ? k : 1 + 0.015 * Math.sin(matchTime * 3));
+    }
+    function thaw(t, dead) {
+      const g = t.ice;
+      if (!g) return;
+      world.remove(g);
+      t.ice = null;
+      t.frozen = 0;
+      t.frzImm = FRZ_IMMUNE;
+      const c = g.position.clone();
+      for (let i = 0; i < 22; i++) {
+        const m = new T.Mesh(shardGeo, iceMat), v = rv(1).normalize().multiplyScalar(rnd(3, 9)), w = rv(9), s = rnd(0.8, 2.2);
+        m.position.copy(c).add(new V(rnd(-0.6, 0.6), rnd(-1.1, 1.1), rnd(-0.6, 0.6)));
+        world.add(m);
+        effects.push({ t: 0, dur: rnd(0.7, 1.2), obj: m, upd: (e, k, dt) => {
+          if (ZG.state === "ceil") v.y += GRAV * dt;
+          m.position.addScaledVector(v, dt);
+          m.rotation.x += w.x * dt;
+          m.rotation.y += w.y * dt;
+          m.scale.setScalar(s * (1 - k));
+        } });
+      }
+      for (let i = 0; i < 8; i++) mote(mistMat, c.clone().add(rv(0.6)), rnd(0.7, 1.2), rnd(0.4, 0.7), rv(3));
+      sfx(dead ? "freeze" : "thaw", c);
+    }
+    function nearMiss(p, dir, h, m, r) {
+      if (h.ent) return h;
+      let best = null, bd = r;
+      const lim = camera.position.distanceTo(h.p);
+      for (const e of combatants) {
+        if (!e.alive || e === p) continue;
+        _dv.set(e.pos.x, e.pos.y + 1, e.pos.z);
+        const d = segDist(camera.position, dir, lim, _dv);
+        if (d < bd && hasLOS(m, _dv)) {
+          bd = d;
+          best = e;
+        }
+      }
+      return best ? { p: new V(best.pos.x, best.pos.y + 1.1, best.pos.z), ent: best, head: false, wall: false } : h;
+    }
+    function zapArc(a, b, dur, thick) {
+      const n = Math.max(4, Math.min(12, Math.round(a.distanceTo(b) / 1.6))), g = new T.Group(), segs = [];
+      for (let i = 0; i < n; i++) {
+        const c = new T.Mesh(beamGeo, zapCore), gl = new T.Mesh(beamGeo, zapGlow);
+        g.add(gl);
+        g.add(c);
+        segs.push([c, gl]);
+      }
+      world.add(g);
+      const pts = Array.from({ length: n + 1 }, () => new V()), d = new V().subVectors(b, a), L = d.length(), side = new V(), up2 = new V();
+      d.normalize();
+      side.crossVectors(d, Math.abs(d.y) < 0.9 ? UP : new V(1, 0, 0)).normalize();
+      up2.crossVectors(d, side);
+      const shape = () => {
+        for (let i = 0; i <= n; i++) {
+          const k = i / n, j = i === 0 || i === n ? 0 : L * 0.06 * Math.sin(Math.PI * k) + 0.08;
+          pts[i].copy(a).addScaledVector(d, L * k).addScaledVector(side, rnd(-j, j)).addScaledVector(up2, rnd(-j, j));
+        }
+      };
+      let acc = 1;
+      effects.push({ t: 0, dur, obj: g, upd: (e, k, dt) => {
+        acc += dt;
+        if (acc > 0.03) {
+          acc = 0;
+          shape();
+        }
+        const f = 1 - k * k;
+        for (let i = 0; i < n; i++) {
+          placeSeg(segs[i][0], pts[i], pts[i + 1], (thick || 0.03) * f);
+          placeSeg(segs[i][1], pts[i], pts[i + 1], (thick || 0.03) * 4 * f);
+        }
+      } });
+    }
+    function tsrFire(p, w) {
+      camera.getWorldDirection(tv1);
+      const m = muzzlePos(p, new V()), range = w.range + camDistNow;
+      let h = aimHit(p, tv1, range);
+      h = nearMiss(p, tv1, h, m, 1.1);
+      zapArc(m, h.p, 0.2, 0.03);
+      mote(voltMat, m.clone(), 0.5, 0.12, new V(), 8);
+      if (h.ent) {
+        hurt(h.ent, w.dmg * (h.head ? w.head : 1), p, { head: h.head, point: h.p, weapon: w.name, dir: tv1.clone() });
+        if (h.ent.alive) stunChar(h.ent);
+      } else if (h.wall) for (let i = 0; i < 6; i++) mote(voltMat, h.p.clone(), rnd(0.2, 0.45), rnd(0.15, 0.3), rv(6), 10);
+      p.pitch = Math.min(1.25, p.pitch + w.recoil);
+      fireFx(p, w, "tsr");
+      sfx("tsr");
+    }
+    function stunChar(t) {
+      if (t.bounceT > 0) return;
+      t.stun = Math.max(t.stun || 0, STUN_T);
+      t.stunFx = 0;
+      sfx("stun", t.pos.clone());
+    }
+    function bodyArc(t) {
+      const up = t.zgRoll > 1.5 ? -1 : 1, c = new V(t.pos.x, t.pos.y + 1, t.pos.z), a = c.clone().add(new V(rnd(-0.45, 0.45), rnd(-0.9, 0.9) * up, rnd(-0.45, 0.45))), b = c.clone().add(new V(rnd(-0.45, 0.45), rnd(-0.9, 0.9) * up, rnd(-0.45, 0.45)));
+      zapArc(a, b, 0.09, 0.012);
+      if (Math.random() < 0.5) mote(voltMat, a, rnd(0.2, 0.35), 0.12, rv(2), 9);
+    }
+    function jetFlame(p, vel, life, size) {
+      const m = jetMat.clone(), s = new T.Sprite(m);
+      s.position.copy(p);
+      m.rotation = Math.random() * TAU;
+      world.add(s);
+      const v = vel.clone(), w = rnd(-3, 3);
+      effects.push({ t: 0, dur: life, obj: s, upd: (e, k, dt) => {
+        s.position.addScaledVector(v, dt);
+        v.multiplyScalar(Math.exp(-1.6 * dt));
+        v.y += (ZG.state === "ceil" ? -1 : 1) * 3 * dt;
+        m.rotation += w * dt;
+        s.scale.setScalar(size * (0.5 + 3.2 * Math.sqrt(k)));
+        m.color.copy(_fc1).lerp(_fc2, Math.min(1, k * 1.3));
+        if (k < 0.15) m.color.lerp(_jw, 1 - k / 0.15);
+        m.opacity = k < 0.75 ? 0.9 : 0.9 * (1 - (k - 0.75) / 0.25);
+      }, done: () => m.dispose() });
+    }
+    const _jw = new T.Color(16774872);
+    function flmFire(p, w) {
+      camera.getWorldDirection(tv1);
+      const m = muzzlePos(p, new V()), at = aimPoint(p, tv1, w.range + camDistNow + 6), dir = at.sub(m).normalize();
+      if (!(p.flmT > 0)) sfx("ignite", m.clone());
+      p.flmT = 0.25;
+      flameJet(p, m, dir, w);
+      fireFx(p, w, "flm");
+      sfx("flm");
+    }
+    function flameJet(src, m, dir, w) {
+      ray.set(m, dir);
+      ray.near = 0;
+      ray.far = w.range;
+      const hs = ray.intersectObjects(meshesAlong(m, dir, w.range, false), false);
+      let L = Math.min(w.range, boxRay(m, dir, w.range));
+      if (hs.length) L = Math.min(L, hs[0].distance);
+      for (let i = 0; i < 3; i++) {
+        const sp = rnd(22, 28), v = dir.clone().multiplyScalar(sp).add(rv(2.2));
+        jetFlame(m.clone().addScaledVector(dir, 0.15 + i * 0.3), v, Math.max(0.12, Math.min(0.62, L / sp * 1.25)) * rnd(0.85, 1.1), rnd(0.22, 0.34));
+      }
+      if (Math.random() < 0.25) smoke(m.clone().addScaledVector(dir, Math.min(L, w.range) * rnd(0.6, 1)), rnd(1.2, 2), rnd(0.8, 1.3), dir.clone().multiplyScalar(3).add(rv(1)), true);
+      if (L < w.range && Math.random() < 0.5) {
+        const q = m.clone().addScaledVector(dir, L - 0.3);
+        flame(q, rnd(0.9, 1.5), rnd(0.3, 0.5), rv(1.5));
+      }
+      for (const e of combatants) {
+        if (!e.alive || e === src) continue;
+        _dv.set(e.pos.x - m.x, e.pos.y + 1 - m.y, e.pos.z - m.z);
+        const along = _dv.dot(dir);
+        if (along < 0 || along > L + 0.6) continue;
+        const perp = _dv.addScaledVector(dir, -along).length();
+        if (perp > 0.45 + along * 0.17 + e.radius) continue;
+        if (!hasLOS(m, _dv.set(e.pos.x, e.pos.y + 1, e.pos.z))) continue;
+        hurt(e, w.dmg, src, { weapon: w.name, point: _dv.clone(), dir: dir.clone(), soft: true });
+        if (e.alive) ignite(e, src);
+      }
+    }
+    function ignite(t, src) {
+      if (t.bounceT > 0) return;
+      if (t.frozen > 0) {
+        t.frozen = Math.min(t.frozen, 0.05);
+        return;
+      }
+      if (!t.burn) sfx("ignite", t.pos.clone(), { gain: 0.5 });
+      t.burn = { t: BURN_T, src, tick: t.burn ? t.burn.tick : 0.5, fx: 0 };
+      t.chill = 0;
+    }
+    function updateStatus(e, dt) {
+      if (!e.alive) {
+        if (e.ice) thaw(e, true);
+        e.burn = null;
+        e.stun = 0;
+        e.chill = 0;
+        return;
+      }
+      if (e.frzImm > 0) e.frzImm -= dt;
+      if (e.chill > 0 && !(e.frozen > 0)) {
+        e.chill = Math.max(0, e.chill - dt * 0.3);
+        if (e.chill > 0.2 && Math.random() < dt * 14 * e.chill && e.ch.g.visible) mote(snowMat, new V(e.pos.x, e.pos.y + 1, e.pos.z).add(rv(0.5)), rnd(0.12, 0.22), rnd(0.4, 0.7), new V(rnd(-0.3, 0.3), -0.6, rnd(-0.3, 0.3)));
+      }
+      if (e.frozen > 0) {
+        e.frozen -= dt;
+        placeIce(e);
+        if (e.frozen <= 0) thaw(e);
+      }
+      if (e.stun > 0) {
+        e.stun -= dt;
+        e.stunFx -= dt;
+        if (e.stunFx <= 0 && e.ch.g.visible) {
+          e.stunFx = 0.06;
+          bodyArc(e);
+        }
+      }
+      if (e.burn) {
+        const b = e.burn;
+        b.t -= dt;
+        b.tick -= dt;
+        b.fx -= dt;
+        if (b.fx <= 0 && e.ch.g.visible) {
+          b.fx = 0.05;
+          const up = e.zgRoll > 1.5 ? -1 : 1;
+          flame(new V(e.pos.x + rnd(-0.35, 0.35), e.pos.y + 1 + rnd(-0.8, 0.6) * up, e.pos.z + rnd(-0.35, 0.35)), rnd(0.5, 0.85), rnd(0.3, 0.5), new V(rnd(-0.4, 0.4), rnd(1.5, 2.6) * up, rnd(-0.4, 0.4)));
+        }
+        if (b.tick <= 0) {
+          b.tick = 0.5;
+          if (Math.random() < 0.6) sfx("crackle", e.pos.clone());
+          hurt(e, 4, b.src && b.src.alive ? b.src : null, { weapon: "Fire", soft: true });
+          if (!e.alive) return;
+        }
+        if (b.t <= 0) e.burn = null;
+      }
+    }
+    const slowK = (e) => 1 - 0.55 * (e.chill || 0);
+    const lockedUp = (e) => e.frozen > 0 || e.stun > 0;
+    const DRONE_LIFE = 15, DRONE_CD = 12, DRONE_W = { name: "Robot Drone", dmg: 11, range: 90, head: 1.5 };
+    let drones = [];
+    const DRN = {};
+    function droneModel() {
+      if (!DRN.body) Object.assign(DRN, {
+        body: new T.SphereGeometry(0.42, 22, 14),
+        visor: new T.SphereGeometry(0.43, 22, 10, -0.9, 1.8, 1.05, 0.75),
+        arm: BX(1.9, 0.06, 0.09),
+        motor: new T.CylinderGeometry(0.09, 0.11, 0.14, 14),
+        blade: BX(0.66, 0.012, 0.07),
+        disc: new T.CircleGeometry(0.36, 24).rotateX(-Math.PI / 2),
+        gun: gtube(0.035, 0.035, 0.34, 12),
+        eye: new T.SphereGeometry(0.06, 12, 8),
+        ant: new T.CylinderGeometry(8e-3, 0.01, 0.34, 6),
+        white: GPh(15922423, 60, 10132122),
+        orange: GPh(16734780, 50, 5583650),
+        disc_m: new T.MeshBasicMaterial({ color: 16777215, transparent: true, opacity: 0.14, depthWrite: false, side: T.DoubleSide })
+      });
+      const g = new T.Group(), add = (geo, mat, x, y, z) => {
+        const m = new T.Mesh(geo, mat);
+        m.position.set(x, y, z);
+        m.castShadow = true;
+        g.add(m);
+        return m;
+      };
+      add(DRN.body, DRN.white, 0, 0, 0).scale.set(1, 0.62, 1.15);
+      add(DRN.visor, GUN_MAT.dark, 0, 0.02, 0).scale.set(1, 0.62, 1.15);
+      const eye = add(DRN.eye, GUN_MAT.red, 0, 0.03, 0.46);
+      const halo = new T.Sprite(auraMats(16726832).halo);
+      halo.scale.setScalar(0.5);
+      halo.position.set(0, 0.03, 0.5);
+      g.add(halo);
+      for (const r of [Math.PI / 4, -Math.PI / 4]) {
+        const a = add(DRN.arm, GUN_MAT.dark, 0, 0.04, 0);
+        a.rotation.y = r;
+      }
+      const props = [];
+      for (const [x, z] of [[0.67, 0.67], [-0.67, 0.67], [0.67, -0.67], [-0.67, -0.67]]) {
+        add(DRN.motor, DRN.orange, x, 0.1, z);
+        const p = new T.Group();
+        p.position.set(x, 0.19, z);
+        const b1 = new T.Mesh(DRN.blade, GUN_MAT.dark), b2 = new T.Mesh(DRN.blade, GUN_MAT.dark);
+        b2.rotation.y = Math.PI / 2;
+        p.add(b1);
+        p.add(b2);
+        p.add(new T.Mesh(DRN.disc, DRN.disc_m));
+        g.add(p);
+        props.push(p);
+      }
+      const gun = new T.Group();
+      gun.position.set(0, -0.24, 0.12);
+      const barrel = new T.Mesh(DRN.gun, GUN_MAT.steel);
+      barrel.position.z = 0.12;
+      gun.add(barrel);
+      const mz = new T.Object3D();
+      mz.position.z = 0.3;
+      gun.add(mz);
+      g.add(gun);
+      const ant = add(DRN.ant, GUN_MAT.steel, 0.12, 0.36, -0.25);
+      const tip = new T.Sprite(auraMats(16726832).halo);
+      tip.scale.setScalar(0.18);
+      tip.position.set(0.12, 0.54, -0.25);
+      g.add(tip);
+      const thr = new T.Sprite(auraMats(6091007).halo);
+      thr.scale.setScalar(0.9);
+      thr.position.y = -0.3;
+      g.add(thr);
+      g.scale.setScalar(1.25);
+      g.userData = { props, gun, mz, eye, halo, tip, thr };
+      return g;
+    }
+    function droneFire(p, it) {
+      if (p.drone) {
+        const t = crosshairTarget(p, 0.985);
+        if (t) {
+          p.drone.target = t;
+          p.drone.lock = 1.5;
+          sfx("ui");
+        }
+        return;
+      }
+      if (it.cd > 0) {
+        sfx("deny");
+        return;
+      }
+      const m = muzzlePos(p, new V()), g = droneModel();
+      g.position.copy(m);
+      world.add(g);
+      const D2 = { owner: p, item: it, g, pos: m.clone(), vel: new V(0, 4, 0).addScaledVector(new V(Math.cos(p.yaw), 0, -Math.sin(p.yaw)), 3), t: 0, think: 0, fire: 0.6, target: null, lock: 0, orb: Math.random() * TAU, hum: 0, yaw: p.yaw };
+      drones.push(D2);
+      p.drone = D2;
+      fireFx(p, WEAP.drone, "drone");
+      sfx("droneUp", m.clone());
+      refreshHotbar();
+    }
+    function crosshairTarget(p, minCos) {
+      camera.getWorldDirection(tv1);
+      let best = null, bc = minCos;
+      for (const e of combatants) {
+        if (!e.alive || e === p) continue;
+        _dv.set(e.pos.x - camera.position.x, e.pos.y + 1 - camera.position.y, e.pos.z - camera.position.z);
+        const d = _dv.length();
+        if (d > 160) continue;
+        const c = _dv.dot(tv1) / d;
+        if (c > bc && hasLOS(camera.position, _dv.set(e.pos.x, e.pos.y + 1, e.pos.z))) {
+          bc = c;
+          best = e;
+        }
+      }
+      return best;
+    }
+    function droneTarget(D2) {
+      const p = D2.owner;
+      if (D2.lock > 0 && D2.target && D2.target.alive) return D2.target;
+      if (p === player && curItem() && curItem().id === "drone") {
+        const t = crosshairTarget(p, 0.96);
+        if (t) return t;
+      }
+      if (D2.target && D2.target.alive && D2.target.pos.distanceTo(D2.pos) < 110) return D2.target;
+      let best = null, bd = 110, seen = false;
+      for (const e of combatants) {
+        if (!e.alive || e === p) continue;
+        const d = e.pos.distanceTo(D2.pos);
+        if (d >= bd && seen) continue;
+        if (d >= 110) continue;
+        const los = hasLOS(D2.pos, _dv.set(e.pos.x, e.pos.y + 1, e.pos.z));
+        if (seen && !los) continue;
+        if (!seen && los) {
+          seen = true;
+          bd = d;
+          best = e;
+          continue;
+        }
+        if (d < bd) {
+          bd = d;
+          best = e;
+        }
+      }
+      return best;
+    }
+    function droneGone(D2, i) {
+      drones.splice(i, 1);
+      world.remove(D2.g);
+      if (D2.owner.drone === D2) D2.owner.drone = null;
+      D2.item.cd = DRONE_CD;
+      const c = D2.pos.clone();
+      for (let k = 0; k < 10; k++) {
+        const m = new T.Mesh(shardGeo, k % 2 ? DRN.white : DRN.orange), v = rv(1).normalize().multiplyScalar(rnd(4, 10)), w = rv(10);
+        m.position.copy(c);
+        world.add(m);
+        effects.push({ t: 0, dur: rnd(0.6, 1), obj: m, upd: (e, k2, dt) => {
+          m.position.addScaledVector(v, dt);
+          m.rotation.x += w.x * dt;
+          m.rotation.z += w.z * dt;
+          m.scale.setScalar(1 - k2);
+        } });
+      }
+      for (let k = 0; k < 6; k++) smoke(c.clone().add(rv(0.4)), rnd(1, 1.8), rnd(0.8, 1.3), rv(2), true);
+      puff(c, 16777215);
+      sfx("droneDown", c);
+      if (D2.owner === player) refreshHotbar();
+    }
+    const _dw = new V(), _dd = new V();
+    function updateDrones(dt) {
+      if (player && player.slots) {
+        for (const it of player.slots) if (it && it.id === "drone" && it.cd > 0 && !player.drone) it.cd = Math.max(0, it.cd - dt);
+      }
+      for (let i = drones.length - 1; i >= 0; i--) {
+        const D2 = drones[i], u = D2.g.userData;
+        D2.t += dt;
+        D2.think -= dt;
+        D2.fire -= dt;
+        D2.lock -= dt;
+        if (D2.t > DRONE_LIFE || !D2.owner.alive) {
+          droneGone(D2, i);
+          continue;
+        }
+        if (D2.think <= 0) {
+          D2.think = 0.25;
+          D2.target = droneTarget(D2);
+        }
+        const T2 = D2.target && D2.target.alive ? D2.target : null, up = ZG.state === "ceil" ? -1 : 1;
+        if (T2) {
+          D2.orb += dt * 0.7;
+          _dw.set(T2.pos.x + Math.cos(D2.orb) * 7, T2.pos.y + 1 + 4.5 * up, T2.pos.z + Math.sin(D2.orb) * 7);
+        } else {
+          const o = D2.owner;
+          _dw.set(o.pos.x + Math.cos(o.yaw) * 1.6 + Math.sin(o.yaw) * 1.2, o.pos.y + 1 + 2.6 * up, o.pos.z - Math.sin(o.yaw) * 1.6 + Math.cos(o.yaw) * 1.2);
+        }
+        _dw.x = clamp(_dw.x, -ZG.L + 2, ZG.L - 2);
+        _dw.z = clamp(_dw.z, -ZG.L + 2, ZG.L - 2);
+        _dw.y = clamp(_dw.y, 1.5, ZG.H - 1.5);
+        _dd.subVectors(_dw, D2.pos);
+        const far = _dd.length();
+        _dd.multiplyScalar(Math.min(26, far * 1.8) / (far || 1));
+        D2.vel.lerp(_dd, 1 - Math.exp(-2.6 * dt));
+        D2.pos.addScaledVector(D2.vel, dt);
+        for (const b of ZG.blocks) {
+          const r = 0.9, px = b.sx / 2 + r - Math.abs(D2.pos.x - b.x), py = b.sy / 2 + r - Math.abs(D2.pos.y - b.y), pz = b.sz / 2 + r - Math.abs(D2.pos.z - b.z);
+          if (px <= 0 || py <= 0 || pz <= 0) continue;
+          if (px < py && px < pz) {
+            D2.pos.x += (D2.pos.x > b.x ? 1 : -1) * px;
+            D2.vel.x *= -0.3;
+          } else if (py < pz) {
+            D2.pos.y += (D2.pos.y > b.y ? 1 : -1) * py;
+            D2.vel.y *= -0.3;
+          } else {
+            D2.pos.z += (D2.pos.z > b.z ? 1 : -1) * pz;
+            D2.vel.z *= -0.3;
+          }
+        }
+        D2.pos.x = clamp(D2.pos.x, -ZG.L + 1, ZG.L - 1);
+        D2.pos.z = clamp(D2.pos.z, -ZG.L + 1, ZG.L - 1);
+        D2.pos.y = clamp(D2.pos.y, 1, ZG.H - 1);
+        const fx = T2 ? T2.pos.x - D2.pos.x : D2.vel.x, fz = T2 ? T2.pos.z - D2.pos.z : D2.vel.z;
+        if (fx * fx + fz * fz > 0.01) D2.yaw = D2.yaw + wrapPi(Math.atan2(fx, fz) - D2.yaw) * (1 - Math.exp(-6 * dt));
+        const sY = Math.sin(D2.yaw), cY = Math.cos(D2.yaw), vf = D2.vel.x * sY + D2.vel.z * cY, vs = D2.vel.x * cY - D2.vel.z * sY;
+        D2.g.position.copy(D2.pos);
+        D2.g.position.y += Math.sin(D2.t * 3.1) * 0.12;
+        D2.g.rotation.set(clamp(vf * 0.025, -0.4, 0.4), D2.yaw, clamp(-vs * 0.03, -0.45, 0.45) + (up < 0 ? Math.PI : 0), "YXZ");
+        for (const p of u.props) p.rotation.y += dt * 48;
+        const warn = D2.t > DRONE_LIFE - 3;
+        u.halo.visible = u.eye.visible = !warn || Math.sin(D2.t * 22) > 0;
+        u.tip.visible = Math.sin(D2.t * 6) > 0;
+        D2.hum -= dt;
+        if (D2.hum <= 0) {
+          D2.hum = 0.42;
+          sfx("rotor", D2.pos.clone());
+        }
+        if (T2) {
+          _dd.set(T2.pos.x, T2.pos.y + 1.1, T2.pos.z);
+          D2.g.updateMatrixWorld(true);
+          const lp = D2.g.worldToLocal(_dd.clone());
+          u.gun.rotation.set(-Math.atan2(lp.y - u.gun.position.y, Math.hypot(lp.x, lp.z - u.gun.position.z)), Math.atan2(lp.x, lp.z - u.gun.position.z), 0);
+          if (D2.fire <= 0) {
+            const mz = u.mz.getWorldPosition(new V()), dist = mz.distanceTo(_dd);
+            if (dist < DRONE_W.range && hasLOS(mz, _dd)) {
+              D2.fire = 0.3;
+              const lead = dist / 300;
+              _dd.x += T2.vel.x * lead;
+              _dd.z += T2.vel.z * lead;
+              _dd.y += T2.vel.y * lead;
+              const dir = jitter(_dd.sub(mz).normalize(), 0.018, new V());
+              fireRay(D2.owner, mz, dir, DRONE_W, RAR[2], 1, mz, 0.3);
+              mote(voltMat, mz, 0.6, 0.06, new V());
+              mote(fireMat, mz, 0.45, 0.05, new V());
+              sfx("droneShot", mz);
+            } else D2.fire = 0.15;
+          }
+        } else u.gun.rotation.x *= Math.exp(-4 * dt);
+      }
+    }
+    function specialFire(p, it, w) {
+      if (lockedUp(p)) return;
+      if (w.sp === "frz") frzFire(p, w);
+      else if (w.sp === "tsr") tsrFire(p, w);
+      else if (w.sp === "flm") flmFire(p, w);
+      else if (w.sp === "drone") droneFire(p, it);
+    }
+    const SHOP = [
+      { id: "rpg", name: "RPG", price: 5, col: "#4fd34f" },
+      { id: "gren", name: "Grenade Launcher", price: 10, col: "#a7b85a" },
+      { id: "tsr", name: "Taser", price: 10, col: "#ffe14a" },
+      { id: "frz", name: "Freeze Ray", price: 15, col: "#7fe3ff" },
+      { id: "flm", name: "Flamethrower", price: 15, col: "#ff7a1a" },
+      { id: "mf", name: "Mirror Fractal Guns", price: 15, col: "#ffd23f" },
+      { id: "bounce", name: "Bouncer Ball", price: 20, col: "#5cc8ff" },
+      { id: "drone", name: "Robot Drone", price: 25, col: "#ff5a3c" }
+    ];
     let shopOpen = false;
     function vendFrontSVG() {
       const rows = SHOP.map((it, i) => {
-        const y = 84 + i * 64;
-        return `<g transform="translate(18 ${y}) scale(2.3)" fill="${it.id === "rpg" ? "#202226" : it.col}" color="${it.col}">${ICON_IN[it.id]}</g><text x="232" y="${y + 40}" text-anchor="end" font-family="Arial Black,Arial" font-weight="900" font-size="28" fill="#ffd23f">${it.price}</text><rect x="14" y="${y + 60}" width="228" height="3" fill="#2b3550"/>`;
-      }).join("");
+        const x = 14 + (i >> 2) * 116, y = 82 + i % 4 * 65;
+        return `<g transform="translate(${x + 6} ${y + 4}) scale(1.6)" fill="${it.id === "rpg" || it.id === "tsr" ? "#202226" : it.id === "drone" ? "#e9eef7" : it.col}" color="${it.col}">${it.id === "drone" ? '<rect x="0" y="0" width="64" height="24" rx="4" fill="#2b3550"/>' : ""}${ICON_IN[it.id]}</g><text x="${x + 108}" y="${y + 60}" text-anchor="end" font-family="Arial Black,Arial" font-weight="900" font-size="20" fill="#ffd23f">${it.price}</text>` + (i % 4 < 3 ? `<rect x="${x + 2}" y="${y + 64}" width="108" height="2" fill="#c6cfdd"/>` : "");
+      }).join("") + `<rect x="127" y="80" width="2" height="258" fill="#c6cfdd"/>`;
       return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 420"><rect width="256" height="420" fill="#121a2c"/><rect x="10" y="10" width="236" height="58" rx="10" fill="#0b1020" stroke="#5cf0ff" stroke-width="4"/><text x="128" y="52" text-anchor="middle" font-family="Arial Black,Arial" font-weight="900" font-size="36" fill="#5cf0ff" letter-spacing="4">SHOP</text><rect x="10" y="76" width="236" height="266" rx="6" fill="#e9eef7"/>${rows}<path d="M14 80h60L34 338H14z" fill="#ffffff" opacity=".35"/><rect x="18" y="356" width="150" height="50" rx="6" fill="#05070d" stroke="#2b3550" stroke-width="2"/>` + [0, 1, 2].map((r) => [0, 1].map((cc) => `<circle cx="${196 + cc * 24}" cy="${362 + r * 18}" r="7" fill="${r === 0 && cc === 0 ? "#ffd23f" : "#2b3550"}"/>`).join("")).join("") + `</svg>`;
     }
     let vendTex = null;
@@ -5846,13 +6739,16 @@
         slot = k;
         break;
       }
+      if (slot < 0 && p.sel >= 6) slot = p.sel;
       if (slot < 0) {
         sfx("deny");
-        toast("Hotbar full");
+        toast("Hotbar full \xB7 select slot 7\u20139 to swap");
         return;
       }
+      const old = p.slots[slot];
+      if (old && old.id === "drone" && p.drone) droneGone(p.drone, drones.indexOf(p.drone));
       p.bank -= it.price;
-      p.slots[slot] = it.id === "rpg" ? { kind: "gun", id: "rpg", r: 4, ammo: 1 } : it.id === "mf" ? { kind: "gun", id: "mf", r: 4, ammo: MF_CLIP } : { kind: "vest", id: "gren", count: GREN_N, regen: 0 };
+      p.slots[slot] = it.id === "mf" ? { kind: "gun", id: "mf", r: 4, ammo: MF_CLIP } : it.id === "gren" ? { kind: "vest", id: "gren", count: GREN_N, regen: 0 } : { kind: "gun", id: it.id, r: 4, ammo: 1, cd: 0 };
       sfx("buy");
       selectSlot(slot);
       renderShop();
@@ -5881,6 +6777,7 @@
       projs = [];
       bolts = [];
       fires = [];
+      drones = [];
       shopOpen = false;
       $("shop").hidden = true;
       ZG.state = "float";
@@ -6175,6 +7072,9 @@
       updateBolts(dt);
       updateFires(dt);
       updateBouncerCd(dt);
+      updateDrones(dt);
+      if (player.flmT > 0) player.flmT -= dt;
+      for (const e of combatants) updateStatus(e, dt);
       for (const b of bots) updateBotZG(b, dt);
       for (const e of combatants) animateGLB(e, dt);
       updateEffects(dt);
@@ -6289,6 +7189,7 @@
       },
       renderer,
       scene,
+      shop: () => openShop(),
       fire: () => playerFire(),
       kill: (e, weapon, info) => eliminate(e, null, weapon, info),
       colliderCount: () => colliders.size,

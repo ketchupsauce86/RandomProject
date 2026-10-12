@@ -263,7 +263,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 .lk-info{grid-column:1;grid-row:3;align-self:center;display:flex;flex-direction:column;gap:10px;padding:22px 22px 20px;border-radius:18px;background:linear-gradient(160deg,rgba(28,16,64,.78),rgba(10,6,30,.72));border:1px solid var(--edge);border-top:3px solid var(--rc,var(--neon));backdrop-filter:blur(12px);box-shadow:0 20px 60px rgba(0,0,0,.4)}
 .lk-kick{font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#b9a8ff}
 .lk-rar{align-self:flex-start;font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#120a2a;background:var(--rc,#a4abb5);border-radius:6px;padding:4px 9px 3px;box-shadow:0 0 16px color-mix(in srgb,var(--rc,#a4abb5) 60%,transparent)}
-#armName{font-family:var(--display);font-weight:400;font-size:clamp(28px,3.2vw,42px);line-height:1.02;margin:0;color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.35),0 0 28px color-mix(in srgb,var(--rc,#fff) 45%,transparent);overflow-wrap:anywhere}
+#armName{font-family:var(--display);font-weight:400;font-size:clamp(28px,3.2vw,42px);line-height:1.02;margin:0;color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.35),0 0 28px color-mix(in srgb,var(--rc,#fff) 45%,transparent);overflow-wrap:break-word}
 #armStats{font-size:18px;font-weight:600;color:var(--muted);margin:0}
 #armPower{font-size:17px;font-weight:600;margin:0}#armPower b{color:var(--sun)}
 #armEquip{margin-top:6px;font-size:26px;padding:12px 18px 8px;border-radius:12px;transform:none;width:100%}
@@ -333,7 +333,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
     <div id="banner" hidden><div id="bannerMain"></div><div id="bannerSub"></div></div>
     <div id="toast" hidden></div>
     <div id="prompt" hidden></div>
-    <div id="shop" hidden role="dialog" aria-label="Shop"><div class="shophead"><h2>Shop</h2><span class="bank"><b id="shopBank">0</b>elims</span></div><div id="shopList"></div><p class="shopkeys"><kbd>1</kbd>–<kbd>4</kbd> Buy <kbd>E</kbd> Close</p></div>
+    <div id="shop" hidden role="dialog" aria-label="Shop"><div class="shophead"><h2>Shop</h2><span class="bank"><b id="shopBank">0</b>elims</span></div><div id="shopList"></div><p class="shopkeys"><kbd>1</kbd>–<kbd>8</kbd> Buy <kbd>E</kbd> Close</p></div>
     <div id="usebar" hidden><span id="uselabel"></span><div class="track"><div id="usefill"></div></div></div>
     <div id="vitals">
       <div class="bar" id="stamBar"><span class="num stam" aria-label="Stamina">⚡</span><div class="track"><div class="fill" id="stFill"></div></div></div>
