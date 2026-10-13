@@ -1104,6 +1104,61 @@
         return norm(amp(x, (t) => Math.sin(Math.PI * t / 0.6)), 0.5);
       },
       droneShot: () => gunshot({ nw: 0.45, crack: 4200, body: 2100, q: 1.2, bd: 0.012, bg: 0.8, thump: 320, td: 0.02, tg: 0.45, drive: 1.8, mech: 0.02, refl: ROOM.slice(0, 3), tail: 0.35, tf: 1500, tg2: 0.15 }),
+      // anime moves: a blade cutting air with a steel ring, a thrown kunai's whistle and thunk, a rubber arm's twang,
+      // a fist landing, and Saitama's shockwave (a deep blast of air with the box ringing after it)
+      slash: () => {
+        const x = SN(0.35);
+        mixIn(x, sweep(0.2, 1600, 6500, 1.6, (k) => Math.sin(Math.PI * k)), 0, 0.8);
+        modes(x, 0.06, metal(rnd(3900, 4500), 0.14, 4), 0.22);
+        return norm(x, 0.7);
+      },
+      kunai: () => {
+        const x = SN(0.35);
+        mixIn(x, sweep(0.3, rnd(5200, 6e3), rnd(2400, 2800), 9, (k) => Math.sin(Math.PI * k) * (1 - k * 0.5)), 0, 0.6);
+        mixIn(x, sweep(0.2, 500, 2400, 0.9, (k) => Math.sin(Math.PI * k)), 0, 0.5);
+        return norm(x, 0.6);
+      },
+      stick: () => {
+        const x = SN(0.3);
+        mixIn(x, rbj(burst(0.08, 0.012, true), "lp", 650, 0.8), 0, 1.2);
+        modes(x, 2e-3, metal(rnd(2400, 2900), 0.06, 4), 0.35);
+        return norm(x, 0.75);
+      },
+      stretch: () => {
+        const x = SN(0.42);
+        let ph = 0;
+        const f0 = rnd(70, 90), f1 = rnd(260, 330), vb = rnd(18, 26);
+        for (let i = 0; i < x.length; i++) {
+          const t = i / SR, f = f0 * Math.pow(f1 / f0, Math.min(1, t / 0.18)) * (1 + 0.06 * Math.sin(t * 2 * Math.PI * vb));
+          ph += 2 * Math.PI * f / SR;
+          x[i] = (Math.sin(ph) + 0.35 * Math.sin(2 * ph) + 0.15 * Math.sin(3 * ph)) * Math.min(1, t / 8e-3) * Math.exp(-t / 0.16);
+        }
+        mixIn(x, sweep(0.3, 500, 2600, 0.9, (k) => Math.sin(Math.PI * k)), 0, 0.5);
+        return norm(x, 0.75);
+      },
+      punch: () => {
+        const x = SN(0.3);
+        mixIn(x, rbj(burst(0.2, 0.035, true), "lp", 280, 0.9), 0, 1.8);
+        mixIn(x, rbj(burst(0.012, 18e-4), "hp", 2400, 0.7), 0, 0.7);
+        mixIn(x, rbj(burst(0.05, 8e-3), "bp", rnd(700, 900), 1.2), 0, 0.5);
+        return norm(sat(x, 1.5), 0.85);
+      },
+      shock: () => {
+        const x = SN(2), nw = Math.round(3e-3 * SR);
+        for (let i = 0; i < nw * 2; i++) x[i] += (i < nw ? 1 : -1) * (1 - i % nw / nw) * 1.2;
+        mixIn(x, rbj(burst(1.4, 0.32, true, 4e-3), "lp", 200, 0.9), 0, 2.2);
+        mixIn(x, sweep(0.9, 3500, 250, 0.8, (k) => Math.pow(1 - k, 2)), 5e-3, 0.9);
+        mixIn(x, rbj(burst(0.03, 4e-3), "hp", 2e3, 0.7), 0, 0.9);
+        for (const [d, g] of ROOM) mixIn(x, rbj(x.slice(0, Math.ceil(0.12 * SR)), "lp", 1200, 0.7), d * 2, g);
+        return norm(sat(x, 1.6), 0.95);
+      },
+      shockS: () => {
+        const x = SN(0.5);
+        mixIn(x, rbj(burst(0.3, 0.06, true, 2e-3), "lp", 260, 0.9), 0, 1.8);
+        mixIn(x, sweep(0.3, 3e3, 400, 0.8, (k) => Math.pow(1 - k, 2)), 3e-3, 0.6);
+        mixIn(x, rbj(burst(0.01, 15e-4), "hp", 2200, 0.7), 0, 0.6);
+        return norm(sat(x, 1.4), 0.85);
+      },
       pop: () => {
         const x = SN(0.4);
         mixIn(x, rbj(burst(0.02, 2e-3), "hp", 2500, 0.7), 0, 1.2);
@@ -1417,6 +1472,28 @@
       freeze: (v) => {
         smp(v, "freeze", { g: 0.9 });
       },
+      slash: (v) => {
+        smp(v, "slash", { g: 0.6 });
+      },
+      kunai: (v) => {
+        smp(v, "kunai", { g: 0.6 });
+      },
+      stick: (v) => {
+        smp(v, "stick", { g: 0.6 });
+      },
+      stretch: (v, o) => {
+        smp(v, "stretch", { g: 0.7 * (o.gain == null ? 1 : 1) });
+      },
+      punch: (v) => {
+        smp(v, "punch", { g: 0.9 });
+        smp(v, "hit", { g: 0.4, rate: 0.8 });
+      },
+      shock: (v) => {
+        smp(v, "shock", { g: 1.1 });
+      },
+      shockS: (v) => {
+        smp(v, "shockS", { g: 0.7 });
+      },
       thaw: (v) => {
         smp(v, "shatter", { g: 0.8, rate: 1.15 });
         smp(v, "freeze", { g: 0.3, rate: 1.6 });
@@ -1441,6 +1518,13 @@
       }
     };
     const SFX_OPT = {
+      shock: { range: 500, wet: 0.4 },
+      shockS: { range: 200, wet: 0.15 },
+      punch: { range: 80 },
+      stretch: { range: 90 },
+      kunai: { range: 80 },
+      stick: { range: 60 },
+      slash: { range: 60 },
       mf: { range: 260 },
       frz: { range: 120 },
       tsr: { range: 160 },
@@ -1473,7 +1557,7 @@
       defeat: { wet: 0.3 },
       land: { wet: 0.03 }
     };
-    const SFX_GAP = { frz: 0.07, flm: 0.2, stun: 0.15, freeze: 0.05, thaw: 0.05, tick: 0.035, zapB: 0.03, crackle: 0.05, clink: 0.03, impact: 0.03, whiz: 0.08, hit: 0.035, head: 0.035, shield: 0.035, step: 0.02 };
+    const SFX_GAP = { stretch: 0.045, shockS: 0.06, punch: 0.03, frz: 0.07, flm: 0.2, stun: 0.15, freeze: 0.05, thaw: 0.05, tick: 0.035, zapB: 0.03, crackle: 0.05, clink: 0.03, impact: 0.03, whiz: 0.08, hit: 0.035, head: 0.035, shield: 0.035, step: 0.02 };
     function sfx(kind, pos, o) {
       if (!AC || !bus) return;
       o = o || {};
@@ -1991,7 +2075,7 @@
     const _dq = new T.Quaternion(), _dv = new V(), _dn = new V(), BACK = new V(0, 0, 1);
     const _iceTint = new T.Color(12578559);
     function deathKind(weapon, info) {
-      return info && info.explosive ? "explosion" : info && info.frozen || weapon === "Freeze Ray" ? "ice" : weapon === "Fire" || weapon === "Flamethrower" ? "burn" : weapon === "flying block" ? "block" : weapon === "Pickaxe" ? "pickaxe" : "shot";
+      return info && info.explosive ? "explosion" : info && info.frozen || weapon === "Freeze Ray" ? "ice" : weapon === "Fire" || weapon === "Flamethrower" ? "burn" : weapon === "flying block" ? "block" : weapon === "Pickaxe" || info && info.melee ? "pickaxe" : "shot";
     }
     function startDeath(t, kind, info) {
       const dir = (info && info.dir ? info.dir.clone() : new V(rnd(-1, 1), rnd(-0.3, 0.3), rnd(-1, 1))).normalize();
@@ -2522,6 +2606,8 @@
         throwPose(e, c, rightB, fwdB, upB);
       } else if (cons && near) {
         consPose(e, c, cons, useK, rightB, fwdB, upB, dt);
+      } else if (near && pickaxe && e.fistSt && !((A.zgP || 0) > 0.3 && !(e.punches && e.punches.length))) {
+        fistArms(e, B, rightB, upB, fwdB);
       } else if (near && e.zgFloat && (A.zgP || 0) > 0.3 && !held && !(e.swingT > 0)) {
         const t = A.zgT * 1.15;
         for (const [sd, sx] of [["Left", -1], ["Right", 1]]) {
@@ -2961,6 +3047,10 @@
       if (p.consuming || lockedUp(p)) return;
       const it = curItem();
       if (!it) {
+        if (animeSt) {
+          animeTap(p);
+          return;
+        }
         if (p.fireCd > 0) return;
         p.fireCd = 0.42;
         p.swingSide = p.swingT > 0 || p.comboT > 0 ? 1 - (p.swingSide || 0) : 0;
@@ -2977,6 +3067,10 @@
     function pickaxeHit() {
       const p = player;
       if (curItem()) return;
+      if (animeSt === "kunai") {
+        kunaiSlash(p);
+        return;
+      }
       camera.getWorldDirection(tv1);
       ray.set(camera.position, tv1);
       ray.near = camDistNow;
@@ -3168,7 +3262,15 @@
       const it = curItem();
       ads = state === "play" && mouse.r && p.alive && !!it && it.kind === "gun";
       if (!p.alive || state !== "play") return;
-      if (mouse.l && (!it || it.kind === "gun" && WEAP[it.id].auto)) playerFire();
+      if (!it && animeSt) {
+        if (mouse.l) {
+          p.aHold = (p.aHold || 0) + dt;
+          if (p.aHold > ANIME_HOLD) animeHold(p, dt);
+        } else {
+          p.aHold = 0;
+          p.aGap = 0;
+        }
+      } else if (mouse.l && (!it || it.kind === "gun" && WEAP[it.id].auto)) playerFire();
     }
     function onPrimaryDown() {
       const p = player;
@@ -3260,7 +3362,7 @@
         let ic = "";
         if (i === 0) {
           const eq = equippedPick();
-          nm = "PICKAXE";
+          nm = eq && eq.short || "PICKAXE";
           col = eq ? RAR[eq.rar].c : "#c9d2de";
           ic = eq ? "px" + eq.i : "pick";
         } else if (it && it.kind === "gun") {
@@ -3933,6 +4035,7 @@
       return sh;
     }
     function makePickaxe3D(it, held) {
+      if (it.anime) return makeAnime3D(it, held);
       const Z = PX.SIZES[it.sz], L = Z.L, HS = PX.headScale(it), alpha = it.x.alpha || 1;
       const g = new T.Group(), inner = new T.Group();
       g.add(inner);
@@ -4058,7 +4161,8 @@
       lkTint(r.c);
       lkPut(h, dir || 0);
       if (LK.kind !== "picks" || dir == null) lkFrame(true);
-      lkInfo(it.n, `${it.set.n} set \xB7 ${pxIdx + 1} of ${PX.ITEMS.length}`, r, `${Z.n} size`);
+      lkInfo(it.n, `${it.set.n} set \xB7 ${pxIdx + 1} of ${PX.ITEMS.length}`, r, it.anime ? `${it.hero} \xB7 ${it.pw}` : `${Z.n} size`);
+      if (it.anime) $("armNote").textContent = it.pwd;
       $("armLabels").innerHTML = "";
       showEquip();
       [...$("armSets").children].forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.s === it.set.id)));
@@ -4459,6 +4563,11 @@
       const w = new T.Group();
       w.userData.skin = true;
       w.add(makePickaxe3D(eq, true));
+      if (e === player) {
+        animeSt = eq.anime || null;
+        e.punches = [];
+      }
+      e.fistSt = eq.anime === "rubber" || eq.anime === "saitama";
       c.pick.add(w);
     }
     function equipCurrent() {
@@ -4802,6 +4911,13 @@
     }
     function updateBotZG(b, dt) {
       if (!b.alive) return;
+      if (b.knockT > 0) {
+        b.knockT -= dt;
+        b.zgPropel = false;
+        b.vel.multiplyScalar(Math.exp(-0.6 * dt));
+        zgMove(b, dt);
+        return;
+      }
       if (lockedUp(b)) {
         b.zgPropel = false;
         b.zgTx = 0;
@@ -6610,6 +6726,461 @@
       else if (w.sp === "flm") flmFire(p, w);
       else if (w.sp === "drone") droneFire(p, it);
     }
+    let animeSt = null;
+    const ANIME_HOLD = 0.26;
+    const skinMat = new T.MeshPhongMaterial({ color: 15910042, shininess: 25, specular: 3351057 });
+    const KNM = {};
+    function kunaiModel() {
+      if (!KNM.blade) Object.assign(KNM, {
+        blade: new T.ConeGeometry(0.032, 0.17, 4).translate(0, 0.085, 0).scale(1, 1, 0.28),
+        back: new T.ConeGeometry(0.032, 0.035, 4).rotateX(Math.PI).translate(0, -0.0175, 0).scale(1, 1, 0.28),
+        grip: new T.CylinderGeometry(0.011, 0.012, 0.11, 10),
+        guard: new T.CylinderGeometry(0.018, 0.018, 0.012, 10),
+        ring: new T.TorusGeometry(0.022, 6e-3, 8, 20),
+        steel: new T.MeshPhongMaterial({ color: 4869976, shininess: 120, specular: 14212582 }),
+        wrap: new T.MeshPhongMaterial({ color: 14865584, shininess: 8 }),
+        dark: GPh(2764083, 40)
+      });
+      const g = new T.Group(), add = (geo, m, y) => {
+        const o = new T.Mesh(geo, m);
+        o.position.y = y;
+        o.castShadow = true;
+        g.add(o);
+        return o;
+      };
+      add(KNM.blade, KNM.steel, 0.082);
+      add(KNM.back, KNM.steel, 0.082);
+      add(KNM.guard, KNM.dark, 0.074);
+      add(KNM.grip, KNM.wrap, 0.012);
+      for (let i = 0; i < 5; i++) {
+        const b = add(KNM.guard, KNM.dark, -0.03 + i * 0.02);
+        b.scale.set(0.72, 0.25, 0.72);
+      }
+      add(KNM.ring, KNM.dark, -0.066);
+      return g;
+    }
+    const FSM = {};
+    function fistModel(mat) {
+      if (!FSM.palm) Object.assign(FSM, { palm: new T.SphereGeometry(0.06, 16, 12), knuck: new T.SphereGeometry(0.026, 12, 8), thumb: new T.CylinderGeometry(0.022, 0.024, 0.07, 10) });
+      const g = new T.Group(), p = new T.Mesh(FSM.palm, mat);
+      p.scale.set(1.05, 0.9, 1);
+      g.add(p);
+      for (let i = 0; i < 4; i++) {
+        const k = new T.Mesh(FSM.knuck, mat);
+        k.position.set(-0.042 + i * 0.028, 0.022, 0.045);
+        k.scale.set(1, 1.15, 1.1);
+        g.add(k);
+      }
+      const th = new T.Mesh(FSM.thumb, mat);
+      th.position.set(-0.05, -0.02, 0.02);
+      th.rotation.set(0.4, 0, 1.2);
+      g.add(th);
+      g.traverse((o) => {
+        if (o.isMesh) o.castShadow = true;
+      });
+      return g;
+    }
+    function makeAnime3D(it, held) {
+      const g = new T.Group();
+      if (it.anime === "kunai") {
+        if (held) {
+          g.add(kunaiModel());
+          return g;
+        }
+        for (const r of [-0.5, 0.5]) {
+          const k = kunaiModel();
+          k.rotation.z = r;
+          k.position.y = -0.04;
+          g.add(k);
+        }
+        const sw = new T.Sprite(auraMats(16747039).halo);
+        sw.scale.setScalar(0.55);
+        sw.position.set(0, 0.06, -0.08);
+        g.add(sw);
+        g.scale.setScalar(4.6);
+        g.position.y = -0.15;
+        return g;
+      }
+      if (held) return g;
+      if (it.anime === "rubber") {
+        const red = GPh(13902634, 30), hat = GPh(15781738, 20), band = GPh(13115174, 30);
+        const curve = new T.CatmullRomCurve3([new V(-0.5, -0.35, 0), new V(-0.2, -0.3, 0.05), new V(0, 0, 0), new V(0.22, 0.25, -0.05), new V(0.42, 0.3, 0)]);
+        const arm = new T.Mesh(new T.TubeGeometry(curve, 40, 0.045, 12, false), skinMat);
+        g.add(arm);
+        const sl2 = new T.Mesh(new T.CylinderGeometry(0.075, 0.085, 0.16, 16), red);
+        sl2.position.set(-0.55, -0.36, 0);
+        sl2.rotation.z = Math.PI / 2;
+        g.add(sl2);
+        const f2 = fistModel(skinMat);
+        f2.position.set(0.48, 0.3, 0);
+        f2.rotation.y = Math.PI / 2;
+        f2.scale.setScalar(1.5);
+        g.add(f2);
+        const h = new T.Group();
+        h.position.set(-0.22, 0.32, 0);
+        h.rotation.set(0.25, 0, -0.25);
+        g.add(h);
+        const brim = new T.Mesh(new T.CylinderGeometry(0.24, 0.25, 0.015, 32), hat), dome = new T.Mesh(new T.SphereGeometry(0.13, 24, 12, 0, TAU, 0, Math.PI / 2), hat), rib = new T.Mesh(new T.CylinderGeometry(0.132, 0.132, 0.04, 24, 1, true), band);
+        dome.position.y = 5e-3;
+        rib.position.y = 0.03;
+        h.add(brim);
+        h.add(dome);
+        h.add(rib);
+        g.traverse((o) => {
+          if (o.isMesh) o.castShadow = true;
+        });
+        g.scale.setScalar(2.1);
+        return g;
+      }
+      const glove = GPh(14165548, 50, 5583667), suit = GPh(16109358, 25);
+      const sl = new T.Mesh(new T.CylinderGeometry(0.06, 0.07, 0.32, 16), suit);
+      sl.rotation.x = Math.PI / 2;
+      sl.position.z = -0.22;
+      g.add(sl);
+      const cuff = new T.Mesh(new T.CylinderGeometry(0.068, 0.062, 0.08, 16), glove);
+      cuff.rotation.x = Math.PI / 2;
+      cuff.position.z = -0.04;
+      g.add(cuff);
+      const f = fistModel(glove);
+      f.scale.setScalar(1.45);
+      f.position.z = 0.06;
+      g.add(f);
+      const rm = new T.MeshBasicMaterial({ color: 16777215, transparent: true, opacity: 0.55, side: T.DoubleSide, depthWrite: false });
+      for (let i = 0; i < 3; i++) {
+        const r = new T.Mesh(new T.TorusGeometry(0.16 + i * 0.09, 8e-3 - i * 2e-3, 8, 48), rm);
+        r.position.z = 0.2 + i * 0.1;
+        g.add(r);
+      }
+      g.rotation.set(-0.35, 0.9, 0);
+      g.scale.setScalar(2.4);
+      return g;
+    }
+    function animeTap(p) {
+      if (p.fireCd > 0 || lockedUp(p)) return;
+      if (animeSt === "kunai") {
+        p.fireCd = 0.34;
+        p.swingSide = p.swingT > 0 || p.comboT > 0 ? 1 - (p.swingSide || 0) : 0;
+        p.swingT = SWING_T * 0.75;
+        p.comboT = SWING_T + 0.3;
+        p.hitT = SWING_T * 0.75 * PICK_HIT;
+        sfx("slash");
+      } else if (animeSt === "rubber") {
+        p.fireCd = 0.5;
+        punch(p, "Right", { dur: 0.5, reach: 16, dmg: 32, kb: 30, name: "Gum-Gum Pistol", stretch: true });
+        sfx("stretch");
+      } else {
+        p.fireCd = 0.6;
+        punch(p, "Right", { dur: 0.34, reach: 0, dmg: 45, kb: 52, name: "Normal Punch", shock: 1 });
+      }
+    }
+    function animeHold(p, dt) {
+      if (lockedUp(p)) return;
+      p.aGap = (p.aGap || 0) - dt;
+      if (p.aGap > 0) return;
+      const sd = (p.aSide = (p.aSide || 0) ^ 1) ? "Right" : "Left";
+      if (animeSt === "kunai") {
+        p.aGap = 0.3;
+        p.swingSide = 1 - (p.swingSide || 0);
+        p.swingT = SWING_T * 0.55;
+        p.comboT = SWING_T;
+        throwKunai(p);
+      } else if (animeSt === "rubber") {
+        p.aGap = 0.055;
+        punch(p, sd, { dur: 0.24, reach: rnd(8, 11), dmg: 7, kb: 1.5, name: "Gum-Gum Gatling", stretch: true, spread: 0.1, soft: true });
+        sfx("stretch", null, { gain: 0.45 });
+      } else {
+        p.aGap = 0.085;
+        punch(p, sd, { dur: 0.17, reach: 0, dmg: 10, kb: 3, name: "Consecutive Normal Punches", shock: 0.5, spread: 0.05, soft: true });
+      }
+    }
+    const cutMat = new T.MeshBasicMaterial({ color: 2784767, transparent: true, depthWrite: false, side: T.DoubleSide, opacity: 0.8 });
+    const slashMat = new T.MeshBasicMaterial({ color: 8176895, transparent: true, depthWrite: false, side: T.DoubleSide, opacity: 0.75 });
+    function cutFx(p) {
+      for (const r of [0.7, -0.7]) {
+        const m = new T.Mesh(beamGeo, cutMat), a = p.clone().add(new V(-0.45, 0.45 * r, 0)), b = p.clone().add(new V(0.45, -0.45 * r, 0));
+        placeSeg(m, a, b, 0.025);
+        m.lookAt(camera.position);
+        placeSeg(m, a, b, 0.025);
+        world.add(m);
+        effects.push({ t: 0, dur: 0.22, obj: m, upd: (e, k) => {
+          m.scale.x = m.scale.z = 0.025 * (1 - k);
+        } });
+      }
+    }
+    const slashGeo = new T.TorusGeometry(1.6, 0.035, 4, 32, Math.PI * 0.75);
+    function slashFx(p, side) {
+      camera.getWorldDirection(tv1);
+      const m = new T.Mesh(slashGeo, slashMat.clone()), c = new V(p.pos.x, p.pos.y + 1.3, p.pos.z).addScaledVector(tv1, 1.2);
+      m.position.copy(c);
+      m.lookAt(c.clone().add(tv1));
+      m.rotateZ(side ? 2.6 : -0.6);
+      world.add(m);
+      effects.push({ t: 0, dur: 0.2, obj: m, upd: (e, k) => {
+        m.rotateZ((side ? -1 : 1) * 0.12);
+        m.material.opacity = 0.75 * (1 - k);
+        m.scale.setScalar(1 + k * 0.3);
+      }, done: () => m.material.dispose() });
+    }
+    function kunaiSlash(p) {
+      camera.getWorldDirection(tv1);
+      slashFx(p, p.swingSide);
+      const c = new V(p.pos.x, p.pos.y + 1.2, p.pos.z);
+      let n = 0;
+      for (const e of combatants) {
+        if (!e.alive || e === p) continue;
+        _dv.set(e.pos.x, e.pos.y + 1, e.pos.z).sub(c);
+        const d = _dv.length();
+        if (d > 4.2 || _dv.dot(tv1) < 0.55 * d) continue;
+        const at = new V(e.pos.x, e.pos.y + 1.1, e.pos.z);
+        if (!hasLOS(c, at)) continue;
+        hurt(e, 26, p, { point: at, weapon: "Shadow Kunai", dir: tv1.clone(), melee: true });
+        cutFx(at);
+        n++;
+      }
+      if (!n) {
+        const h = aimHit(p, tv1, camDistNow + 4.2);
+        if (h.wall) {
+          sfx("chop", h.p, { mat: "stone" });
+          for (let i = 0; i < 5; i++) mote(voltMat, h.p.clone(), rnd(0.15, 0.3), 0.15, rv(5), 10);
+        }
+      }
+    }
+    let kunais = [];
+    function throwKunai(p) {
+      camera.getWorldDirection(tv1);
+      const hand = p.ch.bones.RightHand.getWorldPosition(new V()), at = aimPoint(p, tv1, 140), base = at.sub(hand).normalize();
+      const side = new V().crossVectors(base, UP);
+      if (side.lengthSq() < 1e-4) side.set(1, 0, 0);
+      side.normalize();
+      for (const i of [-1, 0, 1]) {
+        const d = base.clone().addScaledVector(side, i * 0.07).normalize(), m = kunaiModel();
+        m.scale.setScalar(2.2);
+        m.position.copy(hand);
+        m.quaternion.setFromUnitVectors(UP, d);
+        world.add(m);
+        kunais.push({ src: p, m, pos: hand.clone(), dir: d, t: 0, hit: /* @__PURE__ */ new Set(), stuck: false });
+      }
+      sfx("kunai");
+    }
+    const KUNAI_V = 75;
+    function updateKunais(dt) {
+      for (let i = kunais.length - 1; i >= 0; i--) {
+        const K = kunais[i];
+        K.t += dt;
+        if (K.stuck) {
+          if (K.t > 3) {
+            world.remove(K.m);
+            kunais.splice(i, 1);
+          }
+          continue;
+        }
+        if (K.t > 1.6) {
+          world.remove(K.m);
+          kunais.splice(i, 1);
+          continue;
+        }
+        let len = KUNAI_V * dt;
+        ray.set(K.pos, K.dir);
+        ray.near = 0;
+        ray.far = len;
+        const hs = ray.intersectObjects(meshesAlong(K.pos, K.dir, len, false), false);
+        let wall = false;
+        if (hs.length) {
+          len = hs[0].distance;
+          wall = true;
+        }
+        const tb = boxRay(K.pos, K.dir, len);
+        if (tb < len) {
+          len = tb;
+          wall = true;
+        }
+        for (const e of combatants) {
+          if (!e.alive || e === K.src || K.hit.has(e)) continue;
+          _dv.set(e.pos.x, e.pos.y + 1, e.pos.z);
+          if (segDist(K.pos, K.dir, len, _dv) > 0.65) continue;
+          K.hit.add(e);
+          const at = _dv.clone();
+          hurt(e, 18, K.src, { point: at, weapon: "Shadow Kunai", dir: K.dir.clone(), melee: true });
+          cutFx(at);
+        }
+        K.pos.addScaledVector(K.dir, len);
+        K.m.position.copy(K.pos);
+        if (wall) {
+          K.stuck = true;
+          K.t = 0;
+          K.m.position.addScaledVector(K.dir, 0.12);
+          sfx("stick", K.pos.clone());
+          for (let j = 0; j < 3; j++) mote(voltMat, K.pos.clone(), rnd(0.12, 0.25), 0.12, rv(4), 10);
+        }
+      }
+    }
+    function punch(p, sd, o) {
+      camera.getWorldDirection(tv1);
+      const dir = tv1.clone();
+      if (o.spread) {
+        dir.x += rnd(-o.spread, o.spread);
+        dir.y += rnd(-o.spread, o.spread) * 0.6;
+        dir.z += rnd(-o.spread, o.spread);
+        dir.normalize();
+      }
+      let reach = o.reach;
+      if (reach > 0) {
+        const sh = p.ch.bones[sd + "Arm"].getWorldPosition(new V());
+        ray.set(sh, dir);
+        ray.near = 0.3;
+        ray.far = reach;
+        const hs = ray.intersectObjects(meshesAlong(sh, dir, reach, false), false);
+        if (hs.length) reach = Math.max(1, hs[0].distance - 0.4);
+        reach = Math.min(reach, Math.max(1, boxRay(sh, dir, reach) - 0.4));
+      }
+      const P = { sd, t: 0, dur: o.dur, dir, reach, o, hit: false, vis: null };
+      if (o.stretch) {
+        const g = new T.Group(), tube = new T.Mesh(beamGeo, skinMat), f = fistModel(skinMat);
+        f.scale.setScalar(1.25);
+        g.add(tube);
+        g.add(f);
+        g.userData = { tube, f };
+        world.add(g);
+        P.vis = g;
+      }
+      (p.punches = p.punches || []).push(P);
+    }
+    const punchK = (k) => k < 0.4 ? 1 - Math.pow(1 - k / 0.4, 3) : ((u) => 1 - u * u * (3 - 2 * u))((k - 0.4) / 0.6);
+    function updatePunches(p, dt) {
+      const ext = { Right: 0, Left: 0 };
+      if (!p.punches) return;
+      for (let i = p.punches.length - 1; i >= 0; i--) {
+        const P = p.punches[i];
+        P.t += dt;
+        const k = Math.min(1, P.t / P.dur), s = punchK(k);
+        ext[P.sd] = Math.max(ext[P.sd], P.o.stretch ? Math.min(1, s * 3) : s);
+        if (!P.hit && k >= 0.36) {
+          P.hit = true;
+          landPunch(p, P);
+        }
+        if (k >= 1) {
+          if (P.vis) world.remove(P.vis);
+          p.punches.splice(i, 1);
+        }
+      }
+      p.punchExt = ext;
+    }
+    function landPunch(p, P) {
+      const o = P.o, sh = p.ch.bones[P.sd + "Arm"].getWorldPosition(new V());
+      const knock = (e, at) => {
+        hurt(e, o.dmg, p, { point: at, weapon: o.name, dir: P.dir.clone(), melee: true, soft: o.soft });
+        if (!e.alive || e.bounceT > 0) return;
+        e.vel.addScaledVector(P.dir, o.kb);
+        e.knockT = Math.max(e.knockT || 0, o.kb / 45);
+      };
+      if (o.stretch) {
+        let best = null, bd = 1e9;
+        const len = P.reach + 0.6;
+        for (const e of combatants) {
+          if (!e.alive || e === p) continue;
+          _dv.set(e.pos.x, e.pos.y + 1, e.pos.z);
+          if (segDist(sh, P.dir, len, _dv) > 1.1) continue;
+          const a = _dv.clone().sub(sh).dot(P.dir);
+          if (a < bd && hasLOS(sh, _dv)) {
+            bd = a;
+            best = e;
+          }
+        }
+        const tip = sh.clone().addScaledVector(P.dir, best ? Math.min(bd, P.reach) : P.reach);
+        if (best) {
+          knock(best, tip);
+          P.reach = Math.min(P.reach, Math.max(0.6, bd - 0.5));
+          punchFx(tip, o.soft ? 0.5 : 1);
+        } else if (P.reach < o.reach - 0.5) {
+          puff(tip, 15132908);
+          sfx("chop", tip, { mat: "stone" });
+        }
+        return;
+      }
+      const R = 18 * o.shock, cosA = o.shock >= 1 ? 0.9 : 0.93;
+      for (const e of combatants) {
+        if (!e.alive || e === p) continue;
+        _dv.set(e.pos.x, e.pos.y + 1, e.pos.z).sub(sh);
+        const d = _dv.length();
+        if (d > R) continue;
+        const c = _dv.dot(P.dir) / (d || 1);
+        if (c < (d < 2.5 ? 0.5 : cosA)) continue;
+        const at = new V(e.pos.x, e.pos.y + 1, e.pos.z);
+        if (!hasLOS(sh, at)) continue;
+        knock(e, at);
+      }
+      shockFx(sh.clone().addScaledVector(P.dir, 0.7), P.dir, o.shock);
+    }
+    function drawPunches(p) {
+      if (!p.punches) return;
+      for (const P of p.punches) {
+        if (!P.vis) continue;
+        const k = Math.min(1, P.t / P.dur), s = punchK(k), hand = p.ch.bones[P.sd + "Hand"].getWorldPosition(new V());
+        const st = Math.max(0, s * P.reach), tip = hand.clone().addScaledVector(P.dir, 0.06 + st), u = P.vis.userData;
+        u.tube.visible = st > 0.15;
+        placeSeg(u.tube, hand, tip, 0.042 / Math.sqrt(1 + st * 0.08));
+        u.f.position.copy(tip);
+        u.f.lookAt(tip.clone().add(P.dir));
+      }
+    }
+    const shockRing = new T.RingGeometry(0.82, 1, 48), shockCone = new T.ConeGeometry(1, 1, 32, 1, true).rotateX(-Math.PI / 2).translate(0, 0, 0.5);
+    function shockFx(at, dir, scale) {
+      const look = at.clone().add(dir);
+      for (const [delay, col, op] of [[0, 14216447, 0.85], [0.05, 9086660, 0.5], [0.11, 16777215, 0.6]]) {
+        const m = new T.Mesh(shockRing, new T.MeshBasicMaterial({ color: col, transparent: true, opacity: 0, side: T.DoubleSide, depthWrite: false }));
+        m.position.copy(at);
+        m.lookAt(look);
+        world.add(m);
+        effects.push({ t: 0, dur: 0.45 + delay, obj: m, upd: (e, k, dt) => {
+          const u = Math.max(0, e.t - delay) / 0.45;
+          m.position.copy(at).addScaledVector(dir, u * 9 * scale);
+          m.scale.setScalar(0.3 + u * 4.5 * scale);
+          m.material.opacity = e.t < delay ? 0 : op * (1 - u);
+        }, done: () => m.material.dispose() });
+      }
+      const cone = new T.Mesh(shockCone, new T.MeshBasicMaterial({ color: 12375792, transparent: true, opacity: 0.35, side: T.DoubleSide, depthWrite: false }));
+      cone.position.copy(at);
+      cone.lookAt(look);
+      world.add(cone);
+      effects.push({ t: 0, dur: 0.32, obj: cone, upd: (e, k) => {
+        const L = 18 * scale * Math.sqrt(k) + 0.5;
+        cone.scale.set(L * 0.45, L * 0.45, L);
+        cone.material.opacity = 0.35 * (1 - k);
+      }, done: () => cone.material.dispose() });
+      for (let i = 0; i < (scale >= 1 ? 14 : 4); i++) {
+        const d = dir.clone().add(rv(0.35)).normalize();
+        mote(mistMat, at.clone(), rnd(0.5, 1) * scale + 0.3, rnd(0.35, 0.6), d.multiplyScalar(rnd(14, 26) * scale));
+      }
+      if (scale >= 1) {
+        camShake = Math.max(camShake, 0.7);
+        sfx("shock", at.clone());
+      } else {
+        camShake = Math.max(camShake, 0.12);
+        sfx("shockS", at.clone());
+      }
+    }
+    function punchFx(p, s) {
+      for (let i = 0; i < (s >= 1 ? 8 : 3); i++) mote(mistMat, p.clone(), rnd(0.4, 0.8) * s, rnd(0.2, 0.35), rv(5 * s));
+      const r = new T.Mesh(shockRing, new T.MeshBasicMaterial({ color: 16777215, transparent: true, side: T.DoubleSide, depthWrite: false }));
+      r.position.copy(p);
+      r.lookAt(camera.position);
+      world.add(r);
+      effects.push({ t: 0, dur: 0.2, obj: r, upd: (e, k) => {
+        r.scale.setScalar((0.3 + k * 1.4) * s);
+        r.material.opacity = 1 - k;
+      }, done: () => r.material.dispose() });
+      sfx("punch", p.clone(), { gain: s });
+    }
+    const _fa = new V();
+    function fistArms(e, B, rightB, upB, fwdB) {
+      const aim = e.isPlayer ? camera.getWorldDirection(_fa) : fwdB, ext = e.punchExt || { Right: 0, Left: 0 };
+      for (const [sd, sx] of [["Right", 1], ["Left", -1]]) {
+        const sh = B[sd + "Arm"].getWorldPosition(new V()), x = ext[sd];
+        const t = sh.clone().addScaledVector(fwdB, 0.3).addScaledVector(upB, -0.1).addScaledVector(rightB, -sx * 0.13).lerp(sh.clone().addScaledVector(aim, 0.64).addScaledVector(rightB, -sx * 0.05), x);
+        solveIK(B[sd + "Arm"], B[sd + "ForeArm"], B[sd + "Hand"], t, sh.clone().addScaledVector(rightB, sx * 0.5).addScaledVector(upB, -0.6));
+        poseHand(B, sd, x > 0.5 ? aim : upB.clone().multiplyScalar(0.8).addScaledVector(fwdB, 0.5), x > 0.5 ? upB.clone().negate() : rightB.clone().multiplyScalar(-sx), 1.35);
+      }
+    }
     const SHOP = [
       { id: "rpg", name: "RPG", price: 5, col: "#4fd34f" },
       { id: "gren", name: "Grenade Launcher", price: 10, col: "#a7b85a" },
@@ -6778,6 +7349,7 @@
       bolts = [];
       fires = [];
       drones = [];
+      kunais = [];
       shopOpen = false;
       $("shop").hidden = true;
       ZG.state = "float";
@@ -7075,8 +7647,11 @@
       updateDrones(dt);
       if (player.flmT > 0) player.flmT -= dt;
       for (const e of combatants) updateStatus(e, dt);
+      updatePunches(player, dt);
+      updateKunais(dt);
       for (const b of bots) updateBotZG(b, dt);
       for (const e of combatants) animateGLB(e, dt);
+      drawPunches(player);
       updateEffects(dt);
     }
     let lastT = performance.now(), hudAcc = 0, perfStage = 0, perfFrames = 0, perfTime = 0;
@@ -7189,6 +7764,7 @@
       },
       renderer,
       scene,
+      mouse,
       shop: () => openShop(),
       fire: () => playerFire(),
       kill: (e, weapon, info) => eliminate(e, null, weapon, info),
