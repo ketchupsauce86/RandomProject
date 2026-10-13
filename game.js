@@ -1227,6 +1227,58 @@
         modes(x, 4e-3, panel().map(([f, d, a]) => [f * 0.55, d * 4, a]), 0.5);
         return norm(sat(x, 1.8), 0.95);
       },
+      // Tanjiro: the blade cutting air, a clean hit, and bullets ringing off steel
+      katana: () => {
+        const x = SN(0.4);
+        mixIn(x, sweep(0.26, 900, 7200, 2.2, (k) => Math.pow(Math.sin(Math.PI * k), 1.5)), 0, 1);
+        mixIn(x, sweep(0.18, 3e3, 9e3, 4, (k) => Math.sin(Math.PI * k)), 0.05, 0.35);
+        return norm(x, 0.7);
+      },
+      bladeHit: () => {
+        const x = SN(0.4);
+        mixIn(x, rbj(burst(0.12, 0.02, true), "lp", 420, 0.8), 0, 1.2);
+        mixIn(x, sweep(0.12, 6e3, 2500, 2, (k) => Math.pow(1 - k, 2)), 0, 0.8);
+        modes(x, 4e-3, metal(rnd(2900, 3400), 0.08, 4), 0.25);
+        mixIn(x, rbj(burst(0.2, 0.05), "bp", rnd(500, 700), 0.8), 0.01, 0.35);
+        return norm(sat(x, 1.3), 0.8);
+      },
+      clang: () => {
+        const x = SN(0.9);
+        mixIn(x, rbj(burst(8e-3, 1e-3), "hp", 3e3, 0.7), 0, 1.2);
+        modes(x, 0, metal(rnd(1700, 2100), 0.35, 6), 0.9);
+        modes(x, 1e-3, metal(rnd(4200, 4800), 0.12, 3), 0.4);
+        mixIn(x, rbj(burst(0.04, 8e-3, true), "lp", 600, 0.8), 0, 0.4);
+        return norm(x, 0.85);
+      },
+      // Light: the cover flipping open, the pen scratching, the beam and what it hits
+      bookOpen: () => {
+        const x = SN(0.35);
+        mixIn(x, rbj(burst(0.12, 0.04), "bp", rnd(1400, 1800), 0.9), 0, 0.8);
+        mixIn(x, rbj(burst(0.05, 0.01, true), "lp", 400, 0.8), 0.1, 1);
+        mixIn(x, sweep(0.2, 800, 3e3, 1, (k) => Math.sin(Math.PI * k)), 0, 0.4);
+        return norm(x, 0.6);
+      },
+      scribble: () => {
+        const x = SN(0.16);
+        for (let i = 0; i < 5; i++) mixIn(x, rbj(rbj(burst(0.03, 0.012), "bp", rnd(2500, 5e3), 2.5), "hp", 1500, 0.7), rnd(0, 0.12), rnd(0.5, 1));
+        return norm(x, 0.45);
+      },
+      deathBeam: () => {
+        const x = SN(1.6);
+        mixIn(x, rbj(burst(1.2, 0.35, true, 0.01), "lp", 110, 0.9), 0, 2);
+        mixIn(x, sweep(1, 2600, 180, 1.2, (k) => Math.pow(1 - k, 1.3)), 0.01, 1);
+        const f = rnd(110, 118);
+        modes(x, 0.02, [[f, 0.9, 1], [f * 1.5, 0.7, 0.6], [f * 2, 0.6, 0.5], [f * 3.02, 0.4, 0.35]], 0.35);
+        mixIn(x, rbj(burst(0.02, 3e-3), "hp", 2400, 0.7), 0, 0.8);
+        return norm(sat(x, 1.5), 0.9);
+      },
+      deathHit: () => {
+        const x = SN(0.7);
+        mixIn(x, rbj(burst(0.4, 0.08, true), "lp", 200, 0.9), 0, 2);
+        mixIn(x, rbj(burst(0.015, 2e-3), "hp", 2500, 0.7), 0, 0.8);
+        modes(x, 3e-3, [[rnd(78, 84), 0.4, 1], [rnd(160, 170), 0.2, 0.5]], 0.4);
+        return norm(sat(x, 1.6), 0.9);
+      },
       pop: () => {
         const x = SN(0.4);
         mixIn(x, rbj(burst(0.02, 2e-3), "hp", 2500, 0.7), 0, 1.2);
@@ -1579,6 +1631,28 @@
         smp(v, "zap", { g: 0.4, rate: 0.7 });
         smp(v, "crackle", { at: 0.03, g: 0.5 });
       },
+      katana: (v) => {
+        smp(v, "katana", { g: 0.7 });
+      },
+      bladeHit: (v) => {
+        smp(v, "bladeHit", { g: 0.9 });
+      },
+      clang: (v, o) => {
+        smp(v, "clang", { g: 0.75 * (o.v || 1), rate: rnd(0.92, 1.1) });
+        smp(v, "zap", { g: 0.15, rate: 1.4 });
+      },
+      bookOpen: (v) => {
+        smp(v, "bookOpen", { g: 0.6 });
+      },
+      scribble: (v) => {
+        smp(v, "scribble", { g: 0.45, rate: rnd(0.9, 1.15) });
+      },
+      deathBeam: (v, o) => {
+        smp(v, "deathBeam", { g: 0.75 + 0.4 * (o.k || 0) });
+      },
+      deathHit: (v) => {
+        smp(v, "deathHit", { g: 0.9 });
+      },
       titanBolt: (v) => {
         smp(v, "thunder", { g: 1.1 });
         smp(v, "steam", { at: 0.15, g: 0.5 });
@@ -1623,6 +1697,13 @@
       }
     };
     const SFX_OPT = {
+      katana: { range: 80 },
+      bladeHit: { range: 100 },
+      clang: { range: 150 },
+      bookOpen: { range: 40 },
+      scribble: { range: 30 },
+      deathBeam: { range: 500, wet: 0.45 },
+      deathHit: { range: 250, wet: 0.2 },
       ssjBurst: { range: 500, wet: 0.4 },
       ssjHit: { range: 120 },
       titanBolt: { range: 700, wet: 0.5 },
@@ -1670,7 +1751,7 @@
       defeat: { wet: 0.3 },
       land: { wet: 0.03 }
     };
-    const SFX_GAP = { ssjHum: 0.3, ssjHit: 0.05, titanSwing: 0.1, titanHit: 0.08, steam: 0.3, stretch: 0.045, shockS: 0.06, punch: 0.03, frz: 0.07, flm: 0.2, stun: 0.15, freeze: 0.05, thaw: 0.05, tick: 0.035, zapB: 0.03, crackle: 0.05, clink: 0.03, impact: 0.03, whiz: 0.08, hit: 0.035, head: 0.035, shield: 0.035, step: 0.02 };
+    const SFX_GAP = { clang: 0.04, scribble: 0.08, bladeHit: 0.05, ssjHum: 0.3, ssjHit: 0.05, titanSwing: 0.1, titanHit: 0.08, steam: 0.3, stretch: 0.045, shockS: 0.06, punch: 0.03, frz: 0.07, flm: 0.2, stun: 0.15, freeze: 0.05, thaw: 0.05, tick: 0.035, zapB: 0.03, crackle: 0.05, clink: 0.03, impact: 0.03, whiz: 0.08, hit: 0.035, head: 0.035, shield: 0.035, step: 0.02 };
     function sfx(kind, pos, o) {
       if (!AC || !bus) return;
       o = o || {};
@@ -1910,6 +1991,7 @@
     };
     const SWING_T = 0.42, PICK_HIT = 0.52;
     const PICK_REST = [0, 0.2, -0.16, -0.3, 0.55, 0.75, -0.35, -0.7, 0.55, -0.2, 0, 0];
+    const PICK_GUARD = [0, -0.2, -0.3, -0.42, -0.55, 0.8, -0.25, 0.1, 0.25, -1, 0, 0];
     const PICK_KEYS = [
       [
         PICK_REST,
@@ -1932,7 +2014,8 @@
       let i = 0;
       while (i < K.length - 2 && k > K[i + 1][0]) i++;
       const a = K[Math.max(0, i - 1)], b = K[i], c = K[i + 1], d = K[Math.min(K.length - 1, i + 2)], u = clamp((k - b[0]) / (c[0] - b[0]), 0, 1), u2 = u * u, u3 = u2 * u;
-      const m = (j) => 0.5 * (2 * b[j] + (c[j] - a[j]) * u + (2 * a[j] - 5 * b[j] + 4 * c[j] - d[j]) * u2 + (3 * b[j] - a[j] - 3 * c[j] + d[j]) * u3);
+      const gk = e.swingT > 0 ? 0 : e.guardK || 0, br = gk * 0.015 * Math.sin(matchTime * 2.4);
+      const m = (j) => gk > 0 ? PICK_REST[j] + (PICK_GUARD[j] - PICK_REST[j]) * gk + (j === 2 ? br : 0) : 0.5 * (2 * b[j] + (c[j] - a[j]) * u + (2 * a[j] - 5 * b[j] + 4 * c[j] - d[j]) * u2 + (3 * b[j] - a[j] - 3 * c[j] + d[j]) * u3);
       _pd.set(m(4), m(5), m(6)).normalize();
       _ps.set(m(7), m(8), m(9));
       _ps.addScaledVector(_pd, -_ps.dot(_pd)).normalize();
@@ -2709,7 +2792,8 @@
           rotateBoneWorld(B[sd + "Hand"], fwdB, sx * (0.45 * I * Math.sin(tI * 2.1 + ph) + 0.5 * Sw * Math.sin(TAU * u)));
         }
       };
-      c.pick.visible = pickaxe && !(e.zgFloat && ((A.zgP || 0) > 0.3 || A.zgS * (1 - A.zgP) > 0.35) && !(e.swingT > 0));
+      const busy = e.swingT > 0 || e.guardK > 0.05;
+      c.pick.visible = pickaxe && !e.writing && !(e.zgFloat && ((A.zgP || 0) > 0.3 || A.zgS * (1 - A.zgP) > 0.35) && !busy);
       if (e.isPlayer) syncVest(e);
       if (e.bounceT > 0 && near) {
         for (const sd of ["Left", "Right"]) {
@@ -2722,7 +2806,9 @@
         consPose(e, c, cons, useK, rightB, fwdB, upB, dt);
       } else if (near && pickaxe && e.fistSt && !((A.zgP || 0) > 0.3 && !(e.punches && e.punches.length))) {
         fistArms(e, B, rightB, upB, fwdB);
-      } else if (near && e.zgFloat && (A.zgP || 0) > 0.3 && !held && !(e.swingT > 0)) {
+      } else if (near && pickaxe && e.writing) {
+        noteArms(e, B, rightB, upB, fwdB);
+      } else if (near && e.zgFloat && (A.zgP || 0) > 0.3 && !held && !busy) {
         const t = A.zgT * 1.15;
         for (const [sd, sx] of [["Left", -1], ["Right", 1]]) {
           rotateBoneWorld(B[sd + "Arm"], rightB, Math.sin(t + (sx > 0 ? 0 : Math.PI)) * 1.9 * A.zgP);
@@ -2759,8 +2845,8 @@
       } else if (pickaxe && near) {
         const P = pickPose(e), sh = B.RightArm.getWorldPosition(new V());
         const tgt = g.localToWorld(g.worldToLocal(sh.clone()).add(P.h));
-        const grip = A.air < 0.02 || e.swingT > 0 || e.zgFloat;
-        const pump = e.onGround && !(e.swingT > 0) ? A.sprint * (1 - cr) : 0, dn = A.dn || 0;
+        const grip = A.air < 0.02 || busy || e.zgFloat;
+        const pump = e.onGround && !busy ? A.sprint * (1 - cr) : 0, dn = A.dn || 0;
         if (pump > 0.01) {
           rotateBoneWorld(B.LeftArm, rightB, -0.8 * dn * pump);
           rotateBoneWorld(B.RightArm, rightB, 0.8 * dn * pump);
@@ -2771,7 +2857,7 @@
         if (grip) solveIK(B.RightArm, B.RightForeArm, B.RightHand, tgt.lerp(natR, pump), sh.clone().addScaledVector(right, 0.6).addScaledVector(upB, -0.5));
         c.pick.quaternion.copy(P.q);
         if (pump > 0.01) c.pick.quaternion.premultiply(_qm.setFromAxisAngle(_v2.set(1, 0, 0), (0.45 * dn - 0.8) * pump));
-        D(A, "pk2", e.swingT > 0 ? 1 : 0, 1 - Math.exp(-20 * dt));
+        D(A, "pk2", e.swingT > 0 || e.guardK > 0.3 ? 1 : 0, 1 - Math.exp(-20 * dt));
         const rest = grip ? (1 - A.pk2) * (1 - pump) : 0;
         const hw = B.RightHand.getWorldPosition(new V());
         if (rest > 0.01) {
@@ -3064,7 +3150,10 @@
         const ent = hit.object.userData.ent;
         let dmg = w.dmg * rar.m * mult;
         if (w.falloff) dmg *= clamp(1 - (hit.distance - 8) / 30, 0.25, 1);
-        if (ent.etype === "char") {
+        if (ent === player && blocks(player, dir)) {
+          end.copy(swordPoint(player));
+          deflect(player, shooter, end, dir, dmg);
+        } else if (ent.etype === "char") {
           const head = hit.object.userData.part === "head";
           if (head) dmg *= w.head;
           hurt(ent, dmg, shooter, { head, point: hit.point, weapon: w.name, dir });
@@ -3183,6 +3272,10 @@
       if (curItem()) return;
       if (animeSt === "kunai") {
         kunaiSlash(p);
+        return;
+      }
+      if (animeSt === "nichirin") {
+        nichirinSlash(p);
         return;
       }
       camera.getWorldDirection(tv1);
@@ -3382,6 +3475,7 @@
           if (p.aHold > ANIME_HOLD) animeHold(p, dt);
         } else {
           if (p.aCharge > 0) kiRelease(p);
+          p.guard = false;
           p.aHold = 0;
           p.aGap = 0;
         }
@@ -4688,6 +4782,9 @@
       if (e === player) {
         endTitan(e, true);
         kiStop(e);
+        stopWriting(e);
+        e.guard = false;
+        e.guardK = 0;
       }
       c.pick.add(w);
     }
@@ -6901,6 +6998,51 @@
       });
       return g;
     }
+    const KTM = {};
+    function katanaModel() {
+      if (!KTM.steel) Object.assign(KTM, {
+        steel: new T.MeshPhongMaterial({ color: 1447964, shininess: 140, specular: 9082024 }),
+        edge: new T.MeshPhongMaterial({ color: 14212840, shininess: 160, specular: 16777215 }),
+        iron: GPh(2500652, 50, 5592405),
+        wrap: GPh(1385274, 15),
+        dia: GPh(15262416, 10)
+      });
+      const g = new T.Group(), add = (geo, m, x, y, z) => {
+        const o = new T.Mesh(geo, m);
+        o.position.set(x, y, z || 0);
+        o.castShadow = true;
+        g.add(o);
+        return o;
+      };
+      const bs = new T.Shape();
+      bs.moveTo(-0.014, 0);
+      bs.lineTo(0.014, 0);
+      bs.lineTo(0.014, 0.66);
+      bs.quadraticCurveTo(0.012, 0.73, -6e-3, 0.76);
+      bs.lineTo(-0.014, 0.68);
+      bs.lineTo(-0.014, 0);
+      add(new T.ExtrudeGeometry(bs, { depth: 6e-3, bevelEnabled: true, bevelThickness: 2e-3, bevelSize: 2e-3, bevelSegments: 1 }), KTM.steel, 0, 0.235, -3e-3);
+      const es = new T.Shape();
+      es.moveTo(9e-3, 0);
+      es.lineTo(0.016, 0);
+      es.lineTo(0.016, 0.66);
+      es.quadraticCurveTo(0.014, 0.73, -4e-3, 0.765);
+      es.quadraticCurveTo(0.01, 0.72, 9e-3, 0.66);
+      es.lineTo(9e-3, 0);
+      add(new T.ExtrudeGeometry(es, { depth: 75e-4, bevelEnabled: false }), KTM.edge, 0, 0.235, -37e-4);
+      const ts = add(new T.CylinderGeometry(0.045, 0.045, 0.012, 6), KTM.iron, 0, 0.225);
+      ts.rotation.y = Math.PI / 6;
+      add(new T.BoxGeometry(0.03, 0.02, 0.018), KTM.iron, 0, 0.207);
+      add(new T.CylinderGeometry(0.015, 0.016, 0.24, 10), KTM.wrap, 0, 0.075);
+      for (let i = 0; i < 7; i++) {
+        const d = add(new T.BoxGeometry(0.012, 0.012, 2e-3), KTM.dia, 0, -0.025 + i * 0.032, 0.0155);
+        d.rotation.z = Math.PI / 4;
+        const d2 = add(new T.BoxGeometry(0.012, 0.012, 2e-3), KTM.dia, 0, -0.025 + i * 0.032, -0.0155);
+        d2.rotation.z = Math.PI / 4;
+      }
+      add(new T.CylinderGeometry(0.017, 0.016, 0.02, 10), KTM.iron, 0, -0.05);
+      return g;
+    }
     function makeAnime3D(it, held) {
       const g = new T.Group();
       if (it.anime === "kunai") {
@@ -6920,6 +7062,48 @@
         g.add(sw);
         g.scale.setScalar(4.6);
         g.position.y = -0.15;
+        return g;
+      }
+      if (it.anime === "nichirin") {
+        if (held) {
+          g.add(katanaModel());
+          return g;
+        }
+        const k = katanaModel();
+        k.rotation.z = -0.75;
+        k.position.set(0.18, -0.38, 0);
+        g.add(k);
+        for (const [r, c, o] of [[0.36, 2060256, 0.85], [0.44, 7321855, 0.6], [0.29, 15135999, 0.8]]) {
+          const w = new T.Mesh(new T.TorusGeometry(r, 0.018, 6, 48, Math.PI * 1.3), new T.MeshBasicMaterial({ color: c, transparent: true, opacity: o }));
+          w.rotation.set(0.3, 0.2, r * 7);
+          g.add(w);
+        }
+        g.scale.setScalar(2.1);
+        return g;
+      }
+      if (it.anime === "deathnote") {
+        const b = noteModel();
+        if (held) {
+          g.add(b);
+          return g;
+        }
+        b.rotation.set(-0.15, -0.4, 0.12);
+        b.position.y = -0.16;
+        g.add(b);
+        const ap = new T.Mesh(new T.SphereGeometry(0.06, 20, 14), GPh(13112348, 60, 5583667));
+        ap.scale.set(1, 0.9, 1);
+        ap.position.set(0.16, -0.1, 0.08);
+        g.add(ap);
+        const st = new T.Mesh(new T.CylinderGeometry(5e-3, 6e-3, 0.04, 6), GPh(4861464, 10));
+        st.position.set(0.165, -0.035, 0.08);
+        st.rotation.z = -0.3;
+        g.add(st);
+        const lf = new T.Mesh(new T.SphereGeometry(0.018, 10, 6), GPh(3115578, 20));
+        lf.scale.set(1.6, 0.35, 0.8);
+        lf.position.set(0.185, -0.03, 0.08);
+        g.add(lf);
+        g.scale.setScalar(4.4);
+        g.position.y = 0.15;
         return g;
       }
       if (held) return g;
@@ -7052,6 +7236,18 @@
         p.fireCd = 0.5;
         punch(p, "Right", { dur: 0.5, reach: 16, dmg: 32, kb: 30, name: "Gum-Gum Pistol", stretch: true });
         sfx("stretch");
+      } else if (animeSt === "nichirin") {
+        p.fireCd = 0.38;
+        p.swingSide = p.swingT > 0 || p.comboT > 0 ? 1 - (p.swingSide || 0) : 0;
+        p.swingT = SWING_T * 0.8;
+        p.comboT = SWING_T + 0.3;
+        p.hitT = SWING_T * 0.8 * PICK_HIT;
+        sfx("katana");
+      } else if (animeSt === "deathnote") {
+        if (!p.writing) {
+          p.fireCd = 0.6;
+          startWriting(p);
+        }
       } else if (animeSt === "goku") {
         p.fireCd = 0.55;
         punch(p, "Right", { dur: 0.3, reach: 0, dmg: 36, kb: 44, name: "Super Saiyan Strike", shock: 0.8, gold: true });
@@ -7077,6 +7273,14 @@
       if (lockedUp(p)) return;
       if (animeSt === "goku") {
         kiCharge(p, dt);
+        return;
+      }
+      if (animeSt === "nichirin") {
+        p.guard = true;
+        return;
+      }
+      if (animeSt === "deathnote") {
+        if (p.writing) p.writing.hold = true;
         return;
       }
       p.aGap = (p.aGap || 0) - dt;
@@ -7647,6 +7851,365 @@
       camShake = Math.max(camShake, P.o.soft ? 0.3 : 0.6);
       sfx(n ? "titanHit" : "titanWhiff", tip.clone(), { v: P.o.soft ? 0.7 : 1 });
     }
+    const waterMat = new T.MeshBasicMaterial({ color: 2060256, transparent: true, depthWrite: false, side: T.DoubleSide, opacity: 0.8 });
+    const foamMat = new T.MeshBasicMaterial({ color: 15135999, transparent: true, depthWrite: false, side: T.DoubleSide, opacity: 0.9 });
+    const dropMat = new T.SpriteMaterial({ map: glowTex, color: 3902719, transparent: true, depthWrite: false, opacity: 0.85 });
+    const sparkOMat = new T.SpriteMaterial({ map: sparkTex, color: 16756782, transparent: true, depthWrite: false });
+    const waveGeo = new T.TorusGeometry(2.2, 0.11, 6, 40, Math.PI * 0.8), foamGeo = new T.TorusGeometry(2.25, 0.035, 4, 40, Math.PI * 0.8);
+    function waterSlash(p, side) {
+      camera.getWorldDirection(tv1);
+      const c = new V(p.pos.x, p.pos.y + 1.3, p.pos.z).addScaledVector(tv1, 1.4), g = new T.Group(), w = new T.Mesh(waveGeo, waterMat.clone()), f = new T.Mesh(foamGeo, foamMat.clone());
+      g.add(w);
+      g.add(f);
+      g.position.copy(c);
+      g.lookAt(c.clone().add(tv1));
+      g.rotateZ(side ? 2.5 : -0.7);
+      world.add(g);
+      effects.push({ t: 0, dur: 0.28, obj: g, upd: (e, k) => {
+        g.rotateZ((side ? -1 : 1) * 0.16);
+        g.scale.setScalar(0.8 + k * 0.45);
+        w.material.opacity = 0.8 * (1 - k * k);
+        f.material.opacity = 0.9 * (1 - k);
+      }, done: () => {
+        w.material.dispose();
+        f.material.dispose();
+      } });
+      for (let i = 0; i < 10; i++) {
+        const a = (side ? 2.5 : -0.7) + rnd(0, 2.4) * (side ? -1 : 1), q = c.clone().add(new V(Math.cos(a) * 2, Math.sin(a) * 2, 0).applyQuaternion(g.quaternion));
+        mote(dropMat, q, rnd(0.12, 0.26), rnd(0.3, 0.5), rv(2).addScaledVector(tv1, 3));
+      }
+    }
+    function nichirinSlash(p) {
+      camera.getWorldDirection(tv1);
+      waterSlash(p, p.swingSide);
+      const c = new V(p.pos.x, p.pos.y + 1.2, p.pos.z);
+      let n = 0;
+      for (const e of combatants) {
+        if (!e.alive || e === p) continue;
+        _dv.set(e.pos.x, e.pos.y + 1, e.pos.z).sub(c);
+        const d = _dv.length();
+        if (d > 5.2 || _dv.dot(tv1) < 0.5 * d) continue;
+        const at = new V(e.pos.x, e.pos.y + 1.1, e.pos.z);
+        if (!hasLOS(c, at)) continue;
+        hurt(e, 34, p, { point: at, weapon: "Nichirin Sword", dir: tv1.clone(), melee: true, soft: true });
+        if (e.alive && !(e.bounceT > 0)) {
+          e.vel.addScaledVector(tv1, 9);
+          e.knockT = Math.max(e.knockT || 0, 0.2);
+        }
+        cutFx(at);
+        for (let i = 0; i < 6; i++) mote(dropMat, at.clone(), rnd(0.15, 0.3), rnd(0.3, 0.5), rv(4));
+        n++;
+      }
+      if (n) sfx("bladeHit", c.clone());
+      else {
+        const h = aimHit(p, tv1, camDistNow + 5.2);
+        if (h.wall) {
+          sfx("clang", h.p, { v: 0.5 });
+          for (let i = 0; i < 6; i++) mote(sparkOMat, h.p.clone(), rnd(0.12, 0.25), 0.15, rv(6), 10);
+        }
+      }
+    }
+    function updateGuard(p, dt) {
+      const on = !!p.guard && animeSt === "nichirin" && !curItem() && p.alive && !lockedUp(p);
+      p.guardK = Math.max(0, Math.min(1, (p.guardK || 0) + (on ? dt * 9 : -dt * 6)));
+      if (!on) p.guard = false;
+    }
+    function blocks(p, dir) {
+      if (!(p.guardK > 0.6)) return false;
+      camera.getWorldDirection(tv2);
+      return -dir.dot(tv2) > 0.3;
+    }
+    function swordPoint(p) {
+      const h = p.ch.bones.RightHand.getWorldPosition(new V());
+      camera.getWorldDirection(tv2);
+      return h.addScaledVector(tv2, 0.25).add(new V(0, 0.3, 0));
+    }
+    function deflect(p, shooter, at, dir, dmg) {
+      for (let i = 0; i < 9; i++) mote(sparkOMat, at.clone(), rnd(0.12, 0.28), rnd(0.12, 0.25), rv(7).addScaledVector(dir, -4), 10);
+      const r = new T.Mesh(shockRing, new T.MeshBasicMaterial({ color: 2784767, transparent: true, side: T.DoubleSide, depthWrite: false }));
+      r.position.copy(at);
+      r.lookAt(at.clone().sub(dir));
+      world.add(r);
+      effects.push({ t: 0, dur: 0.18, obj: r, upd: (e, k) => {
+        r.scale.setScalar(0.15 + k * 0.9);
+        r.material.opacity = 1 - k;
+      }, done: () => r.material.dispose() });
+      sfx("clang", at.clone());
+      p.anim.hit = Math.min(1, (p.anim.hit || 0) + 0.15);
+      camShake = Math.max(camShake, 0.12);
+      if (shooter && shooter.alive && Math.random() < 0.5) {
+        const tgt = new V(shooter.pos.x, shooter.pos.y + 1.2, shooter.pos.z);
+        if (hasLOS(at, tgt)) {
+          tracer(at, tgt);
+          hurt(shooter, dmg * 0.7, p, { point: tgt, weapon: "Nichirin Deflect", dir: tgt.clone().sub(at).normalize() });
+          return;
+        }
+      }
+      const out = dir.clone().multiplyScalar(-1).add(rv(0.8)).normalize();
+      tracer(at, at.clone().addScaledVector(out, rnd(8, 20)));
+    }
+    const NOTE_TAP = 0.45, NOTE_MAX = 1.6;
+    const DN = {};
+    function coverTex() {
+      if (DN.cover) return DN.cover;
+      const cv = document.createElement("canvas");
+      cv.width = 256;
+      cv.height = 340;
+      const x = cv.getContext("2d");
+      x.fillStyle = "#0c0c0e";
+      x.fillRect(0, 0, 256, 340);
+      x.fillStyle = "#f2f2f2";
+      x.textAlign = "center";
+      x.font = 'bold 40px "Times New Roman",serif';
+      x.fillText("DEATH", 128, 150);
+      x.fillText("NOTE", 128, 196);
+      x.strokeStyle = "#2a2a2e";
+      x.lineWidth = 3;
+      x.strokeRect(10, 10, 236, 320);
+      DN.cover = new T.CanvasTexture(cv);
+      return DN.cover;
+    }
+    function noteModel() {
+      const g = new T.Group(), black = new T.MeshPhongMaterial({ color: 1118484, shininess: 40 }), cov = new T.MeshPhongMaterial({ map: coverTex(), shininess: 40 }), pages = new T.MeshPhongMaterial({ color: 15722972 });
+      const b = new T.Mesh(new T.BoxGeometry(0.2, 0.27, 0.03), [pages, black, black, black, cov, black]);
+      b.position.set(0, 0.12, 0);
+      b.castShadow = true;
+      g.add(b);
+      return g;
+    }
+    function openBook(p) {
+      if (p.dnBook) return p.dnBook;
+      const g = new T.Group(), cv = document.createElement("canvas");
+      cv.width = 256;
+      cv.height = 340;
+      const tex = new T.CanvasTexture(cv);
+      const pageL = new T.Mesh(new T.PlaneGeometry(0.2, 0.27), new T.MeshBasicMaterial({ map: pageTex(), side: T.DoubleSide })), pageR = new T.Mesh(new T.PlaneGeometry(0.2, 0.27), new T.MeshBasicMaterial({ map: tex, side: T.DoubleSide }));
+      pageL.position.x = -0.102;
+      pageL.rotation.y = 0.12;
+      pageR.position.x = 0.102;
+      pageR.rotation.y = -0.12;
+      g.add(pageL);
+      g.add(pageR);
+      const back = new T.Mesh(new T.BoxGeometry(0.42, 0.28, 0.01), new T.MeshPhongMaterial({ color: 1118484 }));
+      back.position.z = -0.012;
+      g.add(back);
+      const pen = new T.Group(), body = new T.Mesh(new T.CylinderGeometry(6e-3, 7e-3, 0.14, 8), new T.MeshPhongMaterial({ color: 1710623, shininess: 80 })), nib = new T.Mesh(new T.ConeGeometry(6e-3, 0.02, 8), new T.MeshPhongMaterial({ color: 13159636, shininess: 120 }));
+      body.position.y = 0.08;
+      nib.rotation.x = Math.PI;
+      nib.position.y = 5e-3;
+      pen.add(body);
+      pen.add(nib);
+      g.add(pen);
+      g.userData = { cv, ctx: cv.getContext("2d"), tex, pen, shown: -1 };
+      g.visible = false;
+      g.scale.setScalar(1.3);
+      world.add(g);
+      p.dnBook = g;
+      return g;
+    }
+    function pageTex() {
+      if (DN.page) return DN.page;
+      const cv = document.createElement("canvas");
+      cv.width = 256;
+      cv.height = 340;
+      const x = cv.getContext("2d");
+      ruled(x);
+      x.fillStyle = "#1b1b20";
+      x.font = 'italic 22px "Segoe Script","Brush Script MT",cursive';
+      ["Kurou Otoharada", "Lind L. Tailor", "Raye Penber", "Naomi Misora"].forEach((n, i) => {
+        x.globalAlpha = 0.75;
+        x.fillText(n, 22, 58 + i * 38);
+      });
+      DN.page = new T.CanvasTexture(cv);
+      return DN.page;
+    }
+    function ruled(x) {
+      x.fillStyle = "#efe9dc";
+      x.fillRect(0, 0, 256, 340);
+      x.strokeStyle = "rgba(60,70,90,0.25)";
+      x.lineWidth = 1;
+      for (let y = 40; y < 330; y += 38) {
+        x.beginPath();
+        x.moveTo(14, y + 6);
+        x.lineTo(242, y + 6);
+        x.stroke();
+      }
+    }
+    function drawName(p, n) {
+      const u = p.dnBook.userData;
+      if (u.shown === n) return;
+      u.shown = n;
+      const x = u.ctx, w = p.writing;
+      ruled(x);
+      x.fillStyle = "#111";
+      x.font = 'italic 30px "Segoe Script","Brush Script MT",cursive';
+      x.fillText(w.name.slice(0, n), 20, 96);
+      if (n >= w.name.length && w.hold) {
+        x.font = "italic 15px serif";
+        x.fillStyle = "#3a1010";
+        x.fillText("heart attack", 26, 134);
+      }
+      u.tex.needsUpdate = true;
+    }
+    function startWriting(p) {
+      if (lockedUp(p)) return;
+      const t = crosshairTarget(p, 0.9);
+      openBook(p);
+      p.writing = { t: 0, hold: false, tgt: t, name: t ? t.name : "???", scr: 0 };
+      p.dnBook.visible = true;
+      p.dnBook.userData.shown = -1;
+      sfx("bookOpen");
+    }
+    function stopWriting(p) {
+      p.writing = null;
+      if (p.dnBook) p.dnBook.visible = false;
+    }
+    function updateWriting(p, dt) {
+      const w = p.writing;
+      if (!w) return;
+      if (!p.alive || curItem() || animeSt !== "deathnote" || lockedUp(p)) {
+        stopWriting(p);
+        return;
+      }
+      w.t += dt;
+      w.scr -= dt;
+      if (w.scr <= 0) {
+        w.scr = 0.13;
+        sfx("scribble", null);
+      }
+      const k = w.hold ? Math.min(1, w.t / NOTE_MAX) : Math.min(1, w.t / NOTE_TAP);
+      drawName(p, Math.ceil(k * w.name.length));
+      if (w.hold && Math.random() < dt * 10 * k) mote(inkMat, p.dnOrigin ? p.dnOrigin.clone().add(rv(0.15)) : new V(p.pos.x, p.pos.y + 1.3, p.pos.z), rnd(0.1, 0.22), rnd(0.4, 0.7), rv(0.4).add(new V(0, 0.6, 0)));
+      if (!w.hold && w.t >= NOTE_TAP) deathBeam(p, 0);
+      else if (w.hold && (!mouse.l || w.t >= NOTE_MAX + 0.6)) deathBeam(p, clamp((w.t - NOTE_TAP) / (NOTE_MAX - NOTE_TAP), 0, 1));
+    }
+    const _nX = new V(), _nY = new V(), _nZ = new V(), _nm = new T.Matrix4();
+    function noteArms(e, B, rightB, upB, fwdB) {
+      const bk = openBook(e), u = bk.userData, ch = B.Spine2.getWorldPosition(new V()), t = matchTime;
+      const c = ch.addScaledVector(fwdB, 0.44).addScaledVector(upB, 0.06).addScaledVector(rightB, 0.14);
+      _nZ.copy(upB).multiplyScalar(0.55).addScaledVector(fwdB, -0.75).addScaledVector(rightB, 0.3).normalize();
+      _nX.copy(rightB).addScaledVector(_nZ, -rightB.dot(_nZ)).normalize();
+      _nY.crossVectors(_nZ, _nX);
+      bk.position.copy(c);
+      bk.quaternion.setFromRotationMatrix(_nm.makeBasis(_nX, _nY, _nZ));
+      bk.updateMatrixWorld(true);
+      const w = e.writing, k = w ? Math.min(1, w.t / (w.hold ? NOTE_MAX : NOTE_TAP)) : 0;
+      u.pen.position.set(0.04 + 0.12 * k + 8e-3 * Math.sin(t * 31), 0.04 + 0.012 * Math.sin(t * 17), 4e-3);
+      u.pen.rotation.set(-0.5, 0.35, -0.25 + 0.12 * Math.sin(t * 23));
+      e.dnOrigin = bk.localToWorld(new V(0.1, 0.16, 0.05));
+      const lS = B.LeftArm.getWorldPosition(new V()), rS = B.RightArm.getWorldPosition(new V());
+      solveIK(B.LeftArm, B.LeftForeArm, B.LeftHand, bk.localToWorld(new V(-0.2, -0.03, -0.03)), lS.clone().addScaledVector(rightB, -0.5).addScaledVector(upB, -0.6));
+      u.pen.updateMatrixWorld(true);
+      const grip = u.pen.localToWorld(new V(0, 0.06, 0));
+      solveIK(B.RightArm, B.RightForeArm, B.RightHand, grip, rS.clone().addScaledVector(rightB, 0.5).addScaledVector(upB, -0.6));
+      poseHand(B, "Left", _nY.clone(), _nZ.clone().negate(), 0.4);
+      poseHand(B, "Right", _nZ.clone().negate().addScaledVector(_nY, 0.4), rightB.clone().negate(), 0.9);
+    }
+    const inkMat = new T.SpriteMaterial({ map: glowTex, color: 1315864, transparent: true, depthWrite: false, opacity: 0.8 });
+    const dbCore = new T.MeshBasicMaterial({ color: 526346, transparent: true, depthWrite: false, fog: false });
+    const dbSheath = new T.MeshBasicMaterial({ color: 16777215, transparent: true, depthWrite: false, fog: false, opacity: 0.85 });
+    const dbHaze = new T.MeshBasicMaterial({ color: 6974064, transparent: true, depthWrite: false, fog: false, opacity: 0.3, side: T.DoubleSide });
+    let bwT = 0;
+    function deathBeam(p, power) {
+      const from = (p.dnOrigin || new V(p.pos.x, p.pos.y + 1.3, p.pos.z)).clone(), named = p.writing && p.writing.tgt;
+      stopWriting(p);
+      camera.getWorldDirection(tv1);
+      const dir = tv1.clone();
+      let h = aimHit(p, dir, 160 + camDistNow);
+      h = nearMiss(p, dir, h, from, 1.2 + power * 0.8);
+      if (!h.ent && named && named.alive) {
+        const at = new V(named.pos.x, named.pos.y + 1.1, named.pos.z);
+        if (hasLOS(from, at) && at.distanceTo(from) < 160) h = { p: at, ent: named, head: false, wall: false };
+      }
+      const end = h.p.clone(), bd = end.clone().sub(from).normalize(), L = from.distanceTo(end);
+      const hits = [];
+      if (h.ent) hits.push(h.ent);
+      if (power > 0.5) {
+        for (const e of combatants) {
+          if (!e.alive || e === p || hits.includes(e)) continue;
+          _dv.set(e.pos.x, e.pos.y + 1, e.pos.z);
+          if (segDist(from, bd, L + 1, _dv) < 1 + 0.6 * power && hasLOS(from, _dv)) hits.push(e);
+        }
+      }
+      const dmg = 40 + 50 * power, kb = 36 + 40 * power;
+      for (const e of hits) {
+        const at = new V(e.pos.x, e.pos.y + 1.1, e.pos.z);
+        hurt(e, dmg, p, { point: at, weapon: "Death Note", dir: bd.clone() });
+        if (e.alive && !(e.bounceT > 0)) {
+          e.vel.addScaledVector(bd, kb);
+          e.knockT = Math.max(e.knockT || 0, kb / 45);
+        }
+        deathBurst(at, 0.7 + 0.6 * power);
+      }
+      const g = new T.Group(), core = new T.Mesh(beamGeo, dbCore.clone()), sh = new T.Mesh(beamGeo, dbSheath.clone()), hz = new T.Mesh(beamGeo, dbHaze.clone());
+      g.add(hz);
+      g.add(sh);
+      g.add(core);
+      world.add(g);
+      const r0 = 0.07 + 0.08 * power;
+      effects.push({ t: 0, dur: 0.45 + 0.2 * power, obj: g, upd: (e, k) => {
+        const f = 1 - k * k;
+        placeSeg(core, from, end, r0 * f);
+        placeSeg(sh, from, end, r0 * 2.6 * f * (1 + 0.15 * Math.sin(e.t * 60)));
+        placeSeg(hz, from, end, r0 * 6 * f);
+        sh.material.opacity = 0.85 * f;
+        hz.material.opacity = 0.3 * f;
+      }, done: () => {
+        core.material.dispose();
+        sh.material.dispose();
+        hz.material.dispose();
+      } });
+      for (let i = 0; i < 6 + Math.round(6 * power); i++) {
+        const ring = new T.Mesh(shockRing, new T.MeshBasicMaterial({ color: i % 2 ? 16777215 : 723726, transparent: true, side: T.DoubleSide, depthWrite: false, opacity: 0 }));
+        ring.lookAt(bd);
+        world.add(ring);
+        const d0 = i * 0.035;
+        effects.push({ t: 0, dur: 0.4 + d0, obj: ring, upd: (e) => {
+          const u = Math.max(0, e.t - d0) / 0.4;
+          ring.position.copy(from).addScaledVector(bd, L * u);
+          ring.lookAt(ring.position.clone().add(bd));
+          ring.scale.setScalar(r0 * (5 + 4 * u));
+          ring.material.opacity = e.t < d0 ? 0 : 0.9 * (1 - u);
+        }, done: () => ring.material.dispose() });
+      }
+      for (let i = 0; i < 12; i++) {
+        const q = from.clone().addScaledVector(bd, Math.random() * L);
+        mote(inkMat, q.add(rv(0.3)), rnd(0.2, 0.45) * (1 + power), rnd(0.4, 0.8), rv(1.5));
+      }
+      if (!hits.length && h.wall) deathBurst(end, 0.5);
+      bwT = 0.22 + 0.3 * power;
+      camShake = Math.max(camShake, 0.25 + 0.4 * power);
+      p.fireCd = 0.5;
+      sfx("deathBeam", from.clone(), { k: power });
+    }
+    function deathBurst(at, s) {
+      const fl = new T.Mesh(new T.SphereGeometry(1, 20, 14), new T.MeshBasicMaterial({ color: 16777215, transparent: true, opacity: 0.9, depthWrite: false }));
+      fl.position.copy(at);
+      world.add(fl);
+      effects.push({ t: 0, dur: 0.3, obj: fl, upd: (e, k) => {
+        fl.scale.setScalar(s * (0.3 + k * 1.6));
+        fl.material.opacity = 0.9 * (1 - k);
+      }, done: () => {
+        fl.geometry.dispose();
+        fl.material.dispose();
+      } });
+      const r = new T.Mesh(shockRing, new T.MeshBasicMaterial({ color: 723726, transparent: true, side: T.DoubleSide, depthWrite: false }));
+      r.position.copy(at);
+      r.lookAt(camera.position);
+      world.add(r);
+      effects.push({ t: 0, dur: 0.35, obj: r, upd: (e, k) => {
+        r.scale.setScalar(s * (0.4 + k * 3));
+        r.material.opacity = 1 - k;
+      }, done: () => r.material.dispose() });
+      for (let i = 0; i < 10; i++) mote(inkMat, at.clone(), rnd(0.25, 0.5) * s, rnd(0.4, 0.7), rv(5 * s));
+      sfx("deathHit", at.clone());
+    }
+    function updateBW(dt) {
+      if (bwT > 0) {
+        bwT -= dt;
+        renderer.domElement.style.filter = bwT > 0 ? `grayscale(${Math.min(1, bwT * 6)}) contrast(${1 + Math.min(0.35, bwT * 2)})` : "";
+      }
+    }
     const SHOP = [
       { id: "rpg", name: "RPG", price: 5, col: "#4fd34f" },
       { id: "gren", name: "Grenade Launcher", price: 10, col: "#a7b85a" },
@@ -8117,6 +8680,9 @@
       updateKunais(dt);
       updateTitan(player, dt);
       updateKi(player, dt);
+      updateGuard(player, dt);
+      updateWriting(player, dt);
+      updateBW(dt);
       for (const b of bots) updateBotZG(b, dt);
       for (const e of combatants) animateGLB(e, dt);
       drawPunches(player);
