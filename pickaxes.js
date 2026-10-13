@@ -258,6 +258,8 @@ const ANIME=[
  {n:'Shadow Kunai',hero:'Naruto',anime:'kunai',short:'KUNAI',c:'#ff8a1f',pw:'Shred',pwd:'Tap to slash. Hold to throw fans of kunai that cut straight through.',flav:'Believe it.'},
  {n:'Gum-Gum Fists',hero:'Luffy',anime:'rubber',short:'FISTS',c:'#e8342c',pw:'Gatling',pwd:'Tap for a stretching Pistol punch. Hold for a Gatling of rubber fists.',flav:'Gonna be King of the Pirates.'},
  {n:'Serious Fist',hero:'Saitama',anime:'saitama',short:'FISTS',c:'#ffd23f',pw:'Serious Series',pwd:'Tap for a Normal Punch shockwave. Hold for Consecutive Normal Punches.',flav:'OK.'},
+ {n:'Super Saiyan',hero:'Goku',anime:'goku',short:'SAIYAN',c:'#ffc21a',pw:'Power Up',pwd:'Tap for a golden Super Saiyan strike. Hold to power up, then let go to blast everyone around you away.',flav:'I am the hope of the universe.'},
+ {n:'Attack Titan',hero:'Eren',anime:'titan',short:'TITAN',c:'#c4553f',pw:'Titan Shift',pwd:'Tap to turn into the Attack Titan for a few seconds and punch people flying. Hold for a titan barrage.',flav:'If you win, you live.'},
 ];
 const animeSet=SETS.find(s=>s.id==='anime');
 ANIME.forEach(a=>ITEMS.push(Object.assign({i:ITEMS.length,set:animeSet,rar:4,shape:'classic',h1:a.c,h2:a.c,edge:'#222',hs:'plain',ha:'#333',hb:'#222',pat:'none',pc:'',x:{},sz:'m'},a)));
@@ -398,6 +400,18 @@ const ANIME_ART={
    `<path d="M30 168 L70 128" stroke="#ffd23f" stroke-width="26" stroke-linecap="round"/><rect x="58" y="104" width="34" height="34" rx="6" fill="#d4232a" transform="rotate(-45 75 121)"/>`+
    `<g transform="translate(108 92) rotate(-45)"><rect x="-26" y="-24" width="52" height="46" rx="14" fill="#e8342c" stroke="#7a1010" stroke-width="3"/>`+[-15,-5,5,15].map(x=>`<path d="M${x} -24 v14" stroke="#7a1010" stroke-width="2.5"/>`).join('')+`<rect x="-30" y="-4" width="14" height="20" rx="6" fill="#e8342c" stroke="#7a1010" stroke-width="2.5"/><path d="M-18 -18 h20" stroke="#fff" stroke-opacity=".45" stroke-width="3" stroke-linecap="round"/></g>`,
 };
+ANIME_ART.goku=id=>`<defs><linearGradient id="${id}h" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#f0a010"/><stop offset=".6" stop-color="#ffd23a"/><stop offset="1" stop-color="#fff2a8"/></linearGradient></defs>`+
+  `<circle cx="100" cy="104" r="64" fill="#ffc21a" opacity=".2"/>`+[0,1,2,3,4,5,6,7,8].map(i=>{ const a=-Math.PI*0.95+i*Math.PI*0.95/4, x=100+Math.cos(a)*74, y=118+Math.sin(a)*74; return `<path d="M${100+Math.cos(a-0.12)*46} ${118+Math.sin(a-0.12)*46} L${x} ${y} L${100+Math.cos(a+0.12)*46} ${118+Math.sin(a+0.12)*46}Z" fill="#ffd84a" opacity=".55"/>`; }).join('')+
+  // the spiky golden hair, swept up
+  `<path d="M44 150 L50 104 L26 86 L60 84 L50 46 L80 70 L84 26 L104 62 L122 22 L128 66 L156 40 L148 82 L178 82 L152 104 L158 150 C140 124 120 118 100 118 C80 118 60 124 44 150Z" fill="url(#${id}h)" stroke="#9a5a08" stroke-width="3" stroke-linejoin="round"/>`+
+  `<path d="M74 118 L86 96 L92 120 L100 92 L108 120 L116 96 L126 118" fill="#ffd23a" stroke="#9a5a08" stroke-width="2.5" stroke-linejoin="round"/>`+
+  [[58,58],[150,60],[40,120],[164,126]].map(([x,y])=>`<path d="M${x} ${y-8} L${x+3} ${y-2} L${x+9} ${y} L${x+3} ${y+2} L${x} ${y+8} L${x-3} ${y+2} L${x-9} ${y} L${x-3} ${y-2}Z" fill="#fff6c0"/>`).join('');
+ANIME_ART.titan=id=>`<circle cx="100" cy="104" r="64" fill="#c4553f" opacity=".18"/>`+
+  [[62,70,16],[140,60,20],[150,96,14],[54,104,12]].map(([x,y,r])=>`<circle cx="${x}" cy="${y}" r="${r}" fill="#d9d1cb" opacity=".75"/>`).join('')+
+  `<path d="M60 176 L72 136 L128 136 L140 176Z" fill="#a24634" stroke="#5a1c12" stroke-width="3"/>`+[78,92,106,120].map(x=>`<path d="M${x} 140 L${x-4} 174" stroke="#7a2e22" stroke-width="2"/>`).join('')+
+  `<rect x="58" y="86" width="84" height="58" rx="18" fill="#b3553f" stroke="#5a1c12" stroke-width="3.5"/>`+[78,98,118].map(x=>`<path d="M${x} 86 v20" stroke="#5a1c12" stroke-width="3"/>`).join('')+
+  `<rect x="50" y="110" width="24" height="30" rx="10" fill="#b3553f" stroke="#5a1c12" stroke-width="3"/><path d="M68 96 h40" stroke="#e8907a" stroke-width="3" stroke-linecap="round" opacity=".7"/>`+
+  `<path d="M118 6 L92 52 L112 54 L86 96 L132 44 L112 42 L132 6Z" fill="#ffd23f" stroke="#a87808" stroke-width="2.5" stroke-linejoin="round"/>`;
 function pickSVG(it,suffix){
   if(it.anime) return `<svg viewBox="0 0 200 200" role="img" aria-label="${it.n}" xmlns="http://www.w3.org/2000/svg"><ellipse cx="100" cy="182" rx="52" ry="7" fill="#000" opacity=".28"/>${ANIME_ART[it.anime]('a'+it.i+(suffix||''))}</svg>`;
   const id='p'+it.i+suffix, R=rng(it.i*9973+7), x=it.x, alpha=x.alpha||1, Z=SIZES[it.sz], L=Z.L, WIDE={mallet:.8,double:.86,crescent:.9,wing:.9,bat:.9,scythe:.9,claw:.92,leaf:.92}, HS=Z.hs*(Z.hs>1?(WIDE[it.shape]||1):1);
