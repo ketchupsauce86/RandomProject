@@ -462,6 +462,26 @@ const BANK:any={
     mixIn(x,rbj(burst(1.4,0.32,true,0.004),'lp',200,0.9),0,2.2); mixIn(x,sweep(0.9,3500,250,0.8,k=>Math.pow(1-k,2)),0.005,0.9); mixIn(x,rbj(burst(0.03,0.004),'hp',2000,0.7),0,0.9);
     for(const [d,g] of ROOM) mixIn(x,rbj(x.slice(0,Math.ceil(0.12*SR)),'lp',1200,0.7),d*2,g); return norm(sat(x,1.6),0.95); },
   shockS:()=>{ const x=SN(0.5); mixIn(x,rbj(burst(0.3,0.06,true,0.002),'lp',260,0.9),0,1.8); mixIn(x,sweep(0.3,3000,400,0.8,k=>Math.pow(1-k,2)),0.003,0.6); mixIn(x,rbj(burst(0.01,0.0015),'hp',2200,0.7),0,0.6); return norm(sat(x,1.4),0.85); },
+  // Goku: the rising roar of powering up, the buzzing ki hum, the burst
+  ssjUp:()=>{ const x=SN(1); mixIn(x,sweep(0.9,180,2600,1.1,k=>Math.min(1,k*6)*Math.pow(1-k,0.8)),0,1); mixIn(x,rbj(burst(1,0.5,true,0.08),'lp',150,0.9),0,1.2);
+    for(let i=0;i<10;i++) mixIn(x,rbj(burst(0.01,0.0015),'bp',rnd(2000,5000),1.5),rnd(0.1,0.8),rnd(0.2,0.5)); return norm(sat(x,1.4),0.8); },
+  kiHum:()=>{ const x=SN(0.6), hz=rnd(55,62); let ph=0; for(let i=0;i<x.length;i++){ const t=i/SR; ph+=2*Math.PI*hz*(1+0.02*Math.sin(t*40))/SR; x[i]=(Math.sin(ph)+0.5*Math.sin(2*ph)+0.3*Math.sin(3.02*ph))*Math.sin(Math.PI*t/0.6); }
+    mixIn(x,amp(rbj(burst(0.6,9,true),'bp',rnd(380,460),2),t=>Math.sin(Math.PI*t/0.6)*(0.6+0.4*Math.sin(t*2*Math.PI*hz))),0,0.8);
+    for(let i=0;i<5;i++) mixIn(x,rbj(burst(0.008,0.0012),'bp',rnd(2500,6000),1.5),rnd(0,0.55),rnd(0.15,0.35)); return norm(sat(x,1.3),0.7); },
+  ssjBurst:()=>{ const x=SN(2), nw=Math.round(0.004*SR); for(let i=0;i<nw*2;i++) x[i]+=(i<nw?1:-1)*(1-(i%nw)/nw)*1.2;
+    mixIn(x,rbj(burst(1.5,0.4,true,0.004),'lp',170,0.9),0,2.2); mixIn(x,sweep(1.1,4500,300,0.8,k=>Math.pow(1-k,1.6)),0.004,1); mixIn(x,sweep(0.6,900,5000,1.4,k=>Math.sin(Math.PI*k)),0,0.45);
+    for(let i=0;i<14;i++) mixIn(x,rbj(burst(0.01,0.0015),'bp',rnd(1800,6000),1.5),rnd(0,0.6)*rnd(0,1),rnd(0.2,0.6));
+    for(const [d,g] of ROOM) mixIn(x,rbj(x.slice(0,Math.ceil(0.12*SR)),'lp',1400,0.7),d*2.2,g); return norm(sat(x,1.6),0.95); },
+  // Eren: the lightning, the roar, the steam, and the weight of a titan's fist
+  thunder:()=>{ const x=SN(2.4); mixIn(x,rbj(burst(0.03,0.004),'hp',1800,0.7),0,1.6); for(let i=0;i<6;i++) mixIn(x,rbj(burst(0.02,0.003),'hp',rnd(1200,3000),0.7),rnd(0.005,0.08),rnd(0.4,0.9));
+    mixIn(x,amp(rbj(burst(2.3,0.7,true,0.02),'lp',140,0.9),t=>0.7+0.3*Math.sin(t*13)*Math.sin(t*4.7)),0.02,2.2); return norm(sat(x,1.5),0.95); },
+  roar:()=>{ const x=SN(1.4); let ph=0; const f0=rnd(62,72);
+    for(let i=0;i<x.length;i++){ const t=i/SR, f=f0*(1+0.25*Math.sin(Math.PI*Math.min(1,t/1.2)))*(1+0.04*Math.sin(t*2*Math.PI*7)); ph+=2*Math.PI*f/SR; let w=0; for(let h=1;h<9;h++) w+=Math.sin(h*ph)/h; x[i]=w*Math.min(1,t/0.12)*Math.max(0,1-Math.pow(t/1.4,3)); }
+    rbj(x,'bp',rnd(420,520),1.2); mixIn(x,rbj(burst(1.4,0.6,true,0.1),'bp',300,1.5),0,0.6); return norm(sat(x,2.2),0.85); },
+  steam:()=>{ const x=SN(1.2); mixIn(x,rbj(sweep(1.2,3500,6500,0.7,k=>Math.min(1,k*20)*Math.pow(1-k,1.3)),'hp',2500,0.7),0,1); mixIn(x,rbj(burst(1.1,0.4,true),'lp',300,0.8),0,0.3); return norm(x,0.6); },
+  titanSwing:()=>norm(sweep(0.5,120,650,0.9,k=>Math.sin(Math.PI*Math.pow(k,0.6))),0.7),
+  titanHit:()=>{ const x=SN(0.9); mixIn(x,rbj(burst(0.6,0.09,true),'lp',170,0.9),0,2.2); mixIn(x,rbj(burst(0.02,0.003),'hp',1800,0.7),0,0.6); mixIn(x,rbj(burst(0.08,0.015),'bp',rnd(450,600),1.2),0,0.7);
+    modes(x,0.004,panel().map(([f,d,a])=>[f*0.55,d*4,a]),0.5); return norm(sat(x,1.8),0.95); },
   pop:()=>{ const x=SN(0.4); mixIn(x,rbj(burst(0.02,0.002),'hp',2500,0.7),0,1.2); mixIn(x,rbj(burst(0.3,0.06,true),'lp',260,0.9),0,1.2); mixIn(x,comb(rbj(burst(0.2,0.04),'bp',900,1),rnd(380,420),0.6),0.005,0.4); return norm(x,0.85); },
 };
 // end-of-match stings: still music, but played by warm, detuned ensembles with a timpani roll rather than bleeps
@@ -562,6 +582,10 @@ const SFX={
   slash:v=>{ smp(v,'slash',{g:0.6}); }, kunai:v=>{ smp(v,'kunai',{g:0.6}); }, stick:v=>{ smp(v,'stick',{g:0.6}); },
   stretch:(v,o)=>{ smp(v,'stretch',{g:0.7*(o.gain==null?1:1)}); }, punch:v=>{ smp(v,'punch',{g:0.9}); smp(v,'hit',{g:0.4,rate:0.8}); },
   shock:v=>{ smp(v,'shock',{g:1.1}); }, shockS:v=>{ smp(v,'shockS',{g:0.7}); },
+  ssjUp:v=>{ smp(v,'ssjUp',{g:0.8}); }, ssjHum:(v,o)=>{ smp(v,'kiHum',{g:0.35+0.4*(o.k||0),rate:0.9+0.35*(o.k||0)}); }, ssjFull:v=>{ smp(v,'shimmer',{g:0.5,rate:0.8}); smp(v,'crackle',{g:0.7}); },
+  ssjBurst:(v,o)=>{ smp(v,'ssjBurst',{g:0.6+0.5*(o.k||0)}); }, ssjHit:v=>{ smp(v,'zap',{g:0.4,rate:0.7}); smp(v,'crackle',{at:0.03,g:0.5}); },
+  titanBolt:v=>{ smp(v,'thunder',{g:1.1}); smp(v,'steam',{at:0.15,g:0.5}); }, roar:v=>{ smp(v,'roar',{g:0.85}); }, steam:v=>{ smp(v,'steam',{g:0.7}); },
+  titanSwing:v=>{ smp(v,'titanSwing',{g:0.7}); }, titanHit:(v,o)=>{ smp(v,'titanHit',{g:o.v||1}); smp(v,'hit',{g:0.5,rate:0.6}); }, titanWhiff:(v,o)=>{ smp(v,'thunk',{g:0.5*(o.v||1),rate:0.6}); },
   thaw:v=>{ smp(v,'shatter',{g:0.8,rate:1.15}); smp(v,'freeze',{g:0.3,rate:1.6}); },
   stun:v=>{ smp(v,'stun',{g:0.55}); },
   ignite:v=>{ smp(v,'ignite',{g:0.8}); },
@@ -570,9 +594,9 @@ const SFX={
   droneDown:v=>{ smp(v,'pop',{g:0.8,rate:1.2}); smp(v,'shatter',{at:0.02,g:0.4,rate:0.8}); },
 };
 // range is how far away a sound carries; wet is how much reverb it gets
-const SFX_OPT={shock:{range:500,wet:0.4},shockS:{range:200,wet:0.15},punch:{range:80},stretch:{range:90},kunai:{range:80},stick:{range:60},slash:{range:60},mf:{range:260},frz:{range:120},tsr:{range:160},flm:{range:170,wet:0.1},droneShot:{range:220},rotor:{range:55,wet:0.03},freeze:{range:120},thaw:{range:120},stun:{range:70},ignite:{range:140},droneUp:{range:80},droneDown:{range:160},zapB:{range:60},boing:{range:120},ballPop:{range:160},rpg:{range:420,wet:0.2},boom:{range:700,wet:0.5},crackle:{range:45,wet:0.05},clink:{range:50},smg:{range:260},pistol:{range:280},pump:{range:300,wet:0.15},sniper:{range:600,wet:0.25},
+const SFX_OPT={ssjBurst:{range:500,wet:0.4},ssjHit:{range:120},titanBolt:{range:700,wet:0.5},roar:{range:400,wet:0.35},steam:{range:80},titanSwing:{range:120},titanHit:{range:300,wet:0.25},titanWhiff:{range:150},shock:{range:500,wet:0.4},shockS:{range:200,wet:0.15},punch:{range:80},stretch:{range:90},kunai:{range:80},stick:{range:60},slash:{range:60},mf:{range:260},frz:{range:120},tsr:{range:160},flm:{range:170,wet:0.1},droneShot:{range:220},rotor:{range:55,wet:0.03},freeze:{range:120},thaw:{range:120},stun:{range:70},ignite:{range:140},droneUp:{range:80},droneDown:{range:160},zapB:{range:60},boing:{range:120},ballPop:{range:160},rpg:{range:420,wet:0.2},boom:{range:700,wet:0.5},crackle:{range:45,wet:0.05},clink:{range:50},smg:{range:260},pistol:{range:280},pump:{range:300,wet:0.15},sniper:{range:600,wet:0.25},
   step:{range:40,wet:0.03},impact:{range:70},whiz:{range:20,wet:0},chop:{range:80},stormWarn:{wet:0.5},victory:{wet:0.3},defeat:{wet:0.3},land:{wet:0.03}};
-const SFX_GAP={stretch:0.045,shockS:0.06,punch:0.03,frz:0.07,flm:0.2,stun:0.15,freeze:0.05,thaw:0.05,tick:0.035,zapB:0.03,crackle:0.05,clink:0.03,impact:0.03,whiz:0.08,hit:0.035,head:0.035,shield:0.035,step:0.02};
+const SFX_GAP={ssjHum:0.3,ssjHit:0.05,titanSwing:0.1,titanHit:0.08,steam:0.3,stretch:0.045,shockS:0.06,punch:0.03,frz:0.07,flm:0.2,stun:0.15,freeze:0.05,thaw:0.05,tick:0.035,zapB:0.03,crackle:0.05,clink:0.03,impact:0.03,whiz:0.08,hit:0.035,head:0.035,shield:0.035,step:0.02};
 function sfx(kind,pos?,o?){
   if(!AC||!bus) return; o=o||{};
   const gap=SFX_GAP[kind], now=AC.currentTime; if(gap&&kind!=='step'||gap&&!pos){ if(lastSfx[kind]!=null&&now-lastSfx[kind]<gap) return; lastSfx[kind]=now; }
@@ -945,7 +969,7 @@ function cullChars(){ if(!combatants) return;
     charShadow(c,see&&(e===player||d<SHADOW_D)); }
 }
 function animateGLB(e,dt){
-  const c=e.ch, A=e.anim, B=c.bones, g=c.g; g.position.copy(e.pos); g.rotation.y=e.yaw;
+  const c=e.ch, A=e.anim, B=c.bones, g=c.g; g.position.copy(e.pos); g.rotation.y=e.yaw; g.scale.setScalar(e.titanS||1);
   const a=1-Math.exp(-14*dt), aS=1-Math.exp(-7*dt);
   if(!e.alive){ c.flash.visible=false; deathPose(e,g,c,dt); return; }
   if(lockedUp(e)){ c.flash.visible=false; _pc.set(0,1,0).applyEuler(g.rotation); g.position.set(e.pos.x-_pc.x,e.pos.y+1-_pc.y,e.pos.z-_pc.z);
@@ -1325,7 +1349,7 @@ function updateActions(dt){
   const it=curItem();
   ads=state==='play'&&mouse.r&&p.alive&&!!it&&it.kind==='gun';
   if(!p.alive||state!=='play') return;
-  if(!it&&animeSt){ if(mouse.l){ p.aHold=(p.aHold||0)+dt; if(p.aHold>ANIME_HOLD) animeHold(p,dt); } else { p.aHold=0; p.aGap=0; } } // tap and hold moves
+  if(!it&&animeSt){ if(mouse.l){ p.aHold=(p.aHold||0)+dt; if(p.aHold>ANIME_HOLD) animeHold(p,dt); } else { if(p.aCharge>0) kiRelease(p); p.aHold=0; p.aGap=0; } } // tap and hold moves; let go of a charge to fire it // tap and hold moves
   else if(mouse.l&&(!it||(it.kind==='gun'&&WEAP[it.id].auto))) playerFire();
 }
 function onPrimaryDown(){
@@ -1460,7 +1484,8 @@ function updateCamera(dt){
   const gun=!!curItem()&&curItem().kind==='gun', dist=p.bounceT>0?7.5:ads?2.0:gun?3.4:4.6, side=ads?0.8:gun?1.1:0.85; pivot.y+=ads?0.05:gun?0.3:0.45;
   // sprinting on the ceiling: a little head bob and the camera eases back
   const sp=p.anim.sprint||0; pivot.y+=Math.abs(Math.sin(matchTime*8.5))*0.07*sp*(p.onGround?1:0)-(p.anim.land||0)*0.25;
-  camDist=lerp(camDist,dist+0.45*sp,1-Math.exp(-12*dt));
+  const tS=p.titanS||1; pivot.y+=1.55*(tS-1); // a titan's eyes are way up high, and the camera backs off to fit it in
+  camDist=lerp(camDist,(dist+0.45*sp)*(1+0.4*(tS-1)),1-Math.exp(-12*dt));
   const start=tv2.copy(pivot).addScaledVector(camRight,side); let d=camDist;
   // pull in so a block never comes between the camera and you
   tv3.copy(camFwd).negate(); ray.set(start,tv3); ray.near=0; ray.far=camDist; const h=ray.intersectObjects(structsAlong(start,tv3,camDist),false); if(h.length) d=Math.max(0.4,h[0].distance-0.25);
@@ -1814,7 +1839,7 @@ function applyPickSkin(e){
   const eq=equippedPick(); if(!eq||!e||!e.ch) return; const c=e.ch;
   for(const o of [...c.pick.children]){ c.pick.remove(o); if(o.userData.skin) disposeObj(o); }
   const w=new T.Group(); w.userData.skin=true; w.add(makePickaxe3D(eq,true));
-  if(e===player){ animeSt=eq.anime||null; e.punches=[]; } e.fistSt=eq.anime==='rubber'||eq.anime==='saitama';
+  if(e===player){ animeSt=eq.anime||null; e.punches=[]; } e.fistSt=['rubber','saitama','goku','titan'].includes(eq.anime); if(e===player){ endTitan(e,true); kiStop(e); }
   c.pick.add(w);
 }
 function equipCurrent(){
@@ -2488,9 +2513,9 @@ function nearMiss(p,dir,h,m,r){ if(h.ent) return h; let best=null, bd=r; const l
   return best?{p:new V(best.pos.x,best.pos.y+1.1,best.pos.z),ent:best,head:false,wall:false}:h; }
 // ---- Taser: a crackling arc of electricity that locks whoever it touches up for a moment
 // a jagged bolt of lightning from a to b that flickers into a new shape every frame
-function zapArc(a,b,dur,thick){
+function zapArc(a,b,dur,thick,core?,glow?){
   const n=Math.max(4,Math.min(12,Math.round(a.distanceTo(b)/1.6))), g=new T.Group(), segs=[];
-  for(let i=0;i<n;i++){ const c=new T.Mesh(beamGeo,zapCore), gl=new T.Mesh(beamGeo,zapGlow); g.add(gl); g.add(c); segs.push([c,gl]); }
+  for(let i=0;i<n;i++){ const c=new T.Mesh(beamGeo,core||zapCore), gl=new T.Mesh(beamGeo,glow||zapGlow); g.add(gl); g.add(c); segs.push([c,gl]); }
   world.add(g); const pts=Array.from({length:n+1},()=>new V()), d=new V().subVectors(b,a), L=d.length(), side=new V(), up2=new V();
   d.normalize(); side.crossVectors(d,Math.abs(d.y)<0.9?UP:new V(1,0,0)).normalize(); up2.crossVectors(d,side);
   const shape=()=>{ for(let i=0;i<=n;i++){ const k=i/n, j=i===0||i===n?0:L*0.06*Math.sin(Math.PI*k)+0.08; pts[i].copy(a).addScaledVector(d,L*k).addScaledVector(side,rnd(-j,j)).addScaledVector(up2,rnd(-j,j)); } };
@@ -2679,6 +2704,22 @@ function makeAnime3D(it,held){
     for(const r of [-0.5,0.5]){ const k=kunaiModel(); k.rotation.z=r; k.position.y=-0.04; g.add(k); }
     const sw=new T.Sprite(auraMats(0xff8a1f).halo); sw.scale.setScalar(0.55); sw.position.set(0,0.06,-0.08); g.add(sw); g.scale.setScalar(4.6); g.position.y=-0.15; return g; }
   if(held) return g; // fists: the hands are the weapon
+  if(it.anime==='goku'){ // an orange-sleeved fist with Goku's blue wristband, wreathed in spiky Super Saiyan flames
+    const gi=GPh(0xf27a1a,25), band=GPh(0x1f4fb8,40), gold=new T.MeshBasicMaterial({color:0xffc928,transparent:true,opacity:0.9,side:T.DoubleSide});
+    const sl=new T.Mesh(new T.CylinderGeometry(0.065,0.075,0.3,16),gi); sl.rotation.x=Math.PI/2; sl.position.z=-0.24; g.add(sl);
+    const cf=new T.Mesh(new T.CylinderGeometry(0.066,0.066,0.07,16),band); cf.rotation.x=Math.PI/2; cf.position.z=-0.06; g.add(cf);
+    const f=fistModel(skinMat); f.scale.setScalar(1.45); f.position.z=0.05; g.add(f);
+    for(let i=0;i<11;i++){ const a=i/11*TAU, sp=new T.Mesh(new T.ConeGeometry(0.05,rnd(0.28,0.42),5),gold); sp.position.set(Math.cos(a)*0.17,Math.sin(a)*0.17,-0.1); sp.rotation.z=a-Math.PI/2; sp.rotateX(-0.5); g.add(sp); }
+    const glow=new T.Sprite(auraMats(0xffc21a).halo); glow.scale.setScalar(0.9); glow.position.z=-0.1; g.add(glow);
+    g.rotation.set(-0.35,0.9,0); g.scale.setScalar(2.3); return g; }
+  if(it.anime==='titan'){ // a huge raw-muscle titan fist with a bolt of lightning striking it, steam rising off
+    const mus=GPh(0x8f2f22,20), dark=GPh(0x5a1a12,10), bolt=new T.MeshBasicMaterial({color:0xffd23f});
+    const fa=new T.Mesh(new T.CylinderGeometry(0.07,0.09,0.36,16),mus); fa.rotation.x=Math.PI/2; fa.position.z=-0.24; g.add(fa);
+    for(let i=0;i<5;i++){ const st=new T.Mesh(new T.BoxGeometry(0.006,0.004,0.3),dark); const a=-0.9+i*0.45; st.position.set(Math.sin(a)*0.08,Math.cos(a)*0.08,-0.24); st.rotation.z=-a; g.add(st); }
+    const f=fistModel(mus); f.scale.setScalar(1.6); f.position.z=0.05; g.add(f);
+    const pts=[[0.05,0.62],[-0.06,0.42],[0.04,0.4],[-0.07,0.16]]; for(let i=0;i<3;i++){ const a=new V(pts[i][0],pts[i][1],0.04), b=new V(pts[i+1][0],pts[i+1][1],0.04), m=new T.Mesh(beamGeo,bolt); placeSeg(m,a,b,0.018); g.add(m); }
+    for(let i=0;i<4;i++){ const st=new T.Sprite(new T.SpriteMaterial({map:glowTex,color:0xcfc6bf,transparent:true,opacity:0.7,depthWrite:false})); st.scale.setScalar(0.18+i*0.04); st.position.set(rnd(-0.1,0.1),0.1+i*0.07,rnd(-0.15,0.05)); g.add(st); }
+    g.rotation.set(-0.3,0.8,0); g.scale.setScalar(2.3); g.position.y=-0.2; return g; }
   if(it.anime==='rubber'){
     const red=GPh(0xd4232a,30), hat=GPh(0xf0cf6a,20), band=GPh(0xc81f26,30);
     const curve=new T.CatmullRomCurve3([new V(-0.5,-0.35,0),new V(-0.2,-0.3,0.05),new V(0,0,0),new V(0.22,0.25,-0.05),new V(0.42,0.3,0)]);
@@ -2704,13 +2745,18 @@ function animeTap(p){
   if(p.fireCd>0||lockedUp(p)) return;
   if(animeSt==='kunai'){ p.fireCd=0.34; p.swingSide=p.swingT>0||p.comboT>0?1-(p.swingSide||0):0; p.swingT=SWING_T*0.75; p.comboT=SWING_T+0.3; p.hitT=SWING_T*0.75*PICK_HIT; sfx('slash'); }
   else if(animeSt==='rubber'){ p.fireCd=0.5; punch(p,'Right',{dur:0.5,reach:16,dmg:32,kb:30,name:'Gum-Gum Pistol',stretch:true}); sfx('stretch'); }
+  else if(animeSt==='goku'){ p.fireCd=0.55; punch(p,'Right',{dur:0.3,reach:0,dmg:36,kb:44,name:'Super Saiyan Strike',shock:0.8,gold:true}); kiFlash(p,0.6); sfx('ssjHit'); }
+  else if(animeSt==='titan'){ if(p.titan&&p.titanS>2){ p.fireCd=0.45; titanPunch(p,'Right'); } else if(!p.titan&&!(p.titanCd>0)){ p.fireCd=0.6; titanStart(p); } else { p.fireCd=0.35; punch(p,'Right',{dur:0.28,reach:0,dmg:12,kb:8,name:'Punch',shock:0.25}); } }
   else { p.fireCd=0.6; punch(p,'Right',{dur:0.34,reach:0,dmg:45,kb:52,name:'Normal Punch',shock:1}); }
 }
 function animeHold(p,dt){
-  if(lockedUp(p)) return; p.aGap=(p.aGap||0)-dt; if(p.aGap>0) return;
+  if(lockedUp(p)) return;
+  if(animeSt==='goku'){ kiCharge(p,dt); return; }
+  p.aGap=(p.aGap||0)-dt; if(p.aGap>0) return;
   const sd=(p.aSide=(p.aSide||0)^1)?'Right':'Left';
   if(animeSt==='kunai'){ p.aGap=0.3; p.swingSide=1-(p.swingSide||0); p.swingT=SWING_T*0.55; p.comboT=SWING_T; throwKunai(p); }
   else if(animeSt==='rubber'){ p.aGap=0.055; punch(p,sd,{dur:0.24,reach:rnd(8,11),dmg:7,kb:1.5,name:'Gum-Gum Gatling',stretch:true,spread:0.1,soft:true}); sfx('stretch',null,{gain:0.45}); }
+  else if(animeSt==='titan'){ if(p.titan&&p.titanS>2){ p.aGap=0.26; titanPunch(p,sd,true); } else if(!p.titan&&!(p.titanCd>0)) titanStart(p); else { p.aGap=0.2; punch(p,sd,{dur:0.2,reach:0,dmg:8,kb:4,name:'Punch',shock:0.2,soft:true}); } }
   else { p.aGap=0.085; punch(p,sd,{dur:0.17,reach:0,dmg:10,kb:3,name:'Consecutive Normal Punches',shock:0.5,spread:0.05,soft:true}); }
 }
 // ---- Naruto: kunai
@@ -2782,11 +2828,12 @@ function landPunch(p,P){
     if(best){ knock(best,tip); P.reach=Math.min(P.reach,Math.max(0.6,bd-0.5)); punchFx(tip,o.soft?0.5:1); }
     else if(P.reach<o.reach-0.5){ puff(tip,0xe6e8ec); sfx('chop',tip,{mat:'stone'}); }
     return; }
+  if(o.titan){ titanLand(p,P,sh,knock); return; }
   // shockwave: everyone in a cone in front, with nothing in the way
   const R=18*o.shock, cosA=o.shock>=1?0.9:0.93;
   for(const e of combatants){ if(!e.alive||e===p) continue; _dv.set(e.pos.x,e.pos.y+1,e.pos.z).sub(sh); const d=_dv.length(); if(d>R) continue;
     const c=_dv.dot(P.dir)/(d||1); if(c<(d<2.5?0.5:cosA)) continue; const at=new V(e.pos.x,e.pos.y+1,e.pos.z); if(!hasLOS(sh,at)) continue; knock(e,at); }
-  shockFx(sh.clone().addScaledVector(P.dir,0.7),P.dir,o.shock);
+  shockFx(sh.clone().addScaledVector(P.dir,0.7),P.dir,o.shock,o.gold);
 }
 // Luffy's stretching arms: a rubber tube from the hand out to the fist
 function drawPunches(p){
@@ -2796,14 +2843,14 @@ function drawPunches(p){
     u.tube.visible=st>0.15; placeSeg(u.tube,hand,tip,0.042/Math.sqrt(1+st*0.08)); u.f.position.copy(tip); u.f.lookAt(tip.clone().add(P.dir)); }
 }
 const shockRing=new T.RingGeometry(0.82,1,48), shockCone=new T.ConeGeometry(1,1,32,1,true).rotateX(-Math.PI/2).translate(0,0,0.5);
-function shockFx(at,dir,scale){
+function shockFx(at,dir,scale,gold?){
   const look=at.clone().add(dir);
-  for(const [delay,col,op] of [[0,0xd8ecff,0.85],[0.05,0x8aa6c4,0.5],[0.11,0xffffff,0.6]] as [number,number,number][]){
+  for(const [delay,col,op] of (gold?[[0,0xffd84a,0.9],[0.05,0xf0a018,0.6],[0.11,0xfff1b0,0.7]]:[[0,0xd8ecff,0.85],[0.05,0x8aa6c4,0.5],[0.11,0xffffff,0.6]]) as [number,number,number][]){
     const m=new T.Mesh(shockRing,new T.MeshBasicMaterial({color:col,transparent:true,opacity:0,side:T.DoubleSide,depthWrite:false})); m.position.copy(at); m.lookAt(look); world.add(m);
     effects.push({t:0,dur:0.45+delay,obj:m,upd:(e,k,dt)=>{ const u=Math.max(0,e.t-delay)/0.45; m.position.copy(at).addScaledVector(dir,u*9*scale); m.scale.setScalar(0.3+u*4.5*scale); m.material.opacity=e.t<delay?0:op*(1-u); },done:()=>m.material.dispose()}); }
-  const cone=new T.Mesh(shockCone,new T.MeshBasicMaterial({color:0xbcd6f0,transparent:true,opacity:0.35,side:T.DoubleSide,depthWrite:false})); cone.position.copy(at); cone.lookAt(look); world.add(cone);
+  const cone=new T.Mesh(shockCone,new T.MeshBasicMaterial({color:gold?0xffcf3a:0xbcd6f0,transparent:true,opacity:0.35,side:T.DoubleSide,depthWrite:false})); cone.position.copy(at); cone.lookAt(look); world.add(cone);
   effects.push({t:0,dur:0.32,obj:cone,upd:(e,k)=>{ const L=18*scale*Math.sqrt(k)+0.5; cone.scale.set(L*0.45,L*0.45,L); cone.material.opacity=0.35*(1-k); },done:()=>cone.material.dispose()});
-  for(let i=0;i<(scale>=1?14:4);i++){ const d=dir.clone().add(rv(0.35)).normalize(); mote(mistMat,at.clone(),rnd(0.5,1)*scale+0.3,rnd(0.35,0.6),d.multiplyScalar(rnd(14,26)*scale)); }
+  for(let i=0;i<(scale>=1?14:4);i++){ const d=dir.clone().add(rv(0.35)).normalize(); mote(gold?kiMat:mistMat,at.clone(),rnd(0.5,1)*scale+0.3,rnd(0.35,0.6),d.multiplyScalar(rnd(14,26)*scale)); }
   if(scale>=1){ camShake=Math.max(camShake,0.7); sfx('shock',at.clone()); } else { camShake=Math.max(camShake,0.12); sfx('shockS',at.clone()); }
 }
 function punchFx(p,s){ for(let i=0;i<(s>=1?8:3);i++) mote(mistMat,p.clone(),rnd(0.4,0.8)*s,rnd(0.2,0.35),rv(5*s)); const r=new T.Mesh(shockRing,new T.MeshBasicMaterial({color:0xffffff,transparent:true,side:T.DoubleSide,depthWrite:false}));
@@ -2811,12 +2858,109 @@ function punchFx(p,s){ for(let i=0;i<(s>=1?8:3);i++) mote(mistMat,p.clone(),rnd(
 // the arms with fists: up in a guard in front of the chin, thrown straight down the crosshair to punch
 const _fa=new V();
 function fistArms(e,B,rightB,upB,fwdB){
-  const aim=e.isPlayer?camera.getWorldDirection(_fa):fwdB, ext=e.punchExt||{Right:0,Left:0};
+  const aim=e.isPlayer?camera.getWorldDirection(_fa):fwdB, ext=e.punchExt||{Right:0,Left:0}, S=e.titanS||1, ch=e.aCharge>0?Math.min(1,e.aCharge*3):0;
   for(const [sd,sx] of [['Right',1],['Left',-1]] as [string,number][]){
     const sh=B[sd+'Arm'].getWorldPosition(new V()), x=ext[sd];
-    const t=sh.clone().addScaledVector(fwdB,0.3).addScaledVector(upB,-0.1).addScaledVector(rightB,-sx*0.13).lerp(sh.clone().addScaledVector(aim,0.64).addScaledVector(rightB,-sx*0.05),x);
-    solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],t,sh.clone().addScaledVector(rightB,sx*0.5).addScaledVector(upB,-0.6));
+    let t=sh.clone().addScaledVector(fwdB,0.3*S).addScaledVector(upB,-0.1*S).addScaledVector(rightB,-sx*0.13*S);
+    if(ch>0) t.lerp(sh.clone().addScaledVector(upB,-0.5*S).addScaledVector(rightB,sx*0.2*S).addScaledVector(fwdB,0.08*S),ch); // powering up: fists clenched down at the sides
+    t.lerp(sh.clone().addScaledVector(aim,0.64*S).addScaledVector(rightB,-sx*0.05*S),x);
+    solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],t,sh.clone().addScaledVector(rightB,sx*0.5*S).addScaledVector(upB,-0.6*S));
     poseHand(B,sd,x>0.5?aim:upB.clone().multiplyScalar(0.8).addScaledVector(fwdB,0.5),x>0.5?upB.clone().negate():rightB.clone().multiplyScalar(-sx),1.35); }
+}
+// ---- Goku: Super Saiyan. Tap is a golden strike with a ki shockwave; hold to power up (gold aura, crackling ki),
+// then let go and the whole charge bursts out of you in every direction, blasting everyone nearby away.
+const kiMat=new T.SpriteMaterial({map:glowTex,color:0xffc21a,transparent:true,depthWrite:false,opacity:0.85}); // solid colours: additive light vanishes against the white box
+const kiCore=new T.MeshBasicMaterial({color:0xfff6c8,transparent:true,depthWrite:false,fog:false});
+const kiGlow=new T.MeshBasicMaterial({color:0xffa800,transparent:true,depthWrite:false,fog:false,opacity:0.5});
+const KI_MAX=1.4;
+const _kc=new V(), _ku=new V();
+// the middle of the body and which way is up along it (so it is right on the ceiling and mid-roll too)
+function bodyAxis(p){ const B=p.ch.bones, h=B.Hips.getWorldPosition(_kc), hd=B.Head.getWorldPosition(_ku); hd.sub(h); const L=hd.length()||1; hd.divideScalar(L); h.addScaledVector(hd,L*0.45); return {c:h.clone(),up:hd.clone(),L}; }
+function kiAura(p){
+  const g=new T.Group(), mk=(col,op)=>new T.Mesh(new T.SphereGeometry(1,24,16),new T.MeshBasicMaterial({color:col,transparent:true,opacity:op,depthWrite:false,side:T.DoubleSide}));
+  const outer=mk(0xffd23a,0.2), inner=mk(0xfff0a0,0.18); g.add(outer); g.add(inner); g.userData={outer,inner}; world.add(g); return g;
+}
+function kiStop(p){ if(p.kiAura){ world.remove(p.kiAura); disposeObj(p.kiAura); p.kiAura=null; } p.aCharge=0; }
+function kiFlash(p,k){ const {c,up}=bodyAxis(p); for(let i=0;i<Math.round(6+10*k);i++){ const d=rv(1).normalize(); mote(kiMat,c.clone().addScaledVector(d,0.4),rnd(0.3,0.6)*(0.6+k),rnd(0.25,0.45),d.multiplyScalar(rnd(3,7)*(0.5+k)).addScaledVector(up,2)); } }
+function kiCharge(p,dt){
+  const was=p.aCharge||0; p.aCharge=Math.min(KI_MAX,was+dt);
+  if(!p.kiAura){ p.kiAura=kiAura(p); sfx('ssjUp'); p.kiSnd=0.55; }
+  p.kiSnd-=dt; if(p.kiSnd<=0){ p.kiSnd=0.5; sfx('ssjHum',null,{k:p.aCharge/KI_MAX}); }
+  if(was<KI_MAX&&p.aCharge>=KI_MAX){ sfx('ssjFull'); kiFlash(p,1); camShake=Math.max(camShake,0.3); }
+}
+// the aura and the sparks while charging; called every frame
+function updateKi(p,dt){
+  if(!p.kiAura) return; if(!p.alive||curItem()||animeSt!=='goku'){ kiStop(p); return; }
+  const k=p.aCharge/KI_MAX, {c,up,L}=bodyAxis(p), u=p.kiAura.userData, t=matchTime;
+  p.kiAura.position.copy(c); p.kiAura.quaternion.setFromUnitVectors(UP,up);
+  const f=1+0.06*Math.sin(t*31)+0.04*Math.sin(t*47), w=(0.55+0.35*k)*f, h=(L*0.95+0.5*k)*f;
+  u.outer.scale.set(w,h,w); u.inner.scale.set(w*0.78,h*0.86,w*0.78); u.outer.position.y=0.15*k; u.outer.material.opacity=0.12+0.16*k+0.05*Math.sin(t*23); u.inner.material.opacity=0.1+0.14*k;
+  // gold flames licking upward off the body
+  if(Math.random()<dt*(25+55*k)){ const a=Math.random()*TAU, r=w*rnd(0.4,0.9), side=new V(Math.cos(a),0,Math.sin(a)).applyQuaternion(p.kiAura.quaternion);
+    mote(kiMat,c.clone().addScaledVector(side,r).addScaledVector(up,rnd(-0.6,0.2)*L),rnd(0.18,0.35)*(0.7+k),rnd(0.3,0.5),up.clone().multiplyScalar(rnd(3,6)*(0.6+k))); }
+  // crackling ki once it is well charged
+  if(k>0.55&&Math.random()<dt*(8+14*k)){ const a=c.clone().add(rv(w*0.8)), b=a.clone().add(rv(0.6)).addScaledVector(up,rnd(0.2,0.6)); zapArc(a,b,0.08,0.012,kiCore,kiGlow); }
+}
+function kiRelease(p){
+  const k=Math.min(1,p.aCharge/KI_MAX); kiStop(p); if(!p.alive||lockedUp(p)) return;
+  const {c}=bodyAxis(p), R=7+11*k, dmg=14+46*k, kb=22+48*k;
+  for(const e of combatants){ if(!e.alive||e===p) continue; const at=new V(e.pos.x,e.pos.y+1,e.pos.z), d=at.distanceTo(c); if(d>R||!hasLOS(c,at)) continue;
+    const dir=at.clone().sub(c).normalize(), fall=1-0.5*d/R;
+    hurt(e,dmg*fall,p,{point:at,weapon:'Super Saiyan Burst',dir,melee:true}); if(!e.alive||e.bounceT>0) continue; e.vel.addScaledVector(dir,kb*fall); e.knockT=Math.max(e.knockT||0,kb*fall/45); }
+  // a golden dome blasting outward, two rings and a storm of ki
+  const dome=new T.Mesh(new T.SphereGeometry(1,32,20),new T.MeshBasicMaterial({color:0xffcf2a,transparent:true,opacity:0.5,depthWrite:false,side:T.DoubleSide})); dome.position.copy(c); world.add(dome);
+  effects.push({t:0,dur:0.5,obj:dome,upd:(e,q)=>{ dome.scale.setScalar(0.5+R*Math.sqrt(q)); dome.material.opacity=0.5*(1-q); },done:()=>{ dome.geometry.dispose(); dome.material.dispose(); }});
+  for(const [ax,del] of [[new V(1,0,0),0],[new V(0.3,0,1),0.06]] as [any,number][]){ const r=new T.Mesh(shockRing,new T.MeshBasicMaterial({color:0xffa800,transparent:true,opacity:0,side:T.DoubleSide,depthWrite:false})); r.position.copy(c); r.lookAt(c.clone().add(ax.clone().cross(UP).add(UP).normalize())); world.add(r);
+    effects.push({t:0,dur:0.5+del,obj:r,upd:(e)=>{ const u=Math.max(0,e.t-del)/0.5; r.scale.setScalar(0.5+R*1.1*u); r.material.opacity=e.t<del?0:0.85*(1-u); },done:()=>r.material.dispose()}); }
+  for(let i=0;i<Math.round(14+26*k);i++){ const d=rv(1).normalize(); mote(kiMat,c.clone(),rnd(0.4,0.9)*(0.6+k),rnd(0.35,0.6),d.multiplyScalar(rnd(12,26)*(0.5+k))); }
+  for(let i=0;i<Math.round(2+5*k);i++){ const d=rv(1).normalize(); zapArc(c.clone().addScaledVector(d,0.5),c.clone().addScaledVector(d,rnd(2,4)*(0.5+k)),0.18,0.02,kiCore,kiGlow); }
+  camShake=Math.max(camShake,0.35+0.6*k); sfx('ssjBurst',c.clone(),{k});
+}
+// ---- Eren: the Attack Titan. Tap (or hold) and lightning strikes: you grow into a 15-metre... well, a 3x titan for a few
+// seconds, steaming, punching people clean across the box, then shrink back. A titan punch hits a big area in front.
+const TITAN={S:3.2,GROW:0.5,ON:4.5,SHRINK:0.6,CD:7};
+const steamMat=new T.SpriteMaterial({map:glowTex,color:0xa49a92,transparent:true,depthWrite:false,opacity:0.55});
+const titanBoltCore=new T.MeshBasicMaterial({color:0xfffbe0,transparent:true,depthWrite:false,fog:false});
+const titanBoltGlow=new T.MeshBasicMaterial({color:0xffc400,transparent:true,depthWrite:false,fog:false,opacity:0.55});
+const TITAN_SKIN=new T.Color(0xb3553f);
+function steamPuff(p,n,spread,big?){ const {c,up,L}=bodyAxis(p); for(let i=0;i<n;i++) mote(steamMat,c.clone().add(rv(spread)).addScaledVector(up,rnd(-0.4,0.6)*L),rnd(0.5,1.1)*(big||1),rnd(0.6,1.1),up.clone().multiplyScalar(rnd(1,2.5)).add(rv(1))); }
+function titanStart(p){
+  if(p.titan||!p.alive) return; p.titan={t:0,punched:false,tinted:false}; p.titanS=1;
+  const {c}=bodyAxis(p), top=c.clone().add(new V(rnd(-3,3),24,rnd(-3,3))); clampToBox(top);
+  zapArc(top,c,0.4,0.14,titanBoltCore,titanBoltGlow); zapArc(top.clone().add(rv(3)),c,0.3,0.07,titanBoltCore,titanBoltGlow);
+  const flash=new T.Mesh(new T.SphereGeometry(1,24,16),new T.MeshBasicMaterial({color:0xffe066,transparent:true,opacity:0.7,depthWrite:false})); flash.position.copy(c); world.add(flash);
+  effects.push({t:0,dur:0.35,obj:flash,upd:(e,k)=>{ flash.scale.setScalar(1+k*6); flash.material.opacity=0.7*(1-k); },done:()=>{ flash.geometry.dispose(); flash.material.dispose(); }});
+  steamPuff(p,16,1.2,1.4); camShake=Math.max(camShake,0.9); sfx('titanBolt',c.clone());
+}
+// the titan's skin: raw red muscle. The materials are cloned so nobody else wearing the same skin changes.
+function titanTint(p,on){
+  if(on){ p.titanMats=[]; p.ch.g.traverse((o:any)=>{ if(!o.isMesh||Array.isArray(o.material)||!o.material.color) return; const c=o.material.color, lum=c.r*0.3+c.g*0.59+c.b*0.11; if(lum<0.06) return; // leave the ink outline alone
+      p.titanMats.push([o,o.material]); const m=o.material.clone(); m.color.lerp(TITAN_SKIN,0.72); o.material=m; }); }
+  else if(p.titanMats){ for(const [o,m] of p.titanMats){ o.material.dispose(); o.material=m; } p.titanMats=null; }
+}
+function endTitan(p,instant){ if(!p.titan) return; titanTint(p,false); p.titan=null; p.titanS=1; p.titanCd=instant?0:TITAN.CD; if(!instant&&p.alive){ steamPuff(p,22,0.8); sfx('steam',p.pos.clone()); } }
+function updateTitan(p,dt){
+  if(p.titanCd>0) p.titanCd-=dt; const Tn=p.titan; if(!Tn) return;
+  if(!p.alive||animeSt!=='titan'){ endTitan(p,true); return; }
+  if(curItem()&&Tn.t<TITAN.GROW+TITAN.ON) Tn.t=TITAN.GROW+TITAN.ON; // swapped to a gun: turn back
+  Tn.t+=dt; const t=Tn.t, G=TITAN.GROW, O=TITAN.ON;
+  const back=x=>{ const c1=1.7, c3=c1+1; return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2); }; // overshoots a touch, then settles
+  p.titanS=t<G?1+(TITAN.S-1)*back(t/G):t<G+O?TITAN.S:1+(TITAN.S-1)*(1-smooth(0,1,(t-G-O)/TITAN.SHRINK));
+  if(!Tn.tinted&&t>G*0.3){ Tn.tinted=true; titanTint(p,true); sfx('roar',p.pos.clone()); }
+  if(!Tn.punched&&t>=G){ Tn.punched=true; if(!curItem()) titanPunch(p,'Right'); }
+  if(Math.random()<dt*(t>G+O?40:9)) steamPuff(p,1,0.6*p.titanS/TITAN.S+0.3,p.titanS/2);
+  if(t>=G+O+TITAN.SHRINK) endTitan(p,false);
+}
+function titanPunch(p,sd,soft?){ punch(p,sd,{dur:soft?0.34:0.46,reach:0,dmg:soft?22:40,kb:soft?40:62,name:'Titan Punch',titan:true,soft}); sfx('titanSwing',p.pos.clone()); }
+// a titan fist lands: everyone in a big area in front of it goes flying
+function titanLand(p,P,sh,knock){
+  const S=p.titanS||1, tip=sh.clone().addScaledVector(P.dir,0.64*S), zone=sh.clone().addScaledVector(P.dir,3.6); let n=0;
+  for(const e of combatants){ if(!e.alive||e===p) continue; const at=new V(e.pos.x,e.pos.y+1,e.pos.z); _dv.copy(at).sub(sh); const d=_dv.length();
+    if(at.distanceTo(zone)>4.6&&!(d<11&&_dv.dot(P.dir)>0.8*d)) continue; if(!hasLOS(sh,at)) continue; knock(e,at); n++; }
+  for(let i=0;i<12;i++) mote(steamMat,tip.clone(),rnd(0.6,1.2),rnd(0.35,0.6),P.dir.clone().multiplyScalar(rnd(4,10)).add(rv(5)));
+  const r=new T.Mesh(shockRing,new T.MeshBasicMaterial({color:0x8f7f74,transparent:true,side:T.DoubleSide,depthWrite:false})); r.position.copy(tip); r.lookAt(tip.clone().add(P.dir)); world.add(r);
+  effects.push({t:0,dur:0.35,obj:r,upd:(e,k)=>{ r.scale.setScalar(0.6+k*6); r.position.copy(tip).addScaledVector(P.dir,k*3); r.material.opacity=0.8*(1-k); },done:()=>r.material.dispose()});
+  camShake=Math.max(camShake,P.o.soft?0.3:0.6); sfx(n?'titanHit':'titanWhiff',tip.clone(),{v:P.o.soft?0.7:1});
 }
 // ================= vending machines =================
 // Six vending machines, three standing on the floor and three hanging from the ceiling. Walk up, press E and
@@ -3006,7 +3150,7 @@ function update(dt){
   updateActions(dt);
   updateProjs(dt); updateBolts(dt); updateFires(dt); updateBouncerCd(dt); updateDrones(dt); if(player.flmT>0) player.flmT-=dt;
   for(const e of combatants) updateStatus(e,dt);
-  updatePunches(player,dt); updateKunais(dt);
+  updatePunches(player,dt); updateKunais(dt); updateTitan(player,dt); updateKi(player,dt);
   for(const b of bots) updateBotZG(b,dt);
   for(const e of combatants) animateGLB(e,dt);
   drawPunches(player);
