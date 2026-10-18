@@ -1990,7 +1990,7 @@
       drone: { r: [0.085, -0.03, 0.11], l: [-0.085, -0.03, 0.11], g: [-0.16, -0.24, -0.33], lf: [0.2, 0.2, -0.95], ln: [0.3, 0.9, 0] }
     };
     const SWING_T = 0.42, PICK_HIT = 0.52;
-    const PICK_REST = [0, 0.2, -0.16, -0.3, 0.55, 0.75, -0.35, -0.7, 0.55, -0.2, 0, 0];
+    const PICK_REST = [0, -0.06, -0.24, -0.22, 0.22, 0.83, 0.5, 0, -0.5, 0.83, 0, 0];
     const PICK_GUARD = [0, -0.2, -0.3, -0.42, -0.55, 0.8, -0.25, 0.1, 0.25, -1, 0, 0];
     const PICK_KEYS = [
       [
@@ -2543,13 +2543,19 @@
         }
       }
     }
-    const ZG_STROKE = [[0, 0.18, 0.12, 0.38], [0.2, 0.12, 0.5, 0.32], [0.45, 0.56, 0.3, 0.12], [0.66, 0.4, -0.18, 0.08], [0.86, 0.14, -0.04, 0.3], [1, 0.18, 0.12, 0.38]];
-    function zgStroke(u) {
-      let i = 0;
-      while (i < ZG_STROKE.length - 2 && u > ZG_STROKE[i + 1][0]) i++;
-      const a = ZG_STROKE[i], b = ZG_STROKE[i + 1], k = easeIO(clamp((u - a[0]) / (b[0] - a[0]), 0, 1));
-      return [lerp(a[1], b[1], k), lerp(a[2], b[2], k), lerp(a[3], b[3], k)];
+    const ZG_STROKE = [[0, 0.16, 0.42, 0.34], [0.18, 0.14, 0.5, 0.3], [0.42, 0.52, 0.28, 0.14], [0.6, 0.36, -0.12, 0.1], [0.76, 0.12, -0.08, 0.26], [0.9, 0.12, 0.22, 0.36]];
+    const FREESTYLE = [[0, 0.1, 0.62, 0.18], [0.14, 0.14, 0.52, 0.32], [0.34, 0.04, 0.12, 0.36], [0.54, 0.16, -0.42, 0.14], [0.68, 0.24, -0.4, -0.06], [0.84, 0.34, 0.14, -0.22]];
+    function loopPath(K, u) {
+      const n = K.length;
+      let i = n - 1;
+      for (let j = 0; j < n; j++) if (u >= K[j][0]) i = j;
+      const t0 = K[i][0], t1 = i + 1 < n ? K[i + 1][0] : 1, k = clamp((u - t0) / (t1 - t0), 0, 1), a = K[(i + n - 1) % n], b = K[i], c = K[(i + 1) % n], d = K[(i + 2) % n], k2 = k * k, k3 = k2 * k;
+      return [1, 2, 3].map((j) => 0.5 * (2 * b[j] + (c[j] - a[j]) * k + (2 * a[j] - 5 * b[j] + 4 * c[j] - d[j]) * k2 + (3 * b[j] - a[j] - 3 * c[j] + d[j]) * k3));
     }
+    function zgStroke(u) {
+      return loopPath(ZG_STROKE, u);
+    }
+    const frogK = (u) => u < 0.3 ? 0 : u < 0.7 ? smooth(0.3, 0.7, u) : u < 0.84 ? 1 - smooth(0.7, 0.84, u) : 0;
     const _frus = new T.Frustum(), _pv = new T.Matrix4(), _csph = new T.Sphere(new V(), 2.6);
     const SHADOW_D = 45, GEAR_D = 80;
     function charShadow(c, on) {
@@ -2688,11 +2694,12 @@
         D(A, "zgP", e.zgPropel ? 1 : 0, kz);
         D(A, "zgS", e.zgPropel ? 0 : smooth(1.5, 7, e.vel.length()), 1 - Math.exp(-4 * dt));
         A.zgT = (A.zgT || e.walkT) + dt * lerp(3.2, 13, A.zgP);
-        A.zgB = ((A.zgB || 0) + dt * (0.45 + 0.95 * A.zgS)) % 1;
+        A.zgB = ((A.zgB || 0) + dt * (0.4 + 0.5 * A.zgS)) % 1;
         A.zgI = (A.zgI || e.walkT * 3) + dt;
+        A.zgF = ((A.zgF || 0) + dt * 0.95) % 1;
         const P = A.zgP, Sw = A.zgS * (1 - P), I = (1 - P) * (1 - A.zgS), u = A.zgB;
-        c.model.position.y += I * 0.07 * Math.sin(A.zgI * 1.5);
-        sqY = 1 + I * 0.025 * Math.sin(A.zgI * 1.5 + 1) + Sw * (0.11 * Math.max(0, Math.cos(TAU * u * 2.5)) * (u < 0.2 ? 1 : 0) - 0.07 * Math.max(0, Math.sin(TAU * (u - 0.5)))) + P * (0.07 + 0.02 * Math.sin(A.zgT * 2));
+        c.model.position.y += I * 0.05 * Math.sin(A.zgI * 1.2) + Sw * 0.06 * (frogK(u) - 0.5);
+        sqY = 1 + I * 8e-3 * Math.sin(A.zgI * 1.2 + 1);
       } else if (A.zgP) {
         A.zgP = 0;
         A.zgS = 0;
@@ -2715,18 +2722,21 @@
           rotateBoneWorld(B.Neck, rightB, 0.4);
         } else if (e.zgFloat) {
           const P = A.zgP, Sw = A.zgS * (1 - P), I = (1 - P) * (1 - A.zgS), u = A.zgB, tI = A.zgI;
-          const frog = Math.max(0, Math.sin(TAU * (u - 0.5))), snap = Math.max(0, Math.cos(TAU * u * 2.5)) * (u < 0.2 ? 1 : 0);
+          const frog = frogK(u), glide = u >= 0.84 || u < 0.12 ? 1 : 0, fl = TAU * 3 * (A.zgF || 0);
           for (const [sd, off, sx] of [["Left", 0, -1], ["Right", Math.PI, 1]]) {
-            const t = A.zgT + off, ti = tI * 1.3 + off;
-            const th = I * (0.35 + 0.38 * Math.sin(ti)) + Sw * (1.15 * frog - 0.18 * snap) + P * (0.7 + Math.sin(t) * 1.05);
-            const kn = I * (0.55 + 0.5 * (Math.sin(ti + 1.1) + 1) / 2) + Sw * (0.15 + 1.9 * frog) + P * (0.5 + 1.25 * Math.max(0, Math.sin(t + 1.3)));
+            const ti = tI * 0.9 + off, tf = fl + off;
+            const th = I * (0.3 + 0.22 * Math.sin(ti)) + Sw * (0.05 + 1.05 * frog) + P * (0.1 + 0.26 * Math.sin(tf));
+            const kn = I * (0.5 + 0.3 * (Math.sin(ti + 1.1) + 1) / 2) + Sw * (0.1 + 1.7 * frog) + P * (0.18 + 0.38 * Math.max(0, Math.sin(tf + 1.2)));
             bend(sd, th, -kn);
-            rotateBoneWorld(B[sd + "UpLeg"], fwdB, -sx * (I * (0.16 + 0.06 * Math.sin(ti * 0.7)) + Sw * 0.6 * frog));
+            rotateBoneWorld(B[sd + "UpLeg"], fwdB, -sx * (I * (0.14 + 0.05 * Math.sin(ti * 0.7)) + Sw * 0.5 * frog));
           }
-          rotateBoneWorld(B.Neck, rightB, 0.45 * P + 0.35 * Sw + (e.zgTx || 0) * -0.3);
-          rotateBoneWorld(B.Neck, upB, 0.3 * I * Math.sin(tI * 0.45));
-          rotateBoneWorld(B.Hips, fwdB, 0.12 * I * Math.sin(tI * 0.8));
-          rotateBoneWorld(B.Spine1, rightB, 0.1 * I * Math.sin(tI * 1.1) - 0.22 * Sw * frog + 0.18 * Sw * snap);
+          const roll = Math.sin(TAU * ((A.zgF || 0) + 0.12));
+          rotateBoneWorld(B.Spine1, upB, 0.32 * P * roll);
+          rotateBoneWorld(B.Hips, upB, -0.12 * P * roll);
+          rotateBoneWorld(B.Neck, rightB, 0.4 * P + 0.3 * Sw + (e.zgTx || 0) * -0.3);
+          rotateBoneWorld(B.Neck, upB, 0.25 * I * Math.sin(tI * 0.4) - 0.2 * P * roll);
+          rotateBoneWorld(B.Hips, fwdB, 0.08 * I * Math.sin(tI * 0.7));
+          rotateBoneWorld(B.Spine1, rightB, 0.07 * I * Math.sin(tI * 0.9) - 0.14 * Sw * frog + 0.06 * Sw * glide);
         } else if (A.air > 0.02) {
           const up = clamp(e.vel.y / 10.5, -1, 1), tk = smooth(-0.5, 0.6, up) * A.air;
           bend("Left", 0.35 * A.air + 0.95 * tk, -(0.35 * A.air + 1.35 * tk));
@@ -2783,17 +2793,19 @@
         }
       }
       const zgArms = (sides) => {
-        const Sw = A.zgS * (1 - A.zgP), I = 1 - Sw, u = A.zgB, tI = A.zgI;
+        const P = A.zgP || 0, Sw = A.zgS * (1 - P), I = Math.max(0, 1 - Sw - P), u = A.zgB, tI = A.zgI;
         for (const sd of sides) {
           const sx = sd === "Right" ? 1 : -1, ph = sx > 0 ? 0 : 1.7, sh = B[sd + "Arm"].getWorldPosition(new V());
-          const st = zgStroke(u), out = I * (0.42 + 0.07 * Math.sin(tI * 1.1 + ph)) + Sw * st[0], up = I * (-0.16 + 0.15 * Math.sin(tI * 0.9 + ph)) + Sw * st[1], fw = I * (0.08 + 0.08 * Math.sin(tI * 0.7 + ph)) + Sw * st[2];
+          const st = zgStroke(u), fr = loopPath(FREESTYLE, ((A.zgF || 0) + (sx > 0 ? 0 : 0.5)) % 1);
+          const out = I * (0.4 + 0.06 * Math.sin(tI * 0.9 + ph)) + Sw * st[0] + P * fr[0], up = I * (-0.2 + 0.1 * Math.sin(tI * 0.7 + ph)) + Sw * st[1] + P * fr[1], fw = I * (0.1 + 0.07 * Math.sin(tI * 0.55 + ph)) + Sw * st[2] + P * fr[2];
           const t = sh.clone().addScaledVector(rightB, sx * out).addScaledVector(upB, up).addScaledVector(fwdB, fw);
-          solveIK(B[sd + "Arm"], B[sd + "ForeArm"], B[sd + "Hand"], t, sh.clone().addScaledVector(rightB, sx * 0.6).addScaledVector(upB, 0.05).addScaledVector(fwdB, -0.3));
-          rotateBoneWorld(B[sd + "Hand"], fwdB, sx * (0.45 * I * Math.sin(tI * 2.1 + ph) + 0.5 * Sw * Math.sin(TAU * u)));
+          const pole = sh.clone().addScaledVector(rightB, sx * 0.6).addScaledVector(upB, 0.05 - 0.05 * P).addScaledVector(fwdB, -0.3 - 0.15 * P);
+          solveIK(B[sd + "Arm"], B[sd + "ForeArm"], B[sd + "Hand"], t, pole);
+          rotateBoneWorld(B[sd + "Hand"], fwdB, sx * (0.3 * I * Math.sin(tI * 1.6 + ph) + 0.4 * Sw * Math.sin(TAU * u)));
         }
       };
       const busy = e.swingT > 0 || e.guardK > 0.05;
-      c.pick.visible = pickaxe && !e.writing && !(e.zgFloat && ((A.zgP || 0) > 0.3 || A.zgS * (1 - A.zgP) > 0.35) && !busy);
+      c.pick.visible = pickaxe && !e.writing;
       if (e.isPlayer) syncVest(e);
       if (e.bounceT > 0 && near) {
         for (const sd of ["Left", "Right"]) {
@@ -2808,13 +2820,6 @@
         fistArms(e, B, rightB, upB, fwdB);
       } else if (near && pickaxe && e.writing) {
         noteArms(e, B, rightB, upB, fwdB);
-      } else if (near && e.zgFloat && (A.zgP || 0) > 0.3 && !held && !busy) {
-        const t = A.zgT * 1.15;
-        for (const [sd, sx] of [["Left", -1], ["Right", 1]]) {
-          rotateBoneWorld(B[sd + "Arm"], rightB, Math.sin(t + (sx > 0 ? 0 : Math.PI)) * 1.9 * A.zgP);
-          rotateBoneWorld(B[sd + "Arm"], fwdB, sx * (0.35 + Math.cos(t * 2 + sx) * 0.3) * A.zgP);
-          rotateBoneWorld(B[sd + "ForeArm"], rightB, -0.4 - Math.max(0, Math.sin(t + (sx > 0 ? 0.6 : Math.PI + 0.6))) * 1.1);
-        }
       } else if (near && e.zgFloat && !held && !(pickaxe && c.pick.visible)) {
         zgArms(["Left", "Right"]);
       } else if (held) {
@@ -2845,20 +2850,20 @@
       } else if (pickaxe && near) {
         const P = pickPose(e), sh = B.RightArm.getWorldPosition(new V());
         const tgt = g.localToWorld(g.worldToLocal(sh.clone()).add(P.h));
-        const grip = A.air < 0.02 || busy || e.zgFloat;
         const pump = e.onGround && !busy ? A.sprint * (1 - cr) : 0, dn = A.dn || 0;
         if (pump > 0.01) {
           rotateBoneWorld(B.LeftArm, rightB, -0.8 * dn * pump);
-          rotateBoneWorld(B.RightArm, rightB, 0.8 * dn * pump);
           rotateBoneWorld(B.LeftForeArm, rightB, 0.55 * pump);
-          rotateBoneWorld(B.RightForeArm, rightB, 0.55 * pump);
+          tgt.addScaledVector(upB, 0.025 * Math.abs(dn) * pump);
         }
-        const natR = B.RightHand.getWorldPosition(new V()), natL = B.LeftHand.getWorldPosition(new V());
-        if (grip) solveIK(B.RightArm, B.RightForeArm, B.RightHand, tgt.lerp(natR, pump), sh.clone().addScaledVector(right, 0.6).addScaledVector(upB, -0.5));
+        if (!busy) {
+          tgt.addScaledVector(upB, 8e-3 * Math.sin(matchTime * 1.7 + (e.walkT || 0)));
+        }
+        const natL = B.LeftHand.getWorldPosition(new V());
+        solveIK(B.RightArm, B.RightForeArm, B.RightHand, tgt, sh.clone().addScaledVector(right, 0.5).addScaledVector(upB, -0.55).addScaledVector(fwdB, -0.1));
         c.pick.quaternion.copy(P.q);
-        if (pump > 0.01) c.pick.quaternion.premultiply(_qm.setFromAxisAngle(_v2.set(1, 0, 0), (0.45 * dn - 0.8) * pump));
         D(A, "pk2", e.swingT > 0 || e.guardK > 0.3 ? 1 : 0, 1 - Math.exp(-20 * dt));
-        const rest = grip ? (1 - A.pk2) * (1 - pump) : 0;
+        const rest = 1 - A.pk2;
         const hw = B.RightHand.getWorldPosition(new V());
         if (rest > 0.01) {
           g.updateMatrixWorld(true);
@@ -2872,7 +2877,7 @@
         g.worldToLocal(hw);
         c.pick.position.copy(hw);
         const w2 = A.pk2 * (1 - pump);
-        if (grip && w2 > 0.01) {
+        if (w2 > 0.01) {
           c.pick.updateMatrixWorld(true);
           const lS = B.LeftArm.getWorldPosition(new V());
           solveIK(B.LeftArm, B.LeftForeArm, B.LeftHand, natL.clone().lerp(c.pick.localToWorld(new V(0, 0.15, 0)), w2), lS.clone().addScaledVector(right, -0.6).addScaledVector(upB, -0.5));
