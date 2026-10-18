@@ -2500,11 +2500,11 @@
     }
     function consPose(e, c, id, k, rightB, fwdB, upB, dt) {
       const B = c.bones, A = e.anim, w = (o) => o.getWorldPosition(new V()), dur = CONS[id].time, near = e === player || e.pos.distanceTo(camera.position) < 30, at = e === player ? null : e.pos;
-      const rS = w(B.RightArm), lS = w(B.LeftArm), head = w(B.Head), mouth = head.clone().addScaledVector(upB, 0.05).addScaledVector(fwdB, 0.12), chest = w(B.Spine2).addScaledVector(fwdB, 0.2);
+      const rS = w(B.RightArm), lS = w(B.LeftArm), head = w(B.Head), mouth = head.clone().addScaledVector(upB, 0.05).addScaledVector(fwdB, 0.12), chest2 = w(B.Spine2).addScaledVector(fwdB, 0.2);
       const poleR = rS.clone().addScaledVector(rightB, 0.5).addScaledVector(upB, -0.6).addScaledVector(fwdB, -0.2), poleL = lS.clone().addScaledVector(rightB, -0.5).addScaledVector(upB, -0.6).addScaledVector(fwdB, -0.2);
       const ik = (sd, t, pole) => solveIK(B[sd + "Arm"], B[sd + "ForeArm"], B[sd + "Hand"], t, pole);
       const bell = (a, b) => k < a || k > b ? 0 : Math.sin((k - a) / (b - a) * Math.PI);
-      const idle = chest.clone().addScaledVector(rightB, 0.17).addScaledVector(upB, -0.14).addScaledVector(fwdB, 0.08).addScaledVector(upB, 0.015 * Math.sin(matchTime * 2.4 + e.walkT));
+      const idle = chest2.clone().addScaledVector(rightB, 0.17).addScaledVector(upB, -0.14).addScaledVector(fwdB, 0.08).addScaledVector(upB, 0.015 * Math.sin(matchTime * 2.4 + e.walkT));
       const tick = (key, period) => {
         const n = Math.floor(k * dur / period);
         if (A[key] !== n) {
@@ -2581,7 +2581,7 @@
         const d = _csph.center.distanceTo(camera.position);
         const see = e === player || _frus.intersectsSphere(_csph), far = d > GEAR_D && e !== player;
         c.inView = see;
-        c.spin.visible = see;
+        c.spin.visible = see && !(e === player && bv(e, "hide"));
         c.gunMount.visible = see && !far;
         if (c.gear && c.gearFar !== far) {
           c.gearFar = far;
@@ -2594,7 +2594,7 @@
       const c = e.ch, A = e.anim, B = c.bones, g = c.g;
       g.position.copy(e.pos);
       g.rotation.y = e.yaw;
-      g.scale.setScalar(e.titanS || 1);
+      g.scale.setScalar((e.titanS || 1) * (e.tinyT > 0 ? 0.45 : 1));
       const a = 1 - Math.exp(-14 * dt), aS = 1 - Math.exp(-7 * dt);
       if (!e.alive) {
         c.flash.visible = false;
@@ -3181,6 +3181,29 @@
         if (src === player || t === player) sfx("boing", t.pos.clone(), { small: true });
         return;
       }
+      if (t.pb) {
+        if (bv(t, "ghost")) return;
+        amt *= bv(t, "armor", 1);
+      }
+      if (t.markT > 0) amt *= t.markMul || 1;
+      if (t.tinyT > 0) amt *= 2;
+      if (t === player && src && src !== t) {
+        if (t.bubbles > 0 && !info.soft) {
+          t.bubbles--;
+          puff(t.pos.clone().add(new V(0, 1.3, 0)), 16748488);
+          sfx("boing", null, { small: true });
+          return;
+        }
+        if (t.absorb > 0) {
+          const a = Math.min(t.absorb, amt);
+          t.absorb -= a;
+          amt -= a;
+          if (amt <= 0) {
+            mote(pwMats(PC).spark, chest(t), 0.6, 0.2, rv(2), 6);
+            return;
+          }
+        }
+      }
       amt = Math.max(1, Math.round(amt));
       let left = amt, sh = 0;
       if (t.shield > 0) {
@@ -3209,6 +3232,14 @@
         t.lastSeen = src.pos.clone();
         t.lastSeenT = matchTime;
       }
+      if (t.hp <= 0 && t === player && t.pwLives > 0) {
+        t.pwLives--;
+        t.hp = 30;
+        buff(t, "ghost", 1.5);
+        pwBlast(chest(t), { r: 7, dmg: 20, fire: true });
+        banner("Back again", "", 1.5);
+        return;
+      }
       if (t.hp <= 0) {
         if (t.frozen > 0) info.frozen = true;
         eliminate(t, src, info.weapon, info);
@@ -3231,7 +3262,13 @@
           player.bank++;
           sfx("elim");
           banner("Eliminated", t.name + " \xB7 " + aliveCount + " left", 2);
+          pwOnKill(t);
         }
+      }
+      if (t.curse) {
+        const c = t.curse;
+        t.curse = null;
+        if (c.alive) pwBlast(chest(t), { src: c, r: 6, dmg: 30, col: 16761370, name: "Ancient Curse" });
       }
       if (killer && killer.alive && killer !== t) {
         const add = 50, hp = Math.min(100 - killer.hp, add);
@@ -3259,6 +3296,10 @@
           animeTap(p);
           return;
         }
+        if (POW) {
+          pwSwing(p);
+          return;
+        }
         if (p.fireCd > 0) return;
         p.fireCd = 0.42;
         p.swingSide = p.swingT > 0 || p.comboT > 0 ? 1 - (p.swingSide || 0) : 0;
@@ -3283,6 +3324,10 @@
         nichirinSlash(p);
         return;
       }
+      if (POW) {
+        pwHit(p);
+        return;
+      }
       camera.getWorldDirection(tv1);
       ray.set(camera.position, tv1);
       ray.near = camDistNow;
@@ -3299,7 +3344,7 @@
       const p = player;
       const w = WEAP[it.id];
       if (p.reloading || p.fireCd > 0) return;
-      p.fireCd = w.rate;
+      p.fireCd = w.rate / bv(p, "swing", 1);
       if (w.sp) {
         specialFire(p, it, w);
         return;
@@ -3433,7 +3478,7 @@
       const dir = aim.sub(origin).normalize(), out = new V();
       const warm = 1 + 1.5 * Math.max(0, 1 - (matchTime - b.seenAt) / 3);
       const tsp = Math.hypot(e.vel.x, e.vel.z);
-      const s = (w.spread + 0.024 * b.skill + d * 35e-5 + tsp * 35e-4 + 8e-3 + (e.crouch ? 6e-3 : 0)) * Df.spread * warm;
+      const s = (w.spread + 0.024 * b.skill + d * 35e-5 + tsp * 35e-4 + 8e-3 + (e.crouch ? 6e-3 : 0)) * Df.spread * warm * (b.dazeT > 0 ? 4 : 1);
       for (let i = 0; i < w.pellets; i++) {
         jitter(dir, s, out);
         fireRay(b, origin, out, w, RAR[b.gun.r], Df.dmg, origin, 0.3);
@@ -3484,7 +3529,7 @@
           p.aHold = 0;
           p.aGap = 0;
         }
-      } else if (mouse.l && (!it || it.kind === "gun" && WEAP[it.id].auto)) playerFire();
+      } else if (mouse.l && (!it && !POW || it && it.kind === "gun" && WEAP[it.id].auto)) playerFire();
     }
     function onPrimaryDown() {
       const p = player;
@@ -3685,6 +3730,7 @@
       st.className = ZG.state === "warn" ? "flip" : ZG.state === "ceil" ? "ceil" : "";
       const it = curItem();
       $("bankN").textContent = p.bank;
+      if (slotEls[0]) slotEls[0].children[3].textContent = POW && p.pwCd > 0 ? Math.ceil(p.pwCd) + "s" : "";
       $("ability").hidden = !p.bouncer;
       if (p.bouncer) {
         const cd = Math.ceil(p.bouncer.cd);
@@ -4378,7 +4424,7 @@
       lkPut(h, dir || 0);
       if (LK.kind !== "picks" || dir == null) lkFrame(true);
       lkInfo(it.n, `${it.set.n} set \xB7 ${pxIdx + 1} of ${PX.ITEMS.length}`, r, it.anime ? `${it.hero} \xB7 ${it.pw}` : `${Z.n} size`);
-      if (it.anime) $("armNote").textContent = it.pwd;
+      $("armNote").textContent = it.pwd || "";
       $("armLabels").innerHTML = "";
       showEquip();
       [...$("armSets").children].forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.s === it.set.id)));
@@ -4782,6 +4828,7 @@
       if (e === player) {
         animeSt = eq.anime || null;
         e.punches = [];
+        pwEquip(eq);
       }
       e.fistSt = ["rubber", "saitama", "goku", "titan"].includes(eq.anime);
       if (e === player) {
@@ -5063,7 +5110,7 @@
         if (prop && !p.zgPropel) sfx("propel");
         p.zgPropel = prop;
         _zf.set(-Math.sin(p.yaw) * cp, Math.sin(p.pitch), -Math.cos(p.yaw) * cp);
-        const sp = (prop ? 22 : ads ? 5.5 : 9) * slowK(p);
+        const sp = (prop ? 22 : ads ? 5.5 : 9) * slowK(p) * bv(p, "spd", 1);
         _zw.set(0, 0, 0).addScaledVector(_zf, mz).addScaledVector(_zr, mx);
         _zw.y += my;
         if (_zw.lengthSq() > 1) _zw.normalize();
@@ -5076,7 +5123,7 @@
         zgStamina(p, false, dt);
         const sprint = (keys.ShiftLeft || keys.ShiftRight) && mz > 0 && !ads;
         p.sprinting = sprint && p.onGround;
-        const sp = (ads ? 4.5 : sprint ? 11 : 7.5) * slowK(p), fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), k = 1 - Math.exp(-(p.onGround ? 14 : 3) * dt);
+        const sp = (ads ? 4.5 : sprint ? 11 : 7.5) * slowK(p) * bv(p, "spd", 1), fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), k = 1 - Math.exp(-(p.onGround ? 14 : 3) * dt);
         p.vel.x = lerp(p.vel.x, (fx * mz + _zr.x * mx) * sp, k);
         p.vel.z = lerp(p.vel.z, (fz * mz + _zr.z * mx) * sp, k);
         if (p.onGround && p.wantJump) {
@@ -5153,14 +5200,14 @@
       b.reloadT -= dt;
       b.swapT -= dt;
       b.strafeT -= dt;
-      if (b.enemy && !b.enemy.alive) b.enemy = null;
+      if (b.enemy && (!b.enemy.alive || bv(b.enemy, "hide") || b.blindT > 0)) b.enemy = null;
       const ceil = ZG.state === "ceil", c = tv1.set(b.pos.x, b.pos.y + 1, b.pos.z);
       if (b.think <= 0) {
         b.think = rnd(0.15, 0.3);
         let best = null;
         const near = [];
         for (const o of combatants) {
-          if (o === b || !o.alive) continue;
+          if (o === b || !o.alive || bv(o, "hide") || b.blindT > 0) continue;
           const d = Math.hypot(o.pos.x - b.pos.x, o.pos.y - b.pos.y, o.pos.z - b.pos.z);
           if (d < 160) near.push([d, o]);
         }
@@ -5216,7 +5263,7 @@
         const pref = WEAP[b.gun.id].pref, fwd = d > pref + 5 ? 1 : d < pref - 4 ? -0.7 : 0;
         wish.set(dx / d * fwd + -dz / dh * b.strafe * 0.9, ceil ? 0 : dy / d * fwd + b.vstrafe * 0.7, dz / d * fwd + dx / dh * b.strafe * 0.9);
         if (!ceil && d > pref + 25) prop = zgStamina(b, true, dt);
-        if (matchTime > (b.wake || SPAWN_GRACE) && matchTime - b.seenAt > b.react && b.fireCd <= 0 && b.reloadT <= 0) botShoot(b, e, d);
+        if (matchTime > (b.wake || SPAWN_GRACE) && matchTime - b.seenAt > b.react && b.fireCd <= 0 && b.reloadT <= 0 && !(b.jamT > 0)) botShoot(b, e, d);
       } else if (b.goal) {
         const g = b.goal, dx = g.x - b.pos.x, dy = g.y - b.pos.y, dz = g.z - b.pos.z, d = Math.hypot(dx, dy, dz);
         if (d < 3) b.goal = null;
@@ -6036,17 +6083,17 @@
     }
     function throwPose(e, c, rightB, fwdB, upB) {
       const B = c.bones, A = e.throwA, k = clamp(A.t / THROW_T, 0, 1), w = (o) => o.getWorldPosition(new V());
-      const rS = w(B.RightArm), lS = w(B.LeftArm), natR = w(B.RightHand), natL = w(B.LeftHand), chest = w(B.Spine2).addScaledVector(fwdB, 0.36).addScaledVector(upB, 0.02);
+      const rS = w(B.RightArm), lS = w(B.LeftArm), natR = w(B.RightHand), natL = w(B.LeftHand), chest2 = w(B.Spine2).addScaledVector(fwdB, 0.36).addScaledVector(upB, 0.02);
       const rel = (o, x, y, z) => o.clone().addScaledVector(rightB, x).addScaledVector(upB, y).addScaledVector(fwdB, z);
-      const it = A.it, gi = Math.max(0, it.count - 1), gObj = c.vest && c.vest.userData.gs[gi], gp = gObj ? w(gObj) : rel(chest, 0, 0, -0.1);
+      const it = A.it, gi = Math.max(0, it.count - 1), gObj = c.vest && c.vest.userData.gs[gi], gp = gObj ? w(gObj) : rel(chest2, 0, 0, -0.1);
       const grab = gp.clone().addScaledVector(fwdB, 0.05).addScaledVector(upB, -0.08).addScaledVector(rightB, 0.02);
       const bell = (a, b) => k < a || k > b ? 0 : Math.sin((k - a) / (b - a) * Math.PI);
       const tw = -0.42 * bell(0.42, 0.68) + 0.5 * bell(0.6, 0.92);
       rotateBoneWorld(B.Spine1, upB, tw * 0.6);
       rotateBoneWorld(B.Spine2, upB, tw * 0.4);
       rotateBoneWorld(B.Spine1, rightB, -0.15 * bell(0.45, 0.66) + 0.22 * bell(0.62, 0.9));
-      const R = [[0, natR], [0.12, rel(grab, 0, -0.04, 0.06)], [0.24, grab], [0.34, rel(gp, 0, 0, 0.2)], [0.47, rel(chest, 0.06, -0.04, 0)], [0.58, rel(rS, 0.14, 0.3, -0.3)], [THROW_REL, rel(rS, 0.02, 0.32, 0.3)], [0.74, rel(rS, -0.12, 0.05, 0.55)], [0.86, rel(rS, -0.3, -0.25, 0.35)], [1, natR]];
-      const L = [[0, natL], [0.3, natL], [0.44, rel(chest, -0.02, -0.02, 0.02)], [0.53, rel(chest, -0.28, -0.04, -0.02)], [0.64, rel(lS, -0.08, 0.12, 0.5)], [0.8, rel(lS, -0.1, 0, 0.45)], [1, natL]];
+      const R = [[0, natR], [0.12, rel(grab, 0, -0.04, 0.06)], [0.24, grab], [0.34, rel(gp, 0, 0, 0.2)], [0.47, rel(chest2, 0.06, -0.04, 0)], [0.58, rel(rS, 0.14, 0.3, -0.3)], [THROW_REL, rel(rS, 0.02, 0.32, 0.3)], [0.74, rel(rS, -0.12, 0.05, 0.55)], [0.86, rel(rS, -0.3, -0.25, 0.35)], [1, natR]];
+      const L = [[0, natL], [0.3, natL], [0.44, rel(chest2, -0.02, -0.02, 0.02)], [0.53, rel(chest2, -0.28, -0.04, -0.02)], [0.64, rel(lS, -0.08, 0.12, 0.5)], [0.8, rel(lS, -0.1, 0, 0.45)], [1, natL]];
       const elbowUp = bell(0.45, 0.75), poleR = rS.clone().addScaledVector(rightB, 0.5).addScaledVector(upB, -0.6 + 0.9 * elbowUp).addScaledVector(fwdB, -0.15);
       solveIK(B.RightArm, B.RightForeArm, B.RightHand, pathAt(R, k), poleR);
       solveIK(B.LeftArm, B.LeftForeArm, B.LeftHand, pathAt(L, k), lS.clone().addScaledVector(rightB, -0.5).addScaledVector(upB, -0.6).addScaledVector(fwdB, -0.1));
@@ -6569,6 +6616,7 @@
     }
     function stunChar(t) {
       if (t.bounceT > 0) return;
+      if (t === player) t.lastFx = "stun";
       t.stun = Math.max(t.stun || 0, STUN_T);
       t.stunFx = 0;
       sfx("stun", t.pos.clone());
@@ -6635,6 +6683,7 @@
     }
     function ignite(t, src) {
       if (t.bounceT > 0) return;
+      if (t === player) t.lastFx = "burn";
       if (t.frozen > 0) {
         t.frozen = Math.min(t.frozen, 0.05);
         return;
@@ -6949,6 +6998,1897 @@
       else if (w.sp === "flm") flmFire(p, w);
       else if (w.sp === "drone") droneFire(p, it);
     }
+    let POW = null, PC = 16777215;
+    let pwShots = [], pwZones = [], pwWalls = [], pwLaters = [];
+    const PW_BASE = 20, PW_REACH = 4.2;
+    function buff(e, k, t, v) {
+      if (v == null) v = 1;
+      e.pb = e.pb || {};
+      const b = e.pb[k];
+      if (b && b.t > 0 && b.t > t && b.v === v) return;
+      e.pb[k] = { t, v };
+    }
+    const bv = (e, k, d) => e && e.pb && e.pb[k] && e.pb[k].t > 0 ? e.pb[k].v : d == null ? 0 : d;
+    const PWM = /* @__PURE__ */ new Map();
+    function pwMats(col) {
+      let m = PWM.get(col);
+      if (m) return m;
+      const c = new T.Color(col);
+      m = {
+        solid: new T.MeshPhongMaterial({ color: c, emissive: c.clone().multiplyScalar(0.3), shininess: 70, specular: 4473924 }),
+        flat: new T.MeshBasicMaterial({ color: c, transparent: true, depthWrite: false, side: T.DoubleSide }),
+        soft: new T.SpriteMaterial({ map: glowTex, color: c, transparent: true, depthWrite: false, opacity: 0.6 }),
+        spark: new T.SpriteMaterial({ map: sparkTex, color: c, transparent: true, depthWrite: false }),
+        fog: new T.MeshBasicMaterial({ color: c, transparent: true, depthWrite: false, opacity: 0.13, side: T.DoubleSide }),
+        glass: new T.MeshBasicMaterial({ color: c, transparent: true, depthWrite: false, opacity: 0.45, side: T.DoubleSide })
+      };
+      PWM.set(col, m);
+      return m;
+    }
+    const pwGeo = {
+      orb: new T.SphereGeometry(0.25, 16, 12),
+      dart: new T.ConeGeometry(0.07, 0.5, 6).rotateX(Math.PI / 2),
+      disc: new T.TorusGeometry(0.34, 0.06, 6, 24),
+      crescent: new T.TorusGeometry(0.7, 0.07, 5, 20, Math.PI),
+      star: new T.OctahedronGeometry(0.3),
+      box: new T.BoxGeometry(0.34, 0.34, 0.34),
+      shard: new T.TetrahedronGeometry(0.2),
+      stem: new T.CylinderGeometry(0.04, 0.05, 0.16, 6),
+      bone: new T.CylinderGeometry(0.05, 0.05, 0.6, 8).rotateZ(Math.PI / 2),
+      knob: new T.SphereGeometry(0.09, 8, 6),
+      wing: (() => {
+        const s = new T.Shape();
+        s.moveTo(0, 0);
+        s.lineTo(0.45, 0.18);
+        s.lineTo(0.36, 0.02);
+        s.lineTo(0.5, -0.08);
+        s.lineTo(0.3, -0.06);
+        s.lineTo(0.2, -0.16);
+        s.lineTo(0, -0.05);
+        return new T.ShapeGeometry(s);
+      })(),
+      ring: new T.RingGeometry(0.82, 1, 40),
+      sphere: new T.SphereGeometry(1, 24, 16),
+      cone: new T.ConeGeometry(0.12, 0.6, 5)
+    };
+    function pwLook(look, col, size) {
+      const g = new T.Group(), M = pwMats(col), add = (geo, mat, x, y, z, s) => {
+        const m = new T.Mesh(geo, mat);
+        m.position.set(x || 0, y || 0, z || 0);
+        if (s) m.scale.setScalar(s);
+        g.add(m);
+        return m;
+      };
+      if (look === "pumpkin") {
+        add(pwGeo.orb, pwMats(16747039).solid).scale.set(1.15, 0.9, 1.15);
+        add(pwGeo.stem, pwMats(4028970).solid, 0, 0.26, 0);
+      } else if (look === "dart") add(pwGeo.dart, M.solid);
+      else if (look === "disc") add(pwGeo.disc, M.solid).rotation.x = Math.PI / 2;
+      else if (look === "crescent") {
+        const m = add(pwGeo.crescent, M.solid);
+        m.rotation.set(Math.PI / 2, 0, Math.PI);
+      } else if (look === "star") add(pwGeo.star, M.solid);
+      else if (look === "box" || look === "gift" || look === "crate") {
+        add(pwGeo.box, M.solid).scale.setScalar(look === "crate" ? 4 : look === "gift" ? 1.3 : 1);
+        if (look === "gift") {
+          add(pwGeo.box, pwMats(16765503).solid).scale.set(1.4, 0.3, 1.4);
+          add(pwGeo.box, pwMats(16765503).solid).scale.set(0.3, 1.4, 1.4);
+        }
+      } else if (look === "shard") add(pwGeo.shard, M.solid);
+      else if (look === "bone") {
+        add(pwGeo.bone, M.solid);
+        for (const x of [-0.3, 0.3]) for (const y of [-0.06, 0.06]) add(pwGeo.knob, M.solid, x, y, 0);
+      } else if (look === "bubble") add(pwGeo.orb, M.glass);
+      else if (look === "bat" || look === "parrot") {
+        add(pwGeo.knob, M.solid, 0, 0, 0, 1.4);
+        for (const sx of [1, -1]) {
+          const w = add(pwGeo.wing, M.flat);
+          w.scale.set(sx, 1, 1);
+          w.rotation.x = -Math.PI / 2;
+          w.userData.flap = sx;
+        }
+      } else if (look === "jelly") {
+        const m = add(pwGeo.orb, M.glass);
+        m.scale.set(1.3, 0.9, 1.3);
+        for (let i = 0; i < 5; i++) {
+          const t = add(pwGeo.dart, M.solid, Math.cos(i * 1.26) * 0.18, -0.32, Math.sin(i * 1.26) * 0.18);
+          t.rotation.x = 0;
+          t.scale.set(0.4, 0.4, 1.2);
+        }
+      } else if (look === "ginger") {
+        add(pwGeo.box, M.solid, 0, 0, 0).scale.set(1.4, 1.8, 0.6);
+        add(pwGeo.orb, M.solid, 0, 0.48, 0, 0.9);
+      } else if (look === "raptor") {
+        const m = add(pwGeo.cone, M.solid);
+        m.rotation.x = Math.PI / 2;
+        m.scale.set(1.5, 2, 1.5);
+        add(pwGeo.knob, M.solid, 0, 0.05, 0.25, 1.3);
+      } else if (look === "holo") {
+        const m = add(pwGeo.box, M.glass);
+        m.scale.set(1.8, 5.2, 1.2);
+        m.position.y = 1;
+      } else add(pwGeo.orb, M.solid);
+      if (look !== "holo" && look !== "crate") {
+        const h = new T.Sprite(M.soft);
+        h.scale.setScalar(1.1);
+        g.add(h);
+      }
+      g.scale.setScalar(size || 1);
+      return g;
+    }
+    function pwSlow(e, a) {
+      if (!e.alive || e.frozen > 0 || e.bounceT > 0) return;
+      e.chill = Math.min(0.85, (e.chill || 0) + a);
+    }
+    function pwStun(e, t) {
+      if (!e.alive || e.bounceT > 0) return;
+      if (!(e.stun > 0)) sfx("stun", e.pos.clone());
+      e.stun = Math.max(e.stun || 0, t);
+      e.stunFx = 0;
+    }
+    function pwPoison(e, src, dps, t) {
+      if (!e.alive || e.bounceT > 0) return;
+      e.poison = { t, dps, src, tick: 0.5 };
+    }
+    function pwBlind(e, t) {
+      e.blindT = Math.max(e.blindT || 0, t);
+      if (!e.isPlayer) e.enemy = null;
+    }
+    function pwDaze(e, t) {
+      e.dazeT = Math.max(e.dazeT || 0, t);
+    }
+    function pwJam(e, t) {
+      e.jamT = Math.max(e.jamT || 0, t);
+    }
+    function pwMark(e, t, mul, col) {
+      e.markT = Math.max(e.markT || 0, t);
+      e.markMul = Math.max(e.markT > t ? e.markMul || 1 : 1, mul || 1);
+      e.markCol = col || PC;
+    }
+    function pwReveal(e, t, col) {
+      e.revealT = Math.max(e.revealT || 0, t);
+      e.revealCol = col || PC;
+    }
+    function pwKnock(e, dir, f) {
+      if (!e.alive || e.bounceT > 0 || e === player) return;
+      e.vel.addScaledVector(dir, f);
+      e.knockT = Math.max(e.knockT || 0, f / 45);
+    }
+    function pwPull(e, to, f) {
+      _dv.set(to.x - e.pos.x, to.y - 1 - e.pos.y, to.z - e.pos.z);
+      const d = _dv.length();
+      if (d < 1.5) return;
+      pwKnock(e, _dv.divideScalar(d).clone(), Math.min(f, d * 3));
+    }
+    function pwHeal(p, n) {
+      if (!p.alive || n <= 0) return;
+      const h = Math.min(100 - p.hp, n);
+      p.hp += h;
+      if (h > 0 && Math.random() < 0.5) healFx(p.pos.clone().add(new V(0, 1.3, 0)), 6217850, 3, 1.6);
+    }
+    function pwShield(p, n) {
+      p.shield = Math.min(100, p.shield + n);
+      healFx(p.pos.clone().add(new V(0, 1.3, 0)), 7321343, 6, 2);
+    }
+    const chest = (e) => new V(e.pos.x, e.pos.y + (e.zgRoll > 1.5 ? 0.8 : 1.2), e.pos.z);
+    const lookDir = () => {
+      camera.getWorldDirection(tv1);
+      return tv1.clone();
+    };
+    const enemies = (p) => combatants.filter((e) => e.alive && e !== p);
+    const tagMat = /* @__PURE__ */ new Map();
+    function pwStatus(e, dt) {
+      if (e.pb) {
+        for (const k in e.pb) if (e.pb[k].t > 0) e.pb[k].t -= dt;
+      }
+      for (const k of ["blindT", "dazeT", "jamT", "markT", "revealT", "tinyT"]) if (e[k] > 0) e[k] -= dt;
+      if (!e.alive) {
+        e.poison = null;
+        if (e.tag) e.tag.visible = false;
+        return;
+      }
+      if (e.poison) {
+        const P = e.poison;
+        P.t -= dt;
+        P.tick -= dt;
+        if (P.tick <= 0) {
+          P.tick = 0.5;
+          hurt(e, P.dps * 0.5, P.src && P.src.alive ? P.src : null, { weapon: "Poison", soft: true });
+          if (e.ch.g.visible) for (let i = 0; i < 3; i++) mote(pwMats(8118346).soft, chest(e).add(rv(0.4)), rnd(0.25, 0.4), 0.5, new V(0, rnd(0.5, 1.2), 0));
+        }
+        if (P.t <= 0) e.poison = null;
+      }
+      const show = e !== player && (e.markT > 0 || e.revealT > 0 || !!e.curse);
+      if (show && !e.tag) {
+        const m = new T.SpriteMaterial({ map: sparkTex, color: 16777215, depthTest: false, depthWrite: false, transparent: true });
+        e.tag = new T.Sprite(m);
+        e.tag.renderOrder = 20;
+        world.add(e.tag);
+      }
+      if (e.tag) {
+        e.tag.visible = show;
+        if (show) {
+          const up = e.zgRoll > 1.5 ? -1 : 1;
+          e.tag.position.set(e.pos.x, e.pos.y + 1 + 1.5 * up, e.pos.z);
+          e.tag.material.color.setHex(e.curse ? 16761370 : e.markT > 0 ? e.markCol : e.revealCol);
+          e.tag.scale.setScalar(0.7 + 0.12 * Math.sin(matchTime * 8));
+        }
+      }
+    }
+    function pwBlast(at, o) {
+      const src = o.src || player, r = o.r, col = o.col || PC;
+      if (o.fire) explode(at, { r, dmg: 0, src, weapon: o.name || POW && POW.name });
+      else {
+        const s = new T.Mesh(pwGeo.sphere, pwMats(col).flat.clone());
+        s.position.copy(at);
+        world.add(s);
+        effects.push({ t: 0, dur: 0.35, obj: s, upd: (e, k) => {
+          s.scale.setScalar(0.4 + r * Math.sqrt(k));
+          s.material.opacity = 0.5 * (1 - k);
+        }, done: () => s.material.dispose() });
+        const ring = new T.Mesh(shockRing, pwMats(col).flat.clone());
+        ring.position.copy(at);
+        ring.lookAt(camera.position);
+        world.add(ring);
+        effects.push({ t: 0, dur: 0.4, obj: ring, upd: (e, k) => {
+          ring.scale.setScalar(0.5 + r * 1.2 * k);
+          ring.material.opacity = 0.9 * (1 - k);
+        }, done: () => ring.material.dispose() });
+        for (let i = 0; i < Math.min(24, 6 + r * 2); i++) mote(pwMats(col).spark, at.clone(), rnd(0.3, 0.6), rnd(0.3, 0.6), rv(1).normalize().multiplyScalar(rnd(4, 10) * r / 5), rnd(-6, 6));
+        sfx(r > 6 ? "boom" : "shockS", at.clone(), { gain: 0.7 });
+        camShake = Math.max(camShake, clamp(1.2 - at.distanceTo(player.pos) / 40, 0, 0.6) * Math.min(1, r / 6));
+      }
+      for (const e of combatants) {
+        if (!e.alive || e === src) continue;
+        tv3.set(e.pos.x, e.pos.y + 1, e.pos.z).sub(at);
+        const d = tv3.length();
+        if (d > r + 0.4) continue;
+        if (!o.thru && !hasLOS(at, tv2.set(e.pos.x, e.pos.y + 1, e.pos.z))) continue;
+        const k = 1 - Math.min(1, d / (r + 0.4)), dir = d > 0.01 ? tv3.divideScalar(d).clone() : new V(0, 1, 0);
+        if (o.dmg) hurt(e, o.dmg * (0.4 + 0.6 * k), src, { dir, weapon: o.name || POW && POW.name, point: e.pos.clone().add(new V(0, 1, 0)), explosive: true });
+        if (e.alive) {
+          if (o.kb !== 0) pwKnock(e, dir, (o.kb || 14) * (0.5 + 0.5 * k));
+          if (o.each) o.each(e, k);
+        }
+      }
+    }
+    function pwShot(p, o) {
+      const dir0 = o.dir || null, origin = o.from ? o.from.clone() : chest(p).addScaledVector(lookDir(), 0.9);
+      const at = dir0 ? null : aimPoint(p, lookDir(), 160), base = dir0 ? dir0.clone() : at.sub(origin).normalize();
+      const side = new V().crossVectors(base, Math.abs(base.y) > 0.95 ? new V(1, 0, 0) : UP).normalize(), up2 = new V().crossVectors(side, base);
+      const n = o.n || 1, out = [];
+      for (let i = 0; i < n; i++) {
+        const d = base.clone();
+        if (n > 1) {
+          const a = (i / (n - 1) - 0.5) * 2 * (o.spread || 0.2);
+          d.addScaledVector(side, a).addScaledVector(up2, o.vspread ? rnd(-o.vspread, o.vspread) : 0).normalize();
+        } else if (o.spread) d.addScaledVector(side, rnd(-o.spread, o.spread)).addScaledVector(up2, rnd(-o.spread, o.spread)).normalize();
+        const m = pwLook(o.look || "orb", o.col || PC, o.size || 1);
+        m.position.copy(origin);
+        world.add(m);
+        const P = { o, src: p, m, pos: origin.clone(), vel: d.multiplyScalar(o.speed == null ? 60 : o.speed), t: 0, hit: /* @__PURE__ */ new Map(), bounces: o.bounce || 0, tgt: null, think: 0, back: false, latch: null, stuck: false, trail: 0 };
+        pwShots.push(P);
+        out.push(P);
+      }
+      return out;
+    }
+    function pwShotEnd(i, at) {
+      const P = pwShots[i];
+      pwShots.splice(i, 1);
+      world.remove(P.m);
+      if (P.o.end) P.o.end(at || P.pos.clone(), P);
+    }
+    function pwNearest(pos, src, r, exclude) {
+      let best = null, bd = r;
+      for (const e of combatants) {
+        if (!e.alive || e === src || exclude && exclude.has(e)) continue;
+        const d = Math.hypot(e.pos.x - pos.x, e.pos.y + 1 - pos.y, e.pos.z - pos.z);
+        if (d < bd) {
+          bd = d;
+          best = e;
+        }
+      }
+      return best;
+    }
+    const _pws = new V(), _pn = new V();
+    function updatePwShots(dt) {
+      for (let i = pwShots.length - 1; i >= 0; i--) {
+        const P = pwShots[i], o = P.o;
+        P.t += dt;
+        for (const c of P.m.children) if (c.userData.flap) c.rotation.y = c.userData.flap * 0.6 * Math.sin(P.t * 24);
+        if (P.latch) {
+          const e = P.latch;
+          if (!e.alive || P.t > P.lt) {
+            pwShotEnd(i);
+            continue;
+          }
+          P.pos.set(e.pos.x, e.pos.y + (e.zgRoll > 1.5 ? 0.2 : 1.9), e.pos.z).add(new V(Math.cos(P.t * 6) * 0.5, 0, Math.sin(P.t * 6) * 0.5));
+          P.m.position.copy(P.pos);
+          P.tick = (P.tick || 0) - dt;
+          if (P.tick <= 0) {
+            P.tick = 0.4;
+            if (o.latch.dps) hurt(e, o.latch.dps * 0.4, P.src, { weapon: POW.name, point: P.pos.clone(), soft: true });
+            if (o.hit && e.alive) o.hit(e, P);
+          }
+          continue;
+        }
+        if (P.stuck) {
+          if (P.t > (o.fuse || P.t)) {
+            pwShotEnd(i);
+          }
+          continue;
+        }
+        if (o.fuse && P.t >= o.fuse || P.t > (o.life || 2)) {
+          pwShotEnd(i);
+          continue;
+        }
+        if (o.stop && P.t > o.stop) P.vel.multiplyScalar(Math.exp(-6 * dt));
+        if (o.home) {
+          P.think -= dt;
+          if (P.think <= 0) {
+            P.think = 0.2;
+            if (!P.tgt || !P.tgt.alive) P.tgt = o.chase && o.chase.alive ? o.chase : pwNearest(P.pos, P.src, o.homeR || 60, o.every ? null : P.hit);
+          }
+          if (P.tgt && P.t > (o.homeDelay || 0)) {
+            const sp2 = P.vel.length() || 1;
+            _pws.set(P.tgt.pos.x, P.tgt.pos.y + 1, P.tgt.pos.z).sub(P.pos).normalize().multiplyScalar(sp2);
+            P.vel.lerp(_pws, 1 - Math.exp(-o.home * dt)).setLength(sp2);
+          }
+        }
+        if (o.boomer && !P.back && P.t > (o.life || 2) * 0.45) {
+          P.back = true;
+          P.hit.clear();
+        }
+        if (P.back) {
+          const sp2 = Math.max(30, P.vel.length()), c = chest(P.src);
+          _pws.copy(c).sub(P.pos);
+          if (_pws.length() < 1.6) {
+            pwShotEnd(i);
+            continue;
+          }
+          P.vel.lerp(_pws.normalize().multiplyScalar(sp2), 1 - Math.exp(-8 * dt));
+        }
+        const sp = P.vel.length();
+        if (sp < 0.01) {
+          P.m.position.copy(P.pos);
+          continue;
+        }
+        const dir = _pn.copy(P.vel).divideScalar(sp);
+        let len = sp * dt;
+        let done2 = false;
+        for (const e of combatants) {
+          if (!e.alive || e === P.src) continue;
+          const last = P.hit.get(e);
+          if (last != null && (!o.every || P.t - last < o.every)) continue;
+          _dv.set(e.pos.x, e.pos.y + 1, e.pos.z);
+          if (segDist(P.pos, dir, len, _dv) > (o.r || 0.6) + 0.4) continue;
+          P.hit.set(e, P.t);
+          const at = _dv.clone();
+          if (o.dmg) hurt(e, o.dmg, P.src, { weapon: POW ? POW.name : "Pickaxe", point: at, dir: dir.clone(), soft: o.soft });
+          if (o.hit && e.alive) o.hit(e, P);
+          if (o.latch) {
+            P.latch = e;
+            P.lt = P.t + o.latch.dur;
+            done2 = true;
+            break;
+          }
+          if (!o.pierce && !o.every && !P.back) {
+            pwShotEnd(i, at);
+            done2 = true;
+            break;
+          }
+        }
+        if (done2) continue;
+        ray.set(P.pos, dir);
+        ray.near = 0;
+        ray.far = len;
+        const hs = ray.intersectObjects(meshesAlong(P.pos, dir, len, false), false);
+        let wall = -1, nrm = null;
+        if (hs.length) {
+          wall = hs[0].distance;
+          nrm = hs[0].face ? hs[0].face.normal.clone().transformDirection(hs[0].object.matrixWorld) : null;
+        }
+        const tb = boxRay(P.pos, dir, len);
+        if (tb < len && (wall < 0 || tb < wall)) {
+          wall = tb;
+          const q = P.pos.clone().addScaledVector(dir, tb), L = ZG.L;
+          nrm = q.x <= -L + 0.05 ? new V(1, 0, 0) : q.x >= L - 0.05 ? new V(-1, 0, 0) : q.z <= -L + 0.05 ? new V(0, 0, 1) : q.z >= L - 0.05 ? new V(0, 0, -1) : q.y <= 0.05 ? new V(0, 1, 0) : new V(0, -1, 0);
+        }
+        if (wall >= 0) {
+          P.pos.addScaledVector(dir, Math.max(0, wall - 0.05));
+          if (P.bounces > 0 && nrm) {
+            P.bounces--;
+            P.vel.reflect(nrm).multiplyScalar(0.92);
+            if (o.bounceHome) {
+              const t = pwNearest(P.pos, P.src, 80);
+              if (t) P.vel.copy(_pws.set(t.pos.x, t.pos.y + 1, t.pos.z).sub(P.pos).normalize().multiplyScalar(sp));
+            }
+            sfx("boing", P.pos.clone(), { small: true });
+          } else if (P.back) P.pos.addScaledVector(P.vel, dt * 0);
+          else if (o.stick || o.fuse && !o.boomOnWall) {
+            P.stuck = true;
+            P.vel.set(0, 0, 0);
+          } else {
+            pwShotEnd(i);
+            continue;
+          }
+        } else P.pos.addScaledVector(dir, len);
+        P.m.position.copy(P.pos);
+        if (o.spin) P.m.rotateZ(o.spin * dt);
+        else P.m.lookAt(_pws.copy(P.pos).add(P.vel));
+        if (o.trail) {
+          P.trail -= dt;
+          if (P.trail <= 0) {
+            P.trail = 0.03;
+            mote(pwMats(o.trail).soft, P.pos.clone(), rnd(0.3, 0.5) * (o.size || 1), 0.35, new V());
+          }
+        }
+      }
+    }
+    function pwZone(o) {
+      const Z = { o, t: 0, tick: 0, pos: (o.at || chest(o.follow || player)).clone(), m: null, fx: 0 };
+      if (!o.bare) {
+        const m = new T.Mesh(pwGeo.sphere, pwMats(o.col || PC).fog.clone());
+        m.scale.setScalar(0.1);
+        m.position.copy(Z.pos);
+        world.add(m);
+        Z.m = m;
+      }
+      pwZones.push(Z);
+      return Z;
+    }
+    function updatePwZones(dt) {
+      for (let i = pwZones.length - 1; i >= 0; i--) {
+        const Z = pwZones[i], o = Z.o;
+        Z.t += dt;
+        if (Z.t > o.dur) {
+          if (Z.m) world.remove(Z.m);
+          pwZones.splice(i, 1);
+          if (o.end) o.end(Z.pos.clone(), Z);
+          continue;
+        }
+        if (o.follow) Z.pos.copy(chest(o.follow));
+        const fade = Math.min(1, Z.t * 4, (o.dur - Z.t) * 2);
+        if (Z.m) {
+          Z.m.position.copy(Z.pos);
+          Z.m.scale.setScalar(o.r * Math.min(1, Z.t * 5));
+          Z.m.material.opacity = (o.op || 0.13) * fade;
+        }
+        Z.fx -= dt;
+        if (Z.fx <= 0) {
+          Z.fx = o.fxRate || 0.05;
+          const a = rv(1).normalize().multiplyScalar(Math.sqrt(Math.random()) * o.r);
+          mote(pwMats(o.col || PC)[o.spark ? "spark" : "soft"], Z.pos.clone().add(a), rnd(0.6, 1.4) * (o.puff || 1), rnd(0.6, 1.1), o.swirl ? new V(-a.z, 0, a.x).normalize().multiplyScalar(o.swirl) : rv(0.6), o.spark ? 4 : 0);
+        }
+        if (o.self && player.alive && player.pos.distanceTo(Z.pos) < o.r + 1) o.self(player, dt, Z);
+        Z.tick -= dt;
+        if (Z.tick <= 0) {
+          Z.tick = o.every || 0.25;
+          if (o.each) for (const e of combatants) {
+            if (!e.alive || e === (o.src || player)) continue;
+            if (Math.hypot(e.pos.x - Z.pos.x, e.pos.y + 1 - Z.pos.y, e.pos.z - Z.pos.z) > o.r + 0.5) continue;
+            o.each(e, Z);
+          }
+        }
+      }
+    }
+    function pwWall(p, o) {
+      camera.getWorldDirection(tv1);
+      const f = new V(tv1.x, 0, tv1.z);
+      if (f.lengthSq() < 0.01) f.set(0, 0, -1);
+      f.normalize();
+      const along = Math.abs(f.x) > Math.abs(f.z) ? "x" : "z", c = chest(p).addScaledVector(tv1, o.dist || 4), n = o.n || 1, out = [];
+      for (let k = 0; k < n; k++) {
+        const off = (k - (n - 1) / 2) * (o.gap || (o.w || 4) + 0.4), x = c.x + (along === "z" ? off : 0), z = c.z + (along === "x" ? off : 0);
+        const sx = along === "x" ? o.d || 0.5 : o.w || 4, sz = along === "z" ? o.d || 0.5 : o.w || 4, sy = o.h || 3;
+        const m = new T.Mesh(new T.BoxGeometry(sx, sy, sz), pwMats(o.col || PC).solid);
+        m.position.set(x, c.y, z);
+        world.add(m);
+        const piece = { meshes: [m], box: boxOf(x, c.y, z, sx, sy, sz) };
+        registerPiece(piece);
+        m.scale.setScalar(0.05);
+        const W = { m, piece, t: 0, dur: o.dur || 6 };
+        pwWalls.push(W);
+        out.push(W);
+        for (let i = 0; i < 8; i++) mote(pwMats(o.col || PC).soft, m.position.clone().add(rv(1.2)), rnd(0.8, 1.4), 0.5, rv(2));
+      }
+      sfx("chop", c.clone(), { mat: "stone" });
+      return out;
+    }
+    function updatePwWalls(dt) {
+      for (let i = pwWalls.length - 1; i >= 0; i--) {
+        const W = pwWalls[i];
+        W.t += dt;
+        const k = Math.min(1, W.t * 6, (W.dur - W.t) * 3);
+        W.m.scale.setScalar(Math.max(0.05, k));
+        if (W.t > W.dur) {
+          pwWalls.splice(i, 1);
+          world.remove(W.m);
+          W.m.geometry.dispose();
+          const j = structMeshes.indexOf(W.m);
+          if (j >= 0) structMeshes.splice(j, 1);
+          colliders.delete(W.piece.box);
+          targetsDirty = true;
+          puff(W.m.position, 14540253);
+        }
+      }
+    }
+    function later(t, f) {
+      pwLaters.push({ t, f });
+    }
+    function updateLaters(dt) {
+      for (let i = pwLaters.length - 1; i >= 0; i--) {
+        const L = pwLaters[i];
+        L.t -= dt;
+        if (L.t <= 0) {
+          pwLaters.splice(i, 1);
+          L.f();
+        }
+      }
+    }
+    function pwStrike(at, o) {
+      const col = o.col || PC, ring = new T.Mesh(shockRing, pwMats(col).flat.clone());
+      ring.position.copy(at);
+      ring.lookAt(at.clone().add(UP));
+      world.add(ring);
+      const d = o.delay || 0.8;
+      effects.push({ t: 0, dur: d, obj: ring, upd: (e, k) => {
+        ring.scale.setScalar((o.r || 5) * (1.2 - 0.2 * k));
+        ring.material.opacity = 0.35 + 0.4 * Math.abs(Math.sin(k * 20));
+      }, done: () => ring.material.dispose() });
+      if (o.fall) {
+        const m = pwLook(o.fall, col, o.fallSize || 2), top = new V(at.x + rnd(-6, 6), Math.min(ZG.H - 1, at.y + 40), at.z + rnd(-6, 6));
+        m.position.copy(top);
+        world.add(m);
+        effects.push({ t: 0, dur: d, obj: m, upd: (e, k) => {
+          m.position.lerpVectors(top, at, k * k);
+          if (o.fallTrail && Math.random() < 0.7) flame(m.position.clone(), rnd(1, 1.6), 0.3, rv(1));
+        } });
+      }
+      later(d, () => {
+        if (!o.fall) {
+          const top = new V(at.x, Math.min(ZG.H, at.y + 60), at.z), b = new T.Mesh(beamGeo, pwMats(col).flat.clone());
+          world.add(b);
+          effects.push({ t: 0, dur: 0.4, obj: b, upd: (e, k) => {
+            placeSeg(b, top, at, (o.r || 5) * 0.35 * (1 - k) + 0.05);
+            b.material.opacity = 0.7 * (1 - k);
+          }, done: () => b.material.dispose() });
+        }
+        pwBlast(at, Object.assign({}, o, { r: o.r || 5 }));
+        if (o.after) o.after(at);
+      });
+    }
+    function pwTargets(p, reach, cosMin, all, thru) {
+      const dir = lookDir(), c = chest(p), out = [];
+      for (const e of combatants) {
+        if (!e.alive || e === p) continue;
+        _dv.set(e.pos.x, e.pos.y + 1, e.pos.z).sub(c);
+        const d = _dv.length();
+        if (d > reach + 0.5) continue;
+        if (d > 1.2 && _dv.dot(dir) < cosMin * d) continue;
+        const at = new V(e.pos.x, e.pos.y + 1.1, e.pos.z);
+        if (!thru && !hasLOS(c, at)) continue;
+        out.push({ d, e, at });
+      }
+      out.sort((a, b) => a.d - b.d);
+      return all ? out : out.slice(0, 1);
+    }
+    function pwMelee(p, dmg, o) {
+      o = o || {};
+      const hits = pwTargets(p, PW_REACH * (o.reach || 1), o.wide ? 0.35 : 0.6, !!o.wide, !!o.thru), dir = lookDir();
+      for (const h of hits) {
+        hurt(h.e, dmg, p, { point: h.at, weapon: POW ? POW.name : "Pickaxe", dir, melee: true });
+        if (o.each && h.e.alive) o.each(h.e, h.at);
+        cutFx(h.at);
+      }
+      return hits;
+    }
+    function pwDash(p, o) {
+      p.dash = { o, t: 0, dir: (o.dir || lookDir()).clone(), hit: /* @__PURE__ */ new Set() };
+      sfx("propel");
+    }
+    function pwCone(p, o, dt) {
+      const m = chest(p).addScaledVector(lookDir(), 0.8), at = aimPoint(p, lookDir(), (o.range || 12) + camDistNow + 4), dir = at.sub(m).normalize();
+      if (o.fire) {
+        flameJet(p, m, dir, { range: o.range || 12, dmg: o.dmg || 5, name: POW.name });
+        return;
+      }
+      for (let i = 0; i < 2; i++) {
+        const v = dir.clone().multiplyScalar(rnd(18, 24)).add(rv(2.5));
+        mote(pwMats(o.col || PC).soft, m.clone().addScaledVector(dir, 0.3), rnd(0.5, 0.8), Math.min(0.6, (o.range || 12) / 20), v);
+      }
+      p.coneTick = (p.coneTick || 0) - dt;
+      if (p.coneTick > 0) return;
+      p.coneTick = 0.12;
+      for (const e of combatants) {
+        if (!e.alive || e === p) continue;
+        _dv.set(e.pos.x - m.x, e.pos.y + 1 - m.y, e.pos.z - m.z);
+        const along = _dv.dot(dir);
+        if (along < 0 || along > (o.range || 12) + 0.6) continue;
+        const perp = _dv.addScaledVector(dir, -along).length();
+        if (perp > 0.5 + along * (o.w || 0.2) + 0.4) continue;
+        if (!hasLOS(m, _dv.set(e.pos.x, e.pos.y + 1, e.pos.z))) continue;
+        if (o.dmg) hurt(e, o.dmg, p, { weapon: POW.name, point: _dv.clone(), dir: dir.clone(), soft: true });
+        if (o.each && e.alive) o.each(e);
+      }
+    }
+    function pwConeBurst(p, o) {
+      const dir = lookDir(), c = chest(p);
+      for (let i = 0; i < 26; i++) {
+        const v = dir.clone().add(rv(o.w || 0.35)).normalize().multiplyScalar(rnd(14, 26));
+        mote(pwMats(o.col || PC).soft, c.clone().addScaledVector(dir, 0.8), rnd(0.6, 1.1), rnd(0.4, 0.7), v);
+      }
+      for (const e of combatants) {
+        if (!e.alive || e === p) continue;
+        _dv.set(e.pos.x, e.pos.y + 1, e.pos.z).sub(c);
+        const d = _dv.length();
+        if (d > (o.range || 12)) continue;
+        if (_dv.dot(dir) < (o.cos || 0.75) * d) continue;
+        if (!hasLOS(c, tv2.set(e.pos.x, e.pos.y + 1, e.pos.z))) continue;
+        if (o.dmg) hurt(e, o.dmg, p, { weapon: POW.name, point: tv2.clone(), dir: dir.clone() });
+        if (o.each && e.alive) o.each(e);
+      }
+      sfx(o.sfx || "shockS", c.clone());
+    }
+    function pwBeam(p, o, dt) {
+      const dir = lookDir(), hand = p.ch.bones.RightHand.getWorldPosition(new V()), h = nearMiss(p, dir, aimHit(p, dir, (o.range || 70) + camDistNow), hand, 1);
+      const g = new T.Group(), core = new T.Mesh(beamGeo, pwMats(16777215).flat), glw = new T.Mesh(beamGeo, pwMats(o.col || PC).flat);
+      g.add(glw);
+      g.add(core);
+      world.add(g);
+      effects.push({ t: 0, dur: 0.05, obj: g, upd: (e, k) => {
+        placeSeg(core, hand, h.p, 0.05);
+        placeSeg(glw, hand, h.p, (o.w || 0.2) * (1 + 0.2 * Math.sin(matchTime * 50)));
+      } });
+      if (Math.random() < 0.5) mote(pwMats(o.col || PC).spark, h.p.clone(), rnd(0.4, 0.7), 0.2, rv(4), 8);
+      if (h.ent) {
+        p.beamTick = (p.beamTick || 0) - dt;
+        if (p.beamTick <= 0) {
+          p.beamTick = 0.1;
+          hurt(h.ent, (o.dps || 40) * 0.1, p, { weapon: POW.name, point: h.p, dir, soft: true });
+          if (o.each && h.ent.alive) o.each(h.ent);
+        }
+      }
+    }
+    function pwOrbit(p, o) {
+      if (p.orbit) for (const m of p.orbit.ms) world.remove(m);
+      const ms = [];
+      for (let i = 0; i < o.n; i++) {
+        const m = pwLook(o.look, o.col || PC, o.size || 1);
+        world.add(m);
+        ms.push(m);
+      }
+      p.orbit = { o, t: 0, ms, cd: /* @__PURE__ */ new Map() };
+      if (o.absorb) p.absorb = (p.absorb || 0) + o.absorb * o.n;
+    }
+    function updateOrbit(p, dt) {
+      const O = p.orbit;
+      if (!O) return;
+      O.t += dt;
+      const o = O.o;
+      if (o.absorb && O.ms.length > Math.ceil((p.absorb || 0) / o.absorb)) {
+        const m = O.ms.pop();
+        world.remove(m);
+        puff(m.position, o.col || PC);
+      }
+      if (O.t > o.dur || !p.alive || !O.ms.length) {
+        for (const m of O.ms) world.remove(m);
+        if (o.absorb) p.absorb = 0;
+        p.orbit = null;
+        return;
+      }
+      const c = chest(p);
+      O.ms.forEach((m, i) => {
+        const a = O.t * (o.spin || 3) + i * TAU / O.ms.length;
+        m.position.set(c.x + Math.cos(a) * o.r, c.y + Math.sin(O.t * 2 + i) * 0.3, c.z + Math.sin(a) * o.r);
+        m.rotation.y = -a;
+        if (o.dmg || o.each) for (const e of combatants) {
+          if (!e.alive || e === p) continue;
+          if (Math.hypot(e.pos.x - m.position.x, e.pos.y + 1 - m.position.y, e.pos.z - m.position.z) > 1.4) continue;
+          const last = O.cd.get(e) || -9;
+          if (O.t - last < 0.5) continue;
+          O.cd.set(e, O.t);
+          if (o.dmg) hurt(e, o.dmg, p, { weapon: POW.name, point: m.position.clone(), soft: true });
+          if (o.each && e.alive) o.each(e);
+        }
+      });
+    }
+    function pwGrapple(p, o) {
+      const dir = lookDir(), h = aimHit(p, dir, (o.range || 70) + camDistNow), hand = p.ch.bones.RightHand.getWorldPosition(new V());
+      const line = new T.Mesh(beamGeo, pwMats(o.col || PC).flat);
+      world.add(line);
+      if (h.ent && o.pullEnemy) {
+        const e = h.ent;
+        pwKnock(e, chest(p).sub(chest(e)).normalize(), Math.min(40, chest(p).distanceTo(chest(e)) * 2.2));
+        pwStun(e, 0.5);
+        effects.push({ t: 0, dur: 0.35, obj: line, upd: () => placeSeg(line, p.ch.bones.RightHand.getWorldPosition(new V()), chest(e), 0.035) });
+        sfx("stretch");
+        return;
+      }
+      if (!(h.wall || h.ent)) {
+        world.remove(line);
+        sfx("deny");
+        return false;
+      }
+      p.grap = { to: h.p.clone(), t: 0, line, o };
+      sfx("stick", h.p.clone());
+      return true;
+    }
+    function pwTeleport(p, range) {
+      const dir = lookDir(), c = chest(p), h = aimHit(p, dir, range + camDistNow), d = Math.max(0, Math.min(range, c.distanceTo(h.p) - 1.5)), to = c.clone().addScaledVector(dir, d);
+      for (let i = 0; i < 14; i++) {
+        mote(pwMats(PC).spark, c.clone().add(rv(0.7)), rnd(0.3, 0.6), 0.4, rv(3), 9);
+        mote(pwMats(PC).spark, to.clone().add(rv(0.7)), rnd(0.3, 0.6), 0.4, rv(3), 9);
+      }
+      p.pos.set(clamp(to.x, -ZG.L + 1, ZG.L - 1), clamp(to.y - 1.2, 0.2, ZG.H - 2.2), clamp(to.z, -ZG.L + 1, ZG.L - 1));
+      p.vel.multiplyScalar(0.3);
+      sfx("zapB", to.clone());
+    }
+    function pwHazard(at, col, dmg, dur, r) {
+      pwZone({ at, r: r || 1.6, dur: dur || 1.5, col, bare: true, every: 0.3, fxRate: 0.04, puff: 0.6, each: (e) => hurt(e, dmg, player, { weapon: POW.name, soft: true }) });
+    }
+    function giveShopItem() {
+      const p = player, opts = SHOP.filter((it2) => it2.id !== "bounce" && !ownsItem(it2.id));
+      let slot = -1;
+      for (let k = 6; k < NSLOT; k++) if (!p.slots[k]) {
+        slot = k;
+        break;
+      }
+      if (!opts.length || slot < 0) {
+        pwShield(p, 25);
+        return "Shield";
+      }
+      const it = pick(opts);
+      p.slots[slot] = it.id === "mf" ? { kind: "gun", id: "mf", r: 4, ammo: MF_CLIP } : it.id === "gren" ? { kind: "vest", id: "gren", count: GREN_N, regen: 0 } : { kind: "gun", id: it.id, r: 4, ammo: 1, cd: 0 };
+      refreshHotbar();
+      return it.name;
+    }
+    function pwEquip(eq) {
+      POW = eq && !eq.anime && POWERS[eq.n] ? Object.assign({ name: eq.n }, POWERS[eq.n]) : null;
+      PC = eq ? new T.Color(eq.h1).getHex() : 16777215;
+      const p = player;
+      if (!p) return;
+      if (p.orbit) {
+        for (const m of p.orbit.ms) world.remove(m);
+        p.orbit = null;
+      }
+      if (p.grap) {
+        world.remove(p.grap.line);
+        p.grap = null;
+      }
+      p.dash = null;
+      p.ride = null;
+      p.pwCd = 0;
+      p.pwOn = false;
+      p.pwHits = 0;
+      p.pwSwings = 0;
+      p.pwCombo = 0;
+      p.pwComboT = 0;
+      p.pwLives = POW && POW.lives ? POW.lives : 0;
+      p.pwEarned = false;
+      p.absorb = 0;
+      p.bubbles = 0;
+      p.pb = {};
+    }
+    function pwSwing(p) {
+      if (p.fireCd > 0) return;
+      const T0 = POW.tap;
+      p.fireCd = 0.42 / ((T0.spd || 1) * bv(p, "swing", 1));
+      p.swingSide = p.swingT > 0 || p.comboT > 0 ? 1 - (p.swingSide || 0) : 0;
+      p.swingT = SWING_T / Math.max(1, (T0.spd || 1) * 0.8);
+      p.comboT = p.swingT + 0.3;
+      p.hitT = p.swingT * PICK_HIT;
+      sfx("swing");
+      if (p.pwAmbush && bv(p, "hide")) {
+        p.pb.hide.t = 0;
+      }
+    }
+    function pwHit(p) {
+      const T0 = POW.tap;
+      p.pwSwings++;
+      const hits = pwTargets(p, PW_REACH * (T0.reach || 1), T0.wide ? 0.35 : 0.6, !!T0.wide, !!T0.thru), dir = lookDir();
+      for (const h of hits) {
+        const e = h.e;
+        let dmg = PW_BASE * (T0.dmg || 1);
+        if (T0.mod) dmg *= T0.mod(p, e);
+        if (p.pwAmbush) {
+          dmg *= 2;
+          p.pwAmbush = false;
+        }
+        if (T0.combo) {
+          p.pwCombo = p.pwComboT > 0 ? Math.min(5, p.pwCombo + 1) : 0;
+          p.pwComboT = 2;
+          dmg += p.pwCombo * 2;
+        }
+        const crit = T0.crit && Math.random() < T0.crit;
+        if (crit) dmg *= 2;
+        hurt(e, dmg, p, { point: h.at, weapon: POW.name, dir, melee: true, head: crit });
+        p.pwHits++;
+        if (e.alive && T0.hit) T0.hit(p, e, h.at);
+        if (T0.knock && e.alive) pwKnock(e, dir, T0.knock);
+        if (T0.pull && e.alive) pwPull(e, chest(p), T0.pull);
+        if (T0.heal) pwHeal(p, T0.heal);
+      }
+      if (!hits.length) {
+        const h = aimHit(p, dir, camDistNow + PW_REACH);
+        if (h.wall) sfx("chop", h.p, { mat: "stone" });
+      }
+      if (T0.swing) T0.swing(p, hits);
+    }
+    function pwInput(p, dt) {
+      const H = POW.hold;
+      if (mouse.l) {
+        p.aHold = (p.aHold || 0) + dt;
+        if (p.aHold <= ANIME_HOLD || lockedUp(p)) return;
+        if (p.pwOn) {
+          p.pwT += dt;
+          if (H.kind === "chan") {
+            H.tick(p, dt, p.pwT);
+            if (p.pwT >= H.max) pwHoldEnd(p);
+          } else if (H.kind === "charge") {
+            const k = Math.min(1, p.pwT / H.max);
+            if (Math.random() < 0.6) mote(pwMats(PC).soft, chest(p).add(rv(1).normalize().multiplyScalar(2.2 - 1.4 * k)), rnd(0.3, 0.6) * (0.6 + k), 0.25, new V());
+            p.anim.hit = Math.max(p.anim.hit || 0, 0.15 * k);
+          }
+          return;
+        }
+        if (p.pwFired) return;
+        p.pwFired = true;
+        if (p.pwCd > 0) {
+          sfx("deny");
+          return;
+        }
+        if (!H.kind || H.kind === "once") {
+          const ok = H.go(p);
+          if (ok !== false) {
+            p.pwCd = H.cd;
+            p.swingT = SWING_T;
+            p.swingSide = 0;
+          } else p.pwCd = 0.5;
+        } else {
+          p.pwOn = true;
+          p.pwT = 0;
+          if (H.start) H.start(p);
+          if (H.kind === "charge") sfx("useStart", null, { id: "big" });
+        }
+      } else {
+        if (p.pwOn) pwHoldEnd(p);
+        p.aHold = 0;
+        p.pwFired = false;
+      }
+    }
+    function pwHoldEnd(p) {
+      const H = POW.hold;
+      if (!p.pwOn) return;
+      p.pwOn = false;
+      if (H.kind === "charge") {
+        H.go(p, Math.min(1, p.pwT / H.max));
+        p.swingT = SWING_T;
+      } else if (H.end) H.end(p);
+      p.pwCd = H.cd;
+    }
+    function pwOnKill(t) {
+      if (POW && POW.tap.kill) POW.tap.kill(player, t);
+    }
+    function pwUpdate(dt) {
+      const p = player;
+      if (!p) return;
+      updatePwShots(dt);
+      updatePwZones(dt);
+      updatePwWalls(dt);
+      updateLaters(dt);
+      updateOrbit(p, dt);
+      if (p.pwCd > 0) p.pwCd = Math.max(0, p.pwCd - dt);
+      if (p.pwComboT > 0) p.pwComboT -= dt;
+      if (!p.alive) {
+        p.dash = null;
+        if (p.grap) {
+          world.remove(p.grap.line);
+          p.grap = null;
+        }
+        return;
+      }
+      if (POW && !curItem() && state === "play") pwInput(p, dt);
+      else if (p.pwOn) pwHoldEnd(p);
+      if (bv(p, "regen")) pwHeal(p, bv(p, "regen") * dt);
+      if (p.ride && p.ride.t > 0) {
+        p.ride.t -= dt;
+        p.vel.copy(lookDir().multiplyScalar(p.ride.speed));
+        p.boostT = 0.3;
+        if (p.ride.tick) p.ride.tick(p, dt);
+      }
+      if (p.dash) {
+        const D2 = p.dash, o = D2.o;
+        D2.t += dt;
+        p.vel.copy(D2.dir).multiplyScalar(o.speed || 40);
+        p.boostT = 0.3;
+        if (Math.random() < 0.8) mote(pwMats(o.col || PC).soft, chest(p).add(rv(0.4)), rnd(0.6, 1.1), 0.4, new V());
+        for (const e of combatants) {
+          if (!e.alive || e === p || D2.hit.has(e)) continue;
+          if (Math.hypot(e.pos.x - p.pos.x, e.pos.y - p.pos.y, e.pos.z - p.pos.z) > 2.4) continue;
+          D2.hit.add(e);
+          if (o.dmg) hurt(e, o.dmg, p, { weapon: POW.name, point: chest(e), dir: D2.dir.clone(), melee: true });
+          if (o.each && e.alive) o.each(e);
+          if (o.first) {
+            D2.t = o.dur;
+            break;
+          }
+        }
+        if (D2.t >= o.dur) {
+          p.dash = null;
+          p.vel.multiplyScalar(0.35);
+          if (o.end) o.end(p);
+        }
+      }
+      if (p.grap) {
+        const G = p.grap;
+        G.t += dt;
+        const hand = p.ch.bones.RightHand.getWorldPosition(new V());
+        placeSeg(G.line, hand, G.to, 0.035);
+        _pws.copy(G.to).sub(chest(p));
+        const d = _pws.length();
+        if (d < 2.4 || G.t > 1.8 || mouse.r) {
+          world.remove(G.line);
+          p.grap = null;
+          p.vel.multiplyScalar(0.4);
+        } else {
+          p.vel.copy(_pws.divideScalar(d).multiplyScalar(G.o.speed || 42));
+          p.boostT = 0.3;
+        }
+      }
+      if (bv(p, "hide") && Math.random() < 0.4) mote(pwMats(12568790).soft, chest(p).add(rv(0.5)), rnd(0.3, 0.5), 0.3, new V());
+      if (bv(p, "guard") && p.guardFx !== false && Math.random() < 0.5) mote(pwMats(PC).spark, chest(p).add(rv(1).normalize().multiplyScalar(1.3)), rnd(0.2, 0.4), 0.25, new V(), 6);
+    }
+    const fan = (p, o) => pwShot(p, o);
+    const cutLine = (p, len, col, dmg, each) => {
+      const dir = lookDir(), a = chest(p), b = a.clone().addScaledVector(dir, len), m = new T.Mesh(beamGeo, pwMats(col).flat.clone());
+      world.add(m);
+      effects.push({ t: 0, dur: 0.3, obj: m, upd: (e, k) => {
+        placeSeg(m, a, b, 0.09 * (1 - k) + 0.01);
+        m.material.opacity = 1 - k;
+      }, done: () => m.material.dispose() });
+      for (const e of combatants) {
+        if (!e.alive || e === p) continue;
+        _dv.set(e.pos.x, e.pos.y + 1, e.pos.z);
+        if (segDist(a, dir, len, _dv) > 1.3) continue;
+        hurt(e, dmg, p, { weapon: POW.name, point: _dv.clone(), dir });
+        if (each && e.alive) each(e);
+        cutFx(_dv.clone());
+      }
+      sfx("katana", a.clone());
+    };
+    const POWERS = {
+      // ---------- Halloween
+      "Jack's Grin": {
+        tap: { swing: (p) => fan(p, { look: "pumpkin", speed: 9, fuse: 1, size: 1, dmg: 0, stick: true, end: (at) => pwBlast(at, { r: 4.5, dmg: 30, col: 16747039 }) }) },
+        hold: { cd: 9, go: (p) => {
+          fan(p, { look: "pumpkin", size: 2.6, speed: 34, life: 3, boomOnWall: true, end: (at) => {
+            pwBlast(at, { r: 6, dmg: 40, fire: true });
+            for (let i = 0; i < 5; i++) fan(p, { from: at, dir: rv(1).normalize(), look: "pumpkin", speed: 12, fuse: 0.9, stick: true, end: (a) => pwBlast(a, { r: 4, dmg: 22, col: 16747039 }) });
+          } });
+        } }
+      },
+      "Night Wing": {
+        tap: { swing: (p) => fan(p, { look: "bat", col: 3811930, n: 3, spread: 0.35, speed: 26, home: 5, homeR: 40, life: 2.5, dmg: 6, size: 0.8 }) },
+        hold: { cd: 8, go: (p) => pwDash(p, { speed: 36, dur: 2, dmg: 15, col: 3811930, each: (e) => pwSlow(e, 0.2) }) }
+      },
+      "Grave Digger": {
+        tap: { hit: (p, e, at) => {
+          pwBlind(e, 1);
+          for (let i = 0; i < 6; i++) mote(pwMats(7031338).soft, at.clone(), rnd(0.3, 0.6), 0.5, rv(3));
+        } },
+        hold: { cd: 10, go: (p) => {
+          pwWall(p, { n: 3, w: 1.6, h: 2.6, d: 0.6, dist: 4, dur: 6, col: 5133152, gap: 2.2 });
+        } }
+      },
+      "Reaper's Toll": {
+        tap: { wide: true, dmg: 1.1 },
+        hold: { cd: 8, go: (p) => {
+          const c = chest(p), ring = new T.Mesh(pwGeo.crescent, pwMats(10181887).flat.clone());
+          ring.position.copy(c);
+          world.add(ring);
+          effects.push({ t: 0, dur: 0.5, obj: ring, upd: (e, k) => {
+            ring.position.copy(chest(p));
+            ring.rotation.set(Math.PI / 2, 0, k * TAU * 1.2);
+            ring.scale.setScalar(5.5);
+            ring.material.opacity = 1 - k;
+          }, done: () => ring.material.dispose() });
+          for (const e of enemies(p)) {
+            if (chest(e).distanceTo(c) > 6) continue;
+            hurt(e, 32, p, { weapon: POW.name, point: chest(e), melee: true });
+            pwHeal(p, 10);
+            cutFx(chest(e));
+          }
+          sfx("katana", c.clone());
+        } }
+      },
+      "Candy Corn Crusher": {
+        tap: { spd: 1.15, swing: (p) => fan(p, { look: "dart", col: 16756778, n: 3, spread: 0.08, speed: 70, dmg: 6, life: 1 }) },
+        hold: { cd: 6, go: (p) => fan(p, { look: "dart", col: 16756778, n: 15, spread: 0.4, vspread: 0.08, speed: 65, dmg: 7, life: 1.1 }) }
+      },
+      "Witch's Brew": {
+        tap: { hit: (p, e, at) => {
+          pwSlow(e, 0.35);
+          for (let i = 0; i < 5; i++) mote(pwMats(6021194).soft, at.clone(), rnd(0.3, 0.6), 0.5, rv(2.5));
+        } },
+        hold: { cd: 9, go: (p) => fan(p, { look: "orb", col: 6021194, speed: 38, life: 2, boomOnWall: true, end: (at) => pwZone({ at, r: 6, dur: 5, col: 6021194, each: (e) => {
+          pwSlow(e, 0.18);
+          pwPoison(e, player, 8, 1);
+        } }) }) }
+      },
+      "Bone Pick": {
+        tap: { hit: (p, e) => pwReveal(e, 3, 15920344) },
+        hold: { cd: 6, go: (p) => fan(p, { look: "bone", col: 15920344, speed: 45, life: 1.4, boomer: true, pierce: true, dmg: 28, spin: 18, size: 1.4 }) }
+      },
+      "Spider Silk": {
+        tap: { hit: (p, e) => pwStun(e, 1) },
+        hold: { cd: 5, go: (p) => pwGrapple(p, { col: 16054010, speed: 46 }) }
+      },
+      "Ghost Light": {
+        tap: { thru: true },
+        hold: { cd: 12, go: (p) => {
+          buff(p, "ghost", 2);
+          buff(p, "hide", 2);
+          sfx("zapB");
+          later(2, () => {
+            if (!p.alive) return;
+            pwBlast(chest(p), { r: 8, dmg: 12, col: 12577023, kb: 10, each: (e) => pwStun(e, 1.2) });
+            sfx("roar", p.pos.clone());
+          });
+        } }
+      },
+      "Pumpkin King": {
+        tap: { dmg: 1.6, spd: 0.8 },
+        hold: { cd: 12, go: (p) => pwOrbit(p, { n: 6, r: 2.6, dur: 6, look: "pumpkin", col: 16747039, size: 1.3, dmg: 8, each: (e) => ignite(e, p) }) }
+      },
+      // ---------- Christmas
+      "Candy Cane Classic": {
+        tap: { pull: 18 },
+        hold: { cd: 5, go: (p) => pwGrapple(p, { col: 16731486, speed: 44 }) }
+      },
+      "Holly Jolly": {
+        tap: { heal: 5 },
+        hold: { cd: 12, go: (p) => {
+          pwZone({ at: chest(p), r: 5, dur: 5, col: 3119690, spark: true, self: (q, dt) => pwHeal(q, 10 * dt) });
+          sfx("healDone");
+        } }
+      },
+      "Gingerbread Smash": {
+        tap: { dmg: 1.15, knock: 26 },
+        hold: { cd: 9, go: (p) => fan(p, { look: "ginger", col: 11563066, speed: 16, home: 3, homeR: 70, life: 6, size: 1.3, r: 0.9, end: (at) => pwBlast(at, { r: 5, dmg: 40, fire: true }) }) }
+      },
+      "Nutcracker Guard": {
+        tap: { reach: 1.6 },
+        hold: { cd: 7, go: (p) => pwDash(p, { speed: 42, dur: 0.25, dmg: 30, col: 13214247, each: (e) => {
+          if (e.shield > 0) {
+            e.shield = 0;
+            sfx("shieldBreak");
+          }
+        } }) }
+      },
+      "Frostbite": {
+        tap: { hit: (p, e) => pwSlow(e, 0.3) },
+        hold: { kind: "chan", cd: 8, max: 1.6, tick: (p, dt) => pwCone(p, { range: 14, w: 0.18, dmg: 2, col: 10478591, each: (e) => {
+          if (e.frozen > 0 || e.frzImm > 0) return;
+          e.chill = Math.min(1, (e.chill || 0) + 0.16);
+          if (e.chill >= 1) freezeChar(e);
+        } }, dt) }
+      },
+      "Sleigh Bell": {
+        tap: { hit: (p, e) => pwStun(e, 0.5) },
+        hold: { cd: 12, go: (p) => {
+          p.ride = { t: 3, speed: 28, drop: 0, tick: (q, dt) => {
+            q.ride.drop -= dt;
+            if (Math.random() < 0.5) mote(pwMats(16765503).spark, chest(q).add(rv(0.6)), rnd(0.3, 0.5), 0.5, new V(), 6);
+            if (q.ride.drop <= 0) {
+              q.ride.drop = 0.4;
+              fan(q, { from: q.pos.clone(), dir: lookDir().negate(), look: "gift", col: 15214652, speed: 2, fuse: 1, stick: true, end: (at) => pwBlast(at, { r: 4, dmg: 22, col: 15214652 }) });
+            }
+          } };
+          sfx("pickup");
+        } }
+      },
+      "Ugly Sweater": {
+        tap: { hit: (p, e) => pwSlow(e, 0.25) },
+        hold: { cd: 12, go: (p) => {
+          p.absorb = Math.max(p.absorb || 0, 50);
+          for (let i = 0; i < 14; i++) mote(pwMats(3119690).soft, chest(p).add(rv(1)), rnd(0.5, 0.9), 0.6, rv(1));
+          sfx("useStart", null, { id: "big" });
+        } }
+      },
+      "Ornament Breaker": {
+        tap: { hit: (p, e, at) => {
+          for (const o of enemies(p)) if (o !== e && chest(o).distanceTo(at) < 3) hurt(o, 5, p, { weapon: POW.name, soft: true });
+          hurt(e, 5, p, { weapon: POW.name, soft: true });
+          for (let i = 0; i < 6; i++) mote(pwMats(14216956).spark, at.clone(), rnd(0.2, 0.4), 0.35, rv(6), 9);
+        } },
+        hold: { cd: 7, go: (p) => fan(p, { look: "orb", col: 15214652, size: 2, speed: 42, life: 2, boomOnWall: true, end: (at) => {
+          for (let i = 0; i < 12; i++) fan(p, { from: at, dir: rv(1).normalize(), look: "shard", col: 14216956, speed: 30, life: 0.6, dmg: 8 });
+          sfx("shatter", at);
+        } }) }
+      },
+      "North Star": {
+        tap: { swing: (p) => fan(p, { look: "star", col: 16773800, speed: 40, home: 6, homeR: 50, life: 2, dmg: 8 }) },
+        hold: { cd: 8, go: (p) => pwStrike(aimPoint(p, lookDir(), 150), { delay: 1, r: 6, dmg: 50, col: 16773800 }) }
+      },
+      "Krampus Claw": {
+        tap: { hit: (p, e) => pwMark(e, 10, 1.1, 11541034) },
+        hold: { cd: 9, go: (p) => {
+          let n = 0;
+          for (const e of enemies(p)) {
+            if (!(e.markT > 0) || chest(e).distanceTo(chest(p)) > 70) continue;
+            n++;
+            zapArc(chest(p), chest(e), 0.35, 0.03, pwMats(4473924).flat, pwMats(11541034).flat);
+            hurt(e, 10, p, { weapon: POW.name });
+            pwPull(e, chest(p), 40);
+            pwStun(e, 0.5);
+          }
+          if (!n) {
+            sfx("deny");
+            return false;
+          }
+          sfx("stretch");
+        } }
+      },
+      // ---------- Graffiti
+      "Fresh Tag": {
+        tap: { hit: (p, e) => pwMark(e, 5, 1.1, 16727972) },
+        hold: { cd: 10, go: (p) => {
+          const at = aimHit(p, lookDir(), 120).p;
+          pwZone({ at, r: 25, dur: 8, col: 16727972, op: 0.04, each: (e) => pwReveal(e, 0.6, 16727972) });
+          for (let i = 0; i < 20; i++) mote(pwMats(16727972).soft, at.clone().add(rv(1.5)), rnd(0.8, 1.4), 1, rv(1));
+          sfx("ui");
+        } }
+      },
+      "Drip Lord": {
+        tap: { swing: (p) => {
+          for (let i = 0; i < 4; i++) mote(pwMats(10181887).soft, chest(p).addScaledVector(lookDir(), 1).add(rv(0.5)), rnd(0.3, 0.5), 1, new V(0, -1, 0));
+        } },
+        hold: { cd: 8, go: (p) => {
+          pwDash(p, { speed: 34, dur: 0.6, col: 10181887 });
+          buff(p, "spd", 4, 1.4);
+        } }
+      },
+      "Wildstyle": {
+        tap: { hit: (p, e) => {
+          const r = Math.random();
+          if (r < 0.34) ignite(e, p);
+          else if (r < 0.67) pwSlow(e, 0.4);
+          else {
+            pwStun(e, 0.5);
+            zapArc(chest(p), chest(e), 0.15, 0.03);
+          }
+        } },
+        hold: { cd: 8, go: (p) => pwConeBurst(p, { range: 11, cos: 0.72, dmg: 25, col: 16727972, each: (e) => {
+          ignite(e, p);
+          pwSlow(e, 0.5);
+          pwStun(e, 0.6);
+        } }) }
+      },
+      "Wet Paint": {
+        tap: { knock: 20 },
+        hold: { cd: 9, go: (p) => fan(p, { look: "orb", col: 4169973, size: 1.4, speed: 36, life: 2, boomOnWall: true, end: (at) => pwZone({ at, r: 6, dur: 6, col: 4169973, each: (e) => {
+          e.knockT = Math.max(e.knockT || 0, 0.4);
+          e.vel.add(rv(3));
+        } }) }) }
+      },
+      "Throw-Up": {
+        tap: { hit: (p) => {
+          p.bubbles = Math.min(3, (p.bubbles || 0) + 1);
+        } },
+        hold: { cd: 12, go: (p) => {
+          buff(p, "guard", 3, 2);
+          const b = new T.Mesh(pwGeo.sphere, pwMats(16748488).fog.clone());
+          world.add(b);
+          effects.push({ t: 0, dur: 3, obj: b, upd: (e, k) => {
+            b.position.copy(chest(p));
+            b.scale.setScalar(1.7 + 0.05 * Math.sin(e.t * 9));
+            b.material.opacity = 0.3 * (1 - k * k);
+          }, done: () => b.material.dispose() });
+          sfx("boing");
+        } }
+      },
+      "Back Alley": {
+        tap: { knock: 16 },
+        hold: { cd: 10, go: (p) => {
+          pwWall(p, { w: 5, h: 3.4, d: 0.7, dist: 4, dur: 6, col: 11027754 });
+        } }
+      },
+      "Burner": {
+        tap: { hit: (p, e) => ignite(e, p) },
+        hold: { kind: "chan", cd: 8, max: 2, tick: (p, dt) => pwCone(p, { range: 13, dmg: 6, fire: true }, dt) }
+      },
+      "Stencil": {
+        tap: { dmg: 1.1, crit: 0.3 },
+        hold: { cd: 7, go: (p) => cutLine(p, 30, 16777215, 40) }
+      },
+      "Spray Can": {
+        tap: { hit: (p, e, at) => {
+          pwBlind(e, 0.5);
+          for (let i = 0; i < 4; i++) mote(pwMats(8950434).soft, at.clone(), rnd(0.6, 1), 0.8, rv(1));
+        } },
+        hold: { cd: 12, go: (p) => fan(p, { look: "box", col: 8950434, speed: 34, life: 1.5, boomOnWall: true, end: (at) => pwZone({ at, r: 8, dur: 8, col: 8950434, op: 0.35, puff: 2, fxRate: 0.03, each: (e) => pwBlind(e, 0.5), self: (q) => buff(q, "hide", 0.3) }) }) }
+      },
+      "Rooftop King": {
+        tap: { mod: (p, e) => (p.pos.y - e.pos.y) * (ZG.state === "ceil" ? -1 : 1) > 1.5 ? 1.2 : 1 },
+        hold: { cd: 8, go: (p) => {
+          const t = crosshairTarget(p, 0.97);
+          p.vel.y += (ZG.state === "ceil" ? -1 : 1) * 18;
+          sfx("jump");
+          later(0.35, () => {
+            if (!p.alive) return;
+            const to = t && t.alive ? chest(t) : aimPoint(p, lookDir(), 60);
+            pwDash(p, { dir: to.sub(chest(p)).normalize(), speed: 48, dur: 0.6, first: true, dmg: 20, col: 16727972, end: (q) => pwBlast(chest(q), { r: 5, dmg: 30, col: 16727972 }) });
+          });
+        } }
+      },
+      // ---------- Neon Arcade
+      "Pixel Pick": {
+        tap: { hit: (p) => {
+          if (!p.pwEarned && p.pwHits >= 25) {
+            p.pwEarned = true;
+            p.pwLives = (p.pwLives || 0) + 1;
+            toast("Extra life");
+            sfx("pickup");
+          }
+        } },
+        hold: { kind: "chan", cd: 7, max: 2, tick: (p, dt) => {
+          p.pxT = (p.pxT || 0) - dt;
+          if (p.pxT <= 0) {
+            p.pxT = 0.08;
+            fan(p, { look: "box", col: 1696767, speed: 65, dmg: 7, life: 1.2, spread: 0.03 });
+            sfx("tick");
+          }
+        } }
+      },
+      "Synthwave": {
+        tap: { swing: (p) => pwHazard(chest(p).addScaledVector(lookDir(), 2), 16727972, 4, 1.5) },
+        hold: { cd: 10, go: (p) => {
+          buff(p, "spd", 4, 1.4);
+          let k = 0;
+          const drop = () => {
+            if (!p.alive || k++ > 26) return;
+            pwHazard(chest(p), 16727972, 4, 1.6);
+            later(0.15, drop);
+          };
+          drop();
+        } }
+      },
+      "Glitch": {
+        tap: { hit: (p) => {
+          if (Math.random() < 0.3) pwTeleport(p, 3);
+        } },
+        hold: { cd: 6, go: (p) => pwTeleport(p, 20) }
+      },
+      "Circuit Breaker": {
+        tap: { hit: (p, e) => {
+          pwStun(e, 0.5);
+          zapArc(chest(p), chest(e), 0.15, 0.03);
+        } },
+        hold: { cd: 11, go: (p) => pwBlast(chest(p), { r: 10, dmg: 15, col: 4168703, kb: 6, each: (e) => {
+          pwStun(e, 1);
+          pwJam(e, 2);
+          zapArc(chest(p), chest(e), 0.3, 0.03);
+        } }) }
+      },
+      "High Score": {
+        tap: { combo: true },
+        hold: { cd: 6, go: (p) => {
+          const c = p.pwComboT > 0 ? p.pwCombo : 0;
+          pwBlast(chest(p).addScaledVector(lookDir(), 4), { r: 6 + c, dmg: 15 + c * 8, col: 16765503 });
+          showDmg(chest(p).add(new V(0, 1, 0)), "x" + (c + 1), "head");
+          p.pwCombo = 0;
+          p.pwComboT = 0;
+        } }
+      },
+      "Laser Edge": {
+        tap: { thru: true },
+        hold: { kind: "chan", cd: 8, max: 2, tick: (p, dt) => {
+          pwBeam(p, { col: 16722506, dps: 60, w: 0.16 }, dt);
+          if (Math.random() < 0.3) sfx("zapB");
+        } }
+      },
+      "Joystick": {
+        tap: { spd: 1.25 },
+        hold: { kind: "chan", cd: 6, max: 1, tick: (p, dt) => {
+          p.flT = (p.flT || 0) - dt;
+          if (p.flT <= 0) {
+            p.flT = 0.1;
+            p.swingSide = 1 - (p.swingSide || 0);
+            p.swingT = SWING_T * 0.4;
+            pwMelee(p, 8);
+            sfx("swing");
+          }
+        } }
+      },
+      "Hologram": {
+        tap: { hit: (p) => {
+          buff(p, "hide", 0.6);
+          for (let i = 0; i < 8; i++) mote(pwMats(1696767).soft, chest(p).add(rv(0.6)), rnd(0.5, 0.8), 0.8, new V());
+        } },
+        hold: { cd: 14, go: (p) => {
+          const [h] = fan(p, { look: "holo", col: 1696767, dir: lookDir().negate(), from: p.pos.clone(), speed: 12, life: 6, size: 1 });
+          buff(p, "hide", 3);
+          for (const b of bots) {
+            if (b.alive && b.enemy === player) {
+              b.enemy = null;
+              b.goal = h.pos;
+              b.think = 3;
+            }
+          }
+          sfx("zapB");
+        } }
+      },
+      "Bit Crusher": {
+        tap: { hit: (p, e, at) => {
+          pwSlow(e, 0.3);
+          for (let i = 0; i < 5; i++) mote(pwMats(1696767).spark, at.clone(), rnd(0.2, 0.35), 0.4, rv(4));
+        } },
+        hold: { cd: 10, go: (p) => {
+          const t = crosshairTarget(p, 0.97);
+          if (!t) {
+            sfx("deny");
+            return false;
+          }
+          t.tinyT = 3;
+          zapArc(chest(p), chest(t), 0.3, 0.04, pwMats(16777215).flat, pwMats(1696767).flat);
+          sfx("zapB", t.pos.clone());
+        } }
+      },
+      "Overclock": {
+        tap: { kill: (p) => {
+          buff(p, "swing", 5, 2);
+          toast("Overdrive");
+        } },
+        hold: { cd: 15, go: (p) => {
+          buff(p, "spd", 4, 1.5);
+          buff(p, "swing", 4, 1.5);
+          sfx("zapB");
+        } }
+      },
+      // ---------- Deep Sea
+      "Coral Reef": {
+        tap: { hit: (p, e, at) => {
+          for (const o of enemies(p)) if (chest(o).distanceTo(at) < 3) hurt(o, 6, p, { weapon: POW.name, soft: true });
+          for (let i = 0; i < 5; i++) mote(pwMats(16744298).spark, at.clone(), rnd(0.2, 0.4), 0.4, rv(5), 8);
+        } },
+        hold: { cd: 12, go: (p) => {
+          p.absorb = Math.max(p.absorb || 0, 40);
+          for (let i = 0; i < 16; i++) mote(pwMats(16744298).soft, chest(p).add(rv(1)), rnd(0.5, 0.9), 0.7, rv(1));
+          sfx("useStart", null, { id: "big" });
+        } }
+      },
+      "Shark Bite": {
+        tap: { mod: (p, e) => e.hp < 50 ? 1.25 : 1 },
+        hold: { cd: 7, go: (p) => pwDash(p, { speed: 46, dur: 0.5, first: true, dmg: 40, col: 8160918 }) }
+      },
+      "Kraken": {
+        tap: { pull: 16 },
+        hold: { cd: 11, go: (p) => {
+          let n = 0;
+          for (const e of enemies(p)) {
+            if (chest(e).distanceTo(chest(p)) > 14) continue;
+            n++;
+            pwStun(e, 2);
+            hurt(e, 10, p, { weapon: POW.name });
+            const from = chest(e).add(rv(4));
+            zapArc(from, chest(e), 2, 0.06, pwMats(6957690).solid, pwMats(10177200).flat);
+          }
+          pwBlast(chest(p), { r: 3, dmg: 0, col: 6957690, kb: 0 });
+          if (!n) sfx("deny");
+        } }
+      },
+      "Anglerfish": {
+        tap: { hit: (p, e) => pwReveal(e, 4, 10485711) },
+        hold: { cd: 12, go: (p) => fan(p, {
+          look: "orb",
+          col: 10485711,
+          speed: 30,
+          stop: 0.5,
+          life: 3.6,
+          size: 1.2,
+          trail: 10485711,
+          end: (at) => pwBlast(at, { r: 7, dmg: 50, col: 3135176 })
+        }).forEach((P) => {
+          for (const b of bots) {
+            if (b.alive && b.pos.distanceTo(P.pos) < 60) {
+              b.enemy = null;
+              b.goal = P.pos;
+              b.think = 3;
+            }
+          }
+        }) }
+      },
+      "Tidebreaker": {
+        tap: { reach: 1.5 },
+        hold: { cd: 6, go: (p) => fan(p, { look: "dart", col: 3135176, size: 3, speed: 55, life: 1.2, boomer: true, pierce: true, dmg: 35 }) }
+      },
+      "Pearl Diver": {
+        tap: { swing: (p) => fan(p, { look: "orb", col: 16052479, size: 0.6, speed: 50, bounce: 2, dmg: 8, life: 2 }) },
+        hold: { cd: 6, go: (p) => fan(p, { look: "orb", col: 16052479, size: 0.8, n: 5, spread: 0.25, speed: 50, bounce: 4, bounceHome: true, dmg: 10, life: 3 }) }
+      },
+      "Sunken Treasure": {
+        tap: { hit: (p, e, at) => {
+          if (Math.random() < 0.05) {
+            p.bank++;
+            showDmg(at, "+1", "head");
+            sfx("pickup");
+          }
+          for (let i = 0; i < 3; i++) mote(pwMats(16765503).spark, at.clone(), rnd(0.2, 0.35), 0.4, rv(4), 8);
+        } },
+        hold: { cd: 6, go: (p) => pwGrapple(p, { col: 5917226, speed: 40, range: 80 }) }
+      },
+      "Abyssal": {
+        tap: { hit: (p, e) => pwSlow(e, 0.36) },
+        hold: { cd: 11, go: (p) => {
+          const at = aimHit(p, lookDir(), 80).p;
+          pwZone({ at, r: 7, dur: 5, col: 1714778, op: 0.22, each: (e) => {
+            pwSlow(e, 0.3);
+            hurt(e, 5, p, { weapon: POW.name, soft: true });
+          } });
+        } }
+      },
+      "Jellyfish": {
+        tap: { hit: (p, e) => pwPoison(e, p, 3, 3) },
+        hold: { cd: 10, go: (p) => fan(p, { look: "jelly", col: 16748512, n: 4, spread: 0.5, speed: 6, home: 1.2, homeR: 40, life: 8, every: 1, dmg: 10, size: 1.4, hit: (e) => pwStun(e, 0.4) }) }
+      },
+      "Driftwood": {
+        tap: { dmg: 1.1, knock: 22 },
+        hold: { cd: 8, go: (p) => pwDash(p, { speed: 30, dur: 0.8, dmg: 18, col: 9071178, each: (e) => pwKnock(e, lookDir().add(rv(0.5)).normalize(), 30) }) }
+      },
+      // ---------- Volcanic
+      "Magma Core": {
+        tap: { hit: (p, e, at) => pwZone({ at, r: 2, dur: 4, col: 16734751, op: 0.3, every: 0.5, each: (o) => ignite(o, p) }) },
+        hold: { cd: 8, go: (p) => fan(p, { look: "orb", col: 16734751, size: 2, speed: 40, life: 2.5, trail: 16751146, boomOnWall: true, end: (at) => pwBlast(at, { r: 7, dmg: 45, fire: true }) }) }
+      },
+      "Obsidian": {
+        tap: { crit: 0.25 },
+        hold: { cd: 7, go: (p) => fan(p, { look: "shard", col: 2105386, n: 12, spread: 0.14, vspread: 0.06, speed: 80, dmg: 9, life: 1 }) }
+      },
+      "Eruption": {
+        tap: { hit: (p, e) => {
+          if (p.pwHits % 10 === 0) pwBlast(chest(p), { r: 6, dmg: 30, fire: true });
+        } },
+        hold: { kind: "charge", cd: 10, max: 1.5, go: (p, k) => pwBlast(chest(p), { r: 6 + 6 * k, dmg: 30 + 40 * k, fire: true }) }
+      },
+      "Basalt": {
+        tap: { hit: (p) => buff(p, "armor", 0.5, 0.9) },
+        hold: { cd: 12, go: (p) => {
+          buff(p, "armor", 4, 0.5);
+          buff(p, "spd", 4, 0.75);
+          for (let i = 0; i < 12; i++) mote(pwMats(4868690).soft, chest(p).add(rv(1)), rnd(0.6, 1), 0.6, rv(1));
+          sfx("chop", null, { mat: "stone" });
+        } }
+      },
+      "Ember Fang": {
+        tap: { hit: (p, e) => ignite(e, p) },
+        hold: { cd: 7, go: (p) => pwDash(p, { speed: 42, dur: 0.45, first: true, dmg: 30, col: 16734751, each: (e) => ignite(e, p) }) }
+      },
+      "Ash Cloud": {
+        tap: { hit: (p, e) => pwBlind(e, 1) },
+        hold: { cd: 12, go: (p) => pwZone({ follow: p, r: 6, dur: 5, col: 3816e3, op: 0.35, puff: 2, fxRate: 0.03, each: (e) => pwBlind(e, 0.6), self: (q) => buff(q, "hide", 0.3) }) }
+      },
+      "Dragon Scale": {
+        tap: { swing: (p) => {
+          if (p.pwSwings % 8 === 0) for (let i = 0; i < 8; i++) pwCone(p, { range: 10, dmg: 3, fire: true }, 0.05);
+        } },
+        hold: { kind: "chan", cd: 9, max: 2, tick: (p, dt) => pwCone(p, { range: 16, dmg: 8, fire: true }, dt) }
+      },
+      "Fire Opal": {
+        tap: { hit: (p) => buff(p, "hide", 1) },
+        hold: { cd: 9, go: (p) => {
+          const f = new T.Sprite(pwMats(16777215).soft.clone());
+          f.position.copy(chest(p).addScaledVector(lookDir(), 2));
+          world.add(f);
+          effects.push({ t: 0, dur: 0.4, obj: f, upd: (e, k) => {
+            f.scale.setScalar(2 + 14 * k);
+            f.material.opacity = 1 - k;
+          }, done: () => f.material.dispose() });
+          pwConeBurst(p, { range: 25, cos: 0.7, dmg: 5, col: 16771264, each: (e) => {
+            pwBlind(e, 2.5);
+            pwDaze(e, 2.5);
+          } });
+        } }
+      },
+      "Pumice": {
+        tap: { spd: 1.3, dmg: 0.85 },
+        hold: { cd: 5, go: (p) => {
+          pwDash(p, { speed: 50, dur: 0.35, col: 13156528 });
+          for (let i = 0; i < 10; i++) mote(pwMats(13156528).soft, chest(p).add(rv(0.6)), rnd(0.5, 0.9), 0.6, rv(3));
+        } }
+      },
+      "Phoenix Feather": {
+        lives: 1,
+        tap: { swing: (p) => fan(p, { look: "dart", col: 16742938, n: 3, spread: 0.1, speed: 60, dmg: 5, life: 1, trail: 16756778, hit: (e) => ignite(e, player) }) },
+        hold: { cd: 12, go: (p) => pwDash(p, { speed: 32, dur: 1.4, dmg: 15, col: 16742938, each: (e) => ignite(e, p) }) }
+      },
+      // ---------- Sweet Tooth
+      "Lollipop Swirl": {
+        tap: { hit: (p, e) => pwDaze(e, 2) },
+        hold: { kind: "chan", cd: 8, max: 3, start: (p) => {
+          p.lolly = pwLook("disc", 16748488, 4);
+          world.add(p.lolly);
+        }, tick: (p) => {
+          buff(p, "guard", 0.15, 1);
+          p.lolly.position.copy(chest(p).addScaledVector(lookDir(), 1.2));
+          p.lolly.lookAt(chest(p));
+          p.lolly.rotateZ(matchTime * 10);
+        }, end: (p) => {
+          world.remove(p.lolly);
+          p.lolly = null;
+        } }
+      },
+      "Gummy Bear": {
+        tap: { knock: 28, hit: (p, e) => sfx("boing", e.pos.clone(), { small: true }) },
+        hold: { cd: 7, go: (p) => fan(p, { look: "orb", col: 16731486, size: 1.3, speed: 40, life: 3, fuse: 1.6, stick: true, latch: { dur: 1.6, dps: 0 }, end: (at) => pwBlast(at, { r: 5, dmg: 40, col: 16731486 }) }) }
+      },
+      "Sprinkle Smash": {
+        tap: { hit: (p, e, at) => {
+          pwMark(e, 4, 1.1, 16748488);
+          for (let i = 0; i < 6; i++) mote(pwMats(pick([16731486, 4169973, 16765503, 5493099])).spark, at.clone(), rnd(0.2, 0.35), 0.5, rv(5), 9);
+        } },
+        hold: { cd: 9, go: (p) => {
+          const at = aimPoint(p, lookDir(), 120);
+          for (let i = 0; i < 20; i++) later(i * 0.07, () => pwStrike(at.clone().add(new V(rnd(-3.5, 3.5), rnd(-1, 1), rnd(-3.5, 3.5))), { delay: 0.4, r: 2.6, dmg: 8, kb: 4, col: pick([16731486, 4169973, 16765503, 5493099]), each: (e) => pwMark(e, 4, 1.1, 16748488) }));
+        } }
+      },
+      "Bubblegum Pop": {
+        tap: { hit: (p, e) => pwSlow(e, 0.3) },
+        hold: { cd: 12, go: (p) => {
+          p.absorb = Math.max(p.absorb || 0, 40);
+          const b = new T.Mesh(pwGeo.sphere, pwMats(16748488).fog.clone());
+          world.add(b);
+          effects.push({ t: 0, dur: 6, obj: b, upd: (e, k) => {
+            b.visible = (p.absorb || 0) > 0;
+            b.position.copy(chest(p));
+            b.scale.setScalar(1.6);
+            b.material.opacity = 0.32;
+          }, done: () => b.material.dispose() });
+          sfx("boing");
+        } }
+      },
+      "Chocolate Bar": {
+        tap: { heal: 5 },
+        hold: { cd: 14, go: (p) => {
+          buff(p, "regen", 4, 10);
+          sfx("healDone");
+        } }
+      },
+      "Sour Blast": {
+        tap: { hit: (p, e) => pwDaze(e, 2) },
+        hold: { cd: 8, go: (p) => pwConeBurst(p, { range: 12, cos: 0.75, dmg: 10, col: 13168714, each: (e) => {
+          pwDaze(e, 2);
+          pwJam(e, 2);
+        } }) }
+      },
+      "Rock Candy": {
+        tap: { hit: (p, e, at) => {
+          for (const o of enemies(p)) if (chest(o).distanceTo(at) < 3) hurt(o, 6, p, { weapon: POW.name, soft: true });
+          for (let i = 0; i < 5; i++) mote(pwMats(16751320).spark, at.clone(), rnd(0.2, 0.4), 0.4, rv(5), 8);
+        } },
+        hold: { cd: 10, go: (p) => {
+          const at = aimHit(p, lookDir(), 80).p;
+          for (let i = 0; i < 9; i++) {
+            const m = new T.Mesh(pwGeo.cone, pwMats(pick([16751320, 11067647, 16773800])).solid);
+            m.position.copy(at).add(rv(2));
+            m.lookAt(chest(p));
+            m.rotateX(Math.PI / 2);
+            world.add(m);
+            effects.push({ t: 0, dur: 2, obj: m, upd: (e, k) => {
+              m.scale.setScalar(k < 0.1 ? k * 40 : 4 * (1 - Math.max(0, k - 0.8) * 5));
+            } });
+          }
+          pwBlast(at, { r: 5, dmg: 35, col: 16751320, each: (e) => pwStun(e, 0.5) });
+        } }
+      },
+      "Ice Cream Dream": {
+        tap: { hit: (p, e) => pwSlow(e, 0.35) },
+        hold: { cd: 8, go: (p) => fan(p, { look: "orb", col: 16773364, size: 1.6, speed: 50, life: 2, hit: (e) => freezeChar(e), end: (at) => pwZone({ at, r: 3, dur: 2, col: 12577535, each: (o) => pwSlow(o, 0.3) }) }) }
+      },
+      "Cotton Candy": {
+        tap: { hit: (p, e) => pwSlow(e, 0.3) },
+        hold: { cd: 11, go: (p) => fan(p, { look: "bubble", col: 16756960, size: 2, speed: 30, life: 1.5, boomOnWall: true, end: (at) => pwZone({ at, r: 6, dur: 4, col: 16756960, op: 0.35, puff: 2, each: (e) => {
+          if (!e.ccT || matchTime - e.ccT > 4) {
+            e.ccT = matchTime;
+            pwStun(e, 2);
+          }
+        } }) }) }
+      },
+      "Sugar Rush": {
+        tap: { hit: (p) => buff(p, "spd", 3, Math.min(1.25, bv(p, "spd", 1) + 0.05)) },
+        hold: { cd: 12, go: (p) => {
+          buff(p, "spd", 5, 1.3);
+          buff(p, "swing", 5, 1.3);
+          sfx("pickup");
+        } }
+      },
+      // ---------- Cosmic
+      "Supernova": {
+        tap: { hit: (p, e, at) => {
+          for (const o of enemies(p)) if (o !== e && chest(o).distanceTo(at) < 3) hurt(o, 4, p, { weapon: POW.name, soft: true });
+          for (let i = 0; i < 6; i++) mote(pwMats(16773800).spark, at.clone(), rnd(0.2, 0.4), 0.4, rv(6), 9);
+        } },
+        hold: { kind: "charge", cd: 11, max: 1.6, go: (p, k) => pwBlast(chest(p), { r: 7 + 5 * k, dmg: 15 + 25 * k, col: 16773800, kb: 20 }) }
+      },
+      "Meteorite": {
+        tap: { dmg: 1.35, spd: 0.85 },
+        hold: { cd: 11, go: (p) => {
+          const at = aimPoint(p, lookDir(), 150);
+          for (let i = 0; i < 5; i++) later(i * 0.2, () => pwStrike(at.clone().add(new V(rnd(-6, 6), 0, rnd(-6, 6))), { delay: 0.9, r: 4, dmg: 30, fire: true, fall: "orb", fallSize: 3, fallTrail: true, col: 6969930 }));
+        } }
+      },
+      "Moonbeam": {
+        tap: { swing: (p) => fan(p, { look: "crescent", col: 13623551, speed: 55, dmg: 12, pierce: true, life: 0.6, size: 1.2 }) },
+        hold: { kind: "chan", cd: 8, max: 2, tick: (p, dt) => pwBeam(p, { col: 13623551, dps: 45, w: 0.3 }, dt) }
+      },
+      "Black Hole": {
+        tap: { pull: 20 },
+        hold: { cd: 12, go: (p) => fan(p, { look: "orb", col: 657940, size: 1.6, speed: 30, stop: 0.6, life: 0.9, end: (at) => pwZone({ at, r: 12, dur: 3, col: 5913242, op: 0.25, swirl: 6, every: 0.15, each: (e) => {
+          pwPull(e, at.clone().add(new V(0, 1, 0)), 9);
+          hurt(e, 1.5, player, { weapon: POW.name, soft: true });
+        }, end: (a) => pwBlast(a, { r: 5, dmg: 25, col: 10323711 }) }) }) }
+      },
+      "Nebula": {
+        tap: { hit: (p, e, at) => {
+          buff(p, "hide", 1);
+          for (let i = 0; i < 5; i++) mote(pwMats(10323711).soft, at.clone(), rnd(0.4, 0.7), 0.8, rv(1));
+        } },
+        hold: { cd: 14, go: (p) => {
+          buff(p, "hide", 4);
+          buff(p, "spd", 4, 0.7);
+          sfx("zapB");
+        } }
+      },
+      "Comet Tail": {
+        tap: { dmg: 1.05, swing: (p) => {
+          for (let i = 0; i < 5; i++) mote(pwMats(11065599).spark, chest(p).addScaledVector(lookDir(), 1.5), rnd(0.2, 0.4), 0.5, rv(3), 8);
+        } },
+        hold: { cd: 6, go: (p) => pwDash(p, { speed: 50, dur: 0.3, dmg: 25, col: 11065599 }) }
+      },
+      "Saturn Ring": {
+        tap: { swing: (p) => fan(p, { look: "disc", col: 15255696, speed: 45, dmg: 12, bounce: 1, life: 1.2, spin: 20 }) },
+        hold: { cd: 12, go: (p) => pwOrbit(p, { n: 2, r: 1.8, dur: 10, look: "disc", col: 15255696, size: 1.6, absorb: 10, dmg: 6, spin: 2.5 }) }
+      },
+      "Stardust": {
+        tap: { hit: (p) => {
+          if (Math.random() < 0.2) pwHeal(p, 5);
+        } },
+        hold: { cd: 15, go: (p) => {
+          const r = Math.random();
+          if (r < 0.34) {
+            p.hp = 100;
+            toast("Full heal");
+          } else if (r < 0.67) {
+            pwShield(p, 50);
+            toast("Shield");
+          } else {
+            buff(p, "spd", 6, 1.5);
+            toast("Speed");
+          }
+          for (let i = 0; i < 20; i++) mote(pwMats(16773800).spark, chest(p).add(rv(1.2)), rnd(0.3, 0.6), 0.8, rv(2), 8);
+          sfx("healDone");
+        } }
+      },
+      "Rocket Fuel": {
+        tap: { hit: (p) => p.vel.addScaledVector(lookDir(), 6) },
+        hold: { cd: 8, go: (p) => {
+          pwDash(p, { speed: 55, dur: 0.6, dmg: 25, col: 16751146, each: (e) => pwKnock(e, lookDir(), 24) });
+          for (let i = 0; i < 10; i++) flame(chest(p), rnd(0.8, 1.3), 0.4, lookDir().multiplyScalar(-rnd(6, 12)).add(rv(2)));
+          sfx("rpg");
+        } }
+      },
+      "Event Horizon": {
+        tap: { hit: (p, e) => pwJam(e, 1) },
+        hold: { cd: 14, go: (p) => {
+          const at = aimHit(p, lookDir(), 80).p;
+          pwZone({ at, r: 8, dur: 2.4, col: 5913242, op: 0.3, every: 0.2, each: (e) => {
+            if (!(e.frozen > 0) && !(e.frzImm > 0)) freezeChar(e);
+          } });
+          sfx("freeze", at);
+        } }
+      },
+      // ---------- Wild
+      "Vine Whip": {
+        tap: { reach: 1.7 },
+        hold: { cd: 6, go: (p) => pwGrapple(p, { col: 4037178, speed: 44, pullEnemy: true }) }
+      },
+      "Tiger Stripe": {
+        tap: { mod: (p) => p.zgPropel || p.sprinting ? 2 : 1 },
+        hold: { cd: 7, go: (p) => {
+          const t = crosshairTarget(p, 0.96), dir = t ? chest(t).sub(chest(p)).normalize() : lookDir();
+          pwDash(p, { dir, speed: 45, dur: 0.6, first: true, dmg: 35, col: 16751146, each: (e) => pwKnock(e, dir, 20) });
+          sfx("roar", p.pos.clone());
+        } }
+      },
+      "Jaguar": {
+        tap: { hit: (p, e) => pwReveal(e, 3, 16761370) },
+        hold: { cd: 12, go: (p) => {
+          buff(p, "hide", 6);
+          p.pwAmbush = true;
+          sfx("zapB");
+        } }
+      },
+      "Raptor Claw": {
+        tap: { dmg: 1.25, hit: (p, e, at) => {
+          cutFx(at.clone().add(new V(0, 0.3, 0)));
+          cutFx(at.clone().add(new V(0, -0.3, 0)));
+        } },
+        hold: { cd: 10, go: (p) => fan(p, { look: "raptor", col: 5493099, n: 2, spread: 0.3, speed: 28, home: 4, homeR: 80, life: 5, every: 0.8, dmg: 20, trail: 5493099, size: 1.3 }) }
+      },
+      "Bamboo Breaker": {
+        tap: { dmg: 1.1, knock: 10 },
+        hold: { kind: "chan", cd: 8, max: 3, tick: (p) => {
+          buff(p, "guard", 0.15, 2);
+          p.swingT = Math.max(p.swingT, 0.1);
+        } }
+      },
+      "Toucan": {
+        tap: { spd: 2, dmg: 0.65 },
+        hold: { kind: "chan", cd: 6, max: 1.2, tick: (p, dt) => {
+          p.flT = (p.flT || 0) - dt;
+          if (p.flT <= 0) {
+            p.flT = 0.07;
+            p.swingSide = 1 - (p.swingSide || 0);
+            p.swingT = SWING_T * 0.3;
+            pwMelee(p, 6);
+            sfx("swing", null, { gain: 0.5 });
+          }
+        } }
+      },
+      "Venom": {
+        tap: { hit: (p, e) => pwPoison(e, p, 3, 5) },
+        hold: { cd: 9, go: (p) => fan(p, { look: "orb", col: 8118346, speed: 40, life: 2, boomOnWall: true, end: (at) => pwZone({ at, r: 6, dur: 5, col: 8118346, each: (e) => pwPoison(e, player, 6, 1.5) }) }) }
+      },
+      "Temple Idol": {
+        tap: { hit: (p, e) => {
+          e.curse = p;
+        } },
+        hold: { cd: 15, go: (p) => {
+          const c = chest(p), dir = lookDir();
+          let n = 0;
+          for (const e of enemies(p)) {
+            _dv.copy(chest(e)).sub(c);
+            const d = _dv.length();
+            if (d > 90 || _dv.dot(dir) < 0.5 * d || !hasLOS(c, chest(e))) continue;
+            pwMark(e, 3, 2, 16761370);
+            n++;
+          }
+          for (let i = 0; i < 16; i++) mote(pwMats(16761370).spark, c.clone().add(rv(1)), rnd(0.3, 0.6), 0.6, rv(3), 8);
+          if (!n) {
+            sfx("deny");
+            return false;
+          }
+          sfx("roar", p.pos.clone());
+        } }
+      },
+      "Parrot Plume": {
+        tap: { hit: (p, e) => {
+          const f = p.lastFx || pick(["burn", "chill", "stun"]);
+          if (f === "burn") ignite(e, p);
+          else if (f === "chill") pwSlow(e, 0.4);
+          else pwStun(e, 0.5);
+        } },
+        hold: { cd: 10, go: (p) => fan(p, { look: "parrot", col: 2802762, speed: 30, home: 6, homeR: 90, life: 4, latch: { dur: 4, dps: 8 }, size: 1.4 }) }
+      },
+      "Canopy King": {
+        tap: { wide: true, dmg: 1.1, swing: (p) => {
+          for (let i = 0; i < 5; i++) mote(pwMats(5493099).soft, chest(p).addScaledVector(lookDir(), 1.4).add(rv(0.8)), rnd(0.3, 0.5), 0.6, rv(3));
+        } },
+        hold: { kind: "chan", cd: 9, max: 3, start: (p) => {
+          p.leaf = pwZone({ follow: p, r: 6, dur: 3, col: 5493099, op: 0.08, swirl: 9, fxRate: 0.02, every: 0.25, each: (e) => {
+            hurt(e, 6, player, { weapon: POW.name, soft: true });
+            pwKnock(e, chest(e).sub(chest(player)).normalize(), 6);
+          } });
+        }, tick: () => {
+        }, end: (p) => {
+          if (p.leaf) p.leaf.t = p.leaf.o.dur;
+        } }
+      },
+      // ---------- Inverted
+      "Standard Issue": {
+        tap: {},
+        hold: { kind: "charge", cd: 3, max: 1.2, go: (p, k) => {
+          p.swingT = SWING_T;
+          pwMelee(p, PW_BASE * (1 + 2 * k));
+          if (k > 0.9) camShake = Math.max(camShake, 0.25);
+        } }
+      },
+      "Storm Chaser": {
+        tap: { hit: (p, e) => {
+          const o = pwNearest(chest(e), p, 12, /* @__PURE__ */ new Set([e]));
+          if (o) {
+            zapArc(chest(e), chest(o), 0.2, 0.03, pwMats(16777215).flat, pwMats(10181887).flat);
+            hurt(o, 10, p, { weapon: POW.name });
+          }
+        } },
+        hold: { cd: 12, go: (p) => {
+          pwZone({ follow: p, r: 18, dur: 4, col: 5905072, op: 0.05, every: 0.5, each: () => {
+          } });
+          let k = 0;
+          const bolt = () => {
+            if (!p.alive || k++ >= 8) return;
+            const e = pwNearest(chest(p), p, 18);
+            if (e) {
+              zapArc(chest(e).add(new V(rnd(-2, 2), 12, rnd(-2, 2))), chest(e), 0.25, 0.06, pwMats(16777215).flat, pwMats(10181887).flat);
+              hurt(e, 20, p, { weapon: POW.name });
+              pwStun(e, 0.4);
+              sfx("tsr", e.pos.clone());
+            }
+            later(0.5, bolt);
+          };
+          bolt();
+        } }
+      },
+      "Supply Drop": {
+        tap: { dmg: 1.2 },
+        hold: { cd: 30, go: (p) => {
+          const at = aimPoint(p, lookDir(), 120);
+          pwStrike(at, { delay: 1.2, r: 4, dmg: 60, col: 4169973, fall: "crate", fallSize: 1, after: () => {
+            const n = giveShopItem();
+            toast(n);
+            sfx("buy");
+          } });
+        } }
+      },
+      "Private Jet": {
+        tap: { swing: (p) => {
+          for (let i = 0; i < 3; i++) mote(pwMats(16777215).spark, chest(p).addScaledVector(lookDir(), 1.4), rnd(0.2, 0.4), 0.4, rv(4), 8);
+        } },
+        hold: { cd: 7, go: (p) => {
+          pwDash(p, { speed: 48, dur: 0.7, dmg: 15, col: 16765562 });
+          let k = 0;
+          const burn = () => {
+            if (k++ > 12 || !p.alive) return;
+            for (let i = 0; i < 2; i++) jetFlame(chest(p), lookDir().multiplyScalar(-14).add(rv(2)), 0.35, 0.3);
+            later(0.05, burn);
+          };
+          burn();
+          sfx("rpg");
+        } }
+      },
+      "Last One Standing": {
+        tap: { mod: () => 1 + 0.5 * (1 - aliveCount / combatants.length) },
+        hold: { cd: 10, go: (p) => pwBlast(chest(p), { r: 10, dmg: 25, kb: 35, col: 16765503 }) }
+      },
+      "Golden Chest": {
+        tap: { swing: (p) => {
+          for (let i = 0; i < 5; i++) mote(pwMats(16765503).spark, chest(p).addScaledVector(lookDir(), 1.4), rnd(0.2, 0.4), 0.5, rv(5), 8);
+        } },
+        hold: { cd: 8, go: (p) => fan(p, { look: "shard", col: 16765503, n: 8, spread: 0.3, vspread: 0.08, speed: 60, dmg: 9, life: 1 }) }
+      },
+      "Shield Potion": {
+        tap: { hit: (p) => {
+          if (p.pwHits % 10 === 0) pwShield(p, 10);
+        } },
+        hold: { cd: 12, go: (p) => {
+          pwShield(p, 25);
+          sfx("healDone");
+        } }
+      },
+      "Medkit": {
+        tap: { heal: 3 },
+        hold: { cd: 14, go: (p) => {
+          buff(p, "regen", 3, 10);
+          sfx("healDone");
+        } }
+      },
+      "Wall Builder": {
+        tap: { swing: (p) => {
+          for (let i = 0; i < 3; i++) mote(pwMats(13212250).soft, chest(p).addScaledVector(lookDir(), 1.6), rnd(0.2, 0.4), 0.5, rv(3));
+        } },
+        hold: { cd: 10, go: (p) => {
+          pwWall(p, { w: 5, h: 3.4, d: 0.5, dist: 4, dur: 6, col: 13212250 });
+        } }
+      },
+      "Eye of the Storm": {
+        tap: { knock: 20 },
+        hold: { kind: "chan", cd: 10, max: 3, start: (p) => {
+          p.eye = pwZone({ follow: p, r: 10, dur: 3, col: 13150463, op: 0.07, swirl: 12, fxRate: 0.02, every: 0.2, each: (e) => pwKnock(e, chest(e).sub(chest(player)).normalize(), 8) });
+        }, tick: (p) => buff(p, "guard", 0.15, 2), end: (p) => {
+          if (p.eye) p.eye.t = p.eye.o.dur;
+        } }
+      }
+    };
     let animeSt = null;
     const ANIME_HOLD = 0.26;
     const skinMat = new T.MeshPhongMaterial({ color: 15910042, shininess: 25, specular: 3351057 });
@@ -7920,7 +9860,9 @@
       if (!on) p.guard = false;
     }
     function blocks(p, dir) {
-      if (!(p.guardK > 0.6)) return false;
+      const g = bv(p, "guard");
+      if (g >= 2) return true;
+      if (!(p.guardK > 0.6) && !g) return false;
       camera.getWorldDirection(tv2);
       return -dir.dot(tv2) > 0.3;
     }
@@ -7946,7 +9888,7 @@
         const tgt = new V(shooter.pos.x, shooter.pos.y + 1.2, shooter.pos.z);
         if (hasLOS(at, tgt)) {
           tracer(at, tgt);
-          hurt(shooter, dmg * 0.7, p, { point: tgt, weapon: "Nichirin Deflect", dir: tgt.clone().sub(at).normalize() });
+          hurt(shooter, dmg * 0.7, p, { point: tgt, weapon: POW && bv(p, "guard") ? POW.name : "Nichirin Deflect", dir: tgt.clone().sub(at).normalize() });
           return;
         }
       }
@@ -8384,6 +10326,10 @@
       fires = [];
       drones = [];
       kunais = [];
+      pwShots = [];
+      pwZones = [];
+      pwWalls = [];
+      pwLaters = [];
       shopOpen = false;
       $("shop").hidden = true;
       ZG.state = "float";
@@ -8674,13 +10620,17 @@
       updatePads(dt);
       updatePlayerZG(dt);
       updateActions(dt);
+      pwUpdate(dt);
       updateProjs(dt);
       updateBolts(dt);
       updateFires(dt);
       updateBouncerCd(dt);
       updateDrones(dt);
       if (player.flmT > 0) player.flmT -= dt;
-      for (const e of combatants) updateStatus(e, dt);
+      for (const e of combatants) {
+        updateStatus(e, dt);
+        pwStatus(e, dt);
+      }
       updatePunches(player, dt);
       updateKunais(dt);
       updateTitan(player, dt);
@@ -8800,6 +10750,20 @@
         studioLights(armGroup);
         armGroup.userData.dist = ids.length * 0.75 + 1.6;
         scene.add(armGroup);
+      },
+      equipPick: (n) => {
+        equippedName = n;
+        applyPickSkin(player);
+        refreshHotbar();
+      },
+      get POW() {
+        return POW;
+      },
+      get pw() {
+        return { shots: pwShots.length, zones: pwZones.length, zd: pwZones.map((z) => {
+          const e = combatants.find((c) => c !== player && c.alive);
+          return e ? +z.pos.distanceTo(e.pos).toFixed(1) : -1;
+        }), pd: +chest(player).distanceTo(camera.position).toFixed(1), walls: pwWalls.map((w) => [w.m.position.toArray().map(Math.round), w.m.scale.x, w.m.visible]) };
       },
       renderer,
       scene,
