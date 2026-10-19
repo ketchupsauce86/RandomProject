@@ -253,7 +253,7 @@ function auraMats(col){
 }
 
 // ================= audio =================
-// Every sound is synthesized live with the Web Audio API: layers of filtered noise and oscillators
+// Sounds are synthesized live with the Web Audio API (unless a recording in sounds/ replaces them): layers of filtered noise and oscillators
 // shaped by envelopes. Sounds in the world are placed in 3D (quieter, muffled and later with distance,
 // panned left/right) and share a reverb. Looping ambience (the rush of air when you propel and the hum of
 // the box's lights) follows what is happening around you.
@@ -281,7 +281,7 @@ function initAudio(){
       bus=AC.createGain(); bus.gain.value=0.5; bus.connect(master);
       verb=AC.createConvolver(); verb.buffer=makeIR(2.6); const vg=AC.createGain(); vg.gain.value=0.45; verb.connect(vg); vg.connect(master);
       NB=noiseBuf(false,2); BB=noiseBuf(true,4);
-      initAmbience(); warmBank();
+      initAmbience(); warmBank(); loadSoundFiles();
     }
     if(AC.state==='suspended') AC.resume();
   }catch(e){ AC=null; }
@@ -502,15 +502,31 @@ const stack=(x,at,freqs,dur,att,cut)=>{ const o=Math.round(at*SR), n=Math.min(x.
 const timp=(x,at,f,g)=>{ modes(x,at,[[f,0.5,1],[f*1.5,0.35,0.5],[f*1.98,0.25,0.35]],g); mixIn(x,rbj(burst(0.2,0.04,true),'lp',300,0.8),at,g*0.8); return x; };
 BANK.victory=()=>{ const x=SN(3.2); timp(x,0,98,0.6); timp(x,0.18,98,0.5); timp(x,0.36,131,0.7); stack(x,0.36,[262,330,392,523],2.6,0.06,0); for(let i=0;i<6;i++) modes(x,0.4+i*0.07,metal(rnd(2600,3600),0.4,3),0.08); return norm(x,0.85); };
 BANK.defeat=()=>{ const x=SN(3); timp(x,0,73,0.8); stack(x,0.05,[147,175,220],1.1,0.15,0); stack(x,0.9,[131,156,196],1.9,0.2,0); return norm(rbj(x,'lp',2200,0.7),0.8); };
+// --- recorded samples. Any bank sound can be replaced by real recordings: drop sounds/<name>-1.ogg, -2.ogg ...
+// into the repo and run tools/sound_manifest.py, which lists them in sounds.js (window.SOUND_FILES). They are
+// fetched once sound is unlocked, mixed to mono and levelled like the synth takes, and take over from then on;
+// a file that is missing or can't be decoded just leaves the synth version playing.
+const FILE_BANK=new Map();
+function loadSoundFiles(){
+  const files=window.SOUND_FILES||{};
+  for(const name of Object.keys(files)){
+    Promise.all(files[name].map(u=>fetch(u).then(r=>{ if(!r.ok) throw new Error(u); return r.arrayBuffer(); }).then(d=>AC.decodeAudioData(d)).catch(()=>null)))
+      .then(bufs=>{ const a=[];
+        for(const b of bufs){ if(!b) continue; const x=new Float32Array(b.length);
+          for(let c=0;c<b.numberOfChannels;c++){ const d=b.getChannelData(c); for(let i=0;i<x.length;i++) x[i]+=d[i]/b.numberOfChannels; }
+          const m=AC.createBuffer(1,x.length,b.sampleRate); m.getChannelData(0).set(norm(fadeOut(x),0.95)); a.push(m); }
+        if(a.length) FILE_BANK.set(name,a); });
+  }
+}
 const SBK=new Map();
-function takes(name){ let a=SBK.get(name); if(a) return a; SR=AC.sampleRate; const N=name==='victory'||name==='defeat'||name==='quake'?1:4; a=[];
+function takes(name){ const f=FILE_BANK.get(name); if(f) return f; let a=SBK.get(name); if(a) return a; SR=AC.sampleRate; const N=name==='victory'||name==='defeat'||name==='quake'?1:4; a=[];
   for(let i=0;i<N;i++){ const x=fadeOut(BANK[name]()), b=AC.createBuffer(1,x.length,SR); b.getChannelData(0).set(x); a.push(b); } SBK.set(name,a); return a; }
 // play one take of a sample in a voice: g is the level, rate the pitch, at a delay
 function smp(v,name,o?){ o=o||{}; const a=takes(name), b=a[Math.floor(Math.random()*a.length)], t=v.t+(o.at||0), s=AC.createBufferSource(), g=AC.createGain();
   s.buffer=b; s.playbackRate.value=(o.rate||1)*rnd(0.97,1.03); g.gain.value=o.g==null?1:o.g; s.connect(g); g.connect(v.out); s.start(t);
   v.end=Math.max(v.end,(o.at||0)+b.duration/s.playbackRate.value); }
 // render the bank a little at a time once sound is unlocked, so the first shot doesn't hitch
-function warmBank(){ const names=Object.keys(BANK); let i=0; const step=()=>{ if(i<names.length){ takes(names[i++]); setTimeout(step,30); } }; setTimeout(step,200); }
+function warmBank(){ const names=Object.keys(BANK).filter(n=>!(window.SOUND_FILES||{})[n]); let i=0; const step=()=>{ if(i<names.length){ takes(names[i++]); setTimeout(step,30); } }; setTimeout(step,200); }
 // a mechanical click: gun parts, latches, buttons
 const chk=(v,at,f,g)=>{ smp(v,'click',{at,g:(g||0.7)*0.9,rate:(f||2600)/2900}); };
 // --- guns: one recorded-style take each, a touch of random pitch so no two shots match

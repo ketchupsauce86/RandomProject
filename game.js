@@ -589,6 +589,7 @@
           BB = noiseBuf(true, 4);
           initAmbience();
           warmBank();
+          loadSoundFiles();
         }
         if (AC.state === "suspended") AC.resume();
       } catch (e) {
@@ -1321,8 +1322,34 @@
       stack(x, 0.9, [131, 156, 196], 1.9, 0.2, 0);
       return norm(rbj(x, "lp", 2200, 0.7), 0.8);
     };
+    const FILE_BANK = /* @__PURE__ */ new Map();
+    function loadSoundFiles() {
+      const files = window.SOUND_FILES || {};
+      for (const name of Object.keys(files)) {
+        Promise.all(files[name].map((u) => fetch(u).then((r) => {
+          if (!r.ok) throw new Error(u);
+          return r.arrayBuffer();
+        }).then((d) => AC.decodeAudioData(d)).catch(() => null))).then((bufs) => {
+          const a = [];
+          for (const b of bufs) {
+            if (!b) continue;
+            const x = new Float32Array(b.length);
+            for (let c = 0; c < b.numberOfChannels; c++) {
+              const d = b.getChannelData(c);
+              for (let i = 0; i < x.length; i++) x[i] += d[i] / b.numberOfChannels;
+            }
+            const m = AC.createBuffer(1, x.length, b.sampleRate);
+            m.getChannelData(0).set(norm(fadeOut(x), 0.95));
+            a.push(m);
+          }
+          if (a.length) FILE_BANK.set(name, a);
+        });
+      }
+    }
     const SBK = /* @__PURE__ */ new Map();
     function takes(name) {
+      const f = FILE_BANK.get(name);
+      if (f) return f;
       let a = SBK.get(name);
       if (a) return a;
       SR = AC.sampleRate;
@@ -1348,7 +1375,7 @@
       v.end = Math.max(v.end, (o.at || 0) + b.duration / s.playbackRate.value);
     }
     function warmBank() {
-      const names = Object.keys(BANK);
+      const names = Object.keys(BANK).filter((n) => !(window.SOUND_FILES || {})[n]);
       let i = 0;
       const step = () => {
         if (i < names.length) {

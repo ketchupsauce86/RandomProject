@@ -39,6 +39,23 @@ Other files:
 - `ui.js`: the home screen polish: version badge, What's new list, a GLSL glitch-light layer and GSAP motion.
 - `soldier.js`: the character rig, packed as base64 glTF.
 - `version.js`: the version badge (see below).
+- `sounds/` and `sounds.js`: recorded sound effects that replace synthesized ones (see below).
+
+## Sounds
+
+Every sound starts out synthesized in code (the `BANK` list in `src/game.ts`), and any of them can be swapped for a real recording. Put the file in `sounds/`, named after the bank sound it replaces, with a take number if you have several versions (the game picks one at random each time):
+
+```
+sounds/pistol-1.ogg   sounds/pistol-2.ogg   sounds/boom-1.ogg
+```
+
+Then list it for the game (no rebuild of `game.js` needed):
+
+```
+python3 tools/sound_manifest.py
+```
+
+This rewrites `sounds.js`. Recordings still get the game's 3D panning, distance muffling, reverb and random pitch, and are levelled to match the synth mix. If a file is missing or can't be decoded, the synthesized version plays instead. Use `.ogg` or `.mp3`, keep each file short and small, only use sounds you're allowed to share (CC0 is easiest), and credit them in `sounds/CREDITS.md`.
 
 ## Version
 
@@ -54,6 +71,6 @@ This rewrites `version.js` from the game's git history.
 
 TypeScript, HTML and CSS, GLSL shaders (the glitch light on the home screen in `ui.js`), and Python (the version stamper). Libraries: three.js r128 for the 3D world (with its GLTFLoader and SkeletonUtils, loaded from cdnjs and jsDelivr) and GSAP for the home screen motion. esbuild bundles the TypeScript.
 
-All sound is synthesized live in the browser with the Web Audio API, so there are no audio files. Each gun has its own layered shot, plus reload steps, distant echoes and bullet whizzes. Sounds in the world are panned left and right, muffled with distance, and arrive later from far away. The home screen and pause screen have a volume slider.
+Most sound is synthesized live in the browser with the Web Audio API, with a few CC0 recordings from Kenney in `sounds/`. Each gun has its own layered shot, plus reload steps, distant echoes and bullet whizzes. Sounds in the world are panned left and right, muffled with distance, and arrive later from far away. The home screen and pause screen have a volume slider.
 
 Characters use the Soldier model and its Idle, Walk, Run and T-Pose motion-capture clips from the three.js examples (animations from Mixamo), packed into `soldier.js`. Swimming, propelling, aiming, recoil and drinking are layered on top live, with two-bone inverse kinematics for the arms and legs.
