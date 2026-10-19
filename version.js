@@ -2,13 +2,13 @@
 window.GAME_VERSION={
  "version": "1.40.0",
  "date": "2026-10-19",
- "build": "cf475db",
+ "build": "879b238",
  "season": "Glitched",
  "notes": [
   {
    "v": "1.40.0",
    "date": "2026-10-19",
-   "title": "Real recorded sound effects"
+   "title": "Real sound effects and random loadouts"
   },
   {
    "v": "1.39.0",
