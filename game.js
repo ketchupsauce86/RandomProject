@@ -589,6 +589,7 @@
           BB = noiseBuf(true, 4);
           initAmbience();
           warmBank();
+          loadSoundFiles();
         }
         if (AC.state === "suspended") AC.resume();
       } catch (e) {
@@ -1321,8 +1322,34 @@
       stack(x, 0.9, [131, 156, 196], 1.9, 0.2, 0);
       return norm(rbj(x, "lp", 2200, 0.7), 0.8);
     };
+    const FILE_BANK = /* @__PURE__ */ new Map();
+    function loadSoundFiles() {
+      const files = window.SOUND_FILES || {};
+      for (const name of Object.keys(files)) {
+        Promise.all(files[name].map((u) => fetch(u).then((r) => {
+          if (!r.ok) throw new Error(u);
+          return r.arrayBuffer();
+        }).then((d) => AC.decodeAudioData(d)).catch(() => null))).then((bufs) => {
+          const a = [];
+          for (const b of bufs) {
+            if (!b) continue;
+            const x = new Float32Array(b.length);
+            for (let c = 0; c < b.numberOfChannels; c++) {
+              const d = b.getChannelData(c);
+              for (let i = 0; i < x.length; i++) x[i] += d[i] / b.numberOfChannels;
+            }
+            const m = AC.createBuffer(1, x.length, b.sampleRate);
+            m.getChannelData(0).set(norm(fadeOut(x), 0.95));
+            a.push(m);
+          }
+          if (a.length) FILE_BANK.set(name, a);
+        });
+      }
+    }
     const SBK = /* @__PURE__ */ new Map();
     function takes(name) {
+      const f = FILE_BANK.get(name);
+      if (f) return f;
       let a = SBK.get(name);
       if (a) return a;
       SR = AC.sampleRate;
@@ -1348,7 +1375,7 @@
       v.end = Math.max(v.end, (o.at || 0) + b.duration / s.playbackRate.value);
     }
     function warmBank() {
-      const names = Object.keys(BANK);
+      const names = Object.keys(BANK).filter((n) => !(window.SOUND_FILES || {})[n]);
       let i = 0;
       const step = () => {
         if (i < names.length) {
@@ -4530,10 +4557,10 @@
       let e = -1;
       if (armMode === "skins") {
         const s = equippedSkin();
-        e = s ? s.i : -1;
+        e = s && !skinRandom ? s.i : -1;
       } else if (armMode === "picks") {
         const p = equippedPick();
-        e = p ? p.i : -1;
+        e = p && !pickRandom ? p.i : -1;
       }
       for (let i = 0; i < cards.length; i++) cards[i].classList.toggle("eq", i === e);
     }
@@ -4667,7 +4694,7 @@
     function setArmMode(m) {
       if (m === "picks" && !PX || m === "skins" && !(SK && SOLDIER)) return;
       armMode = m;
-      $("armEquip").hidden = m === "guns";
+      $("armEquip").hidden = $("armRandom").hidden = m === "guns";
       $("armGunsTab").setAttribute("aria-pressed", String(m === "guns"));
       $("armPicksTab").setAttribute("aria-pressed", String(m === "picks"));
       $("armSkinsTab").setAttribute("aria-pressed", String(m === "skins"));
@@ -4759,14 +4786,36 @@
     function equippedPick() {
       return PX ? PX.ITEMS.find((i) => i.n === equippedName) || null : null;
     }
+    let pickRandom = false, skinRandom = false;
+    try {
+      pickRandom = localStorage.getItem("stormIslandPickRandom") === "1";
+      skinRandom = localStorage.getItem("stormIslandSkinRandom") === "1";
+    } catch (e) {
+    }
+    function rollLoadout() {
+      if (pickRandom && PX) equippedName = PX.ITEMS[Math.floor(Math.random() * PX.ITEMS.length)].n;
+      if (skinRandom && SK) skinName = SK.ITEMS[Math.floor(Math.random() * SK.ITEMS.length)].n;
+    }
+    function setRandom(on) {
+      if (armMode === "skins") skinRandom = on;
+      else pickRandom = on;
+      try {
+        localStorage.setItem(armMode === "skins" ? "stormIslandSkinRandom" : "stormIslandPickRandom", on ? "1" : "0");
+      } catch (e) {
+      }
+    }
+    const DICE = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><g fill="currentColor"><circle cx="8" cy="8" r="1.6"/><circle cx="16" cy="8" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="8" cy="16" r="1.6"/><circle cx="16" cy="16" r="1.6"/></g></svg>';
     function pickIcon(ic) {
       const it = PX && PX.ITEMS[+ic.slice(2)];
       return it ? PX.pickSVG(it, "hb").replace('<svg viewBox="0 0 200 200"', '<svg viewBox="24 22 152 152" width="30" height="30" aria-hidden="true"') : "";
     }
     function showEquip() {
-      const on = armMode === "skins" ? SK.ITEMS[skIdx].n === equippedSkinName() : PX && PX.ITEMS[pxIdx].n === equippedName, b = $("armEquip");
+      const rand = armMode === "skins" ? skinRandom : pickRandom, on = !rand && (armMode === "skins" ? SK.ITEMS[skIdx].n === equippedSkinName() : PX && PX.ITEMS[pxIdx].n === equippedName), b = $("armEquip");
       b.textContent = on ? "Equipped \u2713" : "Equip";
       b.setAttribute("aria-pressed", String(!!on));
+      const r = $("armRandom");
+      r.innerHTML = DICE + (rand ? " Random each match \u2713" : " Random each match");
+      r.setAttribute("aria-pressed", String(rand));
     }
     function showPickNote() {
       const eq = equippedPick(), sk = equippedSkin(), esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -4779,7 +4828,7 @@
         }
       }
       const card = (go, k, v, col, art) => `<button class="locard" data-go="${go}" style="--rc:${col}"><span class="lothumb">${art}</span><span class="lotxt"><i>${esc(k)}</i>${esc(v)}</span></button>`;
-      $("pickNote").innerHTML = (SK ? card("skins", "Skin", sk ? sk.n : "Default Trooper", RAR[sk ? sk.r : 0].c, th ? '<canvas width="160" height="200"></canvas>' : "") : "") + (PX ? card("picks", "Pickaxe", eq ? eq.n : "Default", RAR[eq ? eq.rar : 0].c, eq ? PX.pickSVG(eq, "lo") : ICONS.pick) : "");
+      $("pickNote").innerHTML = (SK ? skinRandom ? card("skins", "Skin", "Random", "var(--neon)", DICE) : card("skins", "Skin", sk ? sk.n : "Default Trooper", RAR[sk ? sk.r : 0].c, th ? '<canvas width="160" height="200"></canvas>' : "") : "") + (PX ? pickRandom ? card("picks", "Pickaxe", "Random", "var(--neon)", DICE) : card("picks", "Pickaxe", eq ? eq.n : "Default", RAR[eq ? eq.rar : 0].c, eq ? PX.pickSVG(eq, "lo") : ICONS.pick) : "");
       const cv = $q("#pickNote canvas");
       if (cv && th) cv.getContext("2d").drawImage(th, 0, 0);
     }
@@ -4841,6 +4890,7 @@
       c.pick.add(w);
     }
     function equipCurrent() {
+      setRandom(false);
       if (armMode === "skins") {
         const it = SK.ITEMS[skIdx];
         skinName = it.n;
@@ -4868,6 +4918,14 @@
       sfx("pickup", null, { item: { kind: "gun", r: PX.ITEMS[pxIdx].rar } });
     }
     $("armEquip").addEventListener("click", equipCurrent);
+    $("armRandom").addEventListener("click", () => {
+      const on = !(armMode === "skins" ? skinRandom : pickRandom);
+      setRandom(on);
+      showEquip();
+      showPickNote();
+      lkMarkEq();
+      sfx(on ? "pickup" : "ui", null, { item: { kind: "gun", r: 2 } });
+    });
     $("lockerBtn").addEventListener("click", () => openLocker(SK && SOLDIER ? "skins" : "picks"));
     if (!PX && !SK) $("lockerBtn").hidden = true;
     if (!SK) $("armSkinsTab").hidden = true;
@@ -10336,6 +10394,7 @@
       ZG.t = rnd(20, 26);
       ZG.camRoll = 0;
       ZG.flash = 0;
+      rollLoadout();
       player = makeCombatant("You", true);
       Object.assign(player, {
         slots: [null, { kind: "gun", id: "ar", r: 3, ammo: WEAP.ar.mag }, { kind: "gun", id: "pump", r: 3, ammo: WEAP.pump.mag }, { kind: "gun", id: "smg", r: 2, ammo: WEAP.smg.mag }, { kind: "cons", id: "big", count: 2 }, { kind: "cons", id: "mini", count: 3 }, { kind: "gun", id: "mf", r: 4, ammo: MF_CLIP }, null, null],

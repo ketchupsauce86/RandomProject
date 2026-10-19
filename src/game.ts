@@ -253,7 +253,7 @@ function auraMats(col){
 }
 
 // ================= audio =================
-// Every sound is synthesized live with the Web Audio API: layers of filtered noise and oscillators
+// Sounds are synthesized live with the Web Audio API (unless a recording in sounds/ replaces them): layers of filtered noise and oscillators
 // shaped by envelopes. Sounds in the world are placed in 3D (quieter, muffled and later with distance,
 // panned left/right) and share a reverb. Looping ambience (the rush of air when you propel and the hum of
 // the box's lights) follows what is happening around you.
@@ -281,7 +281,7 @@ function initAudio(){
       bus=AC.createGain(); bus.gain.value=0.5; bus.connect(master);
       verb=AC.createConvolver(); verb.buffer=makeIR(2.6); const vg=AC.createGain(); vg.gain.value=0.45; verb.connect(vg); vg.connect(master);
       NB=noiseBuf(false,2); BB=noiseBuf(true,4);
-      initAmbience(); warmBank();
+      initAmbience(); warmBank(); loadSoundFiles();
     }
     if(AC.state==='suspended') AC.resume();
   }catch(e){ AC=null; }
@@ -502,15 +502,31 @@ const stack=(x,at,freqs,dur,att,cut)=>{ const o=Math.round(at*SR), n=Math.min(x.
 const timp=(x,at,f,g)=>{ modes(x,at,[[f,0.5,1],[f*1.5,0.35,0.5],[f*1.98,0.25,0.35]],g); mixIn(x,rbj(burst(0.2,0.04,true),'lp',300,0.8),at,g*0.8); return x; };
 BANK.victory=()=>{ const x=SN(3.2); timp(x,0,98,0.6); timp(x,0.18,98,0.5); timp(x,0.36,131,0.7); stack(x,0.36,[262,330,392,523],2.6,0.06,0); for(let i=0;i<6;i++) modes(x,0.4+i*0.07,metal(rnd(2600,3600),0.4,3),0.08); return norm(x,0.85); };
 BANK.defeat=()=>{ const x=SN(3); timp(x,0,73,0.8); stack(x,0.05,[147,175,220],1.1,0.15,0); stack(x,0.9,[131,156,196],1.9,0.2,0); return norm(rbj(x,'lp',2200,0.7),0.8); };
+// --- recorded samples. Any bank sound can be replaced by real recordings: drop sounds/<name>-1.ogg, -2.ogg ...
+// into the repo and run tools/sound_manifest.py, which lists them in sounds.js (window.SOUND_FILES). They are
+// fetched once sound is unlocked, mixed to mono and levelled like the synth takes, and take over from then on;
+// a file that is missing or can't be decoded just leaves the synth version playing.
+const FILE_BANK=new Map();
+function loadSoundFiles(){
+  const files=window.SOUND_FILES||{};
+  for(const name of Object.keys(files)){
+    Promise.all(files[name].map(u=>fetch(u).then(r=>{ if(!r.ok) throw new Error(u); return r.arrayBuffer(); }).then(d=>AC.decodeAudioData(d)).catch(()=>null)))
+      .then(bufs=>{ const a=[];
+        for(const b of bufs){ if(!b) continue; const x=new Float32Array(b.length);
+          for(let c=0;c<b.numberOfChannels;c++){ const d=b.getChannelData(c); for(let i=0;i<x.length;i++) x[i]+=d[i]/b.numberOfChannels; }
+          const m=AC.createBuffer(1,x.length,b.sampleRate); m.getChannelData(0).set(norm(fadeOut(x),0.95)); a.push(m); }
+        if(a.length) FILE_BANK.set(name,a); });
+  }
+}
 const SBK=new Map();
-function takes(name){ let a=SBK.get(name); if(a) return a; SR=AC.sampleRate; const N=name==='victory'||name==='defeat'||name==='quake'?1:4; a=[];
+function takes(name){ const f=FILE_BANK.get(name); if(f) return f; let a=SBK.get(name); if(a) return a; SR=AC.sampleRate; const N=name==='victory'||name==='defeat'||name==='quake'?1:4; a=[];
   for(let i=0;i<N;i++){ const x=fadeOut(BANK[name]()), b=AC.createBuffer(1,x.length,SR); b.getChannelData(0).set(x); a.push(b); } SBK.set(name,a); return a; }
 // play one take of a sample in a voice: g is the level, rate the pitch, at a delay
 function smp(v,name,o?){ o=o||{}; const a=takes(name), b=a[Math.floor(Math.random()*a.length)], t=v.t+(o.at||0), s=AC.createBufferSource(), g=AC.createGain();
   s.buffer=b; s.playbackRate.value=(o.rate||1)*rnd(0.97,1.03); g.gain.value=o.g==null?1:o.g; s.connect(g); g.connect(v.out); s.start(t);
   v.end=Math.max(v.end,(o.at||0)+b.duration/s.playbackRate.value); }
 // render the bank a little at a time once sound is unlocked, so the first shot doesn't hitch
-function warmBank(){ const names=Object.keys(BANK); let i=0; const step=()=>{ if(i<names.length){ takes(names[i++]); setTimeout(step,30); } }; setTimeout(step,200); }
+function warmBank(){ const names=Object.keys(BANK).filter(n=>!(window.SOUND_FILES||{})[n]); let i=0; const step=()=>{ if(i<names.length){ takes(names[i++]); setTimeout(step,30); } }; setTimeout(step,200); }
 // a mechanical click: gun parts, latches, buttons
 const chk=(v,at,f,g)=>{ smp(v,'click',{at,g:(g||0.7)*0.9,rate:(f||2600)/2900}); };
 // --- guns: one recorded-style take each, a touch of random pitch so no two shots match
@@ -1779,7 +1795,7 @@ function lkGo(i,dur?){ i=clamp(i,0,LK.n-1); const tr=$('armTrack');
   if(GS){ GS.killTweensOf(tr); GS.to(tr,{x:lkX(i),duration:dur==null?0.5:dur,ease:'power3.out',onUpdate:()=>{ if(LK.drag) LK.drag.update(); lkMoved(); },onComplete:()=>{ clearTimeout(LK.swapT); lkSelect(i); }}); }
   else { lkSetX(lkX(i)); lkMoved(); clearTimeout(LK.swapT); lkSelect(i); } }
 function lkMarkEq(){ const cards=$('armTrack').children; let e=-1;
-  if(armMode==='skins'){ const s=equippedSkin(); e=s?s.i:-1; } else if(armMode==='picks'){ const p=equippedPick(); e=p?p.i:-1; }
+  if(armMode==='skins'){ const s=equippedSkin(); e=s&&!skinRandom?s.i:-1; } else if(armMode==='picks'){ const p=equippedPick(); e=p&&!pickRandom?p.i:-1; }
   for(let i=0;i<cards.length;i++) cards[i].classList.toggle('eq',i===e); }
 function lkInitRail(){
   const rail=$('armRail'), tr=$('armTrack'), D=window.Draggable;
@@ -1817,7 +1833,7 @@ function lkThumbTick(){
   if(pick<0) return; const cv=lkThumb(pick); LK.thumbs.set(pick,cv); lkPaint(pick,cv); if(pick===(equippedSkin()||{}).i) showPickNote();
 }
 function setArmMode(m){
-  if(m==='picks'&&!PX||m==='skins'&&!(SK&&SOLDIER)) return; armMode=m; $('armEquip').hidden=m==='guns';
+  if(m==='picks'&&!PX||m==='skins'&&!(SK&&SOLDIER)) return; armMode=m; $('armEquip').hidden=$('armRandom').hidden=m==='guns';
   $('armGunsTab').setAttribute('aria-pressed',String(m==='guns')); $('armPicksTab').setAttribute('aria-pressed',String(m==='picks')); $('armSkinsTab').setAttribute('aria-pressed',String(m==='skins'));
   const on=$(m==='guns'?'armGunsTab':m==='picks'?'armPicksTab':'armSkinsTab'), pill=$q('.seg .pill');
   if(pill){ const v={x:on.offsetLeft-4,width:on.offsetWidth}; if(GS&&!calmUI&&pill.style.width) GS.to(pill,{...v,duration:0.35,ease:'power3.out'}); else { pill.style.width=v.width+'px'; pill.style.transform=`translateX(${v.x}px)`; if(GS) GS.set(pill,v); } }
@@ -1857,13 +1873,24 @@ lkInitRail();
 let equippedName='Standard Issue';
 try{ const v=localStorage.getItem('stormIslandPick'); if(v&&PX&&PX.ITEMS.some(i=>i.n===v)) equippedName=v; }catch(e){}
 function equippedPick(){ return PX?PX.ITEMS.find(i=>i.n===equippedName)||null:null; }
+// Random: a fresh pickaxe and/or skin is rolled at the start of every match (the last one rolled stays equipped)
+let pickRandom=false, skinRandom=false;
+try{ pickRandom=localStorage.getItem('stormIslandPickRandom')==='1'; skinRandom=localStorage.getItem('stormIslandSkinRandom')==='1'; }catch(e){}
+function rollLoadout(){
+  if(pickRandom&&PX) equippedName=PX.ITEMS[Math.floor(Math.random()*PX.ITEMS.length)].n;
+  if(skinRandom&&SK) skinName=SK.ITEMS[Math.floor(Math.random()*SK.ITEMS.length)].n; }
+function setRandom(on){ if(armMode==='skins') skinRandom=on; else pickRandom=on;
+  try{ localStorage.setItem(armMode==='skins'?'stormIslandSkinRandom':'stormIslandPickRandom',on?'1':'0'); }catch(e){} }
+const DICE='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><g fill="currentColor"><circle cx="8" cy="8" r="1.6"/><circle cx="16" cy="8" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="8" cy="16" r="1.6"/><circle cx="16" cy="16" r="1.6"/></g></svg>';
 function pickIcon(ic){ const it=PX&&PX.ITEMS[+ic.slice(2)]; return it?PX.pickSVG(it,'hb').replace('<svg viewBox="0 0 200 200"','<svg viewBox="24 22 152 152" width="30" height="30" aria-hidden="true"'):''; }
-function showEquip(){ const on=armMode==='skins'?SK.ITEMS[skIdx].n===equippedSkinName():PX&&PX.ITEMS[pxIdx].n===equippedName, b=$('armEquip'); b.textContent=on?'Equipped ✓':'Equip'; b.setAttribute('aria-pressed',String(!!on)); }
+function showEquip(){ const rand=armMode==='skins'?skinRandom:pickRandom, on=!rand&&(armMode==='skins'?SK.ITEMS[skIdx].n===equippedSkinName():PX&&PX.ITEMS[pxIdx].n===equippedName), b=$('armEquip'); b.textContent=on?'Equipped ✓':'Equip'; b.setAttribute('aria-pressed',String(!!on));
+  const r=$('armRandom'); r.innerHTML=DICE+(rand?' Random each match ✓':' Random each match'); r.setAttribute('aria-pressed',String(rand)); }
 function showPickNote(){ const eq=equippedPick(), sk=equippedSkin(), esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   // the loadout cards on the home screen: a portrait of your skin and your pickaxe; each opens its tab in the locker
   let th=null; if(sk&&SOLDIER){ th=LK.thumbs.get(sk.i); if(!th){ th=lkThumb(sk.i); LK.thumbs.set(sk.i,th); } }
   const card=(go,k,v,col,art)=>`<button class="locard" data-go="${go}" style="--rc:${col}"><span class="lothumb">${art}</span><span class="lotxt"><i>${esc(k)}</i>${esc(v)}</span></button>`;
-  $('pickNote').innerHTML=(SK?card('skins','Skin',sk?sk.n:'Default Trooper',RAR[sk?sk.r:0].c,th?'<canvas width="160" height="200"></canvas>':''):'')+(PX?card('picks','Pickaxe',eq?eq.n:'Default',RAR[eq?eq.rar:0].c,eq?PX.pickSVG(eq,'lo'):ICONS.pick):'');
+  $('pickNote').innerHTML=(SK?skinRandom?card('skins','Skin','Random','var(--neon)',DICE):card('skins','Skin',sk?sk.n:'Default Trooper',RAR[sk?sk.r:0].c,th?'<canvas width="160" height="200"></canvas>':''):'')
+    +(PX?pickRandom?card('picks','Pickaxe','Random','var(--neon)',DICE):card('picks','Pickaxe',eq?eq.n:'Default',RAR[eq?eq.rar:0].c,eq?PX.pickSVG(eq,'lo'):ICONS.pick):'');
   const cv=$q('#pickNote canvas'); if(cv&&th) cv.getContext('2d').drawImage(th,0,0); }
 function openLocker(mode){ const eq=equippedPick(); if(eq) pxIdx=eq.i; const sk=equippedSkin(); if(sk) skIdx=sk.i; openArmory(); setArmMode(mode); $('armEquip').focus(); }
 $('pickNote').addEventListener('click',ev=>{ const b=ev.target.closest('.locard'); if(b) openLocker(b.dataset.go==='skins'&&SK&&SOLDIER?'skins':'picks'); });
@@ -1880,9 +1907,11 @@ function applyPickSkin(e){
   c.pick.add(w);
 }
 function equipCurrent(){
+  setRandom(false);
   if(armMode==='skins'){ const it=SK.ITEMS[skIdx]; skinName=it.n; try{ localStorage.setItem('stormIslandSkin',it.n); }catch(e){} showEquip(); showPickNote(); lkMarkEq(); if(player) applySkin(player.ch,it); sfx('pickup',null,{item:{kind:'gun',r:it.r}}); return; }
   equippedName=PX.ITEMS[pxIdx].n; try{ localStorage.setItem('stormIslandPick',equippedName); }catch(e){} showEquip(); showPickNote(); lkMarkEq(); applyPickSkin(player); refreshHotbar(); sfx('pickup',null,{item:{kind:'gun',r:PX.ITEMS[pxIdx].rar}}); }
 $('armEquip').addEventListener('click',equipCurrent);
+$('armRandom').addEventListener('click',()=>{ const on=!(armMode==='skins'?skinRandom:pickRandom); setRandom(on); showEquip(); showPickNote(); lkMarkEq(); sfx(on?'pickup':'ui',null,{item:{kind:'gun',r:2}}); });
 $('lockerBtn').addEventListener('click',()=>openLocker(SK&&SOLDIER?'skins':'picks'));
 if(!PX&&!SK) $('lockerBtn').hidden=true; if(!SK) $('armSkinsTab').hidden=true; showPickNote();
 
@@ -3800,7 +3829,7 @@ function newMatch(){
   matchTime=0; targetsDirty=true; hurtFlash=0;
   buildZeroG(); buildVending(); projs=[]; bolts=[]; fires=[]; drones=[]; kunais=[]; pwShots=[]; pwZones=[]; pwWalls=[]; pwLaters=[]; shopOpen=false; $('shop').hidden=true;
   ZG.state='float'; ZG.t=rnd(20,26); ZG.camRoll=0; ZG.flash=0;
-  player=makeCombatant('You',true);
+  rollLoadout(); player=makeCombatant('You',true);
   Object.assign(player,{slots:[null,{kind:'gun',id:'ar',r:3,ammo:WEAP.ar.mag},{kind:'gun',id:'pump',r:3,ammo:WEAP.pump.mag},{kind:'gun',id:'smg',r:2,ammo:WEAP.smg.mag},{kind:'cons',id:'big',count:2},{kind:'cons',id:'mini',count:3},{kind:'gun',id:'mf',r:4,ammo:MF_CLIP},null,null],
     sel:1,bank:0,throwA:null,bouncer:{cd:0},bounceT:0,ball:null,ammo:{light:150,medium:240,heavy:12,shells:48},fireCd:0,bloom:0,reloading:null,consuming:null,dmgDealt:0,wantJump:false,shield:50});
   zgSpawn(player,0,ZG.BOTS+1); player.pitch=0; applyPickSkin(player);
