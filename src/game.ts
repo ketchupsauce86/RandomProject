@@ -36,6 +36,7 @@ const WEAP={
   frz:{name:'Freeze Ray',short:'FREEZE',dmg:5,rate:0.08,mag:1,reload:0,spread:0,bloom:0,auto:true,ammo:'light',range:55,pellets:1,head:1.3,recoil:0.0012,pref:20,col:'#7fe3ff',sp:'frz'},
   tsr:{name:'Taser',short:'TASER',dmg:20,rate:0.8,mag:1,reload:0,spread:0,bloom:0,auto:false,ammo:'light',range:30,pellets:1,head:1.3,recoil:0.03,pref:14,col:'#ffe14a',sp:'tsr'},
   flm:{name:'Flamethrower',short:'FLAMES',dmg:3,rate:0.06,mag:1,reload:0,spread:0,bloom:0,auto:true,ammo:'light',range:17,pellets:1,head:1,recoil:0.001,pref:10,col:'#ff7a1a',sp:'flm'},
+  pb:{name:'Paintball Gun',short:'PAINT',dmg:12,rate:0.11,mag:1,reload:0,spread:0.014,bloom:0,auto:true,ammo:'light',range:200,pellets:1,head:1.6,recoil:0.004,pref:22,col:'#ff3fa4',sp:'pb'},
   drone:{name:'Robot Drone',short:'DRONE',dmg:11,rate:0.3,mag:1,reload:0,spread:0,bloom:0,auto:false,ammo:'light',range:90,pellets:1,head:1.5,recoil:0,pref:30,col:'#ff5a3c',sp:'drone'},
 };
 const CONS={
@@ -90,7 +91,9 @@ const GUN_MAT={poly:GPh(0x1e1f22,12,0x161616),steel:GPh(0x2f3237,60,0x4a4a4a),da
   ice:new T.MeshPhongMaterial({color:0x9fe8ff,emissive:0x1f6f95,specular:0xffffff,shininess:150,transparent:true,opacity:0.85}),frost:GPh(0xe9eef4,70,0x9ab0c0), // Freeze Ray
   volt:GPh(0xf2c418,55,0x8a7a30),cyan:new T.MeshBasicMaterial({color:0x8fe3ff}), // Taser
   tank:GPh(0xc8321e,80,0x997070),brass:GPh(0xb08a3c,90,0xffe0a0), // Flamethrower
-  white:GPh(0xf2f4f7,50,0x8a8a8a),red:new T.MeshBasicMaterial({color:0xff3b30})}; // the drone's remote
+  white:GPh(0xf2f4f7,50,0x8a8a8a),red:new T.MeshBasicMaterial({color:0xff3b30}), // the drone's remote
+  pbody:GPh(0xff2f8f,70,0xffb0d8),balls:GPh(0xffe23a,60,0xffffff), // Paintball Gun: the body and the paintballs in the hopper
+  hopper:new T.MeshPhongMaterial({color:0x9fe0ff,specular:0xffffff,shininess:120,transparent:true,opacity:0.4,depthWrite:false})};
 // rarity shows as the cerakote finish on the furniture: black, olive drab, slate blue, plum, gold
 const FURN=[GPh(0x26272a,14),GPh(0x4b5337,14),GPh(0x3b4e66,24),GPh(0x4f3b66,24),GPh(0xc9a23a,90,0xfff0b0)];
 function prof(pts,w,bev?){
@@ -181,6 +184,14 @@ const GUN_PARTS={
     [gtube(0.016,0.016,0.03,10),'brass',0.05,0.12,-0.185],[gtube(0.016,0.016,0.03,10),'brass',-0.05,0.12,-0.185],[BX(0.15,0.012,0.02),'dark',0,0.07,0.12],[BX(0.15,0.012,0.02),'dark',0,0.07,-0.06],
     [new T.TorusGeometry(0.03,0.007,6,14,Math.PI*1.4).rotateY(Math.PI/2),'brass',0,0.09,-0.23],
     [prof([[0.2,0.05],[0.4,0.035],[0.42,0.015],[0.42,-0.08],[0.39,-0.09],[0.3,-0.03],[0.2,-0.01]],0.05),'dark',0,0,0]],
+  pb:()=>[ // Paintball Gun: a pink marker with a long steel barrel, a clear hopper of paintballs on top and a silver air tank for a stock
+    [prof([[0.16,-0.01],[0.16,0.06],[-0.12,0.06],[-0.14,0.035],[-0.14,-0.01]],0.056),'pbody',0,0,0],[BX(0.06,0.01,0.26),'dark',0,0.025,0.01],
+    [prof([[0.13,-0.01],[0.075,-0.01],[0.105,-0.2],[0.16,-0.21],[0.17,-0.19]],0.046),'poly',0,0,0],...GUARD(0.07,0.0,-0.05),
+    [prof([[-0.06,-0.01],[-0.1,-0.01],[-0.095,-0.12],[-0.065,-0.12]],0.034),'poly',0,0,0],
+    [gtube(0.024,0.022,0.42,14),'steel',0,0.035,-0.35],[gtube(0.03,0.03,0.022,14),'pbody',0,0.035,-0.55],[gtube(0.029,0.029,0.016,14),'dark',0,0.035,-0.15],
+    [new T.CylinderGeometry(0.022,0.026,0.07,12),'pbody',0,0.09,-0.02],[new T.SphereGeometry(0.075,16,12).scale(0.9,0.8,1.3),'hopper',0,0.17,0.0],
+    ...[[0,0.14,0.03],[0.025,0.15,-0.04],[-0.025,0.15,0.01],[0.02,0.19,0.05],[-0.02,0.19,-0.03],[0,0.2,0.0],[0,0.15,-0.08]].map(([x,y,z])=>[new T.SphereGeometry(0.021,10,8),'balls',x,y,z]),
+    [gtube(0.024,0.024,0.04,12),'dark',0,0.0,0.18],[gtube(0.042,0.042,0.22,16),'bare',0,0.0,0.31],[new T.SphereGeometry(0.042,16,10).scale(1,1,0.6),'bare',0,0.0,0.42]],
   drone:()=>[ // the drone's remote: a white controller with two sticks, a little screen and an antenna with a red light
     [BX(0.17,0.04,0.1),'white',0,0,0.02],[BX(0.05,0.04,0.07),'white',0.075,-0.01,0.06],[BX(0.05,0.04,0.07),'white',-0.075,-0.01,0.06],
     [new T.CylinderGeometry(0.012,0.016,0.03,10),'dark',0.045,0.032,0.03],[new T.CylinderGeometry(0.012,0.016,0.03,10),'dark',-0.045,0.032,0.03],
@@ -189,7 +200,7 @@ const GUN_PARTS={
     [new T.CylinderGeometry(0.004,0.005,0.2,6),'steel',0.07,0.1,-0.02],[new T.SphereGeometry(0.012,8,6),'red',0.07,0.2,-0.02]],
 };
 // muzzle [y, z] per gun
-const MUZZLE={ar:[0.014,-0.67],smg:[0.022,-0.47],pump:[0.025,-0.74],pistol:[0.045,-0.26],sniper:[0.02,-1.06],rpg:[0.06,-0.42],mf:[0.045,-0.26],frz:[0.03,-0.46],tsr:[0.035,-0.33],flm:[0.02,-0.62],drone:[0.03,-0.05]};
+const MUZZLE={ar:[0.014,-0.67],smg:[0.022,-0.47],pump:[0.025,-0.74],pistol:[0.045,-0.26],sniper:[0.02,-1.06],rpg:[0.06,-0.42],mf:[0.045,-0.26],frz:[0.03,-0.46],tsr:[0.035,-0.33],flm:[0.02,-0.62],pb:[0.035,-0.57],drone:[0.03,-0.05]};
 // attachments unlocked at higher rarities: [minimum rarity, ...parts]; SUPP moves the muzzle out past a suppressor
 const EXTRA={
   ar:[[2,...REDDOT(0.1,0.02)],[3,[prof([[-0.34,-0.04],[-0.38,-0.04],[-0.375,-0.13],[-0.345,-0.13]],0.03),'poly',0,0,0]],[4,[gtube(0.026,0.026,0.18,16),'dark',0,0.014,-0.76]]],
@@ -197,7 +208,7 @@ const EXTRA={
   pump:[[2,[BX(0.006,0.045,0.1),'dark',0.034,-0.005,0.08],...[0.05,0.07,0.09,0.11].map(z=>[new T.CylinderGeometry(0.009,0.009,0.04,8),'shell',0.04,-0.005,z])],[3,[BX(0.03,0.03,0.02),'dark',0,0.065,0.16]],[4,...REDDOT(0.075,0.05)]],
   pistol:[[2,[BX(0.035,0.03,0.06),'dark',0,-0.03,-0.19],[gtube(0.012,0.012,0.004,10),'glass',0,-0.03,-0.221]],[3,...REDDOT(0.095,0.0)],[4,[BX(0.05,0.07,0.035),'steel',0,0.04,-0.27]]],
   sniper:[[2,[BX(0.012,0.012,0.2),'steel',0.02,-0.08,-0.38],[BX(0.012,0.012,0.2),'steel',-0.02,-0.08,-0.38]],[4,[gtube(0.032,0.032,0.2,16),'dark',0,0.02,-1.16]]],
-  rpg:[], mf:[], frz:[], tsr:[], flm:[], drone:[],
+  rpg:[], mf:[], frz:[], tsr:[], flm:[], pb:[], drone:[],
 };
 const SUPP={ar:[4,-0.18],smg:[4,-0.16],pistol:[4,-0.03],sniper:[4,-0.2]};
 const SHELL_MAT=GPh(0xb3262b,30);
@@ -492,6 +503,13 @@ const BANK:any={
   deathBeam:()=>{ const x=SN(1.6); mixIn(x,rbj(burst(1.2,0.35,true,0.01),'lp',110,0.9),0,2); mixIn(x,sweep(1,2600,180,1.2,k=>Math.pow(1-k,1.3)),0.01,1);
     const f=rnd(110,118); modes(x,0.02,[[f,0.9,1],[f*1.5,0.7,0.6],[f*2,0.6,0.5],[f*3.02,0.4,0.35]],0.35); mixIn(x,rbj(burst(0.02,0.003),'hp',2400,0.7),0,0.8); return norm(sat(x,1.5),0.9); },
   deathHit:()=>{ const x=SN(0.7); mixIn(x,rbj(burst(0.4,0.08,true),'lp',200,0.9),0,2); mixIn(x,rbj(burst(0.015,0.002),'hp',2500,0.7),0,0.8); modes(x,0.003,[[rnd(78,84),0.4,1],[rnd(160,170),0.2,0.5]],0.4); return norm(sat(x,1.6),0.9); },
+  // Paintball Gun: a puff of compressed air with a hollow pop and the bolt's tock; the ball bursting wetly on what it hits
+  pbShot:()=>{ const x=SN(0.35); mixIn(x,rbj(rbj(burst(0.08,0.012,true),'bp',rnd(520,640),1.4),'lp',1600,0.7),0,1.4); mixIn(x,comb(rbj(burst(0.05,0.008),'bp',rnd(900,1100),1.2),rnd(300,340),0.5),0,0.6);
+    mixIn(x,rbj(burst(0.25,0.05,false,0.004),'hp',3500,0.7),0.004,0.35); modes(x,0.012,[[rnd(1700,1900),0.01,1],[rnd(3400,3800),0.006,0.5]],0.25); return norm(x,0.8); },
+  splat:()=>{ const x=SN(0.4); mixIn(x,rbj(burst(0.12,0.02,true),'lp',rnd(700,900),0.8),0,1.5); mixIn(x,amp(rbj(burst(0.2,0.05),'bp',rnd(1300,1700),1.1),t=>0.55+0.45*Math.sin(t*2*Math.PI*rnd(55,75))),0.005,0.5);
+    for(let i=0;i<6;i++) mixIn(x,rbj(burst(0.01,0.0015),'bp',rnd(2500,5500),2),rnd(0.03,0.25),rnd(0.1,0.3)); return norm(x,0.75); },
+  // a heartbeat: lub-dub, two soft low thumps felt more than heard
+  heart:()=>{ const x=SN(0.6); for(const [at,g] of [[0,1],[0.16,0.7]]){ mixIn(x,rbj(rbj(burst(0.16,0.03,true),'lp',110,0.9),'lp',110,0.9),at,1.6*g); modes(x,at,[[rnd(46,52),0.07,1],[rnd(78,86),0.04,0.4]],0.5*g); } return norm(x,0.85); },
   pop:()=>{ const x=SN(0.4); mixIn(x,rbj(burst(0.02,0.002),'hp',2500,0.7),0,1.2); mixIn(x,rbj(burst(0.3,0.06,true),'lp',260,0.9),0,1.2); mixIn(x,comb(rbj(burst(0.2,0.04),'bp',900,1),rnd(380,420),0.6),0.005,0.4); return norm(x,0.85); },
 };
 // end-of-match stings: still music, but played by warm, detuned ensembles with a timpani roll rather than bleeps
@@ -540,6 +558,7 @@ const GUN_SFX={
   frz:(v,p)=>{ smp(v,'frost',{rate:p,g:0.55}); },
   tsr:(v,p)=>{ smp(v,'taser',{rate:p,g:0.9}); },
   flm:(v,p)=>{ smp(v,'flame',{rate:p*0.95,g:0.8}); },
+  pb:(v,p)=>{ smp(v,'pbShot',{rate:p,g:0.75}); },
   droneShot:(v,p)=>{ smp(v,'droneShot',{rate:p*1.1,g:0.6}); },
   sniper:(v,p)=>{ smp(v,'sniper',{rate:p}); chk(v,0.75,2400,0.6); smp(v,'clack',{at:0.86,g:0.4}); chk(v,1.0,2000,0.7); },
 };
@@ -591,6 +610,8 @@ const SFX={
   boing:(v,o)=>{ smp(v,'launch',{g:o&&o.small?0.4:0.9}); },
   ballOn:v=>{ smp(v,'launch',{g:0.6,rate:0.8}); smp(v,'zap',{at:0.12,g:0.3,rate:0.6}); },
   ballPop:v=>{ smp(v,'pop',{g:0.9}); },
+  splat:v=>{ smp(v,'splat',{g:0.6,rate:rnd(0.9,1.15)}); },
+  heart:(v,o)=>{ smp(v,'heart',{g:o.g||0.8}); },
   crackle:v=>{ smp(v,'crackle',{g:0.6}); },
   clink:v=>{ smp(v,'clink',{g:0.5}); },
   unhook:v=>{ smp(v,'clack',{g:0.5,rate:0.8}); },
@@ -622,7 +643,7 @@ const SFX={
   droneDown:v=>{ smp(v,'pop',{g:0.8,rate:1.2}); smp(v,'shatter',{at:0.02,g:0.4,rate:0.8}); },
 };
 // range is how far away a sound carries; wet is how much reverb it gets
-const SFX_OPT={katana:{range:80},bladeHit:{range:100},clang:{range:150},bookOpen:{range:40},scribble:{range:30},deathBeam:{range:500,wet:0.45},deathHit:{range:250,wet:0.2},ssjBurst:{range:500,wet:0.4},ssjHit:{range:120},titanBolt:{range:700,wet:0.5},roar:{range:400,wet:0.35},steam:{range:80},titanSwing:{range:120},titanHit:{range:300,wet:0.25},titanWhiff:{range:150},shock:{range:500,wet:0.4},shockS:{range:200,wet:0.15},punch:{range:80},stretch:{range:90},kunai:{range:80},stick:{range:60},slash:{range:60},mf:{range:260},frz:{range:120},tsr:{range:160},flm:{range:170,wet:0.1},droneShot:{range:220},rotor:{range:55,wet:0.03},freeze:{range:120},thaw:{range:120},stun:{range:70},ignite:{range:140},droneUp:{range:80},droneDown:{range:160},zapB:{range:60},boing:{range:120},ballPop:{range:160},rpg:{range:420,wet:0.2},boom:{range:700,wet:0.5},crackle:{range:45,wet:0.05},clink:{range:50},smg:{range:260},pistol:{range:280},pump:{range:300,wet:0.15},sniper:{range:600,wet:0.25},
+const SFX_OPT={pb:{range:150},splat:{range:60,wet:0.05},katana:{range:80},bladeHit:{range:100},clang:{range:150},bookOpen:{range:40},scribble:{range:30},deathBeam:{range:500,wet:0.45},deathHit:{range:250,wet:0.2},ssjBurst:{range:500,wet:0.4},ssjHit:{range:120},titanBolt:{range:700,wet:0.5},roar:{range:400,wet:0.35},steam:{range:80},titanSwing:{range:120},titanHit:{range:300,wet:0.25},titanWhiff:{range:150},shock:{range:500,wet:0.4},shockS:{range:200,wet:0.15},punch:{range:80},stretch:{range:90},kunai:{range:80},stick:{range:60},slash:{range:60},mf:{range:260},frz:{range:120},tsr:{range:160},flm:{range:170,wet:0.1},droneShot:{range:220},rotor:{range:55,wet:0.03},freeze:{range:120},thaw:{range:120},stun:{range:70},ignite:{range:140},droneUp:{range:80},droneDown:{range:160},zapB:{range:60},boing:{range:120},ballPop:{range:160},rpg:{range:420,wet:0.2},boom:{range:700,wet:0.5},crackle:{range:45,wet:0.05},clink:{range:50},smg:{range:260},pistol:{range:280},pump:{range:300,wet:0.15},sniper:{range:600,wet:0.25},
   step:{range:40,wet:0.03},impact:{range:70},whiz:{range:20,wet:0},chop:{range:80},stormWarn:{wet:0.5},victory:{wet:0.3},defeat:{wet:0.3},land:{wet:0.03}};
 const SFX_GAP={clang:0.04,scribble:0.08,bladeHit:0.05,ssjHum:0.3,ssjHit:0.05,titanSwing:0.1,titanHit:0.08,steam:0.3,stretch:0.045,shockS:0.06,punch:0.03,frz:0.07,flm:0.2,stun:0.15,freeze:0.05,thaw:0.05,tick:0.035,zapB:0.03,crackle:0.05,clink:0.03,impact:0.03,whiz:0.08,hit:0.035,head:0.035,shield:0.035,step:0.02};
 function sfx(kind,pos?,o?){
@@ -657,6 +678,7 @@ function footsteps(dt){
     if(e.isPlayer) sfx('step',null,{g}); else if(e.pos.distanceTo(camera.position)<40) sfx('step',e.pos,{g});
   }
 }
+const HEART_HP=35; let heartT=0;
 function updateAudio(dt){
   if(!AC||!AMB) return; const A=AMB, t=AC.currentTime, p=player, T=(par,v,k?)=>par.setTargetAtTime(v,t,k||0.15);
   const live=state==='play'&&p;
@@ -666,6 +688,8 @@ function updateAudio(dt){
   const gust=0.75+0.25*Math.sin(t*0.37)*Math.sin(t*0.71+1);
   T(A.wind.gain,p.alive?(p.zgPropel?0.22:0.04*gust):0.03,0.25); T(A.windF.frequency,p.zgPropel?900:420,0.3);
   T(A.hum.gain,0.025,0.4);
+  // low health: your heartbeat, faster and louder the closer you are to going down
+  if(p.alive&&p.hp<=HEART_HP){ heartT-=dt; if(heartT<=0){ const k=1-clamp(p.hp/HEART_HP,0,1); heartT=1.05-0.45*k; sfx('heart',null,{g:0.5+0.5*k}); } } else heartT=0;
   footsteps(dt);
 }
 
@@ -741,7 +765,7 @@ const HOLD={ar:{r:[0.015,-0.09,0.21],l:[-0.03,-0.065,-0.17],g:[-0.04,-0.17,-0.24
   mf:{r:[0.015,-0.05,0.13],l:[-0.315,-0.05,0.13],g:[-0.03,-0.13,-0.4],lf:[0.1,-0.1,-0.99],ln:[1,0,0.1]}, // one gun in each hand
   rpg:{r:[0.015,0.01,0.23],l:[-0.035,-0.03,-0.03],g:[-0.02,0,-0.22],lf:[0.35,-0.25,-0.9],ln:[0.95,0.2,0]}, // the RPG rests on the shoulder
   frz:{r:[0.015,-0.09,0.2],l:[-0.03,-0.075,-0.06],g:[-0.04,-0.17,-0.25]},tsr:{r:[0.015,-0.05,0.13],l:[-0.035,-0.08,0.1],g:[-0.1,-0.13,-0.37],lf:[0.3,-0.3,-0.9],ln:[0.9,0.4,0]},
-  flm:{r:[0.015,-0.09,0.2],l:[-0.03,-0.08,-0.15],g:[-0.04,-0.17,-0.23]},drone:{r:[0.085,-0.03,0.11],l:[-0.085,-0.03,0.11],g:[-0.16,-0.24,-0.33],lf:[0.2,0.2,-0.95],ln:[0.3,0.9,0]}}; // the remote in both hands, thumbs on the sticks
+  flm:{r:[0.015,-0.09,0.2],l:[-0.03,-0.08,-0.15],g:[-0.04,-0.17,-0.23]},pb:{r:[0.015,-0.09,0.2],l:[-0.03,-0.07,-0.08],g:[-0.04,-0.17,-0.25]},drone:{r:[0.085,-0.03,0.11],l:[-0.085,-0.03,0.11],g:[-0.16,-0.24,-0.33],lf:[0.2,0.2,-0.95],ln:[0.3,0.9,0]}}; // the remote in both hands, thumbs on the sticks
 // The pickaxe swing: both hands on the pickaxe, quick wind-up over one shoulder, a diagonal chop that
 // lands the head on the crosshair, a follow-through across the body, and alternating forehand/backhand combos.
 // Body frame: x right, y up, z back. Keys: [t, grip x,y,z from the right shoulder, handle dir x,y,z, spike dir x,y,z, torso twist, lean]
@@ -1202,7 +1226,7 @@ function setHeld(e,it){
   if(it){ const m=makeGunModel(it.id,it.r); c.gunMount.add(m); c.held=m; m.userData.muzzle.add(c.flash); e.anim.draw=0; }
 }
 function muzzlePos(e,out){ const c=e.ch; if(c.held) return (c.held.userData.muzzles?c.held.userData.muzzles[e.anim.mfSide||0]:c.held.userData.muzzle).getWorldPosition(out); return out.set(e.pos.x,e.pos.y+1.5,e.pos.z); }
-const KICK={ar:0.55,smg:0.35,pump:1,pistol:0.6,sniper:1,rpg:1.3,mf:0.3,frz:0.1,tsr:0.8,flm:0.06,drone:0.15};
+const KICK={ar:0.55,smg:0.35,pump:1,pistol:0.6,sniper:1,rpg:1.3,mf:0.3,frz:0.1,tsr:0.8,flm:0.06,pb:0.12,drone:0.15};
 function fireFx(e,w,id){
   const A=e.anim; A.recoil=Math.min(1.2,A.recoil+KICK[id]); A.flash=0.05; e.ch.flash.scale.setScalar(rnd(0.6,1.1)*(id==='pump'||id==='sniper'?1.5:1)); e.ch.flash.material.rotation=Math.random()*6;
   if(id==='pump') A.pumpT=-0.15;
@@ -1427,6 +1451,7 @@ const ICON_IN={
   tsr:'<path d="M16 7h28v8H30l-2 8h-8l2-8h-6z"/><rect x="44" y="6" width="7" height="10" rx="1" fill="#202226"/><path d="M51 8h3M51 14h3" stroke="#8fe3ff" stroke-width="1.6"/><path d="M57 3l-2 6h4l-3 7" fill="none" stroke="#8fe3ff" stroke-width="1.5"/>',
   flm:'<path d="M3 9h7v5H5z"/><rect x="10" y="9" width="38" height="4" rx="1"/><rect x="34" y="8" width="14" height="6" rx="1" opacity=".7"/><rect x="48" y="8" width="4" height="6"/><rect x="14" y="2" width="22" height="6" rx="3" fill="#c8321e"/><path d="M17 13h5l-2 8h-5z"/><path d="M38 13h4v6h-4z"/><path d="M53 11c3-5 7-4 9-8-1 5 1 7-3 12 0-2-3-3-6-4z" fill="#ffb02a"/>',
   drone:'<rect x="24" y="8" width="16" height="9" rx="4.5"/><rect x="6" y="9.5" width="52" height="2.5" rx="1"/><rect x="1" y="5" width="16" height="2" rx="1"/><rect x="47" y="5" width="16" height="2" rx="1"/><rect x="8" y="6" width="2" height="5"/><rect x="54" y="6" width="2" height="5"/><circle cx="32" cy="13" r="2.2" fill="#ff3b30"/><rect x="30.5" y="17" width="3" height="4"/>',
+  pb:'<path d="M12 9h26v6H24l-2 8h-7l2-8h-5z"/><rect x="38" y="10" width="20" height="3" rx="1"/><rect x="56" y="9" width="4" height="5" rx="1" fill="#ff3fa4"/><rect x="1" y="9.5" width="11" height="5" rx="2.5" opacity=".75"/><ellipse cx="26" cy="5" rx="7" ry="4.5" opacity=".55"/><circle cx="23.5" cy="5" r="1.8" fill="#ffe23a"/><circle cx="28" cy="4.5" r="1.8" fill="#3fd0ff"/>',
   bounce:'<circle cx="32" cy="12" r="10"/><path d="M22 12c4-3 16-3 20 0M24 6c4 3 12 3 16 0M24 18c4-3 12-3 16 0" fill="none" stroke="#000" stroke-opacity=".35" stroke-width="1.4"/>',
 };
 const SVG=inner=>`<svg viewBox="0 0 64 24" width="52" height="20" fill="currentColor" aria-hidden="true">${inner}</svg>`;
@@ -1438,7 +1463,7 @@ const ICONS={
   pistol:SVG('<rect x="18" y="6" width="28" height="7" rx="1"/><rect x="46" y="8" width="3" height="3"/><polygon points="20,13 29,13 27,23 18,23"/><path d="M29 13h6v3a3 3 0 0 1-3 3h-3z" fill="none" stroke="currentColor" stroke-width="1.6"/>'),
   sniper:SVG('<polygon points="0,9 12,8 12,14 0,17"/><rect x="12" y="8" width="20" height="6" rx="1"/><rect x="32" y="9.5" width="27" height="2.5"/><rect x="58" y="8.5" width="5" height="4" rx="1"/><rect x="15" y="2" width="16" height="4.5" rx="2.2"/><polygon points="16,14 21,14 19,20 14,20"/>'),
 
-  rpg:SVG(ICON_IN.rpg), gren:SVG(ICON_IN.gren), mf:SVG(ICON_IN.mf), bounce:SVG(ICON_IN.bounce), frz:SVG(ICON_IN.frz), tsr:SVG(ICON_IN.tsr), flm:SVG(ICON_IN.flm), drone:SVG(ICON_IN.drone),
+  rpg:SVG(ICON_IN.rpg), gren:SVG(ICON_IN.gren), mf:SVG(ICON_IN.mf), bounce:SVG(ICON_IN.bounce), frz:SVG(ICON_IN.frz), tsr:SVG(ICON_IN.tsr), flm:SVG(ICON_IN.flm), pb:SVG(ICON_IN.pb), drone:SVG(ICON_IN.drone),
   mini:SVG('<rect x="29" y="3" width="6" height="5" rx="1"/><circle cx="32" cy="15" r="7"/>'),
   big:SVG('<rect x="28" y="1" width="8" height="5" rx="1"/><path d="M27 6h10l5 7v8a2 2 0 0 1-2 2H24a2 2 0 0 1-2-2v-8z"/>'),
 };
@@ -1561,7 +1586,7 @@ function updateSun(){ const f=(state==='menu'||!player)?tv4.set(0,0,0):player.po
 // The model stands on a pedestal; OrbitControls lets you drag to spin round it and scroll to zoom.
 // The rail along the bottom is a GSAP Draggable strip of cards: drag or fling it and the card that
 // lands in the middle is the one shown. Skin cards get little portraits rendered from the real model.
-const ARM_IDS=['ar','smg','pump','pistol','sniper','rpg','mf','tsr','frz','flm','drone'], ARM_Y=420;
+const ARM_IDS=['ar','smg','pump','pistol','sniper','rpg','mf','tsr','frz','flm','pb','drone'], ARM_Y=420;
 const SHOP_GUN=id=>SHOP.find(x=>x.id===id);
 let armIdx=0, armGroup=null, armGuns=[];
 const LK:any={stage:null,item:null,orbit:null,idle:0,kind:'',n:0,center:-1,shown:-1,step:128,vx:0,lx:0,lt:0,drag:null,swapT:0,thumbs:new Map(),thumbBusy:0,wheelT:0,ring:null,glow:null,rim:null};
@@ -1637,7 +1662,7 @@ function buildArmory(dir?){
     holder.add(h); armGuns.push(h); }
   LK.ped.visible=LK.ring.visible=LK.blob.visible=false; lkTint('#5cf0ff');
   lkPut(holder,dir||0); lkFrame(true);
-  const w=WEAP[id], fx={frz:'Freezes',tsr:'Stuns',flm:'Burns',drone:'Hunts for 15s'}[id];
+  const w=WEAP[id], fx={frz:'Freezes',tsr:'Stuns',flm:'Burns',pb:'Splats paint',drone:'Hunts for 15s'}[id];
   lkInfo(w.name,(shopIt?'Shop · '+shopIt.price+' elims':'Armory')+' · '+(armIdx+1)+' of '+ARM_IDS.length,null,id==='drone'?`Damage ${DRONE_W.dmg} · ${fx}`:`Damage ${w.dmg*w.pellets>w.dmg?w.dmg+' × '+w.pellets:w.dmg} · ${w.auto?'Full auto':'Single shot'}${fx?' · '+fx:''}`);
   $('armLabels').innerHTML=shopIt?'':RAR.map(r=>`<span style="color:${r.c}">${r.n}</span>`).join('');
 }
@@ -2248,7 +2273,7 @@ function segHit(o,dir,len,src){
     n=q.x<=-L+0.01?new V(1,0,0):q.x>=L-0.01?new V(-1,0,0):q.z<=-L+0.01?new V(0,0,1):q.z>=L-0.01?new V(0,0,-1):q.y<=0.01?new V(0,1,0):new V(0,-1,0); }
   ray.set(o,dir); ray.near=0; ray.far=d;
   const hits=ray.intersectObjects(meshesAlong(o,dir,d,true),false); const h=hits.find(x=>x.object.userData.ent!==src);
-  if(h){ const ent=h.object.userData.ent; return {d:h.distance,ent:ent&&ent.etype==='char'?ent:null,n:ent&&ent.etype==='char'?null:h.face?h.face.normal.clone():null}; }
+  if(h){ const ent=h.object.userData.ent; return {d:h.distance,ent:ent&&ent.etype==='char'?ent:null,head:h.object.userData.part==='head',n:ent&&ent.etype==='char'?null:h.face?h.face.normal.clone():null}; }
   return n?{d,ent:null,n}:null;
 }
 function updateProjs(dt){
@@ -2267,7 +2292,7 @@ function updateProjs(dt){
       P.pos.addScaledVector(dir,len); P.m.position.copy(P.pos); P.m.lookAt(_dv.copy(P.pos).add(dir)); P.m.rotateZ(P.t*12);
       const gl=P.m.userData.glow; gl.scale.setScalar(rnd(0.7,1.1));
       if(player&&player.alive&&P.src!==player&&P.pos.distanceTo(player.pos)<10) sfx('whiz',P.pos.clone());
-    } else updateGrenade(P,i,dt);
+    } else if(P.kind==='paint') updatePaint(P,i,dt); else updateGrenade(P,i,dt);
   }
 }
 function removeProj(i){ const P=projs[i]; world.remove(P.m); projs.splice(i,1); }
@@ -2732,8 +2757,39 @@ function updateDrones(dt){
 // the special guns' shot: called from gunFire
 function specialFire(p,it,w){
   if(lockedUp(p)) return;
-  if(w.sp==='frz') frzFire(p,w); else if(w.sp==='tsr') tsrFire(p,w); else if(w.sp==='flm') flmFire(p,w); else if(w.sp==='drone') droneFire(p,it);
+  if(w.sp==='frz') frzFire(p,w); else if(w.sp==='tsr') tsrFire(p,w); else if(w.sp==='flm') flmFire(p,w); else if(w.sp==='pb') pbFire(p,w); else if(w.sp==='drone') droneFire(p,it);
 }
+// ---- Paintball Gun: fast paintballs in random bright colours. They burst on whoever they hit and leave splats on the
+// box and the blocks, which fade after a while (only the newest SPLAT_MAX stay).
+const PAINT=[0xff2f8f,0xffe23a,0x3fd0ff,0x62ff7a,0xff7a1a,0xa65cff], SPLAT_MAX=160, SPLAT_LIFE=45;
+const pbBallGeo=new T.SphereGeometry(0.07,10,8), splatGeo=new T.PlaneGeometry(1,1);
+const splatTex=canvasTex(128,128,(g)=>{ g.fillStyle='#fff'; g.beginPath(); for(let i=0;i<=24;i++){ const a=i/24*TAU, r=34+Math.random()*14; if(i) g.lineTo(64+Math.cos(a)*r,64+Math.sin(a)*r); else g.moveTo(64+Math.cos(a)*r,64+Math.sin(a)*r); } g.fill();
+  for(let i=0;i<14;i++){ const a=Math.random()*TAU, r=rnd(44,60), s=rnd(2,7); g.beginPath(); g.arc(64+Math.cos(a)*r,64+Math.sin(a)*r,s,0,TAU); g.fill(); g.beginPath(); g.ellipse(64+Math.cos(a)*(r-10),64+Math.sin(a)*(r-10),s*0.7,8,a+Math.PI/2,0,TAU); g.fill(); } });
+const PM:any={}; function paintMats(c){ return PM[c]||(PM[c]={ball:new T.MeshBasicMaterial({color:c}),dot:new T.SpriteMaterial({map:glowTex,color:c,transparent:true,depthWrite:false}),
+  splat:new T.MeshBasicMaterial({map:splatTex,color:c,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2})}); }
+let splats=[];
+function pbFire(p,w){
+  camera.getWorldDirection(tv1); const o=muzzlePos(p,new V()), at=aimPoint(p,tv1,w.range), dir=jitter(at.sub(o).normalize(),w.spread,new V());
+  const c=pick(PAINT), m=new T.Mesh(pbBallGeo,paintMats(c).ball); m.position.copy(o); world.add(m);
+  projs.push({kind:'paint',src:p,m,pos:o,vel:dir.multiplyScalar(90),t:0,col:c,w});
+  p.pitch=Math.min(1.25,p.pitch+w.recoil*rnd(0.5,1)); fireFx(p,w,'pb'); sfx('pb');
+}
+function updatePaint(P,i,dt){
+  if(ZG.state==='ceil') P.vel.y+=GRAV*0.3*dt; // a slight arc while gravity is on
+  const len=P.vel.length()*dt, dir=P.vel.clone().normalize(), h=segHit(P.pos,dir,len,P.src);
+  if(h||P.t>3){ const at=P.pos.clone().addScaledVector(dir,h?h.d:len);
+    if(h&&h.ent) hurt(h.ent,P.w.dmg*(h.head?P.w.head:1),P.src,{head:h.head,point:at,weapon:P.w.name,dir});
+    if(h) paintBurst(at,h.n,P.col,dir); removeProj(i); return; }
+  P.pos.addScaledVector(dir,len); P.m.position.copy(P.pos);
+}
+function paintBurst(at,n,c,dir){
+  const M=paintMats(c);
+  for(let i=0;i<7;i++) mote(M.dot,at.clone(),rnd(0.15,0.35),rnd(0.25,0.45),rv(3).addScaledVector(n||dir,n?3:-2));
+  if(n){ const m=new T.Mesh(splatGeo,M.splat), s=rnd(0.55,1.1); m.position.copy(at).addScaledVector(n,0.02); m.lookAt(_dv.copy(m.position).add(n)); m.rotateZ(Math.random()*TAU); m.scale.setScalar(s); world.add(m);
+    splats.push({m,t:0}); if(splats.length>SPLAT_MAX) world.remove(splats.shift().m); }
+  sfx('splat',at);
+}
+function updateSplats(dt){ for(let i=splats.length-1;i>=0;i--){ const S=splats[i]; S.t+=dt; if(S.t>SPLAT_LIFE){ world.remove(S.m); splats.splice(i,1); } else if(S.t>SPLAT_LIFE-3) S.m.scale.multiplyScalar(1-dt*0.6); } }
 // ================= pickaxe power-ups =================
 // Every pickaxe outside the Anime set has two moves (the list is in POWERS below; pickaxes.js has the words the
 // locker shows). A tap swings it as usual with that pickaxe's own extra on top: something that happens to whoever
@@ -3756,14 +3812,15 @@ function updateBW(dt){ if(bwT>0){ bwT-=dt; renderer.domElement.style.filter=bwT>
 // ================= vending machines =================
 // Six vending machines, three standing on the floor and three hanging from the ceiling. Walk up, press E and
 // spend your elims: every elimination you get is one elim to spend.
-const SHOP=[{id:'rpg',name:'RPG',price:5,col:'#4fd34f'},{id:'gren',name:'Grenade Launcher',price:10,col:'#a7b85a'},{id:'tsr',name:'Taser',price:10,col:'#ffe14a'},{id:'frz',name:'Freeze Ray',price:15,col:'#7fe3ff'},
+const SHOP=[{id:'rpg',name:'RPG',price:5,col:'#4fd34f'},{id:'gren',name:'Grenade Launcher',price:10,col:'#a7b85a'},{id:'tsr',name:'Taser',price:10,col:'#ffe14a'},{id:'pb',name:'Paintball Gun',price:10,col:'#ff3fa4'},{id:'frz',name:'Freeze Ray',price:15,col:'#7fe3ff'},
   {id:'flm',name:'Flamethrower',price:15,col:'#ff7a1a'},{id:'mf',name:'Mirror Fractal Guns',price:15,col:'#ffd23f'},{id:'bounce',name:'Bouncer Ball',price:20,col:'#5cc8ff'},{id:'drone',name:'Robot Drone',price:25,col:'#ff5a3c'}];
 let shopOpen=false;
 function vendFrontSVG(){
-  const rows=SHOP.map((it,i)=>{ const x=14+(i>>2)*116, y=82+(i%4)*65;
-    return `<g transform="translate(${x+6} ${y+4}) scale(1.6)" fill="${it.id==='rpg'||it.id==='tsr'?'#202226':it.id==='drone'?'#e9eef7':it.col}" color="${it.col}">${it.id==='drone'?'<rect x="0" y="0" width="64" height="24" rx="4" fill="#2b3550"/>':''}${ICON_IN[it.id]}</g>`+
-      `<text x="${x+108}" y="${y+60}" text-anchor="end" font-family="Arial Black,Arial" font-weight="900" font-size="20" fill="#ffd23f">${it.price}</text>`+
-      (i%4<3?`<rect x="${x+2}" y="${y+64}" width="108" height="2" fill="#c6cfdd"/>`:''); }).join('')+`<rect x="127" y="80" width="2" height="258" fill="#c6cfdd"/>`;
+  const nr=Math.ceil(SHOP.length/2), rh=260/nr, sc=Math.min(1.6,(rh-20)/24);
+  const rows=SHOP.map((it,i)=>{ const col=Math.floor(i/nr), row=i%nr, x=14+col*116, y=82+row*rh;
+    return `<g transform="translate(${x+6} ${y+3}) scale(${sc.toFixed(2)})" fill="${it.id==='rpg'||it.id==='tsr'?'#202226':it.id==='drone'?'#e9eef7':it.col}" color="${it.col}">${it.id==='drone'?'<rect x="0" y="0" width="64" height="24" rx="4" fill="#2b3550"/>':''}${ICON_IN[it.id]}</g>`+
+      `<text x="${x+108}" y="${y+rh-5}" text-anchor="end" font-family="Arial Black,Arial" font-weight="900" font-size="${rh<60?17:20}" fill="#ffd23f">${it.price}</text>`+
+      (row<nr-1&&i+1<SHOP.length?`<rect x="${x+2}" y="${y+rh-1}" width="108" height="2" fill="#c6cfdd"/>`:''); }).join('')+`<rect x="127" y="80" width="2" height="258" fill="#c6cfdd"/>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 420"><rect width="256" height="420" fill="#121a2c"/>`+
     `<rect x="10" y="10" width="236" height="58" rx="10" fill="#0b1020" stroke="#5cf0ff" stroke-width="4"/>`+
     `<text x="128" y="52" text-anchor="middle" font-family="Arial Black,Arial" font-weight="900" font-size="36" fill="#5cf0ff" letter-spacing="4">SHOP</text>`+
@@ -3827,7 +3884,7 @@ function newMatch(){
   world=new T.Group(); scene.add(world);
   colliders=new BoxGrid(8); structMeshes=[]; charMeshes=[]; combatants=[]; bots=[]; effects=[];
   matchTime=0; targetsDirty=true; hurtFlash=0;
-  buildZeroG(); buildVending(); projs=[]; bolts=[]; fires=[]; drones=[]; kunais=[]; pwShots=[]; pwZones=[]; pwWalls=[]; pwLaters=[]; shopOpen=false; $('shop').hidden=true;
+  buildZeroG(); buildVending(); projs=[]; splats=[]; bolts=[]; fires=[]; drones=[]; kunais=[]; pwShots=[]; pwZones=[]; pwWalls=[]; pwLaters=[]; shopOpen=false; $('shop').hidden=true;
   ZG.state='float'; ZG.t=rnd(20,26); ZG.camRoll=0; ZG.flash=0;
   rollLoadout(); player=makeCombatant('You',true);
   Object.assign(player,{slots:[null,{kind:'gun',id:'ar',r:3,ammo:WEAP.ar.mag},{kind:'gun',id:'pump',r:3,ammo:WEAP.pump.mag},{kind:'gun',id:'smg',r:2,ammo:WEAP.smg.mag},{kind:'cons',id:'big',count:2},{kind:'cons',id:'mini',count:3},{kind:'gun',id:'mf',r:4,ammo:MF_CLIP},null,null],
@@ -3939,7 +3996,7 @@ function update(dt){
   updatePads(dt);
   updatePlayerZG(dt);
   updateActions(dt); pwUpdate(dt);
-  updateProjs(dt); updateBolts(dt); updateFires(dt); updateBouncerCd(dt); updateDrones(dt); if(player.flmT>0) player.flmT-=dt;
+  updateProjs(dt); updateSplats(dt); updateBolts(dt); updateFires(dt); updateBouncerCd(dt); updateDrones(dt); if(player.flmT>0) player.flmT-=dt;
   for(const e of combatants){ updateStatus(e,dt); pwStatus(e,dt); }
   updatePunches(player,dt); updateKunais(dt); updateTitan(player,dt); updateKi(player,dt); updateGuard(player,dt); updateWriting(player,dt); updateBW(dt);
   for(const b of bots) updateBotZG(b,dt);
@@ -3972,5 +4029,5 @@ window.__game={keys,camera,sfx:(k,o)=>sfx(k,null,o),get audioOk(){return !!(AC&&
   pause:()=>pauseGame(),bank:n=>{ initAudio(); return n?takes(n):Object.keys(BANK); },openArmory,setArm:i=>{armIdx=i;buildArmory();},setArmMode,setPick:i=>{pxIdx=i;buildArmory();},setSkin:i=>{skIdx=i;buildArmory();},
   lineup:(ids,yaw)=>{ if(armGroup) scene.remove(armGroup); armGroup=new T.Group(); armGroup.position.set(0,ARM_Y,0); skShown=[]; ids.forEach((id,k)=>{ const c=standChar(SK.ITEMS[id]); c.g.position.x=(k-(ids.length-1)/2)*1.25; c.g.userData.o=0; c.g.userData.yaw=yaw; armGroup.add(c.g); skShown.push(c); }); studioLights(armGroup); armGroup.userData.dist=ids.length*0.75+1.6; scene.add(armGroup); },
   equipPick:n=>{ equippedName=n; applyPickSkin(player); refreshHotbar(); }, get POW(){return POW;}, get pw(){return {shots:pwShots.length,zones:pwZones.length,zd:pwZones.map(z=>{ const e=combatants.find(c=>c!==player&&c.alive); return e?+z.pos.distanceTo(e.pos).toFixed(1):-1; }),pd:+chest(player).distanceTo(camera.position).toFixed(1),walls:pwWalls.map(w=>[w.m.position.toArray().map(Math.round),w.m.scale.x,w.m.visible])};},
-  renderer,scene,mouse,shop:()=>openShop(),fire:()=>playerFire(),kill:(e,weapon,info)=>eliminate(e,null,weapon,info),colliderCount:()=>colliders.size,get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},get ZG(){return ZG;},startMatch,update,setState:s=>state=s};
+  renderer,scene,mouse,shop:()=>openShop(),fire:()=>playerFire(),kill:(e,weapon,info)=>eliminate(e,null,weapon,info),colliderCount:()=>colliders.size,get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},get ZG(){return ZG;},get splats(){return splats.length;},get heartT(){return heartT;},startMatch,update,setState:s=>state=s};
 })();
