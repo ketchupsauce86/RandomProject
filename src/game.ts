@@ -859,11 +859,23 @@ function applySkin(c,skin){
 }
 // capes and tails trail behind when running and falling; wings breathe; halos float
 const _cq1=new T.Quaternion(), _cq2=new T.Quaternion(), _cq3=new T.Quaternion(), _cu=new T.Vector3(), _cx=new T.Vector3(), _cmat=new T.Matrix4(), UPX=new T.Vector3(1,0,0), UPY=new T.Vector3(0,1,0), _cf=new T.Vector3();
+const UPZ=new T.Vector3(0,0,1), _sv=new T.Vector3();
+// [S4] capes, wings and halos ride on springs: flare (how far a cape streams off the back) and sway (side to side) follow the
+// body-frame velocity and the turn rate; in zero-g there is no wind, so they float and undulate instead of hanging
 function swayGear(e,c,speed,dt){
   if(!c.capes||(!c.capes.length&&!c.flaps.length&&!c.bobs.length)) return;
-  const t=performance.now()/1000, air=!e.onGround?0.35:0;
-  const tgt=0.06+clamp(speed/7,0,1)*0.55+air+Math.sin(t*(3+speed*0.6)+e.walkT)*0.04*(0.3+clamp(speed/7,0,1));
-  for(const o of c.capes){ o.userData.rx=lerp(o.userData.rx||0,tgt,1-Math.exp(-6*dt));
+  const t=performance.now()/1000, G=c.sw||(c.sw={}), v=e.vel, wt=e.walkT||0, flt=!!e.zgFloat;
+  let vf=0,vu=0,vs=0,yr=0;
+  if(v&&e.yaw!=null){ c.model.getWorldQuaternion(_cq1); _sv.copy(v);
+    _cu.set(0,0,-1).applyQuaternion(_cq1); vf=_sv.dot(_cu); _cu.set(0,1,0).applyQuaternion(_cq1); vu=_sv.dot(_cu); _cu.set(1,0,0).applyQuaternion(_cq1); vs=_sv.dot(_cu);
+    if(G.ly!=null&&dt>1e-4) yr=wrapPi(e.yaw-G.ly)/dt; G.ly=e.yaw; }
+  else vf=speed;
+  const spd=clamp(Math.hypot(vf,vs)/8,0,1.2), air=!e.onGround?1:0;
+  // stream back with forward speed; a fall along the body's up axis lifts it; zero-g: lazy float, no droop
+  const flTgt=flt?0.30+0.07*Math.sin(t*1.3+wt)+0.35*clamp(vf/12,-0.2,1):0.06+0.55*clamp(vf/7.5,-0.3,1)+0.3*clamp(-vu/14,-0.2,1)+0.12*air+Math.sin(t*(3+spd*3)+wt)*0.035*(0.3+spd);
+  const swTgt=clamp(-vs/9,-0.5,0.5)-clamp(yr*0.05,-0.4,0.4)+(flt?0.08*Math.sin(t*0.9+wt*2):0);
+  const fl=spring(G,'fl',flTgt,3.2,0.42,dt), sw=spring(G,'sw',swTgt,2.4,0.4,dt);
+  for(const o of c.capes){
     if(o.userData.cape==='hang'){ // a cape hangs from the shoulders down the length of the body, whatever the spine is doing
       // face the way the chest faces (the torso twists to aim), hang along the body (not world gravity: in zero-g the
       // body lies flat and a cape hanging straight down would cut through it), flare back with speed
@@ -871,10 +883,12 @@ function swayGear(e,c,speed,dt){
       o.parent.getWorldQuaternion(_cq1); _cf.set(0,0,1).applyQuaternion(_cq1); _cf.addScaledVector(_cu,-_cf.dot(_cu));
       if(_cf.lengthSq()<0.09){ _cf.set(0,0,-1).applyQuaternion(_cq2); _cf.addScaledVector(_cu,-_cf.dot(_cu)); }
       _cf.normalize(); _cx.crossVectors(_cu,_cf); _cmat.makeBasis(_cx,_cu,_cf); _cq2.setFromRotationMatrix(_cmat);
-      _cq2.multiply(_cq3.setFromAxisAngle(UPX,o.userData.rx+0.18)).premultiply(_cq1.invert()); o.quaternion.copy(_cq2); }
-    else o.rotation.x=(o.userData.baseX??(o.userData.baseX=o.rotation.x))+o.userData.rx; }
-  for(const o of c.flaps) o.rotation.y=o.userData.flap*(0.45+Math.sin(t*2.2)*0.1+air*0.35);
-  for(const o of c.bobs) o.position.y=0.42+Math.sin(t*2)*0.012;
+      _cq2.multiply(_cq3.setFromAxisAngle(UPX,fl+0.18)).multiply(_cq3.setFromAxisAngle(UPZ,sw)).premultiply(_cq1.invert()); o.quaternion.copy(_cq2); }
+    else { o.rotation.x=(o.userData.baseX??(o.userData.baseX=o.rotation.x))+fl; o.rotation.z=(o.userData.baseZ??(o.userData.baseZ=o.rotation.z))+sw*0.6; } }
+  if(c.flaps.length){ const wf=spring(G,'wf',0.45+0.3*air+0.25*spd+(flt?0.1:0),2.5,0.5,dt);
+    for(const o of c.flaps) o.rotation.y=o.userData.flap*(wf+Math.sin(t*(2.2+spd*2)+wt)*(0.1+0.08*spd)); }
+  if(c.bobs.length){ const hx=spring(G,'hx',clamp(vf/30,-0.2,0.25),3,0.4,dt), hz=spring(G,'hz',clamp(-vs/30,-0.2,0.2),3,0.4,dt);
+    for(const o of c.bobs){ o.position.y=0.42+Math.sin(t*2)*0.012; o.rotation.x=hx; o.rotation.z=hz; } }
 }
 const UP=new V(0,1,0);
 // Whole-body motion: in zero-g the body tilts into the swim (e.zgTx), and on the ceiling it is rolled over
@@ -1330,18 +1344,18 @@ function animHitboxes(e,X){ const {c,B,g}=X;
 const EM:any={on:[],last:'wave',wheel:false,held:false,hold:0,pRef:null,camK:0,camKV:0};
 const EMOTES:any={
   wave:{n:'Wave',dur:2.8,
-    R:[[0,0.12,-0.50,0.02],[0.13,0.20,0.10,0.16],[0.22,0.20,0.40,0.14],[0.84,0.20,0.40,0.14],[0.93,0.18,0.0,0.12],[1,0.12,-0.50,0.02]],
+    R:[[0,0.12,-0.50,0.02],[0.13,0.22,0.06,0.16],[0.22,0.24,0.27,0.14],[0.84,0.24,0.27,0.14],[0.93,0.20,-0.05,0.12],[1,0.12,-0.50,0.02]],
     L:[[0,-0.12,-0.50,0.02],[0.2,-0.10,-0.46,0.06],[0.85,-0.10,-0.46,0.06],[1,-0.12,-0.50,0.02]],
     chest:[[0,0,0,0],[0.2,0.05,0.05,-0.22],[0.85,0.05,0.05,-0.22],[1,0,0,0]],
     head:[[0,0,0,0],[0.2,0.05,0.12,-0.10],[0.85,0.05,0.12,-0.10],[1,0,0,0]],
     hips:[[0,0,0,0,0,0],[0.25,0.035,-0.01,0,-0.05,0],[0.85,0.035,-0.01,0,-0.05,0],[1,0,0,0,0,0]],
     wag:{f:2.9,amp:0.07,roll:0.5,a:0.2,b:0.88}, pole:{R:[0.6,-0.1,-0.3]}, hand:{R:{c:0.05,f:[0.12,1,0.05],n:[0,0,1]},L:{c:0.45}}},
   floss:{n:'Floss',loop:1,bpm:120,beats:2,
-    R:[[0,0.26,-0.36,-0.30],[0.25,0,-0.42,-0.32],[0.5,-0.40,-0.36,-0.22],[0.75,0,-0.42,-0.32]],
-    L:[[0,0.40,-0.36,0.22],[0.25,0.02,-0.44,0.28],[0.5,-0.26,-0.38,0.30],[0.75,0.02,-0.44,0.28]],
-    hips:[[0,-0.11,-0.07,0,-0.12,0],[0.25,0,0,0,0,0],[0.5,0.11,-0.07,0,0.12,0],[0.75,0,0,0,0,0]],
-    chest:[[0,-0.1,0.10,-0.55],[0.25,-0.05,0,0],[0.5,-0.1,-0.10,0.55],[0.75,-0.05,0,0]],
-    head:[[0,0,0.04,-0.14],[0.25,0,0,0],[0.5,0,-0.04,0.14],[0.75,0,0,0]], hand:{R:{c:1.3},L:{c:1.3}}},
+    R:[[0,0.34,-0.22,-0.40],[0.25,0.0,-0.30,-0.46],[0.5,-0.50,-0.20,-0.30],[0.75,0.0,-0.30,-0.46]],
+    L:[[0,0.56,-0.22,0.30],[0.25,0.10,-0.36,0.42],[0.5,-0.34,-0.22,0.38],[0.75,0.10,-0.36,0.42]],
+    hips:[[0,-0.13,-0.07,-0.25,-0.14,0],[0.25,0,-0.02,0,0,0],[0.5,0.13,-0.07,0.25,0.14,0],[0.75,0,-0.02,0,0,0]],
+    chest:[[0,-0.12,0.14,-0.75],[0.25,-0.08,0,0],[0.5,-0.12,-0.14,0.75],[0.75,-0.08,0,0]],
+    head:[[0,0,0.05,-0.30],[0.25,0,0,0],[0.5,0,-0.05,0.30],[0.75,0,0,0]], hand:{R:{c:1.3},L:{c:1.3}}},
   pump:{n:'Fist pump',loop:1,bpm:128,beats:2,
     R:[[0,0.08,0.46,0.10],[0.25,0.12,0.02,0.30],[0.5,0.12,-0.12,0.26],[0.75,0.12,0.02,0.30]],
     L:[[0,-0.12,-0.12,0.26],[0.25,-0.12,0.02,0.30],[0.5,-0.08,0.46,0.10],[0.75,-0.12,0.02,0.30]],
@@ -1349,8 +1363,8 @@ const EMOTES:any={
     chest:[[0,0.12,0.12,0.15],[0.25,-0.05,0,0],[0.5,0.12,-0.12,-0.15],[0.75,-0.05,0,0]],
     head:[[0,0.2,0,0],[0.25,-0.05,0,0],[0.5,0.2,0,0],[0.75,-0.05,0,0]], hand:{R:{c:1.35},L:{c:1.35}}},
   robot:{n:'Robot',loop:1,bpm:100,beats:4,step:8,
-    R:[[0,0.05,0.0,0.32],[0.25,0.10,0.28,0.12],[0.5,0.26,0.0,0.30],[0.75,0.0,-0.30,0.30]],
-    L:[[0,-0.05,-0.25,0.30],[0.25,-0.2,0.0,0.32],[0.5,-0.05,0.30,0.12],[0.75,-0.30,0.0,0.15]],
+    R:[[0,0.30,0.14,0.10],[0.25,0.10,0.02,0.34],[0.5,0.30,-0.06,0.22],[0.75,0.06,0.12,0.30]],
+    L:[[0,-0.10,0.02,0.34],[0.25,-0.30,0.14,0.10],[0.5,-0.06,0.12,0.30],[0.75,-0.30,-0.06,0.22]],
     hips:[[0,0,-0.03,0,0,0],[0.125,0,0,0,0,0],[0.25,0,-0.03,0,0,0],[0.375,0,0,0,0,0],[0.5,0,-0.03,0,0,0],[0.625,0,0,0,0,0],[0.75,0,-0.03,0,0,0],[0.875,0,0,0,0,0]],
     chest:[[0,0,0,0.22],[0.25,0,0,0],[0.5,0,0,-0.22],[0.75,0,0,0]], head:[[0,0,0,0.45],[0.25,0,0,0],[0.5,0,0,-0.45],[0.75,0,0,0]], hand:{R:{c:0.1},L:{c:0.1}}},
   disco:{n:'Disco point',loop:1,bpm:110,beats:2,
@@ -1403,6 +1417,7 @@ function emHand(B,sd,F,N,curl,point){
   poseHand(B,sd,F,N,0); if(!curl&&!point) return;
   _eF1.copy(F).normalize(); _eN1.copy(N).addScaledVector(_eF1,-N.dot(_eF1)).normalize(); _eAx.crossVectors(_eF1,_eN1);
   for(const fg of ['Index','Middle','Ring','Pinky']) for(let k=1;k<=3;k++){ const b=B[sd+'Hand'+fg+k]; if(b) rotateBoneWorld(b,_eAx,(point&&fg==='Index'?0.05:curl)*(k===1?0.8:1)); }
+  if(curl>0.6) for(let k=1;k<=3;k++){ const b=B[sd+'HandThumb'+k]; if(b) rotateBoneWorld(b,_eAx,curl*0.45); } // fist: the thumb folds over the fingers
 }
 // both feet back onto where they stood (_eFeet), whatever the hips just did; the knees point along fw
 function emPlant(B,fw,up,tw){ for(let i=0;i<2;i++){ const sd=i?'Right':'Left'; B[sd+'UpLeg'].getWorldPosition(_eA); _eB.copy(_eA).addScaledVector(fw,1.2).addScaledVector(up,-0.4);
