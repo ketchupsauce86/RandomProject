@@ -921,7 +921,7 @@ function deathKind(weapon,info){ return info&&info.explosive?'explosion':info&&i
 function startDeath(t,kind,info){
   const dir=(info&&info.dir?info.dir.clone():new V(rnd(-1,1),rnd(-0.3,0.3),rnd(-1,1))).normalize();
   const sp={shot:info&&info.head?11:7,pickaxe:24,block:Math.max(30,(info&&info.speed||0)*1.7),explosion:30,burn:3,ice:3}[kind];
-  const d=t.death={kind,t:0,c:new V(t.pos.x,t.pos.y+1,t.pos.z),vel:t.vel.clone().multiplyScalar(0.3).addScaledVector(dir,sp),
+  const d:any=t.death={kind,t:0,c:new V(t.pos.x,t.pos.y+1,t.pos.z),vel:t.vel.clone().multiplyScalar(0.3).addScaledVector(dir,sp),
     q:new T.Quaternion().setFromEuler(new T.Euler(t.zgRoll>1.5?0:0,t.yaw,t.zgRoll||0,'YXZ')),
     av:new V(rnd(-1,1),rnd(-1,1),rnd(-1,1)).normalize().multiplyScalar(kind==='shot'?(info&&info.head?7:2.5):kind==='burn'?1.5:kind==='pickaxe'?14:9),
     stuck:null,shatterAt:kind==='shot'?2.2:kind==='burn'?2.6:kind==='ice'?0.55:3,spread:0,fx:0};
@@ -929,6 +929,10 @@ function startDeath(t,kind,info){
   if(kind==='shot'&&info&&info.head) d.av.set(-dir.z,0,dir.x).multiplyScalar(9);
   if(kind==='explosion'||kind==='burn') t.ch.model.traverse(o=>{ if(o.isMesh&&o.material&&o.material.color){ o.material=o.material.clone(); o.material.color.multiplyScalar(0.25); } });
   if(t===player) camShake=Math.max(camShake,kind==='shot'?0.4:1);
+  // the body eases out of whatever it was doing, and what was in its hands stays in its hands
+  const c=t.ch; poseSnap(c,0.3); c.lcDead=true; d.props=[];
+  for(const [o,h] of [[c.gunMount,'RightHand'],[c.pick,'RightHand'],[c.pickL,'LeftHand'],[c.consG,'RightHand'],[c.handG,'RightHand']] as any[])
+    if(o&&o.visible&&(o!==c.gunMount||c.held)) d.props.push([o,c.bones[h],propRel(o,c.bones[h],new T.Matrix4())]);
 }
 // moves a dead body; returns the surface normal when it slams into something
 function deathMove(d,dt){
@@ -984,6 +988,8 @@ function deathPose(e,g,c,dt){
   const s=d.stuck?Math.exp(-d.stuck.t*7)*Math.sin(Math.min(1,d.stuck.t*12)*Math.PI):0; c.spin.scale.set(1+0.3*s,1+0.15*s,1-0.55*s);
   g.quaternion.copy(d.q); _pc.set(0,1,0).applyQuaternion(d.q); g.position.copy(d.c).sub(_pc);
   e.pos.copy(d.c).y-=1;
+  g.updateMatrixWorld(true); poseBlend(c,dt); poseStore(c);
+  if(d.props) for(const [o,h,rel] of d.props) propPlace(o,h,rel);
   if(d.t>=d.shatterAt&&g.visible) shatter(e);
 }
 const _qm=new T.Quaternion();
@@ -1051,13 +1057,58 @@ function cullChars(){ if(!combatants) return;
     if(c.gear&&c.gearFar!==far){ c.gearFar=far; for(const w of c.gear) w.visible=!far; }
     charShadow(c,see&&(e===player||d<SHADOW_D)); }
 }
-// ---- [S1] inertial pose blend. Stubs until Stream 1 lands them; every stream may call them now.
-//   poseSnap(c,dur)  what drives the body just changed: fade from the last stored pose into the new one over dur s
-//   poseBlend(c,dt)  apply that fade to this frame's pose (animPost, after every layer)
+// ---- [S1] inertial pose blend (inertialization: what Unreal's Inertialization node does, after Bollo, GDC 2018).
+// When what drives the body changes, the jump between the last shown pose and the new one is kept as a per-joint
+// offset that dies away on a quintic curve which starts with the joints' own velocity, so nothing pops or hitches.
+// Every stream may call poseSnap.
+//   poseSnap(c,dur)  what drives the body just changed: fade from the last stored pose into the new one over dur s.
+//                    No-op until a pose has been stored; called again before the blend starts, the longer dur wins
+//   poseBlend(c,dt)  apply that fade to this frame's pose (animPost, after every layer); held props follow the hands
 //   poseStore(c)     remember this frame's final pose (animPost, last)
-function poseStore(c){}
-function poseSnap(c,dur){}
-function poseBlend(c,dt){}
+const _blq=new T.Quaternion(), _blq2=new T.Quaternion(), _blv=new V(), _blvS=new V(), _blmA=new T.Matrix4(), _blmB=new T.Matrix4();
+function blBones(c){ return c.blB||(c.blB=Object.values(c.bones)); } // every joint, fingers too, in a fixed order
+function poseStore(c){ const bs=blBones(c), n=bs.length;
+  if(!c.blLast){ c.blLast=new Float32Array(n*4); c.blPrev=new Float32Array(n*4); }
+  const P=c.blPrev; c.blPrev=c.blLast; c.blLast=P; // last becomes prev; this frame overwrites the old prev
+  for(let i=0;i<n;i++) bs[i].quaternion.toArray(P,i*4);
+  if(!c.blHave){ c.blPrev.set(P); c.blHave=true; }
+  c.blDtL=c.blFDt||0; c.blFDt=0; }
+function poseSnap(c,dur){ if(!c||!c.blHave) return;
+  if(c.blNew){ c.blD=Math.max(c.blD,dur); return; }
+  const n=c.blLast.length; if(!c.blSrc){ c.blSrc=new Float32Array(n); c.blSrcP=new Float32Array(n); }
+  c.blSrc.set(c.blLast); c.blSrcP.set(c.blPrev); c.blSrcDt=c.blDtL; c.blNew=true; c.blD=dur; c.blT=0; }
+// the offset left after t seconds: x0 at t=0 moving at v0 (<=0, toward the new pose), 0 with no velocity at t1
+function inertX(x0,v0,t,t1){ if(t>=t1) return 0; const t2=t1*t1, a0=Math.max(0,(-8*v0*t1-20*x0)/t2);
+  const A=-(a0*t2+6*v0*t1+12*x0)/(2*t2*t2*t1), B=(3*a0*t2+16*v0*t1+30*x0)/(2*t2*t2), C=-(3*a0*t2+12*v0*t1+20*x0)/(2*t2*t1);
+  return Math.max(0,((((A*t+B)*t+C)*t+a0*0.5)*t+v0)*t+x0); }
+// the axis-angle of q (shortest way round) into o[i*3..], returns the angle
+function qAxis(q,o,i){ if(q.w<0){ q.x=-q.x; q.y=-q.y; q.z=-q.z; q.w=-q.w; } const s=Math.sqrt(q.x*q.x+q.y*q.y+q.z*q.z); if(s<1e-7) return 0;
+  o[i]=q.x/s; o[i+1]=q.y/s; o[i+2]=q.z/s; return 2*Math.atan2(s,q.w); }
+function poseBlend(c,dt){ c.blFDt=dt; if(!c.blNew&&!(c.blT<c.blD)) return;
+  const bs=blBones(c), n=bs.length; c.model.updateMatrixWorld(true); blPropsGrab(c);
+  if(c.blNew){ c.blNew=false; if(!c.blAx){ c.blAx=new Float32Array(n*3); c.blX=new Float32Array(n*3); c.blW=new Float32Array(3); }
+    const S=c.blSrc, SP=c.blSrcP, sd=c.blSrcDt, okV=sd>1e-4&&sd<0.08, X=c.blX, W=c.blW;
+    for(let i=0;i<n;i++){ _blq.fromArray(S,i*4).multiply(_blq2.copy(bs[i].quaternion).invert()); // offset: new pose -> last shown pose
+      const x0=qAxis(_blq,c.blAx,i*3); X[i*3]=x0; if(!(x0>1e-4)){ X[i*3]=0; continue; }
+      let v0=0; if(okV){ _blq.fromArray(S,i*4).multiply(_blq2.fromArray(SP,i*4).invert()); const a=qAxis(_blq,W,0); // how the joint was turning
+        if(a>1e-5) v0=clamp(a/sd*(W[0]*c.blAx[i*3]+W[1]*c.blAx[i*3+1]+W[2]*c.blAx[i*3+2]),-25,0); } // only the part heading toward the new pose
+      X[i*3+1]=v0; X[i*3+2]=v0<0?Math.min(c.blD,-5*x0/v0):c.blD; } }
+  c.blT+=dt; const t=c.blT, X=c.blX;
+  for(let i=0;i<n;i++){ const x0=X[i*3]; if(!x0) continue; const x=inertX(x0,X[i*3+1],t,X[i*3+2]); if(x<1e-5) continue;
+    bs[i].quaternion.premultiply(_blq.setFromAxisAngle(_blv.fromArray(c.blAx,i*3),x)); }
+  c.model.updateMatrixWorld(true); blPropsFollow(c); }
+// props held in a hand ride along with it while the blend moves the hand: [prop, hand bone] pairs that are in a hand
+// this frame (the gun only when the arms were posed onto it; the Death Note book lives in the world)
+function blPropList(c){ const L=c.blPL||(c.blPL=[]); L.length=0; if(c.lcDead) return L;
+  if(c.lcGunIK&&c.held) L.push(c.gunMount,'RightHand'); if(c.pick.visible) L.push(c.pick,'RightHand'); if(c.pickL&&c.pickL.visible) L.push(c.pickL,'LeftHand');
+  if(c.consG.visible) L.push(c.consG,'RightHand'); if(c.handG&&c.handG.visible) L.push(c.handG,'RightHand'); if(c.lcBook&&c.lcBook.visible) L.push(c.lcBook,'LeftHand');
+  return L; }
+// world transform of a prop from its local one (its matrixWorld may be stale: the layers only set position/quaternion)
+function propWorld(o,m){ return m.compose(o.position,o.quaternion,o.scale).premultiply(o.parent.matrixWorld); }
+function propRel(o,hand,m){ return m.copy(hand.matrixWorld).invert().multiply(propWorld(o,_blmA)); }
+function propPlace(o,hand,rel){ _blmA.multiplyMatrices(hand.matrixWorld,rel); _blmB.copy(o.parent.matrixWorld).invert().multiply(_blmA); _blmB.decompose(o.position,o.quaternion,_blvS); }
+function blPropsGrab(c){ const L=blPropList(c), R=c.blRel||(c.blRel=[]); for(let i=0;i<L.length;i+=2) propRel(L[i],c.bones[L[i+1]],R[i>>1]||(R[i>>1]=new T.Matrix4())); }
+function blPropsFollow(c){ const L=c.blPL, R=c.blRel; for(let i=0;i<L.length;i+=2) propPlace(L[i],c.bones[L[i+1]],R[i>>1]); }
 // Per character, per frame. Each layer below is owned by one stream: [S0] shared scaffold, [S1] locomotion and body,
 // [S2] zero-g and the gravity flip, [S3] combat, [S4] emotes, hero and camera. They share one context object X (animCtx),
 // run in this order, and each stream edits only its own layers.
@@ -1065,8 +1116,10 @@ function animateGLB(e,dt){
   const c=e.ch, g=c.g; g.position.copy(e.pos); g.rotation.y=e.emote?e.emote.yaw:e.yaw; g.scale.setScalar((e.titanS||1)*(e.tinyT>0?0.45:1));
   const a=1-Math.exp(-14*dt), aS=1-Math.exp(-7*dt);
   if(!e.alive){ c.flash.visible=false; deathPose(e,g,c,dt); return; }
-  if(lockedUp(e)){ c.flash.visible=false; placeAboutMiddle(e,g);
+  c.lcDead=false;
+  if(lockedUp(e)){ c.flash.visible=false; placeAboutMiddle(e,g); c.lcLock=true;
     if(e.stun>0&&!(e.frozen>0)){ const j=0.045*Math.min(1,e.stun*2); g.position.x+=rnd(-j,j); g.position.y+=rnd(-j,j); g.position.z+=rnd(-j,j); } return; }
+  if(c.lcLock){ c.lcLock=false; if(c.blHave){ c.blPrev.set(c.blLast); c.blDtL=0; } poseSnap(c,0.3); } // thawed or shaken off the stun: ease out of the held pose (it was still)
   g.visible=!(e.isPlayer&&ads&&isScoped());
   if(!e.isPlayer){ const cd=e.pos.distanceTo(camera.position);
     if(cd>45||c.inView===false){ e.animAcc=(e.animAcc||0)+dt; if(e.animAcc<(c.inView===false?0.3:cd>140?0.2:cd>80?0.1:0.05)){ placeAboutMiddle(e,g); return; } /* keep the tilt/roll offset between poses, or the body jumps */ dt=e.animAcc; e.animAcc=0; } } // off screen or far away: pose less often
@@ -1125,7 +1178,10 @@ function animClips(e,X){ const {c,A,fwd,speed,aS,dt}=X;
   D(W,'Idle',wIdle,aS); D(W,'Walk',wWalk,aS); D(W,'Run',wRun,aS); D(W,'TPose',wT,aS);
   for(const n in c.act) c.act[n].setEffectiveWeight(W[n]);
   c.act.Walk.setEffectiveTimeScale(back*clamp(s/1.8,0.7,1.6)); c.act.Run.setEffectiveTimeScale(back*clamp(s/(5.5+1.2*A.sprint),0.8,2.15)); // sprinting takes longer strides instead of faster steps
-  X.near=!player||e===player||e.pos.distanceTo(camera.position)<50;
+  // near: every procedural layer runs. Hysteresis (in under 50 m, out past 56 m) so bots on the edge do not flicker,
+  // and a long blend across the switch
+  const nr=!player||e===player||e.pos.distanceTo(camera.position)<(c.lcNear?56:50);
+  if(c.lcNear!==undefined&&nr!==c.lcNear) poseSnap(c,0.4); c.lcNear=nr; X.near=nr;
   c.mixer.update(dt);
 }
 // [S0] body-relative axes (they follow the swim tilt and the roll onto the ceiling)
@@ -1314,7 +1370,9 @@ function animProps(e,X){ const {c,A}=X;
   if(c.held&&c.held.userData.pump){ const k=clamp(A.pumpT/0.45,0,1); c.held.userData.pump.position.z=-0.38+(A.pumpT>0&&A.pumpT<0.45?Math.sin(k*Math.PI)*0.14:0); }
 }
 // [S1] after every layer: blend out a layer switch (poseSnap), then remember the final pose
-function animPost(e,X){ poseBlend(X.c,X.dt); poseStore(X.c); }
+function animPost(e,X){ const c=X.c;
+  c.lcGunIK=X.near&&X.branch===8&&!!c.held; c.lcBook=X.branch===6?e.dnBook:null; // what the hands are holding (props ride the blend)
+  poseBlend(c,X.dt); poseStore(c); }
 // [S0] hitboxes follow the skeleton
 function animHitboxes(e,X){ const {c,B,g}=X;
   const hd=B.Head.getWorldPosition(new V()); g.worldToLocal(hd); c.hb.head.position.set(hd.x,hd.y+0.1,hd.z);
