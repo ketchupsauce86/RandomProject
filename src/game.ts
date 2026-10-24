@@ -882,12 +882,19 @@ const UP=new V(0,1,0);
 const _pc=new V(), TAU=Math.PI*2;
 const easeIO=k=>k<0.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
 const wrapPi=a=>((a%TAU)+TAU*1.5)%TAU-Math.PI;
-function bodyPose(e,g,c,a,dt){
+// [S2] put the root where the middle of the body (1 m up) lands on e.pos, whatever the tilt and roll
+function placeAboutMiddle(e,g){ _pc.set(0,1,0).applyEuler(g.rotation); g.position.set(e.pos.x-_pc.x,e.pos.y+1-_pc.y,e.pos.z-_pc.z); }
+// [S2] whole-body tilt (zero-g) and roll (ceiling, bank). X is the frame's animation context (animCtx)
+function bodyPose(e,g,c,a,dt,X){
   const tx=e.zgFloat?(e.zgTx||0):0, tz=(e.bankT||0)+(e.zgRoll||0);
   c.spin.position.set(0,0,0);
   D(g.rotation,'x',tx,a*0.5); D(g.rotation,'z',tz,a*0.4);
-  _pc.set(0,1,0).applyEuler(g.rotation); g.position.set(e.pos.x-_pc.x,e.pos.y+1-_pc.y,e.pos.z-_pc.z);
+  placeAboutMiddle(e,g);
 }
+// [S0] a damped spring toward x: o[k] is the value and o[k+'V'] its velocity, f the frequency in Hz, z the damping ratio
+// (1 = no overshoot). Sub-stepped, so the 0.3 s steps of throttled far bots cannot blow it up. Returns the value.
+function spring(o,k,x,f,z,dt){ const w=TAU*f, kv=k+'V'; let p=o[k]||0, v=o[kv]||0; const n=Math.max(1,Math.ceil(dt*w/0.5)), h=dt/n;
+  for(let i=0;i<n;i++){ v+=(-w*w*(p-x)-2*z*w*v)*h; p+=v*h; } o[k]=p; o[kv]=v; return p; }
 // per-frame motion inputs for the animator
 function motionState(e,dt){
   const A=e.anim, fx=-Math.sin(e.yaw), fz=-Math.cos(e.yaw), fwd=e.vel.x*fx+e.vel.z*fz, side=-e.vel.x*fz+e.vel.z*fx, speed=Math.hypot(e.vel.x,e.vel.z);
@@ -1044,15 +1051,49 @@ function cullChars(){ if(!combatants) return;
     if(c.gear&&c.gearFar!==far){ c.gearFar=far; for(const w of c.gear) w.visible=!far; }
     charShadow(c,see&&(e===player||d<SHADOW_D)); }
 }
+// ---- [S1] inertial pose blend. Stubs until Stream 1 lands them; every stream may call them now.
+//   poseSnap(c,dur)  what drives the body just changed: fade from the last stored pose into the new one over dur s
+//   poseBlend(c,dt)  apply that fade to this frame's pose (animPost, after every layer)
+//   poseStore(c)     remember this frame's final pose (animPost, last)
+function poseStore(c){}
+function poseSnap(c,dur){}
+function poseBlend(c,dt){}
+// Per character, per frame. Each layer below is owned by one stream: [S0] shared scaffold, [S1] locomotion and body,
+// [S2] zero-g and the gravity flip, [S3] combat, [S4] emotes, hero and camera. They share one context object X (animCtx),
+// run in this order, and each stream edits only its own layers.
 function animateGLB(e,dt){
-  const c=e.ch, A=e.anim, B=c.bones, g=c.g; g.position.copy(e.pos); g.rotation.y=e.yaw; g.scale.setScalar((e.titanS||1)*(e.tinyT>0?0.45:1));
+  const c=e.ch, g=c.g; g.position.copy(e.pos); g.rotation.y=e.emote?e.emote.yaw:e.yaw; g.scale.setScalar((e.titanS||1)*(e.tinyT>0?0.45:1));
   const a=1-Math.exp(-14*dt), aS=1-Math.exp(-7*dt);
   if(!e.alive){ c.flash.visible=false; deathPose(e,g,c,dt); return; }
-  if(lockedUp(e)){ c.flash.visible=false; _pc.set(0,1,0).applyEuler(g.rotation); g.position.set(e.pos.x-_pc.x,e.pos.y+1-_pc.y,e.pos.z-_pc.z);
+  if(lockedUp(e)){ c.flash.visible=false; placeAboutMiddle(e,g);
     if(e.stun>0&&!(e.frozen>0)){ const j=0.045*Math.min(1,e.stun*2); g.position.x+=rnd(-j,j); g.position.y+=rnd(-j,j); g.position.z+=rnd(-j,j); } return; }
   g.visible=!(e.isPlayer&&ads&&isScoped());
   if(!e.isPlayer){ const cd=e.pos.distanceTo(camera.position);
-    if(cd>45||c.inView===false){ e.animAcc=(e.animAcc||0)+dt; if(e.animAcc<(c.inView===false?0.3:cd>140?0.2:cd>80?0.1:0.05)){ _pc.set(0,1,0).applyEuler(g.rotation); g.position.set(e.pos.x-_pc.x,e.pos.y+1-_pc.y,e.pos.z-_pc.z); return; } /* keep the tilt/roll offset between poses, or the body jumps */ dt=e.animAcc; e.animAcc=0; } } // off screen or far away: pose less often
+    if(cd>45||c.inView===false){ e.animAcc=(e.animAcc||0)+dt; if(e.animAcc<(c.inView===false?0.3:cd>140?0.2:cd>80?0.1:0.05)){ placeAboutMiddle(e,g); return; } /* keep the tilt/roll offset between poses, or the body jumps */ dt=e.animAcc; e.animAcc=0; } } // off screen or far away: pose less often
+  const X=animCtx(e,dt,a,aS);   // [S0] motion, what is in hand, shared inputs (X.dt is the throttled dt; a and aS come from the frame's dt)
+  animClips(e,X);               // [S1] clip weights and time scales, X.near, mixer.update
+  swayGear(e,c,X.s+(e.onGround?0:Math.hypot(e.vel.x,e.vel.z)*0.3),X.dt); // [S4] capes and gear
+  bodyPose(e,g,c,a,X.dt,X);     // [S2] zero-g tilt, ceiling roll and bank
+  animAxes(X);                  // [S0] body axes X.rightB/fwdB/upB
+  animLegs(e,X);                // [S1] crouch and landing squash: plant the feet, drop the body
+  animZG(e,X);                  // [S2] zero-g bob, squash and stretch
+  g.updateMatrixWorld(true);
+  animFeet(e,X);                // [S1] foot IK back onto the planted feet
+  if(X.near&&!animZGLegs(e,X)) animLegPose(e,X); // [S2] bouncer and zero-g legs, else [S1] jump and sprint legs
+  animTorso(e,X);               // [S1] strafe twist, crouch and sprint lean, aim pitch
+  animCombatTorso(e,X);         // [S3] rifle stance
+  animHit(e,X);                 // [S1] flinch when hit
+  animSwingTorso(e,X);          // [S3] pickaxe swing twist and lean
+  animArms(e,X);                // [S0] the hands: one arm layer per frame
+  applyArmOverrides(e,X);       // [S0] X.armOv pulls a hand toward a target on top of that layer
+  animProps(e,X);               // [S3] moving parts of the held gun
+  animPost(e,X);                // [S1] pose blend, then store the final pose
+  animHitboxes(e,X);            // [S0] hitboxes follow the skeleton
+}
+// [S0] the frame's shared context X: motion, what is in hand, smoothing rates, aim pitch. Later layers add to it
+// (near, s, back, body axes, cr, crE, feet, busy, branch); writes to anim fields stay in e.anim, not X
+function animCtx(e,dt,a,aS){
+  const c=e.ch, A=e.anim, B=c.bones, g=c.g;
   const {fx,fz,fwd,side,speed}=motionState(e,dt);
   let held=null, pickaxe=false;
   if(e.isPlayer){ const it=curItem(); if(it&&it.kind==='gun') held=it; else if(!it) pickaxe=true; }
@@ -1061,32 +1102,51 @@ function animateGLB(e,dt){
   let cons=null, useK=-1;
   if(e.isPlayer){ const it=curItem(); if(it&&it.kind==='cons'){ cons=it.id; if(e.consuming&&e.consuming.it===it) useK=e.consuming.t/e.consuming.dur; } }
   else if(e.healT>0){ cons='big'; useK=clamp(1-e.healT/2.5,0,1); held=null; }
+  if(e.emote){ held=null; pickaxe=false; cons=null; } // [S4] an emote puts everything away
   setHeld(e,held); setConsHeld(c,cons);
   D(A,'crouch',e.crouch?1:0,a*0.7); D(A,'air',!e.onGround&&!e.zgFloat?1:0,a);
+  const X:any={e,dt,a,aS,c,A,B,g,fx,fz,fwd,side,speed,held,pickaxe,cons,useK,armOv:{}};
+  animCombatState(e,X); // [S3]
+  X.pitch=e.isPlayer?e.pitch:(e.aimPitch||0); X.sp=A.sprPose; X.pE=X.pitch*(1-X.sp);
+  return X;
+}
+// [S3] combat timers and the sprint carry: recoil settles, the muzzle flash and the pump run out, and a gun nobody is
+// aiming drops into the low sprint carry (A.sprPose)
+function animCombatState(e,X){ const {c,A,held,dt,aS}=X;
   A.recoil=Math.max(0,A.recoil-dt*8); A.flash-=dt; c.flash.visible=A.flash>0; A.pumpT+=dt;
-  const aiming=e.isPlayer?(ads||mouse.l||!!e.reloading):(A.recoil>0.05||!!e.enemy);
+  const aiming=X.aiming=e.isPlayer?(ads||mouse.l||!!e.reloading):(A.recoil>0.05||!!e.enemy);
   D(A,'sprPose',held&&!aiming?A.sprint:0,aS);
-  // --- clip blending (the soldier ships with Idle, Walk, Run and T-pose; everything else is layered on top)
-  const s=e.onGround?speed:0, back=fwd<-0.5?-1:1;
+}
+// [S1] clip blending (the soldier ships with Idle, Walk, Run and T-pose; everything else is layered on top)
+function animClips(e,X){ const {c,A,fwd,speed,aS,dt}=X;
+  const s=X.s=e.onGround?speed:0, back=X.back=fwd<-0.5?-1:1;
   const wRun=smooth(3.5,6.5,s), wWalk=smooth(0.3,2,s)*(1-wRun), wT=0;
   const wIdle=Math.max(0,1-wRun-wWalk-wT), W=c.w;
   D(W,'Idle',wIdle,aS); D(W,'Walk',wWalk,aS); D(W,'Run',wRun,aS); D(W,'TPose',wT,aS);
   for(const n in c.act) c.act[n].setEffectiveWeight(W[n]);
   c.act.Walk.setEffectiveTimeScale(back*clamp(s/1.8,0.7,1.6)); c.act.Run.setEffectiveTimeScale(back*clamp(s/(5.5+1.2*A.sprint),0.8,2.15)); // sprinting takes longer strides instead of faster steps
-  const near=!player||e===player||e.pos.distanceTo(camera.position)<50;
-  c.mixer.update(dt); swayGear(e,c,s+(e.onGround?0:Math.hypot(e.vel.x,e.vel.z)*0.3),dt);
-  bodyPose(e,g,c,a,dt);
+  X.near=!player||e===player||e.pos.distanceTo(camera.position)<50;
+  c.mixer.update(dt);
+}
+// [S0] body-relative axes (they follow the swim tilt and the roll onto the ceiling)
+function animAxes(X){ const {c,g}=X;
   c.model.position.y=0; g.updateMatrixWorld(true);
-  // body-relative axes (they follow the swim tilt and the roll onto the ceiling)
   c.model.getWorldQuaternion(_qm);
-  const rightB=new V(1,0,0).applyQuaternion(_qm), fwdB=new V(0,0,-1).applyQuaternion(_qm), upB=new V(0,1,0).applyQuaternion(_qm);
-  const bend=(sd,th,kn)=>{ rotateBoneWorld(B[sd+'UpLeg'],rightB,th); rotateBoneWorld(B[sd+'Leg'],rightB,kn); };
-  // --- legs: crouch and the squash after a landing lower the body while IK keeps the feet planted
-  const cr=A.crouch, crE=Math.max(cr,e.onGround?A.land*0.75:0), right=rightB, fwdV=fwdB; // body axes, so poses still work rolled onto the ceiling
+  X.rightB=new V(1,0,0).applyQuaternion(_qm); X.fwdB=new V(0,0,-1).applyQuaternion(_qm); X.upB=new V(0,1,0).applyQuaternion(_qm);
+  X.right=X.rightB; X.fwdV=X.fwdB; // body axes, so poses still work rolled onto the ceiling
+}
+// [S0] swing a leg: th at the hip, kn at the knee, both about the body's right axis
+function bend(X,sd,th,kn){ rotateBoneWorld(X.B[sd+'UpLeg'],X.rightB,th); rotateBoneWorld(X.B[sd+'Leg'],X.rightB,kn); }
+// [S1] legs: crouch and the squash after a landing lower the body while IK keeps the feet planted (animFeet)
+function animLegs(e,X){ const {c,A,B,near,upB}=X;
+  const cr=X.cr=A.crouch, crE=X.crE=Math.max(cr,e.onGround?A.land*0.75:0);
   let feet=null;
   if(near&&crE>0.01){ feet=[B.LeftFoot.getWorldPosition(new V()),B.RightFoot.getWorldPosition(new V())]; if(A.air>0.5){ feet[0].addScaledVector(upB,0.25*A.air); feet[1].addScaledVector(upB,0.4*A.air); } }
+  X.feet=feet;
   c.model.position.y=-0.48*crE;
-  // zero-g: a lazy bob while drifting, and cartoon squash and stretch: long on the kick, squashed on the tuck
+}
+// [S2] zero-g: a lazy bob while drifting, and cartoon squash and stretch: long on the kick, squashed on the tuck
+function animZG(e,X){ const {c,A,dt}=X;
   let sqY=1;
   if(e.zgFloat){ const kz=1-Math.exp(-8*dt); D(A,'zgP',e.zgPropel?1:0,kz); D(A,'zgS',e.zgPropel?0:smooth(1.5,7,e.vel.length()),1-Math.exp(-4*dt));
     A.zgT=(A.zgT||e.walkT)+dt*lerp(3.2,13,A.zgP); A.zgB=((A.zgB||0)+dt*(0.4+0.5*A.zgS))%1; A.zgI=(A.zgI||e.walkT*3)+dt; A.zgF=((A.zgF||0)+dt*0.95)%1;
@@ -1095,133 +1155,176 @@ function animateGLB(e,dt){
     sqY=1+I*0.008*Math.sin(A.zgI*1.2+1); }
   else if(A.zgP){ A.zgP=0; A.zgS=0; }
   c.spin.scale.set(1/Math.sqrt(sqY),sqY,1/Math.sqrt(sqY)); c.spin.position.y+=1-sqY; // squash about the middle of the body
-  g.updateMatrixWorld(true);
+}
+// [S1] foot IK: the feet go back where animLegs planted them
+function animFeet(e,X){ const {B,feet,fwdV,upB}=X;
   if(feet){ for(const [i,sd] of [[0,'Left'],[1,'Right']]){ const hip=B[sd+'UpLeg'].getWorldPosition(new V()); const pole=hip.clone().addScaledVector(fwdV,1.2).addScaledVector(upB,-0.4); solveIK(B[sd+'UpLeg'],B[sd+'Leg'],B[sd+'Foot'],feet[i],pole); } }
-  if(near){
-    if(e.bounceT>0){ bend('Left',1.7,-2.3); bend('Right',1.6,-2.2); rotateBoneWorld(B.Spine1,rightB,0.35); rotateBoneWorld(B.Neck,rightB,0.4); }
-    else if(e.zgFloat){
-      // three ways to move in zero-g, blended: drifting (a lazy bicycle with the knees falling apart), swimming
-      // (a big frog kick timed to the arm stroke) and propelling (legs pedal like a cartoon character running on air)
-      const P=A.zgP, Sw=A.zgS*(1-P), I=(1-P)*(1-A.zgS), u=A.zgB, tI=A.zgI;
-      // sprinting: a quick flutter kick from the hips with loose knees, three kicks to every arm stroke
-      const frog=frogK(u), glide=u>=0.84||u<0.12?1:0, fl=TAU*3*(A.zgF||0);
-      for(const [sd,off,sx] of [['Left',0,-1],['Right',Math.PI,1]] as [string,number,number][]){ const ti=tI*0.9+off, tf=fl+off;
-        const th=I*(0.3+0.22*Math.sin(ti))+Sw*(0.05+1.05*frog)+P*(0.1+0.26*Math.sin(tf));
-        const kn=I*(0.5+0.3*(Math.sin(ti+1.1)+1)/2)+Sw*(0.1+1.7*frog)+P*(0.18+0.38*Math.max(0,Math.sin(tf+1.2)));
-        bend(sd,th,-kn); rotateBoneWorld(B[sd+'UpLeg'],fwdB,-sx*(I*(0.14+0.05*Math.sin(ti*0.7))+Sw*0.5*frog)); }
-      const roll=Math.sin(TAU*((A.zgF||0)+0.12)); // the body rolls toward the arm that is pulling
-      rotateBoneWorld(B.Spine1,upB,0.32*P*roll); rotateBoneWorld(B.Hips,upB,-0.12*P*roll);
-      rotateBoneWorld(B.Neck,rightB,0.4*P+0.3*Sw+(e.zgTx||0)*-0.3); rotateBoneWorld(B.Neck,upB,0.25*I*Math.sin(tI*0.4)-0.2*P*roll);
-      rotateBoneWorld(B.Hips,fwdB,0.08*I*Math.sin(tI*0.7)); rotateBoneWorld(B.Spine1,rightB,0.07*I*Math.sin(tI*0.9)-0.14*Sw*frog+0.06*Sw*glide);
-    }
-    else if(A.air>0.02){
-      // jump: knees tuck on the way up, legs reach down for the landing, arms swing up then out for balance
-      const up=clamp(e.vel.y/10.5,-1,1), tk=smooth(-0.5,0.6,up)*A.air;
-      bend('Left',0.35*A.air+0.95*tk,-(0.35*A.air+1.35*tk)); bend('Right',0.12*A.air+0.5*tk,-(0.55*A.air+0.95*tk));
-      if(!held&&!(pickaxe&&e.swingT>0)){ const lift=tk*1.9+A.air*0.25, out=Math.max(0,A.air-tk)*0.85;
-        rotateBoneWorld(B.LeftArm,rightB,lift); rotateBoneWorld(B.RightArm,rightB,lift); rotateBoneWorld(B.LeftArm,fwdB,out); rotateBoneWorld(B.RightArm,fwdB,-out); }
-    } else if(e.onGround&&A.sprint>0.02){
-      // sprint: on top of the run clip, a longer stride and a high knee on whichever leg is swinging through
-      const sp=A.sprint*(1-cr), d=B.LeftFoot.getWorldPosition(new V()).sub(B.RightFoot.getWorldPosition(new V())).dot(fwdB), dn=clamp(d/0.5,-1,1);
-      const vd=(dn-(A.dn==null?dn:A.dn))/Math.max(dt,1e-3); A.dn=dn; D(A,'swingL',clamp(vd*0.35,-1,1),1-Math.exp(-18*dt));
-      const lift=1-Math.abs(dn)*0.6;
-      bend('Left',0.32*dn*sp+0.25*sp*Math.max(0,A.swingL),-1.0*sp*Math.max(0,A.swingL)*lift); bend('Right',-0.32*dn*sp+0.25*sp*Math.max(0,-A.swingL),-1.0*sp*Math.max(0,-A.swingL)*lift);
-    }
+}
+// [S2] the legs inside the bouncer ball and in zero-g. Returns true when it posed the legs (the jump and sprint legs then stay off)
+function animZGLegs(e,X){ const {A,B,rightB,upB,fwdB}=X;
+  if(e.bounceT>0){ bend(X,'Left',1.7,-2.3); bend(X,'Right',1.6,-2.2); rotateBoneWorld(B.Spine1,rightB,0.35); rotateBoneWorld(B.Neck,rightB,0.4); return true; }
+  if(e.zgFloat){
+    // three ways to move in zero-g, blended: drifting (a lazy bicycle with the knees falling apart), swimming
+    // (a big frog kick timed to the arm stroke) and propelling (legs pedal like a cartoon character running on air)
+    const P=A.zgP, Sw=A.zgS*(1-P), I=(1-P)*(1-A.zgS), u=A.zgB, tI=A.zgI;
+    // sprinting: a quick flutter kick from the hips with loose knees, three kicks to every arm stroke
+    const frog=frogK(u), glide=u>=0.84||u<0.12?1:0, fl=TAU*3*(A.zgF||0);
+    for(const [sd,off,sx] of [['Left',0,-1],['Right',Math.PI,1]] as [string,number,number][]){ const ti=tI*0.9+off, tf=fl+off;
+      const th=I*(0.3+0.22*Math.sin(ti))+Sw*(0.05+1.05*frog)+P*(0.1+0.26*Math.sin(tf));
+      const kn=I*(0.5+0.3*(Math.sin(ti+1.1)+1)/2)+Sw*(0.1+1.7*frog)+P*(0.18+0.38*Math.max(0,Math.sin(tf+1.2)));
+      bend(X,sd,th,-kn); rotateBoneWorld(B[sd+'UpLeg'],fwdB,-sx*(I*(0.14+0.05*Math.sin(ti*0.7))+Sw*0.5*frog)); }
+    const roll=Math.sin(TAU*((A.zgF||0)+0.12)); // the body rolls toward the arm that is pulling
+    rotateBoneWorld(B.Spine1,upB,0.32*P*roll); rotateBoneWorld(B.Hips,upB,-0.12*P*roll);
+    rotateBoneWorld(B.Neck,rightB,0.4*P+0.3*Sw+(e.zgTx||0)*-0.3); rotateBoneWorld(B.Neck,upB,0.25*I*Math.sin(tI*0.4)-0.2*P*roll);
+    rotateBoneWorld(B.Hips,fwdB,0.08*I*Math.sin(tI*0.7)); rotateBoneWorld(B.Spine1,rightB,0.07*I*Math.sin(tI*0.9)-0.14*Sw*frog+0.06*Sw*glide);
+    return true; }
+  return false;
+}
+// [S1] jump and sprint legs (near only; animZGLegs goes first)
+function animLegPose(e,X){ const {A,B,rightB,fwdB,held,pickaxe,cr,dt}=X;
+  if(A.air>0.02){
+    // jump: knees tuck on the way up, legs reach down for the landing, arms swing up then out for balance
+    const up=clamp(e.vel.y/10.5,-1,1), tk=smooth(-0.5,0.6,up)*A.air;
+    bend(X,'Left',0.35*A.air+0.95*tk,-(0.35*A.air+1.35*tk)); bend(X,'Right',0.12*A.air+0.5*tk,-(0.55*A.air+0.95*tk));
+    if(!held&&!(pickaxe&&e.swingT>0)){ const lift=tk*1.9+A.air*0.25, out=Math.max(0,A.air-tk)*0.85;
+      rotateBoneWorld(B.LeftArm,rightB,lift); rotateBoneWorld(B.RightArm,rightB,lift); rotateBoneWorld(B.LeftArm,fwdB,out); rotateBoneWorld(B.RightArm,fwdB,-out); }
+  } else if(e.onGround&&A.sprint>0.02){
+    // sprint: on top of the run clip, a longer stride and a high knee on whichever leg is swinging through
+    const sp=A.sprint*(1-cr), d=B.LeftFoot.getWorldPosition(new V()).sub(B.RightFoot.getWorldPosition(new V())).dot(fwdB), dn=clamp(d/0.5,-1,1);
+    const vd=(dn-(A.dn==null?dn:A.dn))/Math.max(dt,1e-3); A.dn=dn; D(A,'swingL',clamp(vd*0.35,-1,1),1-Math.exp(-18*dt));
+    const lift=1-Math.abs(dn)*0.6;
+    bend(X,'Left',0.32*dn*sp+0.25*sp*Math.max(0,A.swingL),-1.0*sp*Math.max(0,A.swingL)*lift); bend(X,'Right',-0.32*dn*sp+0.25*sp*Math.max(0,-A.swingL),-1.0*sp*Math.max(0,-A.swingL)*lift);
   }
-  // --- upper body: strafe twist, crouch and sprint lean, aim pitch, flinch when hit
+}
+// [S1] upper body: strafe twist, crouch and sprint lean, aim pitch (the flinch is animHit)
+function animTorso(e,X){ const {A,B,near,upB,right,speed,side,fwd,back,aS,cr,held,s,pitch,pE}=X;
   const twist=speed>1.2?clamp(Math.atan2(side,Math.abs(fwd))*back,-0.85,0.85):0; D(A,'twist',twist,aS);
   if(near){ rotateBoneWorld(B.Hips,upB,A.twist); rotateBoneWorld(B.Spine,upB,-A.twist*0.5); rotateBoneWorld(B.Spine1,upB,-A.twist*0.5); }
-  const pitch=e.isPlayer?e.pitch:(e.aimPitch||0), sp=A.sprPose, pE=pitch*(1-sp);
   if(near){ const lean=-0.28*cr-(held?0.06:0)*Math.min(1,s/4)-0.34*A.sprint; rotateBoneWorld(B.Spine,right,lean); if(A.sprint>0.01) rotateBoneWorld(B.Neck,right,0.2*A.sprint); // lean into a sprint, eyes up
-    if(held){ for(const n of ['Spine','Spine1','Spine2']) rotateBoneWorld(B[n],right,pE/3); } else rotateBoneWorld(B.Neck,right,pitch*0.5);
-    // rifle stance: the chest turns a little toward the gun side so the left hand can reach under the barrel, eyes stay on target
-    D(A,'stance',held?1-sp:0,aS); if(A.stance>0.01){ const st=A.stance*(held&&held.id==='pistol'?0.5:held&&held.id==='mf'?0.1:1);
-      rotateBoneWorld(B.Spine1,upB,-0.24*st); rotateBoneWorld(B.Spine2,upB,-0.16*st); rotateBoneWorld(B.Neck,upB,0.4*st); if(B.LeftShoulder) rotateBoneWorld(B.LeftShoulder,upB,-0.25*st); }
-    if(A.hit>0.01){ rotateBoneWorld(B.Spine1,right,0.32*A.hit); rotateBoneWorld(B.Neck,right,0.25*A.hit); }
-    if(pickaxe&&e.swingT>0){ const P=pickPose(e); rotateBoneWorld(B.Spine1,upB,P.tw); rotateBoneWorld(B.Spine2,upB,P.tw*0.5); rotateBoneWorld(B.Spine1,right,P.ln); } }
-  // --- hands
-  // zero-g arms: drifting, they float out and wave like a jellyfish; swimming, a big breaststroke (reach, sweep
-  // wide, pull, tuck) on the same beat as the frog kick
-  // sprinting (propelling) is a front crawl: the arms take turns reaching overhead, pulling down under the body to
-  // the hip and swinging back over with the elbow high, while the body rolls from side to side with each pull
-  const zgArms=sides=>{ const P=A.zgP||0, Sw=A.zgS*(1-P), I=Math.max(0,1-Sw-P), u=A.zgB, tI=A.zgI;
-    for(const sd of sides){ const sx=sd==='Right'?1:-1, ph=sx>0?0:1.7, sh=B[sd+'Arm'].getWorldPosition(new V());
-      const st=zgStroke(u), fr=loopPath(FREESTYLE,((A.zgF||0)+(sx>0?0:0.5))%1);
-      const out=I*(0.4+0.06*Math.sin(tI*0.9+ph))+Sw*st[0]+P*fr[0], up=I*(-0.2+0.1*Math.sin(tI*0.7+ph))+Sw*st[1]+P*fr[1], fw=I*(0.1+0.07*Math.sin(tI*0.55+ph))+Sw*st[2]+P*fr[2];
-      const t=sh.clone().addScaledVector(rightB,sx*out).addScaledVector(upB,up).addScaledVector(fwdB,fw);
-      const pole=sh.clone().addScaledVector(rightB,sx*0.6).addScaledVector(upB,0.05-0.05*P).addScaledVector(fwdB,-0.3-0.15*P);
-      solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],t,pole);
-      rotateBoneWorld(B[sd+'Hand'],fwdB,sx*(0.3*I*Math.sin(tI*1.6+ph)+0.4*Sw*Math.sin(TAU*u))); } };
-  const busy=e.swingT>0||e.guardK>0.05;
+    if(held){ for(const n of ['Spine','Spine1','Spine2']) rotateBoneWorld(B[n],right,pE/3); } else rotateBoneWorld(B.Neck,right,pitch*0.5); }
+}
+// [S3] rifle stance: the chest turns a little toward the gun side so the left hand can reach under the barrel, eyes stay on target
+function animCombatTorso(e,X){ const {A,B,near,upB,held,sp,aS}=X; if(!near) return;
+  D(A,'stance',held?1-sp:0,aS); if(A.stance>0.01){ const st=A.stance*(held&&held.id==='pistol'?0.5:held&&held.id==='mf'?0.1:1);
+    rotateBoneWorld(B.Spine1,upB,-0.24*st); rotateBoneWorld(B.Spine2,upB,-0.16*st); rotateBoneWorld(B.Neck,upB,0.4*st); if(B.LeftShoulder) rotateBoneWorld(B.LeftShoulder,upB,-0.25*st); }
+}
+// [S1] flinch when hit
+function animHit(e,X){ const {A,B,near,right}=X; if(!near) return;
+  if(A.hit>0.01){ rotateBoneWorld(B.Spine1,right,0.32*A.hit); rotateBoneWorld(B.Neck,right,0.25*A.hit); }
+}
+// [S3] the pickaxe swing twists and leans the chest
+function animSwingTorso(e,X){ const {B,near,upB,right,pickaxe}=X; if(!near) return;
+  if(pickaxe&&e.swingT>0){ const P=pickPose(e); rotateBoneWorld(B.Spine1,upB,P.tw); rotateBoneWorld(B.Spine2,upB,P.tw*0.5); rotateBoneWorld(B.Spine1,right,P.ln); }
+}
+// [S0] the hands: exactly one arm layer runs each frame, the first that applies in this order. When the layer, near,
+// the held gun or the pickaxe changes, poseSnap lets S1's blend hide the switch.
+function animArms(e,X){ const {c,A,B,near,held,pickaxe,cons,rightB,fwdB,upB}=X;
+  X.busy=e.swingT>0||e.guardK>0.05;
   c.pick.visible=pickaxe&&!e.writing; if(c.pickL) c.pickL.visible=false; // it stays on the shoulder while you swim (the Death Note opens out of the hand to write)
   if(e.isPlayer) syncVest(e);
-  if(e.bounceT>0&&near){ // hugging the knees inside the ball
-    for(const sd of ['Left','Right']){ const k=B[sd+'Leg'].getWorldPosition(new V()).addScaledVector(fwdB,0.12), sh=B[sd+'Arm'].getWorldPosition(new V());
-      solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],k,sh.clone().addScaledVector(rightB,sd==='Left'?-0.5:0.5).addScaledVector(upB,-0.3)); }
-  } else if(e.throwA&&near){
-    throwPose(e,c,rightB,fwdB,upB);
-  } else if(cons&&near){
-    consPose(e,c,cons,useK,rightB,fwdB,upB,dt);
-  } else if(near&&pickaxe&&e.fistSt&&!((A.zgP||0)>0.3&&!(e.punches&&e.punches.length))){
-    fistArms(e,B,rightB,upB,fwdB);
-  } else if(near&&pickaxe&&e.writing){
-    noteArms(e,B,rightB,upB,fwdB);
-  } else if(near&&e.zgFloat&&!held&&!(pickaxe&&c.pick.visible)){
-    zgArms(['Left','Right']);
-  } else if(held){
-    const H=HOLD[held.id], S=c.gunMount.scale.x; D(A,'reload',(e.isPlayer?!!e.reloading:e.reloadT>0)?1:0,a);
-    const sh=B.RightArm.getWorldPosition(new V()); g.worldToLocal(sh);
-    const adsK=e.isPlayer&&ads?1:0, cp=Math.cos(pE), sn=Math.sin(pE), dk=Math.pow(1-A.draw,2);
-    // sprinting carries the gun low and canted; switching weapons raises the new one into place
-    const tp=e.isPlayer&&!adsK?1-sp:0; // third person: carry the gun out to the side so the camera can see it
-    const o=new V(H.g[0]-S*H.r[0]-0.08*adsK-0.06*sp+0.16*tp,H.g[1]-S*H.r[1]+0.04*adsK-0.12*sp-0.35*dk+0.03*tp,H.g[2]-S*H.r[2]+A.recoil*0.09+0.06*sp);
-    const oy=o.y*cp-o.z*sn, oz=o.y*sn+o.z*cp;
-    const dn=(A.dn||0)*A.sprint; c.gunMount.position.set(sh.x+o.x,sh.y+oy+0.035*sp*(Math.abs(A.dn||0)-0.5),sh.z+oz); // the gun bobs and sways with the sprint stride
-    c.gunMount.rotation.set(pE+A.recoil*0.22-0.45*A.reload-0.5*sp-1.0*dk,0.35*sp+0.1*dn,0.6*A.reload+0.45*sp+0.08*dn);
-    if(near&&c.held){ c.gunMount.updateMatrixWorld(true);
-      const rt=c.gunMount.localToWorld(new V(...H.r)), lt=c.gunMount.localToWorld(new V(...H.l));
-      if(A.reload>0.05){ lt.lerp(c.gunMount.localToWorld(new V(0,-0.32,-0.05)),A.reload*(0.5+0.5*Math.sin(matchTime*8))); }
-      const rS=B.RightArm.getWorldPosition(new V()), lS=B.LeftArm.getWorldPosition(new V());
-      solveIK(B.RightArm,B.RightForeArm,B.RightHand,rt,rS.clone().addScaledVector(right,0.3).addScaledVector(upB,-0.8).addScaledVector(fwdV,-0.1));
-      solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,lt,lS.clone().addScaledVector(right,-0.5).addScaledVector(upB,-0.7));
-      // right hand wrapped round the grip, left hand palm up under the barrel
-      const gq=c.gunMount.getWorldQuaternion(new T.Quaternion()), dir=a=>new V(...a).applyQuaternion(gq);
-      poseHand(B,'Right',dir([-0.1,-0.1,-0.99]),dir([-1,0,0.1]),0.75);
-      if(A.reload<0.5) poseHand(B,'Left',dir(H.lf||[0.45,0.1,-0.9]),dir(H.ln||[0,1,0]),0.55);
-    }
-  } else if(pickaxe&&near){
-    const P=pickPose(e), sh=B.RightArm.getWorldPosition(new V());
-    const tgt=g.localToWorld(g.worldToLocal(sh.clone()).add(P.h));
-    // sprinting: the left arm pumps while the pickaxe stays on the shoulder, riding up and down a little with the stride
-    const pump=e.onGround&&!busy&&!c.pickL?A.sprint*(1-cr):0, dn=A.dn||0;
-    if(pump>0.01){ rotateBoneWorld(B.LeftArm,rightB,-0.8*dn*pump); rotateBoneWorld(B.LeftForeArm,rightB,0.55*pump); tgt.addScaledVector(upB,0.025*Math.abs(dn)*pump); }
-    if(!busy){ tgt.addScaledVector(upB,0.008*Math.sin(matchTime*1.7+(e.walkT||0))); } // breathing: the shoulder rises and falls a touch
-    const natL=B.LeftHand.getWorldPosition(new V());
-    solveIK(B.RightArm,B.RightForeArm,B.RightHand,tgt,sh.clone().addScaledVector(right,0.5).addScaledVector(upB,-0.55).addScaledVector(fwdB,-0.1));
-    c.pick.quaternion.copy(P.q);
-    // at rest the right fist closes round the handle (knuckles out) and the handle runs through the palm
-    D(A,'pk2',e.swingT>0||e.guardK>0.3?1:0,1-Math.exp(-20*dt)); const rest=1-A.pk2;
-    const hw=B.RightHand.getWorldPosition(new V());
-    if(rest>0.01){ g.updateMatrixWorld(true); const hd=new V(0,1,0).applyQuaternion(c.pick.getWorldQuaternion(new T.Quaternion()));
-      const pn=rightB.clone().negate(); pn.addScaledVector(hd,-pn.dot(hd)).normalize(); const pf=new V().crossVectors(hd.clone().negate(),pn);
-      poseHand(B,'Right',pf,pn,0.8*rest); hw.addScaledVector(pf,0.07*rest).addScaledVector(pn,0.03*rest); }
-    g.worldToLocal(hw); c.pick.position.copy(hw);
-    // swinging, the left hand joins just above the right; at rest it hangs free
-    const w2=A.pk2*(1-pump);
-    if(c.pickL) dualLeft(c,B,g,P,rightB,upB,fwdB,rest);
-    else if(w2>0.01){ c.pick.updateMatrixWorld(true); const lS=B.LeftArm.getWorldPosition(new V());
-      solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,natL.clone().lerp(c.pick.localToWorld(new V(0,0.15,0)),w2),lS.clone().addScaledVector(right,-0.6).addScaledVector(upB,-0.5)); }
-    else if(e.zgFloat) zgArms(['Left']);
+  let br=0;
+  if(e.emote&&near){ br=1; emotePose(e,X); }                                            // [S4]
+  else if(e.bounceT>0&&near){ br=2; bounceArms(e,X); }                                  // [S2]
+  else if(e.throwA&&near){ br=3; throwPose(e,c,rightB,fwdB,upB); }                      // [S3]
+  else if(cons&&near){ br=4; consPose(e,c,cons,X.useK,rightB,fwdB,upB,X.dt); }          // [S3]
+  else if(near&&pickaxe&&e.fistSt&&!((A.zgP||0)>0.3&&!(e.punches&&e.punches.length))){ br=5; fistArms(e,B,rightB,upB,fwdB); } // [S3]
+  else if(near&&pickaxe&&e.writing){ br=6; noteArms(e,B,rightB,upB,fwdB); }             // [S3]
+  else if(near&&e.zgFloat&&!held&&!(pickaxe&&c.pick.visible)){ br=7; zgArms(e,X,['Left','Right']); } // [S2]
+  else if(held){ br=8; gunArms(e,X); }                                                   // [S3] far bots too (the gun mount)
+  else if(pickaxe&&near){ br=9; pickArms(e,X); }                                         // [S3]
+  X.branch=br; const key=(near?1:0)+'|'+br+'|'+c.heldKey+'|'+(pickaxe?1:0); if(c.blKey!==key){ c.blKey=key; poseSnap(c,0.16); }
+}
+// [S2] hugging the knees inside the bouncer ball
+function bounceArms(e,X){ const {B,rightB,upB,fwdB}=X;
+  for(const sd of ['Left','Right']){ const k=B[sd+'Leg'].getWorldPosition(new V()).addScaledVector(fwdB,0.12), sh=B[sd+'Arm'].getWorldPosition(new V());
+    solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],k,sh.clone().addScaledVector(rightB,sd==='Left'?-0.5:0.5).addScaledVector(upB,-0.3)); }
+}
+// [S2] zero-g arms: drifting, they float out and wave like a jellyfish; swimming, a big breaststroke (reach, sweep
+// wide, pull, tuck) on the same beat as the frog kick
+// sprinting (propelling) is a front crawl: the arms take turns reaching overhead, pulling down under the body to
+// the hip and swinging back over with the elbow high, while the body rolls from side to side with each pull
+function zgArms(e,X,sides){ const A=e.anim, {B,rightB,upB,fwdB}=X; const P=A.zgP||0, Sw=A.zgS*(1-P), I=Math.max(0,1-Sw-P), u=A.zgB, tI=A.zgI;
+  for(const sd of sides){ const sx=sd==='Right'?1:-1, ph=sx>0?0:1.7, sh=B[sd+'Arm'].getWorldPosition(new V());
+    const st=zgStroke(u), fr=loopPath(FREESTYLE,((A.zgF||0)+(sx>0?0:0.5))%1);
+    const out=I*(0.4+0.06*Math.sin(tI*0.9+ph))+Sw*st[0]+P*fr[0], up=I*(-0.2+0.1*Math.sin(tI*0.7+ph))+Sw*st[1]+P*fr[1], fw=I*(0.1+0.07*Math.sin(tI*0.55+ph))+Sw*st[2]+P*fr[2];
+    const t=sh.clone().addScaledVector(rightB,sx*out).addScaledVector(upB,up).addScaledVector(fwdB,fw);
+    const pole=sh.clone().addScaledVector(rightB,sx*0.6).addScaledVector(upB,0.05-0.05*P).addScaledVector(fwdB,-0.3-0.15*P);
+    solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],t,pole);
+    rotateBoneWorld(B[sd+'Hand'],fwdB,sx*(0.3*I*Math.sin(tI*1.6+ph)+0.4*Sw*Math.sin(TAU*u))); } }
+// [S3] a gun in hand: the mount is placed for everyone (far bots too), the arms reach for it only when near
+function gunArms(e,X){ const {c,A,B,g,near,held,a,sp,pE,right,upB,fwdV}=X;
+  const H=HOLD[held.id], S=c.gunMount.scale.x; D(A,'reload',(e.isPlayer?!!e.reloading:e.reloadT>0)?1:0,a);
+  const sh=B.RightArm.getWorldPosition(new V()); g.worldToLocal(sh);
+  const adsK=e.isPlayer&&ads?1:0, cp=Math.cos(pE), sn=Math.sin(pE), dk=Math.pow(1-A.draw,2);
+  // sprinting carries the gun low and canted; switching weapons raises the new one into place
+  const tp=e.isPlayer&&!adsK?1-sp:0; // third person: carry the gun out to the side so the camera can see it
+  const o=new V(H.g[0]-S*H.r[0]-0.08*adsK-0.06*sp+0.16*tp,H.g[1]-S*H.r[1]+0.04*adsK-0.12*sp-0.35*dk+0.03*tp,H.g[2]-S*H.r[2]+A.recoil*0.09+0.06*sp);
+  const oy=o.y*cp-o.z*sn, oz=o.y*sn+o.z*cp;
+  const dn=(A.dn||0)*A.sprint; c.gunMount.position.set(sh.x+o.x,sh.y+oy+0.035*sp*(Math.abs(A.dn||0)-0.5),sh.z+oz); // the gun bobs and sways with the sprint stride
+  c.gunMount.rotation.set(pE+A.recoil*0.22-0.45*A.reload-0.5*sp-1.0*dk,0.35*sp+0.1*dn,0.6*A.reload+0.45*sp+0.08*dn);
+  if(near&&c.held){ c.gunMount.updateMatrixWorld(true);
+    const rt=c.gunMount.localToWorld(new V(...H.r)), lt=c.gunMount.localToWorld(new V(...H.l));
+    if(A.reload>0.05){ lt.lerp(c.gunMount.localToWorld(new V(0,-0.32,-0.05)),A.reload*(0.5+0.5*Math.sin(matchTime*8))); }
+    const rS=B.RightArm.getWorldPosition(new V()), lS=B.LeftArm.getWorldPosition(new V());
+    solveIK(B.RightArm,B.RightForeArm,B.RightHand,rt,rS.clone().addScaledVector(right,0.3).addScaledVector(upB,-0.8).addScaledVector(fwdV,-0.1));
+    solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,lt,lS.clone().addScaledVector(right,-0.5).addScaledVector(upB,-0.7));
+    // right hand wrapped round the grip, left hand palm up under the barrel
+    const gq=c.gunMount.getWorldQuaternion(new T.Quaternion()), dir=a=>new V(...a).applyQuaternion(gq);
+    poseHand(B,'Right',dir([-0.1,-0.1,-0.99]),dir([-1,0,0.1]),0.75);
+    if(A.reload<0.5) poseHand(B,'Left',dir(H.lf||[0.45,0.1,-0.9]),dir(H.ln||[0,1,0]),0.55);
   }
+}
+// [S3] the pickaxe: resting on the right shoulder, or swung with both hands (dual blades: one in each hand)
+function pickArms(e,X){ const {c,A,B,g,busy,cr,dt,rightB,upB,fwdB,right}=X;
+  const P=pickPose(e), sh=B.RightArm.getWorldPosition(new V());
+  const tgt=g.localToWorld(g.worldToLocal(sh.clone()).add(P.h));
+  // sprinting: the left arm pumps while the pickaxe stays on the shoulder, riding up and down a little with the stride
+  const pump=e.onGround&&!busy&&!c.pickL?A.sprint*(1-cr):0, dn=A.dn||0;
+  if(pump>0.01){ rotateBoneWorld(B.LeftArm,rightB,-0.8*dn*pump); rotateBoneWorld(B.LeftForeArm,rightB,0.55*pump); tgt.addScaledVector(upB,0.025*Math.abs(dn)*pump); }
+  if(!busy){ tgt.addScaledVector(upB,0.008*Math.sin(matchTime*1.7+(e.walkT||0))); } // breathing: the shoulder rises and falls a touch
+  const natL=B.LeftHand.getWorldPosition(new V());
+  solveIK(B.RightArm,B.RightForeArm,B.RightHand,tgt,sh.clone().addScaledVector(right,0.5).addScaledVector(upB,-0.55).addScaledVector(fwdB,-0.1));
+  c.pick.quaternion.copy(P.q);
+  // at rest the right fist closes round the handle (knuckles out) and the handle runs through the palm
+  D(A,'pk2',e.swingT>0||e.guardK>0.3?1:0,1-Math.exp(-20*dt)); const rest=1-A.pk2;
+  const hw=B.RightHand.getWorldPosition(new V());
+  if(rest>0.01){ g.updateMatrixWorld(true); const hd=new V(0,1,0).applyQuaternion(c.pick.getWorldQuaternion(new T.Quaternion()));
+    const pn=rightB.clone().negate(); pn.addScaledVector(hd,-pn.dot(hd)).normalize(); const pf=new V().crossVectors(hd.clone().negate(),pn);
+    poseHand(B,'Right',pf,pn,0.8*rest); hw.addScaledVector(pf,0.07*rest).addScaledVector(pn,0.03*rest); }
+  g.worldToLocal(hw); c.pick.position.copy(hw);
+  // swinging, the left hand joins just above the right; at rest it hangs free
+  const w2=A.pk2*(1-pump);
+  if(c.pickL) dualLeft(c,B,g,P,rightB,upB,fwdB,rest);
+  else if(w2>0.01){ c.pick.updateMatrixWorld(true); const lS=B.LeftArm.getWorldPosition(new V());
+    solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,natL.clone().lerp(c.pick.localToWorld(new V(0,0.15,0)),w2),lS.clone().addScaledVector(right,-0.6).addScaledVector(upB,-0.5)); }
+  else if(e.zgFloat) zgArms(e,X,['Left']);
+}
+// [S0] any layer can pull a hand toward a world target on top of the arm layer: X.armOv.Left={t,pole,w} re-solves the
+// left arm toward lerp(hand,t,w), w 0..1 (pole: optional world elbow hint). Nothing to do on most frames.
+const _ao1=new V(), _ao2=new V(), _ao3=new V(), ARM_SIDES=['Left','Right'];
+function applyArmOverrides(e,X){ const O=X.armOv; if(!O||!(O.Left||O.Right)) return; const B=X.B;
+  for(const sd of ARM_SIDES){ const o=O[sd]; if(!o||!(o.w>0.001)) continue; const sh=B[sd+'Arm'].getWorldPosition(_ao1), t=B[sd+'Hand'].getWorldPosition(_ao2).lerp(o.t,Math.min(1,o.w));
+    const pole=o.pole||_ao3.copy(sh).addScaledVector(X.rightB,sd==='Left'?-0.5:0.5).addScaledVector(X.upB,-0.6).addScaledVector(X.fwdB,-0.2);
+    solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],t,pole); } }
+// [S3] moving parts of the held gun: sparks and wings, the next rocket, the pump
+function animProps(e,X){ const {c,A}=X;
   if(c.held&&c.held.userData.sparks){ const t=matchTime; for(const sp of c.held.userData.sparks){ const [x,a,r]=sp.userData.o; sp.position.set(x+Math.cos(a+t*3)*r*0.6,0.03+Math.sin(a*2+t*4)*0.06,-0.08+Math.sin(a+t*3)*r); sp.scale.setScalar(0.04+0.03*Math.abs(Math.sin(t*6+a*3))); sp.material.rotation=t*2; }
     for(const w of c.held.userData.wings) w.scale.y=1+0.06*Math.sin(matchTime*5); }
   if(c.held&&c.held.userData.warhead){ const k=e.isPlayer?clamp(e.fireCd/0.45,0,1):0; for(const m of c.held.userData.warhead){ m.visible=k<0.98; m.position.z=-0.5*k; } } // a new rocket slides into the muzzle
   if(c.held&&c.held.userData.pump){ const k=clamp(A.pumpT/0.45,0,1); c.held.userData.pump.position.z=-0.38+(A.pumpT>0&&A.pumpT<0.45?Math.sin(k*Math.PI)*0.14:0); }
-  // --- hitboxes follow the skeleton
+}
+// [S1] after every layer: blend out a layer switch (poseSnap), then remember the final pose
+function animPost(e,X){ poseBlend(X.c,X.dt); poseStore(X.c); }
+// [S0] hitboxes follow the skeleton
+function animHitboxes(e,X){ const {c,B,g}=X;
   const hd=B.Head.getWorldPosition(new V()); g.worldToLocal(hd); c.hb.head.position.set(hd.x,hd.y+0.1,hd.z);
   const ch=B.Spine2.getWorldPosition(new V()); g.worldToLocal(ch); c.hb.chest.position.set(ch.x,ch.y-0.12,ch.z);
   const hp=B.Hips.getWorldPosition(new V()); g.worldToLocal(hp); const lh=Math.max(0.4,hp.y+0.05); c.hb.legs.scale.y=lh; c.hb.legs.position.set(hp.x,lh/2,hp.z);
 }
+// ================= emotes =================
+// [S4] dances and emotes (Stream 4 fills this section). While one plays, e.emote={E,t,yaw}: animateGLB turns the body
+// to e.emote.yaw, animCtx puts every item away and animArms gives the arm layer to emotePose.
+function emotePose(e,X){}
 // ================= characters =================
 // everyone in the match: the player and the bots share these fields; bots and the player add their own on top
 type Combatant=Record<string,any>;
@@ -1955,7 +2058,7 @@ function dressPick(c,eq){
   for(const o of [...c.pick.children]){ c.pick.remove(o); if(o.userData.skin) disposeObj(o); }
   const w=new T.Group(); w.userData.skin=true; w.add(makePickaxe3D(eq,true)); c.pick.add(w);
   if(c.pickL){ c.g.remove(c.pickL); disposeObj(c.pickL); c.pickL=null; }
-  const F=PX.formOf(eq); if(F&&F.dual){ c.pickL=new T.Group(); const w2=new T.Group(); w2.userData.skin=true; w2.add(makePickaxe3D(eq,true)); c.pickL.add(w2); c.pickL.visible=false; c.g.add(c.pickL); }
+  const F=c.form=PX.formOf(eq); if(F&&F.dual){ c.pickL=new T.Group(); const w2=new T.Group(); w2.userData.skin=true; w2.add(makePickaxe3D(eq,true)); c.pickL.add(w2); c.pickL.visible=false; c.g.add(c.pickL); } // c.form: the weapon form (null for a plain pickaxe) for the swing classes [S3]
 }
 function equipCurrent(){
   setRandom(false);
