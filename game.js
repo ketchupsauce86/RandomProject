@@ -47,6 +47,7 @@
       frz: { name: "Freeze Ray", short: "FREEZE", dmg: 5, rate: 0.08, mag: 1, reload: 0, spread: 0, bloom: 0, auto: true, ammo: "light", range: 55, pellets: 1, head: 1.3, recoil: 12e-4, pref: 20, col: "#7fe3ff", sp: "frz" },
       tsr: { name: "Taser", short: "TASER", dmg: 20, rate: 0.8, mag: 1, reload: 0, spread: 0, bloom: 0, auto: false, ammo: "light", range: 30, pellets: 1, head: 1.3, recoil: 0.03, pref: 14, col: "#ffe14a", sp: "tsr" },
       flm: { name: "Flamethrower", short: "FLAMES", dmg: 3, rate: 0.06, mag: 1, reload: 0, spread: 0, bloom: 0, auto: true, ammo: "light", range: 17, pellets: 1, head: 1, recoil: 1e-3, pref: 10, col: "#ff7a1a", sp: "flm" },
+      pb: { name: "Paintball Gun", short: "PAINT", dmg: 12, rate: 0.11, mag: 1, reload: 0, spread: 0.014, bloom: 0, auto: true, ammo: "light", range: 200, pellets: 1, head: 1.6, recoil: 4e-3, pref: 22, col: "#ff3fa4", sp: "pb" },
       drone: { name: "Robot Drone", short: "DRONE", dmg: 11, rate: 0.3, mag: 1, reload: 0, spread: 0, bloom: 0, auto: false, ammo: "light", range: 90, pellets: 1, head: 1.5, recoil: 0, pref: 30, col: "#ff5a3c", sp: "drone" }
     };
     const CONS = {
@@ -163,7 +164,12 @@
       brass: GPh(11569724, 90, 16769184),
       // Flamethrower
       white: GPh(15922423, 50, 9079434),
-      red: new T.MeshBasicMaterial({ color: 16726832 })
+      red: new T.MeshBasicMaterial({ color: 16726832 }),
+      // the drone's remote
+      pbody: GPh(16723855, 70, 16756952),
+      balls: GPh(16769594, 60, 16777215),
+      // Paintball Gun: the body and the paintballs in the hopper
+      hopper: new T.MeshPhongMaterial({ color: 10477823, specular: 16777215, shininess: 120, transparent: true, opacity: 0.4, depthWrite: false })
     };
     const FURN = [GPh(2500394, 14), GPh(4936503, 14), GPh(3886694, 24), GPh(5192550, 24), GPh(13214266, 90, 16773296)];
     function prof(pts, w, bev) {
@@ -374,6 +380,23 @@
         [new T.TorusGeometry(0.03, 7e-3, 6, 14, Math.PI * 1.4).rotateY(Math.PI / 2), "brass", 0, 0.09, -0.23],
         [prof([[0.2, 0.05], [0.4, 0.035], [0.42, 0.015], [0.42, -0.08], [0.39, -0.09], [0.3, -0.03], [0.2, -0.01]], 0.05), "dark", 0, 0, 0]
       ],
+      pb: () => [
+        // Paintball Gun: a pink marker with a long steel barrel, a clear hopper of paintballs on top and a silver air tank for a stock
+        [prof([[0.16, -0.01], [0.16, 0.06], [-0.12, 0.06], [-0.14, 0.035], [-0.14, -0.01]], 0.056), "pbody", 0, 0, 0],
+        [BX(0.06, 0.01, 0.26), "dark", 0, 0.025, 0.01],
+        [prof([[0.13, -0.01], [0.075, -0.01], [0.105, -0.2], [0.16, -0.21], [0.17, -0.19]], 0.046), "poly", 0, 0, 0],
+        ...GUARD(0.07, 0, -0.05),
+        [prof([[-0.06, -0.01], [-0.1, -0.01], [-0.095, -0.12], [-0.065, -0.12]], 0.034), "poly", 0, 0, 0],
+        [gtube(0.024, 0.022, 0.42, 14), "steel", 0, 0.035, -0.35],
+        [gtube(0.03, 0.03, 0.022, 14), "pbody", 0, 0.035, -0.55],
+        [gtube(0.029, 0.029, 0.016, 14), "dark", 0, 0.035, -0.15],
+        [new T.CylinderGeometry(0.022, 0.026, 0.07, 12), "pbody", 0, 0.09, -0.02],
+        [new T.SphereGeometry(0.075, 16, 12).scale(0.9, 0.8, 1.3), "hopper", 0, 0.17, 0],
+        ...[[0, 0.14, 0.03], [0.025, 0.15, -0.04], [-0.025, 0.15, 0.01], [0.02, 0.19, 0.05], [-0.02, 0.19, -0.03], [0, 0.2, 0], [0, 0.15, -0.08]].map(([x, y, z]) => [new T.SphereGeometry(0.021, 10, 8), "balls", x, y, z]),
+        [gtube(0.024, 0.024, 0.04, 12), "dark", 0, 0, 0.18],
+        [gtube(0.042, 0.042, 0.22, 16), "bare", 0, 0, 0.31],
+        [new T.SphereGeometry(0.042, 16, 10).scale(1, 1, 0.6), "bare", 0, 0, 0.42]
+      ],
       drone: () => [
         // the drone's remote: a white controller with two sticks, a little screen and an antenna with a red light
         [BX(0.17, 0.04, 0.1), "white", 0, 0, 0.02],
@@ -389,7 +412,7 @@
         [new T.SphereGeometry(0.012, 8, 6), "red", 0.07, 0.2, -0.02]
       ]
     };
-    const MUZZLE = { ar: [0.014, -0.67], smg: [0.022, -0.47], pump: [0.025, -0.74], pistol: [0.045, -0.26], sniper: [0.02, -1.06], rpg: [0.06, -0.42], mf: [0.045, -0.26], frz: [0.03, -0.46], tsr: [0.035, -0.33], flm: [0.02, -0.62], drone: [0.03, -0.05] };
+    const MUZZLE = { ar: [0.014, -0.67], smg: [0.022, -0.47], pump: [0.025, -0.74], pistol: [0.045, -0.26], sniper: [0.02, -1.06], rpg: [0.06, -0.42], mf: [0.045, -0.26], frz: [0.03, -0.46], tsr: [0.035, -0.33], flm: [0.02, -0.62], pb: [0.035, -0.57], drone: [0.03, -0.05] };
     const EXTRA = {
       ar: [[2, ...REDDOT(0.1, 0.02)], [3, [prof([[-0.34, -0.04], [-0.38, -0.04], [-0.375, -0.13], [-0.345, -0.13]], 0.03), "poly", 0, 0, 0]], [4, [gtube(0.026, 0.026, 0.18, 16), "dark", 0, 0.014, -0.76]]],
       smg: [[2, ...REDDOT(0.09, 0.02)], [3, [prof([[-0.13, -0.03], [-0.17, -0.03], [-0.165, -0.12], [-0.135, -0.12]], 0.03), "poly", 0, 0, 0]], [4, [gtube(0.024, 0.024, 0.16, 16), "dark", 0, 0.022, -0.55]]],
@@ -401,6 +424,7 @@
       frz: [],
       tsr: [],
       flm: [],
+      pb: [],
       drone: []
     };
     const SUPP = { ar: [4, -0.18], smg: [4, -0.16], pistol: [4, -0.03], sniper: [4, -0.2] };
@@ -1280,6 +1304,31 @@
         modes(x, 3e-3, [[rnd(78, 84), 0.4, 1], [rnd(160, 170), 0.2, 0.5]], 0.4);
         return norm(sat(x, 1.6), 0.9);
       },
+      // Paintball Gun: a puff of compressed air with a hollow pop and the bolt's tock; the ball bursting wetly on what it hits
+      pbShot: () => {
+        const x = SN(0.35);
+        mixIn(x, rbj(rbj(burst(0.08, 0.012, true), "bp", rnd(520, 640), 1.4), "lp", 1600, 0.7), 0, 1.4);
+        mixIn(x, comb(rbj(burst(0.05, 8e-3), "bp", rnd(900, 1100), 1.2), rnd(300, 340), 0.5), 0, 0.6);
+        mixIn(x, rbj(burst(0.25, 0.05, false, 4e-3), "hp", 3500, 0.7), 4e-3, 0.35);
+        modes(x, 0.012, [[rnd(1700, 1900), 0.01, 1], [rnd(3400, 3800), 6e-3, 0.5]], 0.25);
+        return norm(x, 0.8);
+      },
+      splat: () => {
+        const x = SN(0.4);
+        mixIn(x, rbj(burst(0.12, 0.02, true), "lp", rnd(700, 900), 0.8), 0, 1.5);
+        mixIn(x, amp(rbj(burst(0.2, 0.05), "bp", rnd(1300, 1700), 1.1), (t) => 0.55 + 0.45 * Math.sin(t * 2 * Math.PI * rnd(55, 75))), 5e-3, 0.5);
+        for (let i = 0; i < 6; i++) mixIn(x, rbj(burst(0.01, 15e-4), "bp", rnd(2500, 5500), 2), rnd(0.03, 0.25), rnd(0.1, 0.3));
+        return norm(x, 0.75);
+      },
+      // a heartbeat: lub-dub, two soft low thumps felt more than heard
+      heart: () => {
+        const x = SN(0.6);
+        for (const [at, g] of [[0, 1], [0.16, 0.7]]) {
+          mixIn(x, rbj(rbj(burst(0.16, 0.03, true), "lp", 110, 0.9), "lp", 110, 0.9), at, 1.6 * g);
+          modes(x, at, [[rnd(46, 52), 0.07, 1], [rnd(78, 86), 0.04, 0.4]], 0.5 * g);
+        }
+        return norm(x, 0.85);
+      },
       pop: () => {
         const x = SN(0.4);
         mixIn(x, rbj(burst(0.02, 2e-3), "hp", 2500, 0.7), 0, 1.2);
@@ -1418,6 +1467,9 @@
       },
       flm: (v, p) => {
         smp(v, "flame", { rate: p * 0.95, g: 0.8 });
+      },
+      pb: (v, p) => {
+        smp(v, "pbShot", { rate: p, g: 0.75 });
       },
       droneShot: (v, p) => {
         smp(v, "droneShot", { rate: p * 1.1, g: 0.6 });
@@ -1573,6 +1625,12 @@
       ballPop: (v) => {
         smp(v, "pop", { g: 0.9 });
       },
+      splat: (v) => {
+        smp(v, "splat", { g: 0.6, rate: rnd(0.9, 1.15) });
+      },
+      heart: (v, o) => {
+        smp(v, "heart", { g: o.g || 0.8 });
+      },
       crackle: (v) => {
         smp(v, "crackle", { g: 0.6 });
       },
@@ -1724,6 +1782,8 @@
       }
     };
     const SFX_OPT = {
+      pb: { range: 150 },
+      splat: { range: 60, wet: 0.05 },
       katana: { range: 80 },
       bladeHit: { range: 100 },
       clang: { range: 150 },
@@ -1856,6 +1916,8 @@
         else if (e.pos.distanceTo(camera.position) < 40) sfx("step", e.pos, { g });
       }
     }
+    const HEART_HP = 35;
+    let heartT = 0;
     function updateAudio(dt) {
       if (!AC || !AMB) return;
       const A = AMB, t = AC.currentTime, p = player, T2 = (par, v, k) => par.setTargetAtTime(v, t, k || 0.15);
@@ -1871,6 +1933,14 @@
       T2(A.wind.gain, p.alive ? p.zgPropel ? 0.22 : 0.04 * gust : 0.03, 0.25);
       T2(A.windF.frequency, p.zgPropel ? 900 : 420, 0.3);
       T2(A.hum.gain, 0.025, 0.4);
+      if (p.alive && p.hp <= HEART_HP) {
+        heartT -= dt;
+        if (heartT <= 0) {
+          const k = 1 - clamp(p.hp / HEART_HP, 0, 1);
+          heartT = 1.05 - 0.45 * k;
+          sfx("heart", null, { g: 0.5 + 0.5 * k });
+        }
+      } else heartT = 0;
       footsteps(dt);
     }
     let state = "menu", fallbackLook = false, locked = false, matchUsed = false, sens = 1;
@@ -2014,6 +2084,7 @@
       frz: { r: [0.015, -0.09, 0.2], l: [-0.03, -0.075, -0.06], g: [-0.04, -0.17, -0.25] },
       tsr: { r: [0.015, -0.05, 0.13], l: [-0.035, -0.08, 0.1], g: [-0.1, -0.13, -0.37], lf: [0.3, -0.3, -0.9], ln: [0.9, 0.4, 0] },
       flm: { r: [0.015, -0.09, 0.2], l: [-0.03, -0.08, -0.15], g: [-0.04, -0.17, -0.23] },
+      pb: { r: [0.015, -0.09, 0.2], l: [-0.03, -0.07, -0.08], g: [-0.04, -0.17, -0.25] },
       drone: { r: [0.085, -0.03, 0.11], l: [-0.085, -0.03, 0.11], g: [-0.16, -0.24, -0.33], lf: [0.2, 0.2, -0.95], ln: [0.3, 0.9, 0] }
     };
     const SWING_T = 0.42, PICK_HIT = 0.52;
@@ -3000,7 +3071,7 @@
       if (c.held) return (c.held.userData.muzzles ? c.held.userData.muzzles[e.anim.mfSide || 0] : c.held.userData.muzzle).getWorldPosition(out);
       return out.set(e.pos.x, e.pos.y + 1.5, e.pos.z);
     }
-    const KICK = { ar: 0.55, smg: 0.35, pump: 1, pistol: 0.6, sniper: 1, rpg: 1.3, mf: 0.3, frz: 0.1, tsr: 0.8, flm: 0.06, drone: 0.15 };
+    const KICK = { ar: 0.55, smg: 0.35, pump: 1, pistol: 0.6, sniper: 1, rpg: 1.3, mf: 0.3, frz: 0.1, tsr: 0.8, flm: 0.06, pb: 0.12, drone: 0.15 };
     function fireFx(e, w, id) {
       const A = e.anim;
       A.recoil = Math.min(1.2, A.recoil + KICK[id]);
@@ -3608,6 +3679,7 @@
       tsr: '<path d="M16 7h28v8H30l-2 8h-8l2-8h-6z"/><rect x="44" y="6" width="7" height="10" rx="1" fill="#202226"/><path d="M51 8h3M51 14h3" stroke="#8fe3ff" stroke-width="1.6"/><path d="M57 3l-2 6h4l-3 7" fill="none" stroke="#8fe3ff" stroke-width="1.5"/>',
       flm: '<path d="M3 9h7v5H5z"/><rect x="10" y="9" width="38" height="4" rx="1"/><rect x="34" y="8" width="14" height="6" rx="1" opacity=".7"/><rect x="48" y="8" width="4" height="6"/><rect x="14" y="2" width="22" height="6" rx="3" fill="#c8321e"/><path d="M17 13h5l-2 8h-5z"/><path d="M38 13h4v6h-4z"/><path d="M53 11c3-5 7-4 9-8-1 5 1 7-3 12 0-2-3-3-6-4z" fill="#ffb02a"/>',
       drone: '<rect x="24" y="8" width="16" height="9" rx="4.5"/><rect x="6" y="9.5" width="52" height="2.5" rx="1"/><rect x="1" y="5" width="16" height="2" rx="1"/><rect x="47" y="5" width="16" height="2" rx="1"/><rect x="8" y="6" width="2" height="5"/><rect x="54" y="6" width="2" height="5"/><circle cx="32" cy="13" r="2.2" fill="#ff3b30"/><rect x="30.5" y="17" width="3" height="4"/>',
+      pb: '<path d="M12 9h26v6H24l-2 8h-7l2-8h-5z"/><rect x="38" y="10" width="20" height="3" rx="1"/><rect x="56" y="9" width="4" height="5" rx="1" fill="#ff3fa4"/><rect x="1" y="9.5" width="11" height="5" rx="2.5" opacity=".75"/><ellipse cx="26" cy="5" rx="7" ry="4.5" opacity=".55"/><circle cx="23.5" cy="5" r="1.8" fill="#ffe23a"/><circle cx="28" cy="4.5" r="1.8" fill="#3fd0ff"/>',
       bounce: '<circle cx="32" cy="12" r="10"/><path d="M22 12c4-3 16-3 20 0M24 6c4 3 12 3 16 0M24 18c4-3 12-3 16 0" fill="none" stroke="#000" stroke-opacity=".35" stroke-width="1.4"/>'
     };
     const SVG = (inner) => `<svg viewBox="0 0 64 24" width="52" height="20" fill="currentColor" aria-hidden="true">${inner}</svg>`;
@@ -3625,6 +3697,7 @@
       frz: SVG(ICON_IN.frz),
       tsr: SVG(ICON_IN.tsr),
       flm: SVG(ICON_IN.flm),
+      pb: SVG(ICON_IN.pb),
       drone: SVG(ICON_IN.drone),
       mini: SVG('<rect x="29" y="3" width="6" height="5" rx="1"/><circle cx="32" cy="15" r="7"/>'),
       big: SVG('<rect x="28" y="1" width="8" height="5" rx="1"/><path d="M27 6h10l5 7v8a2 2 0 0 1-2 2H24a2 2 0 0 1-2-2v-8z"/>')
@@ -3963,7 +4036,7 @@
       sun.position.copy(f).addScaledVector(SUN_DIR, 200);
       sun.target.position.copy(f);
     }
-    const ARM_IDS = ["ar", "smg", "pump", "pistol", "sniper", "rpg", "mf", "tsr", "frz", "flm", "drone"], ARM_Y = 420;
+    const ARM_IDS = ["ar", "smg", "pump", "pistol", "sniper", "rpg", "mf", "tsr", "frz", "flm", "pb", "drone"], ARM_Y = 420;
     const SHOP_GUN = (id) => SHOP.find((x) => x.id === id);
     let armIdx = 0, armGroup = null, armGuns = [];
     const LK = { stage: null, item: null, orbit: null, idle: 0, kind: "", n: 0, center: -1, shown: -1, step: 128, vx: 0, lx: 0, lt: 0, drag: null, swapT: 0, thumbs: /* @__PURE__ */ new Map(), thumbBusy: 0, wheelT: 0, ring: null, glow: null, rim: null };
@@ -4167,7 +4240,7 @@
       lkTint("#5cf0ff");
       lkPut(holder, dir || 0);
       lkFrame(true);
-      const w = WEAP[id], fx = { frz: "Freezes", tsr: "Stuns", flm: "Burns", drone: "Hunts for 15s" }[id];
+      const w = WEAP[id], fx = { frz: "Freezes", tsr: "Stuns", flm: "Burns", pb: "Splats paint", drone: "Hunts for 15s" }[id];
       lkInfo(w.name, (shopIt ? "Shop \xB7 " + shopIt.price + " elims" : "Armory") + " \xB7 " + (armIdx + 1) + " of " + ARM_IDS.length, null, id === "drone" ? `Damage ${DRONE_W.dmg} \xB7 ${fx}` : `Damage ${w.dmg * w.pellets > w.dmg ? w.dmg + " \xD7 " + w.pellets : w.dmg} \xB7 ${w.auto ? "Full auto" : "Single shot"}${fx ? " \xB7 " + fx : ""}`);
       $("armLabels").innerHTML = shopIt ? "" : RAR.map((r) => `<span style="color:${r.c}">${r.n}</span>`).join("");
     }
@@ -5810,7 +5883,7 @@
       const h = hits.find((x) => x.object.userData.ent !== src);
       if (h) {
         const ent = h.object.userData.ent;
-        return { d: h.distance, ent: ent && ent.etype === "char" ? ent : null, n: ent && ent.etype === "char" ? null : h.face ? h.face.normal.clone() : null };
+        return { d: h.distance, ent: ent && ent.etype === "char" ? ent : null, head: h.object.userData.part === "head", n: ent && ent.etype === "char" ? null : h.face ? h.face.normal.clone() : null };
       }
       return n ? { d, ent: null, n } : null;
     }
@@ -5854,7 +5927,8 @@
           const gl = P.m.userData.glow;
           gl.scale.setScalar(rnd(0.7, 1.1));
           if (player && player.alive && P.src !== player && P.pos.distanceTo(player.pos) < 10) sfx("whiz", P.pos.clone());
-        } else updateGrenade(P, i, dt);
+        } else if (P.kind === "paint") updatePaint(P, i, dt);
+        else updateGrenade(P, i, dt);
       }
     }
     function removeProj(i) {
@@ -7054,7 +7128,87 @@
       if (w.sp === "frz") frzFire(p, w);
       else if (w.sp === "tsr") tsrFire(p, w);
       else if (w.sp === "flm") flmFire(p, w);
+      else if (w.sp === "pb") pbFire(p, w);
       else if (w.sp === "drone") droneFire(p, it);
+    }
+    const PAINT = [16723855, 16769594, 4182271, 6487930, 16742938, 10902783], SPLAT_MAX = 160, SPLAT_LIFE = 45;
+    const pbBallGeo = new T.SphereGeometry(0.07, 10, 8), splatGeo = new T.PlaneGeometry(1, 1);
+    const splatTex = canvasTex(128, 128, (g) => {
+      g.fillStyle = "#fff";
+      g.beginPath();
+      for (let i = 0; i <= 24; i++) {
+        const a = i / 24 * TAU, r = 34 + Math.random() * 14;
+        if (i) g.lineTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r);
+        else g.moveTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r);
+      }
+      g.fill();
+      for (let i = 0; i < 14; i++) {
+        const a = Math.random() * TAU, r = rnd(44, 60), s = rnd(2, 7);
+        g.beginPath();
+        g.arc(64 + Math.cos(a) * r, 64 + Math.sin(a) * r, s, 0, TAU);
+        g.fill();
+        g.beginPath();
+        g.ellipse(64 + Math.cos(a) * (r - 10), 64 + Math.sin(a) * (r - 10), s * 0.7, 8, a + Math.PI / 2, 0, TAU);
+        g.fill();
+      }
+    });
+    const PM = {};
+    function paintMats(c) {
+      return PM[c] || (PM[c] = {
+        ball: new T.MeshBasicMaterial({ color: c }),
+        dot: new T.SpriteMaterial({ map: glowTex, color: c, transparent: true, depthWrite: false }),
+        splat: new T.MeshBasicMaterial({ map: splatTex, color: c, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })
+      });
+    }
+    let splats = [];
+    function pbFire(p, w) {
+      camera.getWorldDirection(tv1);
+      const o = muzzlePos(p, new V()), at = aimPoint(p, tv1, w.range), dir = jitter(at.sub(o).normalize(), w.spread, new V());
+      const c = pick(PAINT), m = new T.Mesh(pbBallGeo, paintMats(c).ball);
+      m.position.copy(o);
+      world.add(m);
+      projs.push({ kind: "paint", src: p, m, pos: o, vel: dir.multiplyScalar(90), t: 0, col: c, w });
+      p.pitch = Math.min(1.25, p.pitch + w.recoil * rnd(0.5, 1));
+      fireFx(p, w, "pb");
+      sfx("pb");
+    }
+    function updatePaint(P, i, dt) {
+      if (ZG.state === "ceil") P.vel.y += GRAV * 0.3 * dt;
+      const len = P.vel.length() * dt, dir = P.vel.clone().normalize(), h = segHit(P.pos, dir, len, P.src);
+      if (h || P.t > 3) {
+        const at = P.pos.clone().addScaledVector(dir, h ? h.d : len);
+        if (h && h.ent) hurt(h.ent, P.w.dmg * (h.head ? P.w.head : 1), P.src, { head: h.head, point: at, weapon: P.w.name, dir });
+        if (h) paintBurst(at, h.n, P.col, dir);
+        removeProj(i);
+        return;
+      }
+      P.pos.addScaledVector(dir, len);
+      P.m.position.copy(P.pos);
+    }
+    function paintBurst(at, n, c, dir) {
+      const M = paintMats(c);
+      for (let i = 0; i < 7; i++) mote(M.dot, at.clone(), rnd(0.15, 0.35), rnd(0.25, 0.45), rv(3).addScaledVector(n || dir, n ? 3 : -2));
+      if (n) {
+        const m = new T.Mesh(splatGeo, M.splat), s = rnd(0.55, 1.1);
+        m.position.copy(at).addScaledVector(n, 0.02);
+        m.lookAt(_dv.copy(m.position).add(n));
+        m.rotateZ(Math.random() * TAU);
+        m.scale.setScalar(s);
+        world.add(m);
+        splats.push({ m, t: 0 });
+        if (splats.length > SPLAT_MAX) world.remove(splats.shift().m);
+      }
+      sfx("splat", at);
+    }
+    function updateSplats(dt) {
+      for (let i = splats.length - 1; i >= 0; i--) {
+        const S = splats[i];
+        S.t += dt;
+        if (S.t > SPLAT_LIFE) {
+          world.remove(S.m);
+          splats.splice(i, 1);
+        } else if (S.t > SPLAT_LIFE - 3) S.m.scale.multiplyScalar(1 - dt * 0.6);
+      }
     }
     let POW = null, PC = 16777215;
     let pwShots = [], pwZones = [], pwWalls = [], pwLaters = [];
@@ -10219,6 +10373,7 @@
       { id: "rpg", name: "RPG", price: 5, col: "#4fd34f" },
       { id: "gren", name: "Grenade Launcher", price: 10, col: "#a7b85a" },
       { id: "tsr", name: "Taser", price: 10, col: "#ffe14a" },
+      { id: "pb", name: "Paintball Gun", price: 10, col: "#ff3fa4" },
       { id: "frz", name: "Freeze Ray", price: 15, col: "#7fe3ff" },
       { id: "flm", name: "Flamethrower", price: 15, col: "#ff7a1a" },
       { id: "mf", name: "Mirror Fractal Guns", price: 15, col: "#ffd23f" },
@@ -10227,9 +10382,10 @@
     ];
     let shopOpen = false;
     function vendFrontSVG() {
+      const nr = Math.ceil(SHOP.length / 2), rh = 260 / nr, sc = Math.min(1.6, (rh - 20) / 24);
       const rows = SHOP.map((it, i) => {
-        const x = 14 + (i >> 2) * 116, y = 82 + i % 4 * 65;
-        return `<g transform="translate(${x + 6} ${y + 4}) scale(1.6)" fill="${it.id === "rpg" || it.id === "tsr" ? "#202226" : it.id === "drone" ? "#e9eef7" : it.col}" color="${it.col}">${it.id === "drone" ? '<rect x="0" y="0" width="64" height="24" rx="4" fill="#2b3550"/>' : ""}${ICON_IN[it.id]}</g><text x="${x + 108}" y="${y + 60}" text-anchor="end" font-family="Arial Black,Arial" font-weight="900" font-size="20" fill="#ffd23f">${it.price}</text>` + (i % 4 < 3 ? `<rect x="${x + 2}" y="${y + 64}" width="108" height="2" fill="#c6cfdd"/>` : "");
+        const col = Math.floor(i / nr), row = i % nr, x = 14 + col * 116, y = 82 + row * rh;
+        return `<g transform="translate(${x + 6} ${y + 3}) scale(${sc.toFixed(2)})" fill="${it.id === "rpg" || it.id === "tsr" ? "#202226" : it.id === "drone" ? "#e9eef7" : it.col}" color="${it.col}">${it.id === "drone" ? '<rect x="0" y="0" width="64" height="24" rx="4" fill="#2b3550"/>' : ""}${ICON_IN[it.id]}</g><text x="${x + 108}" y="${y + rh - 5}" text-anchor="end" font-family="Arial Black,Arial" font-weight="900" font-size="${rh < 60 ? 17 : 20}" fill="#ffd23f">${it.price}</text>` + (row < nr - 1 && i + 1 < SHOP.length ? `<rect x="${x + 2}" y="${y + rh - 1}" width="108" height="2" fill="#c6cfdd"/>` : "");
       }).join("") + `<rect x="127" y="80" width="2" height="258" fill="#c6cfdd"/>`;
       return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 420"><rect width="256" height="420" fill="#121a2c"/><rect x="10" y="10" width="236" height="58" rx="10" fill="#0b1020" stroke="#5cf0ff" stroke-width="4"/><text x="128" y="52" text-anchor="middle" font-family="Arial Black,Arial" font-weight="900" font-size="36" fill="#5cf0ff" letter-spacing="4">SHOP</text><rect x="10" y="76" width="236" height="266" rx="6" fill="#e9eef7"/>${rows}<path d="M14 80h60L34 338H14z" fill="#ffffff" opacity=".35"/><rect x="18" y="356" width="150" height="50" rx="6" fill="#05070d" stroke="#2b3550" stroke-width="2"/>` + [0, 1, 2].map((r) => [0, 1].map((cc) => `<circle cx="${196 + cc * 24}" cy="${362 + r * 18}" r="7" fill="${r === 0 && cc === 0 ? "#ffd23f" : "#2b3550"}"/>`).join("")).join("") + `</svg>`;
     }
@@ -10380,6 +10536,7 @@
       buildZeroG();
       buildVending();
       projs = [];
+      splats = [];
       bolts = [];
       fires = [];
       drones = [];
@@ -10681,6 +10838,7 @@
       updateActions(dt);
       pwUpdate(dt);
       updateProjs(dt);
+      updateSplats(dt);
       updateBolts(dt);
       updateFires(dt);
       updateBouncerCd(dt);
@@ -10845,6 +11003,12 @@
       },
       get ZG() {
         return ZG;
+      },
+      get splats() {
+        return splats.length;
+      },
+      get heartT() {
+        return heartT;
       },
       startMatch,
       update,
