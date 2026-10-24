@@ -20,6 +20,7 @@ Needs a keyboard and mouse. The **Armory** button shows every gun design, and it
 | E | Use a vending machine |
 | Q | Bouncer Ball |
 | R | Reload MF Guns |
+| B | Emote (tap: the last one; hold: the emote wheel, move the mouse and let go) |
 
 ## Code
 

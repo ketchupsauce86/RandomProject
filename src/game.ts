@@ -1322,9 +1322,234 @@ function animHitboxes(e,X){ const {c,B,g}=X;
   const hp=B.Hips.getWorldPosition(new V()); g.worldToLocal(hp); const lh=Math.max(0.4,hp.y+0.05); c.hb.legs.scale.y=lh; c.hb.legs.position.set(hp.x,lh/2,hp.z);
 }
 // ================= emotes =================
-// [S4] dances and emotes (Stream 4 fills this section). While one plays, e.emote={E,t,yaw}: animateGLB turns the body
-// to e.emote.yaw, animCtx puts every item away and animArms gives the arm layer to emotePose.
-function emotePose(e,X){}
+// [S4] Dances and emotes. B plays the last one, holding B opens the wheel. While one plays e.emote={E,k,t,w,yaw,out,...}:
+// animateGLB turns the body to e.emote.yaw, animCtx puts every item away and animArms gives the arm layer to emotePose.
+// Hand paths are [u,x,y,z] from that shoulder in body axes (x right, y up, z FORWARD; metres for the stock rig, scaled to
+// the body). hips [u,dx,dy,yaw,roll,pitch], chest [u,pitch,roll,yaw] and head [u,pitch,roll,yaw] are the NET pose in the body
+// frame (+pitch leans back, +roll leans right, +yaw turns left). u runs 0..1 once per loop (bpm and beats) or once per play (dur).
+const EM:any={on:[],last:'wave',wheel:false,held:false,hold:0,pRef:null,camK:0,camKV:0};
+const EMOTES:any={
+  wave:{n:'Wave',dur:2.8,
+    R:[[0,0.12,-0.50,0.02],[0.13,0.20,0.10,0.16],[0.22,0.20,0.40,0.14],[0.84,0.20,0.40,0.14],[0.93,0.18,0.0,0.12],[1,0.12,-0.50,0.02]],
+    L:[[0,-0.12,-0.50,0.02],[0.2,-0.10,-0.46,0.06],[0.85,-0.10,-0.46,0.06],[1,-0.12,-0.50,0.02]],
+    chest:[[0,0,0,0],[0.2,0.05,0.05,-0.22],[0.85,0.05,0.05,-0.22],[1,0,0,0]],
+    head:[[0,0,0,0],[0.2,0.05,0.12,-0.10],[0.85,0.05,0.12,-0.10],[1,0,0,0]],
+    hips:[[0,0,0,0,0,0],[0.25,0.035,-0.01,0,-0.05,0],[0.85,0.035,-0.01,0,-0.05,0],[1,0,0,0,0,0]],
+    wag:{f:2.9,amp:0.07,roll:0.5,a:0.2,b:0.88}, pole:{R:[0.6,-0.1,-0.3]}, hand:{R:{c:0.05,f:[0.12,1,0.05],n:[0,0,1]},L:{c:0.45}}},
+  floss:{n:'Floss',loop:1,bpm:120,beats:2,
+    R:[[0,0.26,-0.36,-0.30],[0.25,0,-0.42,-0.32],[0.5,-0.40,-0.36,-0.22],[0.75,0,-0.42,-0.32]],
+    L:[[0,0.40,-0.36,0.22],[0.25,0.02,-0.44,0.28],[0.5,-0.26,-0.38,0.30],[0.75,0.02,-0.44,0.28]],
+    hips:[[0,-0.06,-0.05,0,-0.08,0],[0.25,0,0,0,0,0],[0.5,0.06,-0.05,0,0.08,0],[0.75,0,0,0,0,0]],
+    chest:[[0,-0.1,0.10,-0.40],[0.25,-0.05,0,0],[0.5,-0.1,-0.10,0.40],[0.75,-0.05,0,0]],
+    head:[[0,0,0.04,-0.14],[0.25,0,0,0],[0.5,0,-0.04,0.14],[0.75,0,0,0]], hand:{R:{c:1.3},L:{c:1.3}}},
+  pump:{n:'Fist pump',loop:1,bpm:128,beats:2,
+    R:[[0,0.08,0.46,0.10],[0.25,0.12,0.02,0.30],[0.5,0.12,-0.12,0.26],[0.75,0.12,0.02,0.30]],
+    L:[[0,-0.12,-0.12,0.26],[0.25,-0.12,0.02,0.30],[0.5,-0.08,0.46,0.10],[0.75,-0.12,0.02,0.30]],
+    hips:[[0,0,0.01,0,0,0],[0.25,0,-0.06,0,0,0],[0.5,0,0.01,0,0,0],[0.75,0,-0.06,0,0,0]],
+    chest:[[0,0.12,0.12,0.15],[0.25,-0.05,0,0],[0.5,0.12,-0.12,-0.15],[0.75,-0.05,0,0]],
+    head:[[0,0.2,0,0],[0.25,-0.05,0,0],[0.5,0.2,0,0],[0.75,-0.05,0,0]], hand:{R:{c:1.35},L:{c:1.35}}},
+  robot:{n:'Robot',loop:1,bpm:100,beats:4,step:8,
+    R:[[0,0.05,0.0,0.32],[0.25,0.10,0.28,0.12],[0.5,0.26,0.0,0.30],[0.75,0.0,-0.30,0.30]],
+    L:[[0,-0.05,-0.25,0.30],[0.25,-0.2,0.0,0.32],[0.5,-0.05,0.30,0.12],[0.75,-0.30,0.0,0.15]],
+    hips:[[0,0,-0.03,0,0,0],[0.125,0,0,0,0,0],[0.25,0,-0.03,0,0,0],[0.375,0,0,0,0,0],[0.5,0,-0.03,0,0,0],[0.625,0,0,0,0,0],[0.75,0,-0.03,0,0,0],[0.875,0,0,0,0,0]],
+    chest:[[0,0,0,0.22],[0.25,0,0,0],[0.5,0,0,-0.22],[0.75,0,0,0]], head:[[0,0,0,0.45],[0.25,0,0,0],[0.5,0,0,-0.45],[0.75,0,0,0]], hand:{R:{c:0.1},L:{c:0.1}}},
+  disco:{n:'Disco point',loop:1,bpm:110,beats:2,
+    R:[[0,0.30,0.42,0.10],[0.18,0.32,0.44,0.10],[0.5,-0.34,-0.38,0.22],[0.68,-0.36,-0.40,0.22]],
+    L:[[0,-0.30,-0.34,0.08],[0.5,-0.30,-0.34,0.08]],
+    hips:[[0,0.05,-0.05,0.30,-0.10,0],[0.25,0,0,0,0,0],[0.5,-0.05,-0.05,-0.30,0.10,0],[0.75,0,0,0,0,0]],
+    chest:[[0,0.1,-0.14,0.0],[0.5,0.05,0.14,0.0]], head:[[0,0.1,0.1,-0.3],[0.5,-0.1,-0.1,0.3]],
+    pole:{L:[-0.9,-0.1,-0.1]}, hand:{R:{pt:1,c:1.25},L:{c:0.5}}},
+  dab:{n:'Dab',dur:2.1,
+    R:[[0,0.12,-0.50,0.02],[0.09,-0.14,0.10,0.24],[0.84,-0.14,0.10,0.24],[0.96,0.12,-0.50,0.02],[1,0.12,-0.50,0.02]],
+    L:[[0,-0.12,-0.50,0.02],[0.09,-0.50,0.20,0.06],[0.84,-0.50,0.20,0.06],[0.96,-0.12,-0.50,0.02],[1,-0.12,-0.50,0.02]],
+    hips:[[0,0,0,0,0,0],[0.09,0.02,-0.04,0,0,0],[0.84,0.02,-0.04,0,0,0],[1,0,0,0,0,0]],
+    chest:[[0,0,0,0],[0.09,-0.1,0.0,-0.2],[0.84,-0.1,0.0,-0.2],[1,0,0,0]], head:[[0,0,0,0],[0.09,-0.55,0.2,-0.6],[0.84,-0.55,0.2,-0.6],[1,0,0,0]],
+    pole:{R:[0.6,0.5,0.0]}, hand:{R:{c:0.2},L:{c:0.2}}},
+  salute:{n:'Salute',dur:2.2,
+    R:[[0,0.12,-0.50,0.02],[0.1,-0.02,0.14,0.20],[0.82,-0.02,0.14,0.20],[0.9,0.12,-0.50,0.02],[1,0.12,-0.50,0.02]],
+    L:[[0,-0.12,-0.50,0.02],[0.1,-0.08,-0.52,0.0],[0.82,-0.08,-0.52,0.0],[1,-0.12,-0.50,0.02]],
+    chest:[[0,0,0,0],[0.1,0.1,0,0],[0.82,0.1,0,0],[0.9,0,0,0],[1,0,0,0]], head:[[0,0,0,0],[0.1,0.06,0,0],[0.82,0.06,0,0],[0.9,0,0,0],[1,0,0,0]],
+    pole:{R:[0.6,0.15,-0.2]}, hand:{R:{c:0.08,f:[0.7,0.3,-0.5],n:[0,-0.8,0.5]},L:{c:0.5}}},
+  flip:{n:'Somersault',dur:1.7,zg:1,flip:1}
+};
+const EM_ORDER=['wave','floss','pump','robot','disco','dab','salute','flip'];
+try{ const v=localStorage.getItem('stormIslandEmote'); if(v&&EMOTES[v]) EM.last=v; }catch(e){}
+// keyed paths: K=[[u,a,b,..],..]. loop: a closed Catmull-Rom ring through the keys; otherwise open, held at both ends
+function emKey(K,u,loop,o){
+  const n=K.length, m=K[0].length; let i=0; for(let j=0;j<n;j++) if(u>=K[j][0]) i=j;
+  let a,b,c,d,t1;
+  if(loop){ a=K[(i+n-1)%n]; b=K[i]; c=K[(i+1)%n]; d=K[(i+2)%n]; t1=i+1<n?K[i+1][0]:1; }
+  else { b=K[i]; if(i>=n-1){ for(let j=1;j<m;j++) o[j-1]=b[j]; return o; } a=K[Math.max(0,i-1)]; c=K[i+1]; d=K[Math.min(n-1,i+2)]; t1=c[0]; }
+  const k=clamp((u-b[0])/Math.max(1e-6,t1-b[0]),0,1), k2=k*k, k3=k2*k;
+  for(let j=1;j<m;j++) o[j-1]=0.5*(2*b[j]+(c[j]-a[j])*k+(2*a[j]-5*b[j]+4*c[j]-d[j])*k2+(3*b[j]-a[j]-3*c[j]+d[j])*k3);
+  return o; }
+const _eP=[0,0,0,0,0,0], _eH=[0,0,0,0,0,0], _eK=[0,0,0,0,0,0], _eG=[0,0,0,0,0,0];
+const emCh=(K,u,loop,o,n)=>{ if(!K){ for(let i=0;i<n;i++) o[i]=0; return o; } return emKey(K,u,loop,o); };
+const _eR=new V(), _eU=new V(), _eF=new V(), _eS=new V(), _eT=new V(), _eTg=new V(), _eN=new V(), _ePo=new V(), _eFv=new V(), _eNv=new V(), _eFw=new V(), _eX=new V(1,0,0);
+const _eA=new V(), _eB=new V(), _eC=new V(), _eP1=new V(), _eP2=new V(), _eFeet=[new V(),new V()];
+// the stock rig's shoulder to wrist length: emote offsets are metres at that size and scale with the arm (titan, tiny, big skins)
+function emScale(B){ B.RightArm.getWorldPosition(_eA); B.RightForeArm.getWorldPosition(_eB); B.RightHand.getWorldPosition(_eC); return (_eA.distanceTo(_eB)+_eB.distanceTo(_eC))/0.523; }
+// elbow hint: out, down and back by default; only the part across the arm counts, and a fallback keeps it from flipping when the hand is in line with it
+function emPole(out,sh,tg,sx,r,up,fw,P){
+  const px=P?P[0]:sx*0.55, py=P?P[1]:-0.45, pz=P?P[2]:-0.30;
+  _eP1.set(0,0,0).addScaledVector(r,px).addScaledVector(up,py).addScaledVector(fw,pz);
+  _eP2.subVectors(tg,sh); const L=_eP2.length(); if(L>1e-4) _eP2.multiplyScalar(1/L);
+  _eP1.addScaledVector(_eP2,-_eP1.dot(_eP2)); const m=_eP1.length(), k=1-smooth(0.12,0.3,m);
+  if(k>0){ _eA.copy(r).multiplyScalar(sx); _eA.addScaledVector(_eP2,-_eA.dot(_eP2)); if(_eA.lengthSq()<0.04){ _eA.copy(up); _eA.addScaledVector(_eP2,-_eA.dot(_eP2)); } _eP1.addScaledVector(_eA.normalize(),0.3*k); }
+  return out.copy(sh).add(_eP1); }
+const _eAx=new V(), _eF1=new V(), _eN1=new V();
+// hand: fingers along F, palm toward N, every finger curled by `curl` (the index finger stays straight when pointing)
+function emHand(B,sd,F,N,curl,point){
+  poseHand(B,sd,F,N,0); if(!curl&&!point) return;
+  _eF1.copy(F).normalize(); _eN1.copy(N).addScaledVector(_eF1,-N.dot(_eF1)).normalize(); _eAx.crossVectors(_eF1,_eN1);
+  for(const fg of ['Index','Middle','Ring','Pinky']) for(let k=1;k<=3;k++){ const b=B[sd+'Hand'+fg+k]; if(b) rotateBoneWorld(b,_eAx,(point&&fg==='Index'?0.05:curl)*(k===1?0.8:1)); }
+}
+// both feet back onto where they stood (_eFeet), whatever the hips just did; the knees point along fw
+function emPlant(B,fw,up,tw){ for(let i=0;i<2;i++){ const sd=i?'Right':'Left'; B[sd+'UpLeg'].getWorldPosition(_eA); _eB.copy(_eA).addScaledVector(fw,1.2).addScaledVector(up,-0.4);
+  solveIK(B[sd+'UpLeg'],B[sd+'Leg'],B[sd+'Foot'],_eFeet[i],_eB); if(tw) rotateBoneWorld(B[sd+'Foot'],up,tw); } }
+// the arm layer while emoting, and the whole-body pose (hips, spine, head, planted feet). X needs c, B, g, rightB, upB, fwdB (+pitch)
+function emotePose(e,X){ const em=e.emote, E=em&&em.E; if(!E) return;
+  const {c,B}=X, W=smooth(0,1,em.w), t=em.t, loop=!!E.loop;
+  const u=loop?((t*E.bpm/(60*E.beats))%1):Math.min(1,t/E.dur), uq=E.step?(Math.floor(u*E.step)+smooth(0,0.22,(u*E.step)%1))/E.step:u;
+  const r=_eR.copy(X.rightB), up=_eU.copy(X.upB), fw=_eF.copy(X.fwdB);
+  const ground=!!e.onGround&&!e.zgFloat;
+  if(ground){ B.LeftFoot.getWorldPosition(_eFeet[0]); B.RightFoot.getWorldPosition(_eFeet[1]); }
+  // the somersault turns the whole body about its middle (c.spin; nothing but the skeleton hangs off it while the hands are empty)
+  if(E.flip){ const ang=-TAU*easeIO(clamp((u-0.2)/0.6,0,1))*W; c.spin.quaternion.setFromAxisAngle(_eX,ang); c.emSpin=true;
+    _eS.set(0,c.spin.scale.y,0).applyQuaternion(c.spin.quaternion); c.spin.position.set(0,1,0).sub(_eS); X.g.updateMatrixWorld(true);
+    c.model.getWorldQuaternion(_qm); r.set(1,0,0).applyQuaternion(_qm); fw.set(0,0,-1).applyQuaternion(_qm); up.set(0,1,0).applyQuaternion(_qm); }
+  else if(c.emSpin){ c.spin.quaternion.identity(); c.emSpin=false; }
+  const S=emScale(B);
+  // hips: slide and turn the pelvis, then the spine and head take the net pose (each bone adds a share of what is left to do)
+  const hp=emCh(E.hips,uq,loop,_eH,5), ch=emCh(E.chest,uq,loop,_eK,3), hd=emCh(E.head,uq,loop,_eG,3);
+  c.model.position.x=hp[0]*W; c.model.position.y+=hp[1]*W; c.model.updateMatrixWorld(true);
+  const hy=hp[2]*W, hr=hp[3]*W, hpi=hp[4]*W;
+  rotateBoneWorld(B.Hips,up,hy); rotateBoneWorld(B.Hips,fw,hr); rotateBoneWorld(B.Hips,r,hpi);
+  const cp=ch[0]*W, cr=ch[1]*W, cy=ch[2]*W;
+  for(const n of ['Spine','Spine1','Spine2']){ rotateBoneWorld(B[n],r,(cp-hpi)/3); rotateBoneWorld(B[n],fw,(cr-hr)/3); rotateBoneWorld(B[n],up,(cy-hy)/3); }
+  rotateBoneWorld(B.Neck,r,(hd[0]*W-cp)*0.6-(X.pitch||0)*0.5*W); rotateBoneWorld(B.Head,r,(hd[0]*W-cp)*0.4);
+  rotateBoneWorld(B.Neck,fw,(hd[1]*W-cr)*0.6); rotateBoneWorld(B.Head,fw,(hd[1]*W-cr)*0.4);
+  rotateBoneWorld(B.Neck,up,(hd[2]*W-cy)*0.6); rotateBoneWorld(B.Head,up,(hd[2]*W-cy)*0.4);
+  if(ground) emPlant(B,_eFw.copy(fw).applyAxisAngle(up,hy),up,-hy);
+  // the somersault: tuck, roll, open out into a star
+  let tk=0, star=0;
+  if(E.flip){ tk=smooth(0,0.2,u)*(1-smooth(0.76,0.88,u)); star=smooth(0.8,0.9,u)*(1-smooth(0.95,1,u));
+    for(const sd of ['Left','Right']){ const sx=sd==='Right'?1:-1;
+      rotateBoneWorld(B[sd+'UpLeg'],r,1.3*tk*W); rotateBoneWorld(B[sd+'Leg'],r,-2.0*tk*W); rotateBoneWorld(B[sd+'UpLeg'],fw,-sx*0.5*star*W); } }
+  // arms: IK to a hand path, blended in and out by W; the elbow follows a continuous hint
+  for(const sd of ['Right','Left']){ const sx=sd==='Right'?1:-1, K=sd==='Right'?E.R:E.L; if(!K&&!E.flip) continue;
+    const sh=B[sd+'Arm'].getWorldPosition(_eS), cur=B[sd+'Hand'].getWorldPosition(_eT), tg=_eTg;
+    if(E.flip){ const kn=B[sd+'Leg'].getWorldPosition(_eN).addScaledVector(fw,0.12*S);
+      tg.copy(sh).addScaledVector(r,sx*0.5*S).addScaledVector(up,0.28*S).addScaledVector(fw,0.05*S).lerp(kn,tk); }
+    else { emKey(K,uq,loop,_eP); let px=_eP[0];
+      if(E.wag&&sd==='Right'){ const hold=smooth(E.wag.a-0.08,E.wag.a,u)*(1-smooth(E.wag.b,E.wag.b+0.08,u)); em.wg=Math.sin(TAU*E.wag.f*t)*hold; px+=E.wag.amp*em.wg; }
+      tg.copy(sh).addScaledVector(r,px*S).addScaledVector(up,_eP[1]*S).addScaledVector(fw,_eP[2]*S); }
+    tg.lerpVectors(cur,tg,W);
+    const pole=emPole(_ePo,sh,tg,sx,r,up,fw,E.pole&&E.pole[sd[0]]);
+    solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],tg,pole);
+    // the hand
+    const H=E.hand&&E.hand[sd[0]], curl=(H&&H.c!=null?H.c:E.flip?0.9:0.5)*W;
+    B[sd+'Hand'].getWorldPosition(_eS); B[sd+'ForeArm'].getWorldPosition(_eT);
+    const F=_eFv.copy(_eS).sub(_eT).normalize(), N=_eNv.copy(r).multiplyScalar(-sx);
+    if(H&&H.f){ F.set(0,0,0).addScaledVector(r,H.f[0]).addScaledVector(up,H.f[1]).addScaledVector(fw,H.f[2]); if(sd==='Right'&&E.wag) F.applyAxisAngle(fw,E.wag.roll*(em.wg||0)); }
+    if(H&&H.n) N.set(0,0,0).addScaledVector(r,H.n[0]).addScaledVector(up,H.n[1]).addScaledVector(fw,H.n[2]);
+    emHand(B,sd,F,N,curl,H&&H.pt); }
+}
+// ---- starting, stopping and the per-frame timers
+function emoteOk(e,E){
+  if(!e.alive||lockedUp(e)||e.bounceT>0) return false;
+  if(E.zg&&(!e.zgFloat||ZG.state==='ceil')) return false;
+  if(e.zgFloat){ if(e.zgPropel||Math.hypot(e.vel.x,e.vel.y,e.vel.z)>4) return false; } else if(!e.onGround) return false;
+  if(e.isPlayer&&(ads||e.consuming||e.throwA||e.reloading||e.swingT>0||mouse.l||mouse.r||e.writing)) return false;
+  return true; }
+// begin an emote on anyone (no checks): the hero on the home screen uses this directly
+function emBegin(e,key,o?){ const E=EMOTES[key], old=e.emote;
+  e.emote={E,k:key,t:0,w:old?Math.min(0.4,old.w):0,yaw:old?old.yaw:e.yaw,out:false,max:(o&&o.max)||0,sel:e.sel,hp:e.hp+e.shield,ceil:ZG.state==='ceil',ground:!!e.onGround,fc:e.fireCd||0};
+  if(o&&o.face) e.emote.yaw=Math.atan2(-(o.face.x-e.pos.x),-(o.face.z-e.pos.z));
+  if(o&&o.yaw!=null) e.emote.yaw=o.yaw;
+  if(!old) poseSnap(e.ch,0.2);
+  return !old; }
+function startEmote(e,key,o?){ const E=EMOTES[key]; if(!E||!emoteOk(e,E)) return false; if(emBegin(e,key,o)) EM.on.push(e); return true; }
+function emEnd(e){ const c=e.ch; e.emote=null; if(c){ c.spin.quaternion.identity(); c.emSpin=false; c.model.position.x=0; poseSnap(c,0.2); } }
+function stopEmote(e,instant?){ const em=e.emote; if(!em) return; if(instant||em.w<=0.001){ emEnd(e); const i=EM.on.indexOf(e); if(i>=0) EM.on.splice(i,1); } else em.out=true; }
+// B played the emote you picked; refuses (and says so) when the body is busy
+function playerEmote(key){ const p=player; if(!p||!p.alive||state!=='play'||shopOpen) return false; const E=EMOTES[key]; if(!E) return false;
+  if(E.zg&&(!p.zgFloat||ZG.state==='ceil')){ toast('Needs zero-g'); return false; }
+  if(!startEmote(p,key)) return false; EM.last=key; try{ localStorage.setItem('stormIslandEmote',key); }catch(e){} return true; }
+// anything that needs the camera aimed (a shot, a swing, the ball) ends the emote this instant and snaps the camera back behind you
+function emStopNow(p){ if(!p||!p.emote||p.emote.out) return; stopEmote(p,true); EM.camK=0; EM.camKV=0; updateCamera(0); }
+function emCancel(e,em,dt){
+  if(e.isPlayer){ if(keys.KeyW||keys.KeyA||keys.KeyS||keys.KeyD||keys.Space||keys.KeyC||keys.ControlLeft||keys.ShiftLeft||keys.ShiftRight||mouse.l||mouse.r) return true;
+    if(e.sel!==em.sel||e.consuming||e.throwA||e.reloading||e.swingT>0||Math.hypot(e.vel.x,e.vel.y,e.vel.z)>6) return true; }
+  else { if(e.fireCd>em.fc+0.01||e.knockT>0) return true; em.fc=e.fireCd; e.vel.multiplyScalar(Math.exp(-5*dt)); e.zgTx=0; /* upright, not in the swim tilt */ }
+  if(e.hp+e.shield<em.hp-0.01||e.bounceT>0||lockedUp(e)) return true;
+  if((ZG.state==='ceil')!==em.ceil||!!e.onGround!==em.ground) return true;
+  return false; }
+// advance one emote: fade in, fade out when it ends or is cancelled (free: nothing cancels it). false once it is gone
+function emTick(e,dt,free?){ const em=e.emote; if(!em) return false; em.t+=dt;
+  if(em.out){ em.w-=dt/0.2; em.yaw+=wrapPi(e.yaw-em.yaw)*(1-Math.exp(-18*dt)); if(em.w<=0){ emEnd(e); return false; } return true; }
+  em.w=Math.min(1,em.w+dt/0.22);
+  if((!free&&emCancel(e,em,dt))||(!em.E.loop&&em.t>=em.E.dur)||(em.max&&em.t>=em.max)) em.out=true;
+  return true; }
+function updateEmote(dt){
+  const p=player; if(!p) return;
+  if(EM.pRef!==p){ EM.pRef=p; EM.on.length=0; EM.held=false; emWheelClose(); EM.camK=0; EM.camKV=0; }
+  if(EM.held&&!EM.wheel){ EM.hold+=dt; if(EM.hold>0.2&&p.alive) emWheelOpen(); }
+  if(EM.wheel&&!p.alive) emWheelClose();
+  for(let i=EM.on.length-1;i>=0;i--){ const e=EM.on[i];
+    if(!e.emote||!e.alive||combatants.indexOf(e)<0){ if(e.emote) emEnd(e); EM.on.splice(i,1); continue; }
+    if(!emTick(e,dt)) EM.on.splice(i,1); }
+}
+// a bot that wins a fight in zero-g with the camera nearby sometimes gloats for a moment (it stops the instant it fires or is hurt)
+function emoteOnKill(killer,victim){
+  if(victim===player) player.killer=killer; // the death camera frames whoever did it
+  if(killer.isPlayer||!player||!player.alive||ZG.state==='ceil'||!killer.alive||killer.emote||EM.on.length>4||Math.random()>0.3) return;
+  if(killer.pos.distanceTo(camera.position)>28||lockedUp(killer)||killer.bounceT>0||killer.knockT>0) return;
+  for(const o of combatants) if(o.alive&&o!==killer&&o!==victim&&!o.isPlayer&&o.pos.distanceToSquared(killer.pos)<625) return; // nobody else close by
+  startEmote(killer,pick(['floss','pump','disco','robot','wave','flip']),{max:2.4,face:camera.position}); }
+// ---- the emote wheel (DOM in index.html; this fills it). Hold B, move the mouse, release to play; 1-8 pick directly
+const EW:any={built:false,on:0,cx:0,cy:0,step:Math.PI*2/8,R0:78,R1:186};
+const EM_IC={ // little stick figures on a 48x48 grid: t=[shoulder x,y,hip x,y], a=[elbow x,y,hand x,y] per arm, w=waving marks
+  wave:{a:[[31,15,35,6],[20,24,18,32]],w:[[38,3,41,6],[40,9,43,12]]}, floss:{a:[[31,24,38,31],[29,22,34,13]],t:[26,17,21,31]},
+  pump:{a:[[31,14,33,5],[19,25,25,22]]}, robot:{a:[[33,17,33,9],[15,17,15,25]]}, disco:{a:[[31,12,38,5],[14,23,20,30]],t:[26,17,22,31]},
+  dab:{a:[[34,11,26,11],[14,12,5,6]]}, salute:{a:[[33,14,26,9],[21,25,20,33]]}, flip:{ring:1} };
+function emIcon(k){ const d=EM_IC[k]||{a:[[31,24,34,31],[17,24,14,31]]}, t=d.t||[24,17,24,31]; let s='<svg viewBox="0 0 48 48" aria-hidden="true">';
+  if(d.ring) return s+'<path d="M37 14a15 15 0 1 0 3.5 11" fill="none"/><path d="M34 7l4 7-8 1" fill="none"/><circle cx="24" cy="23" r="4.4" class="f"/><path d="M18 29q6 7 12 0" fill="none"/></svg>';
+  s+=`<circle cx="${(t[0]+(t[0]-t[2])*0.4).toFixed(1)}" cy="${t[1]-8}" r="4.4" class="f"/><path d="M${t[0]} ${t[1]}L${t[2]} ${t[3]}M${t[2]} ${t[3]}L${t[2]-6} 39L${t[2]-6} 46M${t[2]} ${t[3]}L${t[2]+6} 39L${t[2]+6} 46" fill="none"/>`;
+  for(const a of d.a) s+=`<path d="M${t[0]} ${t[1]}L${a[0]} ${a[1]}L${a[2]} ${a[3]}" fill="none"/>`;
+  for(const w of d.w||[]) s+=`<path d="M${w[0]} ${w[1]}L${w[2]} ${w[3]}" fill="none" opacity=".7"/>`;
+  return s+'</svg>'; }
+function ewArc(r0,r1,a0,a1){ const P=(r,a)=>(Math.cos(a)*r).toFixed(1)+' '+(Math.sin(a)*r).toFixed(1); return `M${P(r1,a0)}A${r1} ${r1} 0 0 1 ${P(r1,a1)}L${P(r0,a1)}A${r0} ${r0} 0 0 0 ${P(r0,a0)}Z`; }
+function ewBuild(){ if(EW.built) return; EW.built=true; const st=$q('#emoteWheel .ew-stage'), n=EM_ORDER.length; EW.step=TAU/n;
+  let svg='<svg class="ew-ring" viewBox="-220 -220 440 440" aria-hidden="true"><defs><linearGradient id="ewg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5cf0ff" stop-opacity=".5"/><stop offset="1" stop-color="#ff3bd4" stop-opacity=".42"/></linearGradient></defs>', sl='';
+  for(let i=0;i<n;i++){ const a=-Math.PI/2+i*EW.step, g=0.035; svg+=`<path class="ew-w" data-i="${i}" d="${ewArc(EW.R0,EW.R1,a-EW.step/2+g,a+EW.step/2-g)}"/>`;
+    const rm=(EW.R0+EW.R1)/2, E=EMOTES[EM_ORDER[i]];
+    sl+=`<div class="ew-slot" data-i="${i}" style="left:${(Math.cos(a)*rm).toFixed(1)}px;top:${(Math.sin(a)*rm).toFixed(1)}px">${emIcon(EM_ORDER[i])}<span>${E.n}</span><kbd>${i+1}</kbd>${E.zg?'<em>zero-g</em>':''}</div>`; }
+  svg+='</svg>'; st.innerHTML=svg+sl+'<div class="ew-center"><span class="ew-k">Emote</span><b id="ewName"></b><i>Release <kbd>B</kbd> to play</i></div><div class="ew-cursor" id="ewCur"></div>'; }
+function ewRender(){ const el=$('emoteWheel'); el.querySelectorAll('.ew-w').forEach((w:any)=>w.classList.toggle('on',+w.dataset.i===EW.on));
+  el.querySelectorAll('.ew-slot').forEach((s:any)=>{ s.classList.toggle('on',+s.dataset.i===EW.on); s.classList.toggle('lock',!!EMOTES[EM_ORDER[+s.dataset.i]].zg&&!!player&&(!player.zgFloat||ZG.state==='ceil')); });
+  $('ewName').textContent=EMOTES[EM_ORDER[EW.on]].n; $('ewCur').style.transform=`translate(${EW.cx.toFixed(1)}px,${EW.cy.toFixed(1)}px)`; }
+function emWheelOpen(){ if(EM.wheel||!player||!player.alive) return; ewBuild(); EM.wheel=true;
+  const i=Math.max(0,EM_ORDER.indexOf(EM.last)), a=-Math.PI/2+i*EW.step; EW.on=i; EW.cx=Math.cos(a)*64; EW.cy=Math.sin(a)*64; ewRender();
+  const el=$('emoteWheel'); el.style.setProperty('--s',String(Math.max(0.55,Math.min(1.3,Math.min(innerWidth,innerHeight)*0.78/440)))); el.hidden=false; void el.offsetWidth; el.classList.add('show'); }
+function emWheelClose(){ if(!EM.wheel) return; EM.wheel=false; const el=$('emoteWheel'); el.classList.remove('show'); el.hidden=true; }
+// the wheel takes the mouse (it moves a cursor, not the camera); these listeners sit in front of the game's own
+addEventListener('mousemove',ev=>{ if(!EM.wheel||state!=='play') return; ev.stopImmediatePropagation();
+  EW.cx+=(ev.movementX||0)*0.9; EW.cy+=(ev.movementY||0)*0.9; const l=Math.hypot(EW.cx,EW.cy), mx=EW.R1-34; if(l>mx){ EW.cx*=mx/l; EW.cy*=mx/l; }
+  if(l>26) EW.on=(Math.round((Math.atan2(EW.cy,EW.cx)+Math.PI/2)/EW.step)%EM_ORDER.length+EM_ORDER.length)%EM_ORDER.length; ewRender(); },true);
+addEventListener('keydown',ev=>{ if(state!=='play'||!player||!player.alive) return; const c=keyCode(ev);
+  if(EM.wheel&&c.startsWith('Digit')){ ev.stopImmediatePropagation(); ev.preventDefault(); const n=+c.slice(5); if(n>=1&&n<=EM_ORDER.length){ emWheelClose(); EM.held=false; playerEmote(EM_ORDER[n-1]); } return; }
+  if(c==='KeyB'){ if(!ev.repeat&&!shopOpen){ EM.held=true; EM.hold=0; } return; }
+  if(!ev.repeat&&player.emote&&(c==='KeyQ'||c==='KeyR'||c==='KeyE'||c.startsWith('Digit'))) emStopNow(player); },true);
+addEventListener('keyup',ev=>{ if(keyCode(ev)!=='KeyB') return; const p=player, was=EM.held; EM.held=false; if(!p||state!=='play'){ emWheelClose(); return; }
+  if(EM.wheel){ const k=EM_ORDER[EW.on]; emWheelClose(); if(p.alive) playerEmote(k); }
+  else if(was&&p.alive){ if(p.emote&&!p.emote.out) stopEmote(p); else playerEmote(EM.last); } },true);
+addEventListener('mousedown',ev=>{ if(state!=='play'||!player) return;
+  if(EM.wheel){ ev.stopImmediatePropagation(); ev.preventDefault(); const k=EM_ORDER[EW.on]; emWheelClose(); EM.held=false; if(ev.button===0) playerEmote(k); return; }
+  if(player.emote&&!player.emote.out) emStopNow(player); },true);
+addEventListener('wheel',()=>{ if(player&&player.emote&&!player.emote.out&&state==='play') stopEmote(player); },{capture:true,passive:true});
+addEventListener('blur',()=>{ EM.held=false; emWheelClose(); });
+document.addEventListener('pointerlockchange',()=>{ if(!document.pointerLockElement){ EM.held=false; emWheelClose(); } });
 // ================= characters =================
 // everyone in the match: the player and the bots share these fields; bots and the player add their own on top
 type Combatant=Record<string,any>;
@@ -1446,7 +1671,7 @@ function eliminate(t,killer,weapon,info?){
   t.alive=false; t.hp=0; t.deadT=0; aliveCount--; startDeath(t,deathKind(weapon,info),info);
   charMeshes=charMeshes.filter(m=>m.userData.ent!==t); targetsDirty=true;
   feed(killer?`${killer.name} eliminated ${t.name}${weapon?' · '+weapon:''}`:weapon?`${t.name} ${t===player?'were':'was'} hit by a ${weapon}`:`${t.name} was eliminated`,killer===player||t===player);
-  if(killer){ killer.kills++; if(killer===player){ player.bank++; sfx('elim'); banner('Eliminated',t.name+' · '+(aliveCount)+' left',2); pwOnKill(t); } }
+  if(killer){ killer.kills++; emoteOnKill(killer,t); /* [S4] bots gloat, the death cam frames the killer */ if(killer===player){ player.bank++; sfx('elim'); banner('Eliminated',t.name+' · '+(aliveCount)+' left',2); pwOnKill(t); } }
   if(t.curse){ const c=t.curse; t.curse=null; if(c.alive) pwBlast(chest(t),{src:c,r:6,dmg:30,col:0xffc21a,name:'Ancient Curse'}); } // Temple Idol: the curse goes off
   // every elimination heals the winner and tops up their shield
   if(killer&&killer.alive&&killer!==t){ const add=50, hp=Math.min(100-killer.hp,add); killer.hp+=hp; killer.shield=Math.min(100,killer.shield+add-hp); }
@@ -1665,35 +1890,84 @@ function drawMap(){
 // ================= camera =================
 let camOverride=null;
 const camFwd=new V(), camRight=new V(), _zc=new V(); let camDist=4.2, camDistNow=4.2, fov=72;
+// [S4] camera feel. All of it is cosmetic: the aim direction stays exactly where the mouse put it (the guns read
+// camera.getWorldDirection), so rotational shake and the recoil kick are a lens shift (setViewOffset), and the follow lag
+// moves the camera and its target together.
+const CAM:any={have:false,out:4.2,rp:0,rpV:0,land:0,landV:0,lastRec:0,lastLand:0,fk:0,fkT:0,prop:false,boost:0,flip:null,lagOn:false,sx:0,sy:0,sz:0,sxV:0,syV:0,szV:0,dead:false,dT:0,a0:0,r0:9,h0:3,d0:new V(),killer:null};
+const camNoise=(t,f,ph)=>0.6*Math.sin(t*f+ph)+0.3*Math.sin(2.13*t*f+1.7+ph)+0.1*Math.sin(4.37*t*f+0.4+ph*1.3);
+// a lens shift in NDC units (x right, y up): reads as a small turn of the head without turning the aim
+function camShift(ox,oy){
+  if(Math.abs(ox)+Math.abs(oy)<1e-5){ if(camera.view&&camera.view.enabled) camera.clearViewOffset(); else camera.updateProjectionMatrix(); return; }
+  const W=renderer.domElement.clientWidth||innerWidth, H=renderer.domElement.clientHeight||innerHeight; camera.setViewOffset(W,H,-ox*W/2,oy*H/2,W,H); }
 function updateCamera(dt){
   if(state==='armory'){ updateArmory(dt); return; }
-  if(camOverride){ camera.position.copy(camOverride.pos); camera.lookAt(camOverride.look); return; }
+  if(camOverride){ if(camera.view&&camera.view.enabled) camera.clearViewOffset(); camera.position.copy(camOverride.pos); camera.lookAt(camOverride.look); return; }
   camera.up.set(0,1,0);
   // home screen: a slow orbit round the inside of the box
-  if(state==='menu'||!player){ const t=performance.now()/1000*0.04; camera.position.set(Math.cos(t)*60,ZG.H*0.55,Math.sin(t)*60); camera.lookAt(0,ZG.H*0.4,0); if(camera.fov!==60){ camera.fov=60; camera.updateProjectionMatrix(); } return; }
-  const p=player;
-  if(!p.alive){ const a=matchTime*0.25; camera.position.set(p.pos.x+Math.cos(a)*9,p.pos.y+3.5,p.pos.z+Math.sin(a)*9); clampToBox(camera.position); camera.lookAt(p.pos.x,p.pos.y+1,p.pos.z); return; }
-  const cp=Math.cos(p.pitch); camFwd.set(-Math.sin(p.yaw)*cp,Math.sin(p.pitch),-Math.cos(p.yaw)*cp); camRight.set(Math.cos(p.yaw),0,-Math.sin(p.yaw));
-  const pivot=tv1.set(p.pos.x,p.pos.y+1.7-0.5*p.anim.crouch,p.pos.z);
-  const gun=!!curItem()&&curItem().kind==='gun', dist=p.bounceT>0?7.5:ads?2.0:gun?3.4:4.6, side=ads?0.8:gun?1.1:0.85; pivot.y+=ads?0.05:gun?0.3:0.45;
+  if(state==='menu'||!player){ const t=performance.now()/1000*0.04; camera.position.set(Math.cos(t)*60,ZG.H*0.55,Math.sin(t)*60); camera.lookAt(0,ZG.H*0.4,0); camera.fov=60; CAM.have=CAM.lagOn=CAM.dead=false; camShift(0,0); return; }
+  const p=player, A=p.anim;
+  if(!p.alive){ camDead(p,dt); return; }
+  CAM.dead=false;
+  // emoting: the camera swings round in front of you (the mouse still orbits it) and eases back when the emote ends
+  spring(EM,'camK',p.emote&&!p.emote.out?1:0,1.8,1,dt); const ek=clamp(EM.camK,0,1);
+  const cyaw=p.yaw+Math.PI*ek, cp=Math.cos(p.pitch); camFwd.set(-Math.sin(cyaw)*cp,Math.sin(p.pitch),-Math.cos(cyaw)*cp); camRight.set(Math.cos(cyaw),0,-Math.sin(cyaw));
+  const pivot=tv1.set(p.pos.x,p.pos.y+1.7-0.5*A.crouch,p.pos.z);
+  const gun=!!curItem()&&curItem().kind==='gun', dist=lerp(p.bounceT>0?7.5:ads?2.0:gun?3.4:4.6,3.6,ek), side=(ads?0.8:gun?1.1:0.85)*(1-ek); pivot.y+=lerp(ads?0.05:gun?0.3:0.45,-0.45,ek);
   // sprinting on the ceiling: a little head bob and the camera eases back
-  const sp=p.anim.sprint||0; pivot.y+=Math.abs(Math.sin(matchTime*8.5))*0.07*sp*(p.onGround?1:0)-(p.anim.land||0)*0.25;
+  const sp=A.sprint||0;
+  // landing: the camera dips and settles (Stream 1's landS spring when it exists, else one of ours kicked by the landing)
+  let ld=A.landS; if(ld===undefined){ const la=A.land||0; if(la>CAM.lastLand+0.05) CAM.landV+=la*9; CAM.lastLand=la; ld=spring(CAM,'land',0,3.2,0.55,dt); }
+  pivot.y+=Math.abs(Math.sin(matchTime*8.5))*0.07*sp*(p.onGround?1:0)-ld*1.1;
   const tS=p.titanS||1; pivot.y+=1.55*(tS-1); // a titan's eyes are way up high, and the camera backs off to fit it in
   camDist=lerp(camDist,(dist+0.45*sp)*(1+0.4*(tS-1)),1-Math.exp(-12*dt));
   const start=tv2.copy(pivot).addScaledVector(camRight,side); let d=camDist;
-  // pull in so a block never comes between the camera and you
+  // pull in so a block never comes between the camera and you: at once going in, a glide coming back out
   tv3.copy(camFwd).negate(); ray.set(start,tv3); ray.near=0; ray.far=camDist; const h=ray.intersectObjects(structsAlong(start,tv3,camDist),false); if(h.length) d=Math.max(0.4,h[0].distance-0.25);
-  camDistNow=d;
+  if(!CAM.have){ CAM.out=d; CAM.have=true; } else if(d<=CAM.out) CAM.out=d; else CAM.out+=Math.min(d-CAM.out,3*dt+(d-CAM.out)*(1-Math.exp(-7*dt)));
+  d=CAM.out; camDistNow=d;
   camera.position.copy(start).addScaledVector(camFwd,-d);
   tv3.set(start.x+camFwd.x*60,start.y+camFwd.y*60,start.z+camFwd.z*60);
   // upside down on the ceiling: the whole view rolls over around the body, so the ceiling becomes your floor
-  if(ZG.camRoll>0.001){ const ax=tv4.set(-Math.sin(p.yaw),0,-Math.cos(p.yaw)), c=_zc.set(p.pos.x,p.pos.y+1,p.pos.z);
+  if(ZG.camRoll>0.001){ const ax=tv4.set(-Math.sin(cyaw),0,-Math.cos(cyaw)), c=_zc.set(p.pos.x,p.pos.y+1,p.pos.z);
     camera.position.sub(c).applyAxisAngle(ax,ZG.camRoll).add(c); tv3.sub(c).applyAxisAngle(ax,ZG.camRoll).add(c); camera.up.set(0,1,0).applyAxisAngle(ax,ZG.camRoll); }
+  // follow lag: the camera trails a fast body a little (critically damped, so it never overshoots; position and target move together)
+  const bx=p.pos.x, by=p.pos.y, bz=p.pos.z;
+  if(!CAM.lagOn||Math.abs(CAM.sx-bx)+Math.abs(CAM.sy-by)+Math.abs(CAM.sz-bz)>4){ CAM.sx=bx; CAM.sy=by; CAM.sz=bz; CAM.sxV=CAM.syV=CAM.szV=0; CAM.lagOn=true; }
+  spring(CAM,'sx',bx,9,1,dt); spring(CAM,'sy',by,9,1,dt); spring(CAM,'sz',bz,9,1,dt);
+  const lx=CAM.sx-bx, ly=CAM.sy-by, lz=CAM.sz-bz, ll=Math.hypot(lx,ly,lz), lk=(ll>0.5?0.5/ll:1)*Math.pow(clamp(d/Math.max(camDist,0.5),0,1),2);
+  camera.position.x+=lx*lk; camera.position.y+=ly*lk; camera.position.z+=lz*lk; tv3.x+=lx*lk; tv3.y+=ly*lk; tv3.z+=lz*lk;
   clampToBox(camera.position);
   camera.lookAt(tv3);
-  if(camShake>0){ camShake=Math.max(0,camShake-dt*(camShake>0.3?1.1:0.5)); const s=camShake*camShake*0.9+camShake*0.15; camera.position.x+=rnd(-s,s); camera.position.y+=rnd(-s,s); camera.position.z+=rnd(-s,s); camera.rotation.z+=rnd(-s,s)*0.04; }
-  const it=curItem(), tf=ads?(it&&WEAP[it.id].zoom?20:52):72+7*sp;
-  fov=lerp(fov,tf,1-Math.exp(-14*dt)); camera.fov=fov; camera.updateProjectionMatrix();
+  const it=curItem(), tf=ads?(it&&WEAP[it.id].zoom?20:52):72+7*sp, ft=1/Math.tan(fov*Math.PI/360); let ox=0, oy=0;
+  // shake: smooth noise (not white), mostly a lens shift, a little roll and a little position
+  if(camShake>0){ camShake=Math.max(0,camShake-dt*(camShake>0.3?1.1:0.5)); const s=camShake*camShake*0.9+camShake*0.15, tm=performance.now()/1000;
+    camera.position.x+=camNoise(tm,23,0)*s*0.4; camera.position.y+=camNoise(tm,21,2.1)*s*0.4; camera.position.z+=camNoise(tm,25,4.3)*s*0.4; camera.rotation.z+=camNoise(tm,17,1.3)*s*0.05;
+    ox+=camNoise(tm,19,3.3)*s*0.09*ft; oy+=camNoise(tm,16,5.1)*s*0.09*ft; }
+  // recoil: a quick lens kick up that settles (visual only; the gun's own pitch is untouched)
+  const rc=A.recoil||0; if(rc>CAM.lastRec+0.02) CAM.rpV+=(rc-CAM.lastRec)*2.0; CAM.lastRec=rc; spring(CAM,'rp',0,9,0.5,dt); oy-=CAM.rp*ft;
+  // field of view: wider when sprinting, a punch on the kick-off, on a booster pad and when gravity flips
+  if(p.zgPropel&&!CAM.prop) CAM.fkT=Math.max(CAM.fkT,6); CAM.prop=!!p.zgPropel;
+  const bt=p.boostT||0; if(bt>CAM.boost+0.4) CAM.fkT=Math.max(CAM.fkT,10); CAM.boost=bt;
+  if(p.flip&&p.flip!==CAM.flip) CAM.fkT=Math.max(CAM.fkT,5); CAM.flip=p.flip||null;
+  CAM.fkT*=Math.exp(-2.4*dt); CAM.fk=lerp(CAM.fk,CAM.fkT,1-Math.exp(-18*dt));
+  fov=lerp(fov,tf,1-Math.exp(-14*dt)); camera.fov=fov+(ads?0:CAM.fk); camShift(ox,oy);
+}
+// dying: the camera glides from where it was into the slow orbit round the body, swings to put the killer in front of the
+// corpse for a moment, and rolls upright if you died on the ceiling
+function camDead(p,dt){
+  const d=p.death, bc=d?d.c:_zc.set(p.pos.x,p.pos.y+1,p.pos.z);
+  if(!CAM.dead){ CAM.dead=true; CAM.dT=0; const dx=camera.position.x-bc.x, dz=camera.position.z-bc.z; CAM.a0=Math.atan2(dz,dx); CAM.r0=clamp(Math.hypot(dx,dz),2,12); CAM.h0=camera.position.y-bc.y; camera.getWorldDirection(CAM.d0); EM.camK=0; EM.camKV=0; }
+  CAM.dT+=dt; const k=smooth(0,0.7,CAM.dT), kl=p.killer&&p.killer.alive&&p.killer!==p&&p.killer.pos.distanceTo(bc)<90?p.killer:null;
+  const kw=kl?smooth(0.3,0.7,CAM.dT)*(1-smooth(1.1,1.7,CAM.dT)):0;
+  let a=CAM.a0+CAM.dT*0.25; if(kl) a=angLerp(a,Math.atan2(bc.z-kl.pos.z,bc.x-kl.pos.x),kw);
+  const r=lerp(lerp(CAM.r0,9,k),6.5,kw), hh=lerp(CAM.h0,3.5,k);
+  camera.position.set(bc.x+Math.cos(a)*r,bc.y+hh,bc.z+Math.sin(a)*r); clampToBox(camera.position);
+  tv3.copy(bc); if(kl) tv3.lerp(_zc.set(kl.pos.x,kl.pos.y+1.2,kl.pos.z),0.4*kw);
+  tv4.subVectors(tv3,camera.position).normalize(); tv4.lerpVectors(CAM.d0,tv4,k).normalize();
+  tv3.copy(camera.position).addScaledVector(tv4,20);
+  camera.up.set(0,1,0).applyAxisAngle(tv4,ZG.camRoll*(1-k)); camera.lookAt(tv3);
+  if(camShake>0){ camShake=Math.max(0,camShake-dt*(camShake>0.3?1.1:0.5)); }
+  fov=lerp(fov,72,1-Math.exp(-6*dt)); camera.fov=fov; camShift(0,0);
 }
 function clampToBox(v){ const m=ZG.L-0.4; v.x=clamp(v.x,-m,m); v.z=clamp(v.z,-m,m); v.y=clamp(v.y,0.4,ZG.H-0.4); return v; }
 function updateSun(){ const f=(state==='menu'||!player)?tv4.set(0,0,0):player.pos; sun.position.copy(f).addScaledVector(SUN_DIR,200); sun.target.position.copy(f); }
@@ -2007,7 +2281,7 @@ function buildSkinStand(dir?){
   showEquip(); [...$('armSets').children].forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.s===it.t)));
 }
 function updateSkinStand(t,dt){
-  for(const c of skShown){ c.mixer.update(dt); swayGear({onGround:true,walkT:0},c,0,dt); }
+  for(const c of skShown){ c.mixer.update(dt); swayGear({onGround:true,walkT:0},c,0,dt); standLife(c,dt); } // [S4] idle life and a wave on the pedestal
 }
 // a fixed row of skins for screenshots (test hook)
 function updateLineup(t,dt){
@@ -4129,6 +4403,7 @@ function update(dt){
   for(const e of combatants){ updateStatus(e,dt); pwStatus(e,dt); }
   updatePunches(player,dt); updateKunais(dt); updateTitan(player,dt); updateKi(player,dt); updateGuard(player,dt); updateWriting(player,dt); updateBW(dt);
   for(const b of bots) updateBotZG(b,dt);
+  updateEmote(dt);                                    // [S4] emote timers, cancels, the wheel and bots gloating
   for(const e of combatants) animateGLB(e,dt);
   drawPunches(player);
   updateEffects(dt);
@@ -4141,16 +4416,53 @@ const HERO:any={scene:new T.Scene(),cam:new T.PerspectiveCamera(26,1,0.1,60),c:n
   HERO.scene.add(k,k.target,r,r.target,f,f.target);
   const ring=new T.Mesh(new T.PlaneGeometry(1.8,1.8),new T.MeshBasicMaterial({map:glowTex,color:0x5cf0ff,transparent:true,opacity:0.55,depthWrite:false,blending:T.AdditiveBlending})); ring.rotation.x=-Math.PI/2; ring.position.y=0.01; HERO.scene.add(ring); HERO.ring=ring;
   HERO.cam.position.set(0,1.0,8.2); HERO.cam.lookAt(0,0.98,0); }
+// [S4] the hero's life: a stand-in entity so the emote layer works on it, breathing, weight shifts, a head that follows the cursor,
+// a wave when you arrive and now and then a dance (click it to make it dance)
+const HERO_EM=['wave','floss','pump','robot','disco','dab','salute'], HM={x:0,y:0,t:-99}, _hl0=new V(), _hl1=new V(), _hl2=new V();
+addEventListener('pointermove',ev=>{ HM.x=ev.clientX; HM.y=ev.clientY; HM.t=performance.now()/1000; });
+function heroStand(c){ return {etype:'hero',isPlayer:false,alive:true,onGround:true,zgFloat:false,vel:new V(),pos:new V(),yaw:0,sel:0,hp:0,shield:0,fireCd:0,anim:{},ch:c,emote:null}; }
+function heroEmote(k){ const e=HERO.e; if(!e||!EMOTES[k]||(e.emote&&!e.emote.out)) return; emBegin(e,k,{max:EMOTES[k].loop?rnd(4.5,6.5):0}); }
+// idle: weight over one foot (feet stay planted), breathing, and the head and chest turning toward look={y: yaw, p: pitch}
+function emIdle(X,t,look){ const {B,c,rightB,upB,fwdB}=X;
+  B.LeftFoot.getWorldPosition(_eFeet[0]); B.RightFoot.getWorldPosition(_eFeet[1]);
+  const ws=Math.sin(t*TAU/6.4+0.8), br=Math.sin(t*TAU*0.27);
+  c.model.position.x=0.022*ws; c.model.updateMatrixWorld(true);
+  rotateBoneWorld(B.Hips,fwdB,0.04*ws); for(const n of ['Spine','Spine1','Spine2']) rotateBoneWorld(B[n],fwdB,-0.019*ws);
+  rotateBoneWorld(B.Spine2,rightB,0.02*br); rotateBoneWorld(B.Neck,rightB,-0.012*br);
+  emPlant(B,fwdB,upB,0);
+  if(look){ rotateBoneWorld(B.Spine2,upB,0.18*look.y); rotateBoneWorld(B.Neck,upB,0.45*look.y); rotateBoneWorld(B.Head,upB,0.37*look.y); rotateBoneWorld(B.Neck,rightB,0.5*look.p); rotateBoneWorld(B.Head,rightB,0.5*look.p); }
+}
+// the hero looks at the mouse (eased back to a slow glance about when it has been still a while)
+function heroLook(X,dt,W,H,t){ const act=1-smooth(4,9,performance.now()/1000-HM.t); let ty=0.22*Math.sin(t*0.45)*(1-act), tp=0.05*Math.sin(t*0.31)*(1-act);
+  if(act>0.001){ const hd=X.B.Head.getWorldPosition(_hl0); HERO.cam.updateMatrixWorld(); _hl1.set(HM.x/W*2-1,-(HM.y/H*2-1),0.5).unproject(HERO.cam).sub(HERO.cam.position).normalize();
+    HERO.cam.getWorldDirection(_hl2); const dd=_hl2.dot(_hl1); if(dd>0.01){ _hl1.multiplyScalar(_hl0.clone().sub(HERO.cam.position).dot(_hl2)/dd).add(HERO.cam.position).sub(hd);
+      const x=_hl1.dot(X.rightB), y=_hl1.dot(X.upB), z=_hl1.dot(X.fwdB); ty+=clamp(Math.atan2(-x,z),-1,1)*act; tp+=clamp(Math.atan2(y,Math.hypot(x,z)),-0.5,0.5)*act; } }
+  spring(HERO,'ly',ty,3,0.85,dt); spring(HERO,'lp',tp,3,0.85,dt); return {y:HERO.ly,p:HERO.lp}; }
+// click the hero to make it dance
+document.addEventListener('pointerdown',ev=>{ if(state!=='menu'||$('menu').hidden||!HERO.box) return; const t=ev.target as Element; if(t.closest&&t.closest('button,a,input,label,summary,.drawer,.modal')) return;
+  const b=HERO.box; if(ev.clientX>b.x0&&ev.clientX<b.x1&&ev.clientY>b.y0&&ev.clientY<b.y1) heroEmote(pick(HERO_EM)); });
+// the locker's pedestal: the skin breathes, shifts its weight, waves when you land on it and now and then dances
+function standLife(c,dt){ let S=c.sl; if(!S) S=c.sl={e:heroStand(c),next:0.9,t:0,first:true};
+  S.t+=dt; const e=S.e; S.next-=dt; if(!e.emote&&S.next<=0){ emBegin(e,S.first?'wave':pick(HERO_EM)); if(e.emote.E.loop) e.emote.max=rnd(4,6); S.first=false; S.next=rnd(8,13); }
+  c.model.position.set(0,0,0); emTick(e,dt,true); c.g.updateMatrixWorld(true); c.model.getWorldQuaternion(_qm);
+  const X:any={e,c,B:c.bones,g:c.g,pitch:0,rightB:new V(1,0,0).applyQuaternion(_qm),fwdB:new V(0,0,-1).applyQuaternion(_qm),upB:new V(0,1,0).applyQuaternion(_qm)};
+  if(e.emote) emotePose(e,X); else emIdle(X,S.t,null); }
 function heroFrame(dt){
   if(!SOLDIER) return false;
   const W=innerWidth, H=innerHeight; if(W<900||H<520) return false;
   const sk=equippedSkin(), eq=equippedPick(), key=(sk?sk.n:'')+'|'+(eq?eq.n:'');
-  if(!HERO.c||HERO.key!==key){ if(HERO.c) HERO.scene.remove(HERO.c.g); const c=makeCharacterGLB(); if(sk) applySkin(c,sk); if(eq) dressPick(c,eq); c.pick.visible=!!eq; HERO.c=c; HERO.key=key; HERO.scene.add(c.g); }
-  const c=HERO.c, B=c.bones, g=c.g; HERO.t+=dt; const t=HERO.t;
-  g.rotation.y=Math.PI-0.45+0.12*Math.sin(t*0.35); // a three-quarter view, turning a touch
-  c.mixer.update(dt); swayGear({onGround:true,walkT:0},c,0,dt); g.updateMatrixWorld(true);
+  if(!HERO.c||HERO.key!==key){ if(HERO.c) HERO.scene.remove(HERO.c.g); const c=makeCharacterGLB(); if(sk) applySkin(c,sk); if(eq) dressPick(c,eq); c.pick.visible=!!eq; HERO.c=c; HERO.key=key; HERO.scene.add(c.g); HERO.e=heroStand(c); HERO.next=HERO.seen?0.6:1.5; HERO.spinT=HERO.seen?0:9; HERO.seen=true; if(HERO.fy==null) HERO.fy=Math.PI-0.45; }
+  const c=HERO.c, B=c.bones, g=c.g, e=HERO.e; HERO.t+=dt; const t=HERO.t;
+  // [S4] it greets you, then does something every 9-14 s; it turns to face you while it dances and does a twirl when the skin or pickaxe changes
+  HERO.next-=dt; if(!e.emote&&HERO.next<=0){ heroEmote(HERO.first===false?pick(HERO_EM):'wave'); HERO.first=false; HERO.next=rnd(9,14); }
+  const emOn=!!e.emote&&!e.emote.out; HERO.fy=angLerp(HERO.fy,emOn?Math.PI+0.06*Math.sin(t*0.6):Math.PI-0.45+0.12*Math.sin(t*0.35),1-Math.exp(-5*dt));
+  if(HERO.spinT<1.1) HERO.spinT+=dt; g.rotation.y=HERO.fy+(HERO.spinT<1.1?TAU*easeIO(clamp(HERO.spinT/1.1,0,1)):0); // a three-quarter view, turning a touch
+  c.model.position.set(0,0,0); c.mixer.update(dt); swayGear({onGround:true,walkT:0},c,0,dt); g.updateMatrixWorld(true);
   c.model.getWorldQuaternion(_qm); const rightB=new V(1,0,0).applyQuaternion(_qm), fwdB=new V(0,0,-1).applyQuaternion(_qm), upB=new V(0,1,0).applyQuaternion(_qm);
-  if(eq&&!eq.anime||eq&&eq.anime==='nichirin'||eq&&eq.anime==='kunai'){
+  const hx:any={e,c,B,g,pitch:0,rightB,fwdB,upB}; emTick(e,dt,true);
+  if(e.emote){ emotePose(e,hx); c.pick.visible=false; if(c.pickL) c.pickL.visible=false; }
+  else emIdle(hx,t,heroLook(hx,dt,W,H,t));
+  if(!e.emote&&(eq&&!eq.anime||eq&&eq.anime==='nichirin'||eq&&eq.anime==='kunai')){ // [S4] INTEGRATOR: Stream 3's pickHold(c,e,P,rightB,upB,fwdB,rest) replaces the pickPose/IK/hand block below
     const P=pickPose({swingT:0,guardK:0,swingSide:0}), sh=B.RightArm.getWorldPosition(new V());
     const tgt=g.localToWorld(g.worldToLocal(sh.clone()).add(P.h)).addScaledVector(upB,0.008*Math.sin(t*1.7));
     solveIK(B.RightArm,B.RightForeArm,B.RightHand,tgt,sh.clone().addScaledVector(rightB,0.5).addScaledVector(upB,-0.55).addScaledVector(fwdB,-0.1));
@@ -4159,11 +4471,15 @@ function heroFrame(dt){
     const pn=rightB.clone().negate(); pn.addScaledVector(hd,-pn.dot(hd)).normalize(); const pf=new V().crossVectors(hd.clone().negate(),pn);
     poseHand(B,'Right',pf,pn,0.8); hw.addScaledVector(pf,0.07).addScaledVector(pn,0.03); g.worldToLocal(hw); c.pick.position.copy(hw);
     if(c.pickL) dualLeft(c,B,g,P,rightB,upB,fwdB,1);
-  } else c.pick.visible=false; // the fists and the Death Note have nothing to rest on a shoulder
+  } else if(!e.emote) c.pick.visible=false; // the fists and the Death Note have nothing to rest on a shoulder
+  poseBlend(c,dt); poseStore(c); // [S4] so Stream 1's inertial blend works on the hero too
   HERO.ring.material.opacity=0.45+0.12*Math.sin(t*2);
   // sit the character just right of the middle of the screen, between the logo and the play card
   const F=eq&&PX.formOf(eq), long=!!(F&&F.Lk>1); HERO.cam.position.set(0,long?1.2:1.0,long?9.8:8.2); HERO.cam.lookAt(0,long?1.25:0.98,0); // step back for scythes and spears
   HERO.cam.aspect=W/H; HERO.cam.setViewOffset(W,H,-W*0.09,0,W,H); HERO.cam.updateProjectionMatrix();
+  // where the hero is on screen (a click on it makes it dance)
+  HERO.cam.updateMatrixWorld(); _hl0.copy(g.position).project(HERO.cam); _hl1.set(g.position.x,g.position.y+1.9,g.position.z).project(HERO.cam);
+  { const cx=(_hl0.x*0.5+0.5)*W, y0=(0.5-_hl0.y*0.5)*H, y1=(0.5-_hl1.y*0.5)*H, hh=Math.abs(y0-y1); HERO.box={x0:cx-hh*0.3,x1:cx+hh*0.3,y0:Math.min(y0,y1),y1:Math.max(y0,y1)}; }
   return true;
 }
 function loop(now){
@@ -4192,4 +4508,5 @@ window.__game={keys,camera,sfx:(k,o)=>sfx(k,null,o),get audioOk(){return !!(AC&&
   lineup:(ids,yaw)=>{ if(armGroup) scene.remove(armGroup); armGroup=new T.Group(); armGroup.position.set(0,ARM_Y,0); skShown=[]; ids.forEach((id,k)=>{ const c=standChar(SK.ITEMS[id]); c.g.position.x=(k-(ids.length-1)/2)*1.25; c.g.userData.o=0; c.g.userData.yaw=yaw; armGroup.add(c.g); skShown.push(c); }); studioLights(armGroup); armGroup.userData.dist=ids.length*0.75+1.6; scene.add(armGroup); },
   equipPick:n=>{ equippedName=n; applyPickSkin(player); refreshHotbar(); }, get POW(){return POW;}, get pw(){return {shots:pwShots.length,zones:pwZones.length,zd:pwZones.map(z=>{ const e=combatants.find(c=>c!==player&&c.alive); return e?+z.pos.distanceTo(e.pos).toFixed(1):-1; }),pd:+chest(player).distanceTo(camera.position).toFixed(1),walls:pwWalls.map(w=>[w.m.position.toArray().map(Math.round),w.m.scale.x,w.m.visible])};},
   renderer,scene,mouse,shop:()=>openShop(),fire:()=>playerFire(),kill:(e,weapon,info)=>eliminate(e,null,weapon,info),colliderCount:()=>colliders.size,get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},get ZG(){return ZG;},get splats(){return splats.length;},get heartT(){return heartT;},startMatch,update,setState:s=>state=s};
+Object.assign(window.__game,{emote:(k,o)=>startEmote(player,k,o),emoteOn:(e,k,o)=>startEmote(e,k,o),stopEmote:()=>stopEmote(player,true),EM,EMOTES,get HERO(){return HERO;},heroEmote:k=>heroEmote(k)}); // [S4] test hooks
 })();
