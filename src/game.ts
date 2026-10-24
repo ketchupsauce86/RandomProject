@@ -859,11 +859,23 @@ function applySkin(c,skin){
 }
 // capes and tails trail behind when running and falling; wings breathe; halos float
 const _cq1=new T.Quaternion(), _cq2=new T.Quaternion(), _cq3=new T.Quaternion(), _cu=new T.Vector3(), _cx=new T.Vector3(), _cmat=new T.Matrix4(), UPX=new T.Vector3(1,0,0), UPY=new T.Vector3(0,1,0), _cf=new T.Vector3();
+const UPZ=new T.Vector3(0,0,1), _sv=new T.Vector3();
+// [S4] capes, wings and halos ride on springs: flare (how far a cape streams off the back) and sway (side to side) follow the
+// body-frame velocity and the turn rate; in zero-g there is no wind, so they float and undulate instead of hanging
 function swayGear(e,c,speed,dt){
   if(!c.capes||(!c.capes.length&&!c.flaps.length&&!c.bobs.length)) return;
-  const t=performance.now()/1000, air=!e.onGround?0.35:0;
-  const tgt=0.06+clamp(speed/7,0,1)*0.55+air+Math.sin(t*(3+speed*0.6)+e.walkT)*0.04*(0.3+clamp(speed/7,0,1));
-  for(const o of c.capes){ o.userData.rx=lerp(o.userData.rx||0,tgt,1-Math.exp(-6*dt));
+  const t=performance.now()/1000, G=c.sw||(c.sw={}), v=e.vel, wt=e.walkT||0, flt=!!e.zgFloat;
+  let vf=0,vu=0,vs=0,yr=0;
+  if(v&&e.yaw!=null){ c.model.getWorldQuaternion(_cq1); _sv.copy(v);
+    _cu.set(0,0,-1).applyQuaternion(_cq1); vf=_sv.dot(_cu); _cu.set(0,1,0).applyQuaternion(_cq1); vu=_sv.dot(_cu); _cu.set(1,0,0).applyQuaternion(_cq1); vs=_sv.dot(_cu);
+    if(G.ly!=null&&dt>1e-4) yr=wrapPi(e.yaw-G.ly)/dt; G.ly=e.yaw; }
+  else vf=speed;
+  const spd=clamp(Math.hypot(vf,vs)/8,0,1.2), air=!e.onGround?1:0;
+  // stream back with forward speed; a fall along the body's up axis lifts it; zero-g: lazy float, no droop
+  const flTgt=flt?0.30+0.07*Math.sin(t*1.3+wt)+0.35*clamp(vf/12,-0.2,1):0.06+0.55*clamp(vf/7.5,-0.3,1)+0.3*clamp(-vu/14,-0.2,1)+0.12*air+Math.sin(t*(3+spd*3)+wt)*0.035*(0.3+spd);
+  const swTgt=clamp(-vs/9,-0.5,0.5)-clamp(yr*0.05,-0.4,0.4)+(flt?0.08*Math.sin(t*0.9+wt*2):0);
+  const fl=spring(G,'fl',flTgt,3.2,0.42,dt), sw=spring(G,'sw',swTgt,2.4,0.4,dt);
+  for(const o of c.capes){
     if(o.userData.cape==='hang'){ // a cape hangs from the shoulders down the length of the body, whatever the spine is doing
       // face the way the chest faces (the torso twists to aim), hang along the body (not world gravity: in zero-g the
       // body lies flat and a cape hanging straight down would cut through it), flare back with speed
@@ -871,10 +883,12 @@ function swayGear(e,c,speed,dt){
       o.parent.getWorldQuaternion(_cq1); _cf.set(0,0,1).applyQuaternion(_cq1); _cf.addScaledVector(_cu,-_cf.dot(_cu));
       if(_cf.lengthSq()<0.09){ _cf.set(0,0,-1).applyQuaternion(_cq2); _cf.addScaledVector(_cu,-_cf.dot(_cu)); }
       _cf.normalize(); _cx.crossVectors(_cu,_cf); _cmat.makeBasis(_cx,_cu,_cf); _cq2.setFromRotationMatrix(_cmat);
-      _cq2.multiply(_cq3.setFromAxisAngle(UPX,o.userData.rx+0.18)).premultiply(_cq1.invert()); o.quaternion.copy(_cq2); }
-    else o.rotation.x=(o.userData.baseX??(o.userData.baseX=o.rotation.x))+o.userData.rx; }
-  for(const o of c.flaps) o.rotation.y=o.userData.flap*(0.45+Math.sin(t*2.2)*0.1+air*0.35);
-  for(const o of c.bobs) o.position.y=0.42+Math.sin(t*2)*0.012;
+      _cq2.multiply(_cq3.setFromAxisAngle(UPX,fl+0.18)).multiply(_cq3.setFromAxisAngle(UPZ,sw)).premultiply(_cq1.invert()); o.quaternion.copy(_cq2); }
+    else { o.rotation.x=(o.userData.baseX??(o.userData.baseX=o.rotation.x))+fl; o.rotation.z=(o.userData.baseZ??(o.userData.baseZ=o.rotation.z))+sw*0.6; } }
+  if(c.flaps.length){ const wf=spring(G,'wf',0.45+0.3*air+0.25*spd+(flt?0.1:0),2.5,0.5,dt);
+    for(const o of c.flaps) o.rotation.y=o.userData.flap*(wf+Math.sin(t*(2.2+spd*2)+wt)*(0.1+0.08*spd)); }
+  if(c.bobs.length){ const hx=spring(G,'hx',clamp(vf/30,-0.2,0.25),3,0.4,dt), hz=spring(G,'hz',clamp(-vs/30,-0.2,0.2),3,0.4,dt);
+    for(const o of c.bobs){ o.position.y=0.42+Math.sin(t*2)*0.012; o.rotation.x=hx; o.rotation.z=hz; } }
 }
 const UP=new V(0,1,0);
 // Whole-body motion: in zero-g the body tilts into the swim (e.zgTx), and on the ceiling it is rolled over
@@ -882,12 +896,97 @@ const UP=new V(0,1,0);
 const _pc=new V(), TAU=Math.PI*2;
 const easeIO=k=>k<0.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
 const wrapPi=a=>((a%TAU)+TAU*1.5)%TAU-Math.PI;
-function bodyPose(e,g,c,a,dt){
-  const tx=e.zgFloat?(e.zgTx||0):0, tz=(e.bankT||0)+(e.zgRoll||0);
-  c.spin.position.set(0,0,0);
-  D(g.rotation,'x',tx,a*0.5); D(g.rotation,'z',tz,a*0.4);
-  _pc.set(0,1,0).applyEuler(g.rotation); g.position.set(e.pos.x-_pc.x,e.pos.y+1-_pc.y,e.pos.z-_pc.z);
+// ---- [S2] the whole body: orientation, the gravity flip, tumbles. The body turns about its middle as ONE quaternion on g:
+//   g.quaternion = Qt (world-frame tumble) * Ry(yaw) * Qb (bank * tilt * roll, the flip path, the boost roll)
+// so the gun mount, pickaxe and hitboxes (children of g, placed from the bones) turn with it. Never rotate c.spin for this.
+// The LOGICAL state stays exactly as gameplay reads it: e.zgRoll is PI the instant gravity flips and the end orientation is
+// exactly Rz(PI). Everything visual (the flip path, tilt, bank) lives in e.anim.zg* and e.flip.
+const AX_X=new V(1,0,0), AX_Y=new V(0,1,0), AX_Z=new V(0,0,1), QI=new T.Quaternion();
+const _qb=new T.Quaternion(), _qn=new T.Quaternion(), _qt=new T.Quaternion(), _qr=new T.Quaternion(), _qs=new T.Quaternion(), _qy=new T.Quaternion(), _qf=new T.Quaternion(), _nv=new V();
+const hashE=(e,k)=>{ const s=Math.sin(e.walkT*12.9898+k*78.233)*43758.5453; return s-Math.floor(s); }; // a stable 0..1 per character and k (no Math.random: gameplay's random stream stays untouched)
+// Rz(bank)*Rx(tilt)*Rz(roll) into out. +bank leans left, -tilt leans forward (head first), roll is PI upside down
+function rotQ(out,bank,tilt,roll){ out.setFromAxisAngle(AX_Z,bank); out.multiply(_qs.setFromAxisAngle(AX_X,tilt)); return out.multiply(_qs.setFromAxisAngle(AX_Z,roll)); }
+// A new gravity state for this body: its own start delay, direction, speed and some somersault, so 101 bodies never flip in lockstep.
+// e.flip={kind:'up'|'down',t:seconds since its start (negative while it waits),z0:roll it leaves,dir:+-1,sm:somersaults,f,z:spring,q0,s}
+function startFlip(e,kind){
+  if(!e.alive) return; const A=e.anim, up=kind==='up', h=k=>hashE(e,k), bo=A.zgBk||0, pl=e.isPlayer;
+  const dir=Math.abs(bo)>0.06?(bo>0?1:-1):pl?-1:h(5)<0.5?-1:1; // keep rolling the way the body already leans; the player rolls with the camera
+  e.flip={kind,t:pl?0:-h(1)*(up?0.2:0.28),z0:e.zgRoll||0,dir,sm:up&&!pl?(h(6)<0.4?0:h(7)<0.5?1:-1):0,
+    f:pl?(up?1.3:0.9):up?lerp(1.3,1.9,h(2)):lerp(0.8,1.15,h(2)),z:pl?0.72:lerp(0.6,0.72,h(3)),q0:null,s:0};
+  A.zgFs=0; A.zgFsV=0; A.zgPvX=1; A.zgFF=up?1:0; A.zgKk=up?0:1;
 }
+// the flip path: the shortest turn from where the body was (q0) to where gravity wants it (qT), run by a damped spring so it
+// starts and ends soft and overshoots a little. Direction (dir) only matters for half turns, where both ways are equally short
+function flipPath(out,q0,qT,dir,s){
+  _qr.copy(q0).invert().multiply(qT); const len=Math.hypot(_qr.x,_qr.y,_qr.z); if(len<1e-6) return out.copy(qT);
+  _nv.set(_qr.x/len,_qr.y/len,_qr.z/len); let th=2*Math.atan2(len,_qr.w); if(th>Math.PI){ _nv.negate(); th=TAU-th; }
+  if(th>2.4){ const d=_nv.z; if(Math.abs(d)>0.05&&d*dir<0){ _nv.negate(); th=TAU-th; } }
+  return out.copy(q0).multiply(_qs.setFromAxisAngle(_nv,th*s));
+}
+function bodyQuat(e,g,X){
+  const A=e.anim, dt=A.zgBt==null?0:clamp(matchTime-A.zgBt,0,0.3); A.zgBt=matchTime;
+  const yaw=g.rotation.y, fl=e.flip, fly=e.zgFloat&&!(e.bounceT>0); // the head of animateGLB just set g.rotation.y to the facing
+  if(X){ A.zgAim=X.held&&X.aiming?1:0; A.zgGun=X.held?1:0; }
+  // 1. zero-g: lean along the velocity (not the keys), bank into turns and sideways drift, drag on yaw
+  const sx=-Math.sin(yaw), sz=-Math.cos(yaw), vf=e.vel.x*sx+e.vel.z*sz, vr=-e.vel.x*sz+e.vel.z*sx, vu=e.vel.y;
+  let yd=0; if(A.zgYw!=null) yd=wrapPi(yaw-A.zgYw); A.zgYw=yaw;
+  if(dt>0){ const yr=yd/dt; A.zgYr=(A.zgYr||0)+(clamp(yr,-10,10)-(A.zgYr||0))*(1-Math.exp(-10*dt)); }
+  let tiltT=0, bankT=0;
+  if(fly){ const fw=Math.max(vf,0), sp=Math.hypot(e.vel.x,e.vel.z);
+    const lean=Math.min(1.4,1.45*(1-Math.exp(-fw/12))+0.5*smooth(0,9,-vu)*smooth(0,6,fw)); // 9 m/s swim ~0.77 rad, 22 m/s propel ~1.2 rad, W with the look pitched down dives further
+    tiltT=-lean*lerp(A.zgAim?0.25:1,1,A.zgP||0)+0.38*(1-Math.exp(Math.min(vf,0)/6)); // a gun held up keeps the body more upright; drifting backwards leans back
+    bankT=-clamp(vr/16,-0.4,0.4)+clamp((A.zgYr||0)*0.05,-0.35,0.35)*smooth(2,9,sp); }
+  spring(A,'zgPt',tiltT,2.2,0.8,dt); spring(A,'zgBk',bankT,2.4,0.8,dt);
+  A.zgYl=(A.zgYl||0)+yd; spring(A,'zgYl',0,1.7,0.5,dt); // the heading runs ahead of the hips; animZGLegs lags them behind
+  // 2. the roll: it follows e.zgRoll (and the ground bank) as before, except while a flip owns it
+  const wantRz=(e.bankT||0)+(e.zgRoll||0), a4=(1-Math.exp(-14*dt))*0.4;
+  if(fl) fl.t+=dt;
+  rotQ(_qn,A.zgBk||0,A.zgPt||0,A.zgRz||0); // the body as the normal law has it right now
+  let Qb=_qn;
+  if(fl&&fl.t>=0){
+    if(!fl.q0) fl.q0=new T.Quaternion().copy(_qn); // the pose it leaves, captured on its first frame
+    const s=spring(A,'zgFs',1,fl.f*(e.onGround?2.4:1),fl.z,dt);
+    rotQ(_qf,A.zgBk||0,A.zgPt||0,wantRz); flipPath(_qb,fl.q0,_qf,fl.dir,s); Qb=_qb;
+    if(fl.sm){ const ss=Math.min(s,1)+0.3*(s-Math.min(s,1)); Qb.multiply(_qs.setFromAxisAngle(AX_X,fl.sm*TAU*ss)); }
+    A.zgRz=wantRz;
+    if(Math.abs(1-s)<0.01&&Math.abs(A.zgFsV)<0.15){ e.flip=null; A.zgFs=1; }
+  } else A.zgRz=(A.zgRz||0)+((fl?fl.z0+(e.bankT||0):wantRz)-(A.zgRz||0))*a4;
+  // 3. the booster pad's barrel roll about the body's long axis, once per launch (not with a gun in hand)
+  const bt=e.boostT||0; if(bt>1.05&&!A.zgBsOn){ A.zgBsOn=1; A.zgBs=0; A.zgBd=hashE(e,8)<0.5?-1:1; } else if(bt<0.5) A.zgBsOn=0;
+  if(A.zgBs!=null&&A.zgBs<1){ A.zgBs=Math.min(1,A.zgBs+dt/0.85); if(!A.zgGun){ const k=1-A.zgBs; Qb.multiply(_qs.setFromAxisAngle(AX_Y,A.zgBd*TAU*(1-k*k*k))); } }
+  // 4. tumbles in the world frame: a knock-back (a sudden velocity jump) or the Bouncer Ball rolling the body along; then it rights itself
+  const Tw=A.zgTw||(A.zgTw=new V()), Qt=A.zgQt||(A.zgQt=new T.Quaternion());
+  if(A.zgPx!=null&&dt>0&&fly&&!A.zgPvX){ const dx=e.vel.x-A.zgPx, dy=e.vel.y-A.zgPy, dz=e.vel.z-A.zgPz, dm=Math.hypot(dx,dy,dz);
+    if(dm>9&&dm/dt>240){ _nv.set(dx,dy,dz).divideScalar(dm); Tw.crossVectors(AX_Y,_nv); const l=Tw.length();
+      if(l>0.2) Tw.multiplyScalar(Math.min(8,dm/5)/l); else Tw.set(Math.min(8,dm/5),0,0); A.zgKb=1; } }
+  A.zgPx=e.vel.x; A.zgPy=e.vel.y; A.zgPz=e.vel.z; A.zgPvX=0;
+  if(e.bounceT>0&&e.bounceW) Tw.copy(e.bounceW); else Tw.multiplyScalar(Math.exp(-1.6*dt));
+  const w=Tw.length();
+  if(w>1e-3&&dt>0) Qt.premultiply(_qt.setFromAxisAngle(_nv.copy(Tw).divideScalar(w),w*dt));
+  if(!(e.bounceT>0)&&(w>1e-3||Qt.w<0.99999)){ Qt.slerp(QI,1-Math.exp(-lerp(1,7,smooth(3,0.6,w))*dt)); if(w<0.02&&Qt.w>0.9999){ Qt.identity(); Tw.set(0,0,0); } }
+  (A.zgQb||(A.zgQb=new T.Quaternion())).copy(Qb);
+  g.quaternion.copy(Qt).multiply(_qy.setFromAxisAngle(AX_Y,yaw)).multiply(Qb);
+}
+// a frozen or stunned body keeps its pose, but still follows the facing
+function bodyHold(e,g){ const A=e.anim; if(!A.zgQb) return;
+  g.quaternion.copy(A.zgQt).multiply(_qy.setFromAxisAngle(AX_Y,g.rotation.y)).multiply(A.zgQb); }
+// [S2] the root, so that the middle of the body (1 m up) stays on e.pos whatever the rotation
+function rootAboutMiddle(e,g){ _pc.set(0,1,0).applyQuaternion(g.quaternion); g.position.set(e.pos.x-_pc.x,e.pos.y+1-_pc.y,e.pos.z-_pc.z); }
+// [S2] the early-out frames (frozen, or a far body that skips its pose) call this: the root is re-placed, and the whole-body
+// orientation keeps moving on its own clock, so flips and tilts stay smooth at any LOD rate
+function placeAboutMiddle(e,g){ if(lockedUp(e)) bodyHold(e,g); else bodyQuat(e,g,null); rootAboutMiddle(e,g); }
+// [S2] whole-body tilt (zero-g), roll (ceiling, bank), the gravity flip and tumbles. X is the frame's animation context (animCtx)
+function bodyPose(e,g,c,a,dt,X){
+  c.spin.position.set(0,0,0);
+  bodyQuat(e,g,X); rootAboutMiddle(e,g);
+  // zero-g has no strafe hip twist: animTorso's twist is written for the ceiling's handedness (P1-2), and the velocity-driven bank
+  // in bodyQuat does that job. Remove this line if you want S1's twist back in zero-g once its sign is fixed there.
+  if(e.zgFloat) X.speed=0;
+}
+// [S0] a damped spring toward x: o[k] is the value and o[k+'V'] its velocity, f the frequency in Hz, z the damping ratio
+// (1 = no overshoot). Sub-stepped, so the 0.3 s steps of throttled far bots cannot blow it up. Returns the value.
+function spring(o,k,x,f,z,dt){ const w=TAU*f, kv=k+'V'; let p=o[k]||0, v=o[kv]||0; const n=Math.max(1,Math.ceil(dt*w/0.5)), h=dt/n;
+  for(let i=0;i<n;i++){ v+=(-w*w*(p-x)-2*z*w*v)*h; p+=v*h; } o[k]=p; o[kv]=v; return p; }
 // per-frame motion inputs for the animator
 function motionState(e,dt){
   const A=e.anim, fx=-Math.sin(e.yaw), fz=-Math.cos(e.yaw), fwd=e.vel.x*fx+e.vel.z*fz, side=-e.vel.x*fz+e.vel.z*fx, speed=Math.hypot(e.vel.x,e.vel.z);
@@ -1044,15 +1143,49 @@ function cullChars(){ if(!combatants) return;
     if(c.gear&&c.gearFar!==far){ c.gearFar=far; for(const w of c.gear) w.visible=!far; }
     charShadow(c,see&&(e===player||d<SHADOW_D)); }
 }
+// ---- [S1] inertial pose blend. Stubs until Stream 1 lands them; every stream may call them now.
+//   poseSnap(c,dur)  what drives the body just changed: fade from the last stored pose into the new one over dur s
+//   poseBlend(c,dt)  apply that fade to this frame's pose (animPost, after every layer)
+//   poseStore(c)     remember this frame's final pose (animPost, last)
+function poseStore(c){}
+function poseSnap(c,dur){}
+function poseBlend(c,dt){}
+// Per character, per frame. Each layer below is owned by one stream: [S0] shared scaffold, [S1] locomotion and body,
+// [S2] zero-g and the gravity flip, [S3] combat, [S4] emotes, hero and camera. They share one context object X (animCtx),
+// run in this order, and each stream edits only its own layers.
 function animateGLB(e,dt){
-  const c=e.ch, A=e.anim, B=c.bones, g=c.g; g.position.copy(e.pos); g.rotation.y=e.yaw; g.scale.setScalar((e.titanS||1)*(e.tinyT>0?0.45:1));
+  const c=e.ch, g=c.g; g.position.copy(e.pos); g.rotation.y=e.emote?e.emote.yaw:e.yaw; g.scale.setScalar((e.titanS||1)*(e.tinyT>0?0.45:1));
   const a=1-Math.exp(-14*dt), aS=1-Math.exp(-7*dt);
   if(!e.alive){ c.flash.visible=false; deathPose(e,g,c,dt); return; }
-  if(lockedUp(e)){ c.flash.visible=false; _pc.set(0,1,0).applyEuler(g.rotation); g.position.set(e.pos.x-_pc.x,e.pos.y+1-_pc.y,e.pos.z-_pc.z);
+  if(lockedUp(e)){ c.flash.visible=false; placeAboutMiddle(e,g);
     if(e.stun>0&&!(e.frozen>0)){ const j=0.045*Math.min(1,e.stun*2); g.position.x+=rnd(-j,j); g.position.y+=rnd(-j,j); g.position.z+=rnd(-j,j); } return; }
   g.visible=!(e.isPlayer&&ads&&isScoped());
   if(!e.isPlayer){ const cd=e.pos.distanceTo(camera.position);
-    if(cd>45||c.inView===false){ e.animAcc=(e.animAcc||0)+dt; if(e.animAcc<(c.inView===false?0.3:cd>140?0.2:cd>80?0.1:0.05)){ _pc.set(0,1,0).applyEuler(g.rotation); g.position.set(e.pos.x-_pc.x,e.pos.y+1-_pc.y,e.pos.z-_pc.z); return; } /* keep the tilt/roll offset between poses, or the body jumps */ dt=e.animAcc; e.animAcc=0; } } // off screen or far away: pose less often
+    if(cd>45||c.inView===false){ e.animAcc=(e.animAcc||0)+dt; if(e.animAcc<(c.inView===false?0.3:cd>140?0.2:cd>80?0.1:0.05)){ placeAboutMiddle(e,g); return; } /* keep the tilt/roll offset between poses, or the body jumps */ dt=e.animAcc; e.animAcc=0; } } // off screen or far away: pose less often
+  const X=animCtx(e,dt,a,aS);   // [S0] motion, what is in hand, shared inputs (X.dt is the throttled dt; a and aS come from the frame's dt)
+  animClips(e,X);               // [S1] clip weights and time scales, X.near, mixer.update
+  swayGear(e,c,X.s+(e.onGround?0:Math.hypot(e.vel.x,e.vel.z)*0.3),X.dt); // [S4] capes and gear
+  bodyPose(e,g,c,a,X.dt,X);     // [S2] zero-g tilt, ceiling roll and bank
+  animAxes(X);                  // [S0] body axes X.rightB/fwdB/upB
+  animLegs(e,X);                // [S1] crouch and landing squash: plant the feet, drop the body
+  animZG(e,X);                  // [S2] zero-g bob, squash and stretch
+  g.updateMatrixWorld(true);
+  animFeet(e,X);                // [S1] foot IK back onto the planted feet
+  if(X.near&&!animZGLegs(e,X)) animLegPose(e,X); // [S2] bouncer and zero-g legs, else [S1] jump and sprint legs
+  animTorso(e,X);               // [S1] strafe twist, crouch and sprint lean, aim pitch
+  animCombatTorso(e,X);         // [S3] rifle stance
+  animHit(e,X);                 // [S1] flinch when hit
+  animSwingTorso(e,X);          // [S3] pickaxe swing twist and lean
+  animArms(e,X);                // [S0] the hands: one arm layer per frame
+  applyArmOverrides(e,X);       // [S0] X.armOv pulls a hand toward a target on top of that layer
+  animProps(e,X);               // [S3] moving parts of the held gun
+  animPost(e,X);                // [S1] pose blend, then store the final pose
+  animHitboxes(e,X);            // [S0] hitboxes follow the skeleton
+}
+// [S0] the frame's shared context X: motion, what is in hand, smoothing rates, aim pitch. Later layers add to it
+// (near, s, back, body axes, cr, crE, feet, busy, branch); writes to anim fields stay in e.anim, not X
+function animCtx(e,dt,a,aS){
+  const c=e.ch, A=e.anim, B=c.bones, g=c.g;
   const {fx,fz,fwd,side,speed}=motionState(e,dt);
   let held=null, pickaxe=false;
   if(e.isPlayer){ const it=curItem(); if(it&&it.kind==='gun') held=it; else if(!it) pickaxe=true; }
@@ -1061,167 +1194,522 @@ function animateGLB(e,dt){
   let cons=null, useK=-1;
   if(e.isPlayer){ const it=curItem(); if(it&&it.kind==='cons'){ cons=it.id; if(e.consuming&&e.consuming.it===it) useK=e.consuming.t/e.consuming.dur; } }
   else if(e.healT>0){ cons='big'; useK=clamp(1-e.healT/2.5,0,1); held=null; }
+  if(e.emote){ held=null; pickaxe=false; cons=null; } // [S4] an emote puts everything away
   setHeld(e,held); setConsHeld(c,cons);
   D(A,'crouch',e.crouch?1:0,a*0.7); D(A,'air',!e.onGround&&!e.zgFloat?1:0,a);
+  const X:any={e,dt,a,aS,c,A,B,g,fx,fz,fwd,side,speed,held,pickaxe,cons,useK,armOv:{}};
+  animCombatState(e,X); // [S3]
+  X.pitch=e.isPlayer?e.pitch:(e.aimPitch||0); X.sp=A.sprPose; X.pE=X.pitch*(1-X.sp);
+  return X;
+}
+// [S3] combat timers and the sprint carry: recoil settles, the muzzle flash and the pump run out, and a gun nobody is
+// aiming drops into the low sprint carry (A.sprPose)
+function animCombatState(e,X){ const {c,A,held,dt,aS}=X;
   A.recoil=Math.max(0,A.recoil-dt*8); A.flash-=dt; c.flash.visible=A.flash>0; A.pumpT+=dt;
-  const aiming=e.isPlayer?(ads||mouse.l||!!e.reloading):(A.recoil>0.05||!!e.enemy);
+  const aiming=X.aiming=e.isPlayer?(ads||mouse.l||!!e.reloading):(A.recoil>0.05||!!e.enemy);
   D(A,'sprPose',held&&!aiming?A.sprint:0,aS);
-  // --- clip blending (the soldier ships with Idle, Walk, Run and T-pose; everything else is layered on top)
-  const s=e.onGround?speed:0, back=fwd<-0.5?-1:1;
+}
+// [S1] clip blending (the soldier ships with Idle, Walk, Run and T-pose; everything else is layered on top)
+function animClips(e,X){ const {c,A,fwd,speed,aS,dt}=X;
+  const s=X.s=e.onGround?speed:0, back=X.back=fwd<-0.5?-1:1;
   const wRun=smooth(3.5,6.5,s), wWalk=smooth(0.3,2,s)*(1-wRun), wT=0;
   const wIdle=Math.max(0,1-wRun-wWalk-wT), W=c.w;
   D(W,'Idle',wIdle,aS); D(W,'Walk',wWalk,aS); D(W,'Run',wRun,aS); D(W,'TPose',wT,aS);
   for(const n in c.act) c.act[n].setEffectiveWeight(W[n]);
   c.act.Walk.setEffectiveTimeScale(back*clamp(s/1.8,0.7,1.6)); c.act.Run.setEffectiveTimeScale(back*clamp(s/(5.5+1.2*A.sprint),0.8,2.15)); // sprinting takes longer strides instead of faster steps
-  const near=!player||e===player||e.pos.distanceTo(camera.position)<50;
-  c.mixer.update(dt); swayGear(e,c,s+(e.onGround?0:Math.hypot(e.vel.x,e.vel.z)*0.3),dt);
-  bodyPose(e,g,c,a,dt);
+  X.near=!player||e===player||e.pos.distanceTo(camera.position)<50;
+  c.mixer.update(dt);
+}
+// [S0] body-relative axes (they follow the swim tilt and the roll onto the ceiling)
+function animAxes(X){ const {c,g}=X;
   c.model.position.y=0; g.updateMatrixWorld(true);
-  // body-relative axes (they follow the swim tilt and the roll onto the ceiling)
   c.model.getWorldQuaternion(_qm);
-  const rightB=new V(1,0,0).applyQuaternion(_qm), fwdB=new V(0,0,-1).applyQuaternion(_qm), upB=new V(0,1,0).applyQuaternion(_qm);
-  const bend=(sd,th,kn)=>{ rotateBoneWorld(B[sd+'UpLeg'],rightB,th); rotateBoneWorld(B[sd+'Leg'],rightB,kn); };
-  // --- legs: crouch and the squash after a landing lower the body while IK keeps the feet planted
-  const cr=A.crouch, crE=Math.max(cr,e.onGround?A.land*0.75:0), right=rightB, fwdV=fwdB; // body axes, so poses still work rolled onto the ceiling
+  X.rightB=new V(1,0,0).applyQuaternion(_qm); X.fwdB=new V(0,0,-1).applyQuaternion(_qm); X.upB=new V(0,1,0).applyQuaternion(_qm);
+  X.right=X.rightB; X.fwdV=X.fwdB; // body axes, so poses still work rolled onto the ceiling
+}
+// [S0] swing a leg: th at the hip, kn at the knee, both about the body's right axis
+function bend(X,sd,th,kn){ rotateBoneWorld(X.B[sd+'UpLeg'],X.rightB,th); rotateBoneWorld(X.B[sd+'Leg'],X.rightB,kn); }
+// [S1] legs: crouch and the squash after a landing lower the body while IK keeps the feet planted (animFeet)
+function animLegs(e,X){ const {c,A,B,near,upB}=X;
+  const cr=X.cr=A.crouch, crE=X.crE=Math.max(cr,e.onGround?A.land*0.75:0);
   let feet=null;
   if(near&&crE>0.01){ feet=[B.LeftFoot.getWorldPosition(new V()),B.RightFoot.getWorldPosition(new V())]; if(A.air>0.5){ feet[0].addScaledVector(upB,0.25*A.air); feet[1].addScaledVector(upB,0.4*A.air); } }
+  X.feet=feet;
   c.model.position.y=-0.48*crE;
-  // zero-g: a lazy bob while drifting, and cartoon squash and stretch: long on the kick, squashed on the tuck
-  let sqY=1;
+}
+// [S2] zero-g: a lazy bob while drifting, and cartoon squash and stretch: long on the kick, squashed on the tuck
+function animZG(e,X){ const {c,A,B,g,dt,near}=X;
+  let sqY=1, feetAnchor=0;
+  // phases differ per bot (P1-13): without this the whole field swims in sync. hashE, not Math.random, keeps gameplay's random stream untouched
+  if(A.zgB===undefined){ A.zgB=e.isPlayer?0:hashE(e,3); A.zgF=e.isPlayer?0:hashE(e,4); }
+  if(A.zgBr===undefined){ A.zgBr=A.zgPre=A.zgBn=A.zgBo=A.zgKk=A.zgKb=A.zgPop=A.push=A.zgLK=A.zgBf=0; } // lazily, so makeCombatant's defaults stay untouched
+  // envelopes of the zero-g and flip poses (all exp/linear in dt, so throttled bots stay correct)
+  const ek=r=>1-Math.exp(-r*dt), warn=ZG.state==='warn', gnd=ZG.state==='ceil'&&e.onGround;
+  D(A,'zgBr',warn?smooth(1.9+0.35*hashE(e,9),0.4,ZG.t):0,ek(8)); A.zgBf=warn?Math.pow(ZG.t*4-Math.floor(ZG.t*4),3):0; // brace for the flip; a flinch on each alarm beep
+  D(A,'zgPre',gnd&&ZG.t<0.24?smooth(0.24,0.04,ZG.t):0,ek(20)); // crouch just before gravity returns
+  A.zgKk=Math.max(0,(A.zgKk||0)-dt/0.55); A.zgKb=Math.max(0,(A.zgKb||0)-dt/0.9); A.zgPop=Math.max(0,(A.zgPop||0)-dt/0.45); A.push=Math.max(0,(A.push||0)-dt/0.35);
+  D(A,'zgBn',e.bounceT>0?1:0,ek(12)); D(A,'zgBo',smooth(0.02,0.25,(e.boostT||0)/1.1),ek(14));
+  if(e.zgPropel&&!A.zgPp) A.push=1; A.zgPp=!!e.zgPropel; // the rising edge of propel is a kick-off
+  A.zgFT=A.zgFF?(A.zgFT||0)+dt:0; // seconds since the fall began
+  // the superhero landing: attack, hold, release; walking away cancels it (A.landBig is the 1 -> 0 impulse other streams read)
+  if(A.zgLT!=null&&A.zgLT<1.5){ A.zgLT+=dt; const u=A.zgLT; A.landBig=Math.max(0,1-u);
+    A.zgLC=e.onGround&&X.speed<2?Math.max(0,(A.zgLC||0)-dt/0.5):Math.min(1,(A.zgLC||0)+dt/(e.onGround?0.15:0.08));
+    A.zgLK=smooth(0,0.07,u)*(1-smooth(0.42,1.0,u))*(1-A.zgLC);
+    sqY*=1-0.15*Math.exp(-6*u)*Math.cos(18*u); feetAnchor=1; }
+  else A.zgLK=0;
+  if(A.zgFF&&!e.onGround&&e.vel.y>8) sqY*=1+0.05*smooth(8,38,e.vel.y); // stretched while falling
+  { const pu=1-A.push; if(A.push>0) sqY*=1-0.04*Math.sin(Math.PI*clamp(pu/0.28,0,1))+0.09*Math.sin(Math.PI*clamp((pu-0.28)/0.35,0,1)); } // propel kick: a squash on the tuck, long on the snap
+  // sink into the landing or the push-off crouch with the feet planted
+  const K=Math.max(A.zgLK||0,(A.zgPre||0)*0.5);
+  if(near&&K>0.01&&!e.bounceT){ const want=(A.zgLK>=A.zgPre*0.5?0.7:0.3)*Math.max(A.zgLK,A.zgPre), cur=-c.model.position.y;
+    if(!X.feet) X.feet=[B.LeftFoot.getWorldPosition(new V()),B.RightFoot.getWorldPosition(new V())];
+    if(want>cur) c.model.position.y-=want-cur; }
   if(e.zgFloat){ const kz=1-Math.exp(-8*dt); D(A,'zgP',e.zgPropel?1:0,kz); D(A,'zgS',e.zgPropel?0:smooth(1.5,7,e.vel.length()),1-Math.exp(-4*dt));
     A.zgT=(A.zgT||e.walkT)+dt*lerp(3.2,13,A.zgP); A.zgB=((A.zgB||0)+dt*(0.4+0.5*A.zgS))%1; A.zgI=(A.zgI||e.walkT*3)+dt; A.zgF=((A.zgF||0)+dt*0.95)%1;
     const P=A.zgP, Sw=A.zgS*(1-P), I=(1-P)*(1-A.zgS), u=A.zgB;
     c.model.position.y+=I*0.05*Math.sin(A.zgI*1.2)+Sw*0.06*(frogK(u)-0.5); // drifting bobs gently; each kick surges the body forward
-    sqY=1+I*0.008*Math.sin(A.zgI*1.2+1); }
-  else if(A.zgP){ A.zgP=0; A.zgS=0; }
-  c.spin.scale.set(1/Math.sqrt(sqY),sqY,1/Math.sqrt(sqY)); c.spin.position.y+=1-sqY; // squash about the middle of the body
-  g.updateMatrixWorld(true);
+    sqY*=1+I*0.008*Math.sin(A.zgI*1.2+1); }
+  else if(A.zgP||A.zgS){ A.zgP*=Math.exp(-12*dt); A.zgS*=Math.exp(-12*dt); if(A.zgP<0.01) A.zgP=0; if(A.zgS<0.01) A.zgS=0; } // ease out of the swim as gravity returns (it used to snap)
+  c.spin.scale.set(1/Math.sqrt(sqY),sqY,1/Math.sqrt(sqY)); c.spin.position.y+=(1-sqY)*(1-feetAnchor); // squash about the middle of the body (the landing squash sits on its feet)
+}
+// [S1] foot IK: the feet go back where animLegs planted them
+function animFeet(e,X){ const {B,feet,fwdV,upB}=X;
   if(feet){ for(const [i,sd] of [[0,'Left'],[1,'Right']]){ const hip=B[sd+'UpLeg'].getWorldPosition(new V()); const pole=hip.clone().addScaledVector(fwdV,1.2).addScaledVector(upB,-0.4); solveIK(B[sd+'UpLeg'],B[sd+'Leg'],B[sd+'Foot'],feet[i],pole); } }
-  if(near){
-    if(e.bounceT>0){ bend('Left',1.7,-2.3); bend('Right',1.6,-2.2); rotateBoneWorld(B.Spine1,rightB,0.35); rotateBoneWorld(B.Neck,rightB,0.4); }
-    else if(e.zgFloat){
-      // three ways to move in zero-g, blended: drifting (a lazy bicycle with the knees falling apart), swimming
-      // (a big frog kick timed to the arm stroke) and propelling (legs pedal like a cartoon character running on air)
-      const P=A.zgP, Sw=A.zgS*(1-P), I=(1-P)*(1-A.zgS), u=A.zgB, tI=A.zgI;
-      // sprinting: a quick flutter kick from the hips with loose knees, three kicks to every arm stroke
-      const frog=frogK(u), glide=u>=0.84||u<0.12?1:0, fl=TAU*3*(A.zgF||0);
-      for(const [sd,off,sx] of [['Left',0,-1],['Right',Math.PI,1]] as [string,number,number][]){ const ti=tI*0.9+off, tf=fl+off;
-        const th=I*(0.3+0.22*Math.sin(ti))+Sw*(0.05+1.05*frog)+P*(0.1+0.26*Math.sin(tf));
-        const kn=I*(0.5+0.3*(Math.sin(ti+1.1)+1)/2)+Sw*(0.1+1.7*frog)+P*(0.18+0.38*Math.max(0,Math.sin(tf+1.2)));
-        bend(sd,th,-kn); rotateBoneWorld(B[sd+'UpLeg'],fwdB,-sx*(I*(0.14+0.05*Math.sin(ti*0.7))+Sw*0.5*frog)); }
-      const roll=Math.sin(TAU*((A.zgF||0)+0.12)); // the body rolls toward the arm that is pulling
-      rotateBoneWorld(B.Spine1,upB,0.32*P*roll); rotateBoneWorld(B.Hips,upB,-0.12*P*roll);
-      rotateBoneWorld(B.Neck,rightB,0.4*P+0.3*Sw+(e.zgTx||0)*-0.3); rotateBoneWorld(B.Neck,upB,0.25*I*Math.sin(tI*0.4)-0.2*P*roll);
-      rotateBoneWorld(B.Hips,fwdB,0.08*I*Math.sin(tI*0.7)); rotateBoneWorld(B.Spine1,rightB,0.07*I*Math.sin(tI*0.9)-0.14*Sw*frog+0.06*Sw*glide);
-    }
-    else if(A.air>0.02){
-      // jump: knees tuck on the way up, legs reach down for the landing, arms swing up then out for balance
-      const up=clamp(e.vel.y/10.5,-1,1), tk=smooth(-0.5,0.6,up)*A.air;
-      bend('Left',0.35*A.air+0.95*tk,-(0.35*A.air+1.35*tk)); bend('Right',0.12*A.air+0.5*tk,-(0.55*A.air+0.95*tk));
-      if(!held&&!(pickaxe&&e.swingT>0)){ const lift=tk*1.9+A.air*0.25, out=Math.max(0,A.air-tk)*0.85;
-        rotateBoneWorld(B.LeftArm,rightB,lift); rotateBoneWorld(B.RightArm,rightB,lift); rotateBoneWorld(B.LeftArm,fwdB,out); rotateBoneWorld(B.RightArm,fwdB,-out); }
-    } else if(e.onGround&&A.sprint>0.02){
-      // sprint: on top of the run clip, a longer stride and a high knee on whichever leg is swinging through
-      const sp=A.sprint*(1-cr), d=B.LeftFoot.getWorldPosition(new V()).sub(B.RightFoot.getWorldPosition(new V())).dot(fwdB), dn=clamp(d/0.5,-1,1);
-      const vd=(dn-(A.dn==null?dn:A.dn))/Math.max(dt,1e-3); A.dn=dn; D(A,'swingL',clamp(vd*0.35,-1,1),1-Math.exp(-18*dt));
-      const lift=1-Math.abs(dn)*0.6;
-      bend('Left',0.32*dn*sp+0.25*sp*Math.max(0,A.swingL),-1.0*sp*Math.max(0,A.swingL)*lift); bend('Right',-0.32*dn*sp+0.25*sp*Math.max(0,-A.swingL),-1.0*sp*Math.max(0,-A.swingL)*lift);
-    }
+}
+// [S2] the legs inside the bouncer ball and in zero-g. Returns true when it posed the legs (the jump and sprint legs then stay off)
+const _g1=new V(), _g2=new V(), _g3=new V(), _g4=new V(), _g5=new V();
+function animZGLegs(e,X){ const {A,B,rightB,upB,fwdB,dt}=X; const tI0=A.zgI||0;
+  if(e.bounceT>0||A.zgBn>0.02&&e.zgFloat){ const w=A.zgBn, kk=A.bounceKick||0; // the Bouncer Ball: tuck in over 0.2 s, squeeze on each bounce
+    bend(X,'Left',1.7*w,-2.3*w); bend(X,'Right',1.6*w,-2.2*w); rotateBoneWorld(B.Spine1,rightB,-0.35*w-0.12*kk*w); rotateBoneWorld(B.Neck,rightB,-0.25*w); if(e.bounceT>0) return true; }
+  // superhero landing: left foot forward, right knee trailing near the surface, chest and head down, then up
+  if(X.near&&(A.zgLK||0)>0.02&&X.feet){ const K=A.zgLK, u=A.zgLT, hd=1-smooth(0.3,0.6,u), f=X.feet;
+    rotateBoneWorld(B.Hips,rightB,-0.2*K); rotateBoneWorld(B.Spine1,rightB,-0.55*K); rotateBoneWorld(B.Spine2,rightB,-0.3*K); rotateBoneWorld(B.Neck,rightB,-0.4*K*hd+0.15*K*(1-hd));
+    const hL=B.LeftUpLeg.getWorldPosition(_g1), hR=B.RightUpLeg.getWorldPosition(_g2);
+    const tL=_g3.copy(f[0]).addScaledVector(fwdB,0.3*K).addScaledVector(rightB,-0.05*K), tR=_g4.copy(f[1]).addScaledVector(fwdB,-0.38*K).addScaledVector(upB,0.08*K);
+    solveIK(B.LeftUpLeg,B.LeftLeg,B.LeftFoot,tL,hL.clone().addScaledVector(fwdB,1.0).addScaledVector(rightB,-0.2));
+    solveIK(B.RightUpLeg,B.RightLeg,B.RightFoot,tR,hR.clone().addScaledVector(upB,-0.9).addScaledVector(fwdB,0.1).addScaledVector(rightB,0.15));
+    rotateBoneWorld(B.RightFoot,rightB,0.7*K);
+    const sh=B.LeftArm.getWorldPosition(_g5), dn=Math.max(0,sh.clone().sub(f[0]).dot(upB)); // the left fist goes to the surface ahead of the left foot
+    const fist=sh.clone().addScaledVector(upB,-dn).addScaledVector(fwdB,0.16).addScaledVector(rightB,-0.04), w=smooth(0,0.1,u)*(1-smooth(0.45,0.8,u))*(1-A.zgLC);
+    X.armOv.Left={t:fist,w}; return true; }
+  // falling toward the ceiling after the flip: tucked while it turns, then the legs reach for the surface
+  if(A.zgFF&&!e.onGround&&!e.zgFloat){ const tk=0.95*Math.sin(Math.PI*clamp(A.zgFs||0,0,1)), tI=tI0+(A.zgFT||0), ttc=Math.max(0,(ZG.H-2.05-e.pos.y)/Math.max(e.vel.y,4)), rp=smooth(0.25,0.06,ttc);
+    for(const [sd,off] of [['Left',0],['Right',2.1]] as [string,number][]){ const ex=0.2+0.12*Math.sin(tI*5+off)+0.3*rp, kx=0.28+0.12*Math.sin(tI*5+off+1)+0.25*rp;
+      bend(X,sd,lerp(ex,1.7,tk),-lerp(kx,2.3,tk)); }
+    rotateBoneWorld(B.Spine1,rightB,-0.5*tk); rotateBoneWorld(B.Neck,rightB,-0.45*(1-tk)-0.2*tk); return true; }
+  if(e.zgFloat){
+    // three ways to move in zero-g, blended: drifting (a lazy bicycle with the knees falling apart), swimming
+    // (a big frog kick timed to the arm stroke) and propelling (legs pedal like a cartoon character running on air)
+    const P=A.zgP, Sw=A.zgS*(1-P), I=(1-P)*(1-A.zgS), u=A.zgB, tI=A.zgI;
+    // sprinting: a quick flutter kick from the hips with loose knees, three kicks to every arm stroke
+    const frog=frogK(u), glide=u>=0.84||u<0.12?1:0, fl=TAU*3*(A.zgF||0);
+    const Br=A.zgBr||0, Kk=A.zgKk||0, Bo=A.zgBo||0, Kb=A.zgKb||0, Pop=A.zgPop||0, pu=A.push>0?1-A.push:1, pw=A.push>0?1-smooth(0.45,1,pu):0; // brace, push-off kick, booster, knock-back flail, bouncer pop, propel kick-off
+    for(const [sd,off,sx] of [['Left',0,-1],['Right',Math.PI,1]] as [string,number,number][]){ const ti=tI*0.9+off, tf=fl+off;
+      let th=I*(0.3+0.22*Math.sin(ti))+Sw*(0.05+1.05*frog)+P*(0.1+0.26*Math.sin(tf));
+      let kn=I*(0.5+0.3*(Math.sin(ti+1.1)+1)/2)+Sw*(0.1+1.7*frog)+P*(0.18+0.38*Math.max(0,Math.sin(tf+1.2)));
+      let sp=I*(0.14+0.05*Math.sin(ti*0.7))+Sw*0.5*frog;
+      th=lerp(th,0.55,0.8*Br); kn=lerp(kn,0.95,0.8*Br);                 // brace: knees half tucked
+      th=lerp(th,pu<0.3?0.9*smooth(0,0.3,pu):lerp(0.9,-0.3,smooth(0.28,0.42,pu)),pw); kn=lerp(kn,pu<0.3?1.6*smooth(0,0.3,pu):lerp(1.6,0.05,smooth(0.28,0.42,pu)),pw); // propel kick-off: tuck, then snap straight
+      th=lerp(th,-0.3,Kk); kn=lerp(kn,0.05,Kk); sp*=1-Kk;                  // push off the ceiling: legs kick straight
+      th=lerp(th,-0.05,Bo); kn=lerp(kn,0.08,Bo); sp*=1-Bo;                 // booster: legs together
+      th+=Kb*0.55*Math.sin(tI*9+off*1.3); kn+=Kb*(0.5+0.5*Math.sin(tI*8+off)); sp+=Kb*0.3;
+      th=lerp(th,0.2,Pop); sp=lerp(sp,0.55,Pop);                           // the star pop when the ball bursts
+      bend(X,sd,th,-kn); rotateBoneWorld(B[sd+'UpLeg'],fwdB,-sx*sp); }
+    const roll=Math.sin(TAU*((A.zgF||0)+0.12)); // the body rolls toward the arm that is pulling
+    rotateBoneWorld(B.Spine1,upB,0.32*P*roll); rotateBoneWorld(B.Hips,upB,-0.12*P*roll);
+    { const yl=-0.55*clamp(A.zgYl||0,-0.9,0.9)*(1-0.6*P); rotateBoneWorld(B.Hips,upB,yl); rotateBoneWorld(B.Spine,upB,-yl*0.5); rotateBoneWorld(B.Spine1,upB,-yl*0.5); } // yaw drag: the legs lag behind a turn
+    rotateBoneWorld(B.Neck,rightB,0.4*P+0.3*Sw+(A.zgPt||0)*-0.3+0.35*Br); rotateBoneWorld(B.Neck,upB,0.25*I*Math.sin(tI*0.4)-0.2*P*roll);
+    rotateBoneWorld(B.Hips,fwdB,0.08*I*Math.sin(tI*0.7)); rotateBoneWorld(B.Spine1,rightB,0.07*I*Math.sin(tI*0.9)-0.14*Sw*frog+0.06*Sw*glide-0.18*Br+0.12*Bo);
+    if((A.zgBf||0)*Br>0.01){ const f=A.zgBf*Br; rotateBoneWorld(B.Spine1,rightB,-0.05*f); rotateBoneWorld(B.LeftShoulder,fwdB,0.07*f); rotateBoneWorld(B.RightShoulder,fwdB,-0.07*f); } // a flinch on every alarm beep
+    return true; }
+  return false;
+}
+// [S1] jump and sprint legs (near only; animZGLegs goes first)
+function animLegPose(e,X){ const {A,B,rightB,fwdB,held,pickaxe,cr,dt}=X;
+  if(A.air>0.02){
+    // jump: knees tuck on the way up, legs reach down for the landing, arms swing up then out for balance
+    const up=clamp(e.vel.y/10.5,-1,1), tk=smooth(-0.5,0.6,up)*A.air;
+    bend(X,'Left',0.35*A.air+0.95*tk,-(0.35*A.air+1.35*tk)); bend(X,'Right',0.12*A.air+0.5*tk,-(0.55*A.air+0.95*tk));
+    if(!held&&!(pickaxe&&e.swingT>0)){ const lift=tk*1.9+A.air*0.25, out=Math.max(0,A.air-tk)*0.85;
+      rotateBoneWorld(B.LeftArm,rightB,lift); rotateBoneWorld(B.RightArm,rightB,lift); rotateBoneWorld(B.LeftArm,fwdB,out); rotateBoneWorld(B.RightArm,fwdB,-out); }
+  } else if(e.onGround&&A.sprint>0.02){
+    // sprint: on top of the run clip, a longer stride and a high knee on whichever leg is swinging through
+    const sp=A.sprint*(1-cr), d=B.LeftFoot.getWorldPosition(new V()).sub(B.RightFoot.getWorldPosition(new V())).dot(fwdB), dn=clamp(d/0.5,-1,1);
+    const vd=(dn-(A.dn==null?dn:A.dn))/Math.max(dt,1e-3); A.dn=dn; D(A,'swingL',clamp(vd*0.35,-1,1),1-Math.exp(-18*dt));
+    const lift=1-Math.abs(dn)*0.6;
+    bend(X,'Left',0.32*dn*sp+0.25*sp*Math.max(0,A.swingL),-1.0*sp*Math.max(0,A.swingL)*lift); bend(X,'Right',-0.32*dn*sp+0.25*sp*Math.max(0,-A.swingL),-1.0*sp*Math.max(0,-A.swingL)*lift);
   }
-  // --- upper body: strafe twist, crouch and sprint lean, aim pitch, flinch when hit
+}
+// [S1] upper body: strafe twist, crouch and sprint lean, aim pitch (the flinch is animHit)
+function animTorso(e,X){ const {A,B,near,upB,right,speed,side,fwd,back,aS,cr,held,s,pitch,pE}=X;
   const twist=speed>1.2?clamp(Math.atan2(side,Math.abs(fwd))*back,-0.85,0.85):0; D(A,'twist',twist,aS);
   if(near){ rotateBoneWorld(B.Hips,upB,A.twist); rotateBoneWorld(B.Spine,upB,-A.twist*0.5); rotateBoneWorld(B.Spine1,upB,-A.twist*0.5); }
-  const pitch=e.isPlayer?e.pitch:(e.aimPitch||0), sp=A.sprPose, pE=pitch*(1-sp);
   if(near){ const lean=-0.28*cr-(held?0.06:0)*Math.min(1,s/4)-0.34*A.sprint; rotateBoneWorld(B.Spine,right,lean); if(A.sprint>0.01) rotateBoneWorld(B.Neck,right,0.2*A.sprint); // lean into a sprint, eyes up
-    if(held){ for(const n of ['Spine','Spine1','Spine2']) rotateBoneWorld(B[n],right,pE/3); } else rotateBoneWorld(B.Neck,right,pitch*0.5);
-    // rifle stance: the chest turns a little toward the gun side so the left hand can reach under the barrel, eyes stay on target
-    D(A,'stance',held?1-sp:0,aS); if(A.stance>0.01){ const st=A.stance*(held&&held.id==='pistol'?0.5:held&&held.id==='mf'?0.1:1);
-      rotateBoneWorld(B.Spine1,upB,-0.24*st); rotateBoneWorld(B.Spine2,upB,-0.16*st); rotateBoneWorld(B.Neck,upB,0.4*st); if(B.LeftShoulder) rotateBoneWorld(B.LeftShoulder,upB,-0.25*st); }
-    if(A.hit>0.01){ rotateBoneWorld(B.Spine1,right,0.32*A.hit); rotateBoneWorld(B.Neck,right,0.25*A.hit); }
-    if(pickaxe&&e.swingT>0){ const P=pickPose(e); rotateBoneWorld(B.Spine1,upB,P.tw); rotateBoneWorld(B.Spine2,upB,P.tw*0.5); rotateBoneWorld(B.Spine1,right,P.ln); } }
-  // --- hands
-  // zero-g arms: drifting, they float out and wave like a jellyfish; swimming, a big breaststroke (reach, sweep
-  // wide, pull, tuck) on the same beat as the frog kick
-  // sprinting (propelling) is a front crawl: the arms take turns reaching overhead, pulling down under the body to
-  // the hip and swinging back over with the elbow high, while the body rolls from side to side with each pull
-  const zgArms=sides=>{ const P=A.zgP||0, Sw=A.zgS*(1-P), I=Math.max(0,1-Sw-P), u=A.zgB, tI=A.zgI;
-    for(const sd of sides){ const sx=sd==='Right'?1:-1, ph=sx>0?0:1.7, sh=B[sd+'Arm'].getWorldPosition(new V());
-      const st=zgStroke(u), fr=loopPath(FREESTYLE,((A.zgF||0)+(sx>0?0:0.5))%1);
-      const out=I*(0.4+0.06*Math.sin(tI*0.9+ph))+Sw*st[0]+P*fr[0], up=I*(-0.2+0.1*Math.sin(tI*0.7+ph))+Sw*st[1]+P*fr[1], fw=I*(0.1+0.07*Math.sin(tI*0.55+ph))+Sw*st[2]+P*fr[2];
-      const t=sh.clone().addScaledVector(rightB,sx*out).addScaledVector(upB,up).addScaledVector(fwdB,fw);
-      const pole=sh.clone().addScaledVector(rightB,sx*0.6).addScaledVector(upB,0.05-0.05*P).addScaledVector(fwdB,-0.3-0.15*P);
-      solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],t,pole);
-      rotateBoneWorld(B[sd+'Hand'],fwdB,sx*(0.3*I*Math.sin(tI*1.6+ph)+0.4*Sw*Math.sin(TAU*u))); } };
-  const busy=e.swingT>0||e.guardK>0.05;
+    if(held){ for(const n of ['Spine','Spine1','Spine2']) rotateBoneWorld(B[n],right,pE/3); } else rotateBoneWorld(B.Neck,right,pitch*0.5); }
+}
+// [S3] rifle stance: the chest turns a little toward the gun side so the left hand can reach under the barrel, eyes stay on target
+function animCombatTorso(e,X){ const {A,B,near,upB,held,sp,aS}=X; if(!near) return;
+  D(A,'stance',held?1-sp:0,aS); if(A.stance>0.01){ const st=A.stance*(held&&held.id==='pistol'?0.5:held&&held.id==='mf'?0.1:1);
+    rotateBoneWorld(B.Spine1,upB,-0.24*st); rotateBoneWorld(B.Spine2,upB,-0.16*st); rotateBoneWorld(B.Neck,upB,0.4*st); if(B.LeftShoulder) rotateBoneWorld(B.LeftShoulder,upB,-0.25*st); }
+}
+// [S1] flinch when hit
+function animHit(e,X){ const {A,B,near,right}=X; if(!near) return;
+  if(A.hit>0.01){ rotateBoneWorld(B.Spine1,right,0.32*A.hit); rotateBoneWorld(B.Neck,right,0.25*A.hit); }
+}
+// [S3] the pickaxe swing twists and leans the chest
+function animSwingTorso(e,X){ const {B,near,upB,right,pickaxe}=X; if(!near) return;
+  if(pickaxe&&e.swingT>0){ const P=pickPose(e); rotateBoneWorld(B.Spine1,upB,P.tw); rotateBoneWorld(B.Spine2,upB,P.tw*0.5); rotateBoneWorld(B.Spine1,right,P.ln); }
+}
+// [S0] the hands: exactly one arm layer runs each frame, the first that applies in this order. When the layer, near,
+// the held gun or the pickaxe changes, poseSnap lets S1's blend hide the switch.
+function animArms(e,X){ const {c,A,B,near,held,pickaxe,cons,rightB,fwdB,upB}=X;
+  X.busy=e.swingT>0||e.guardK>0.05;
   c.pick.visible=pickaxe&&!e.writing; if(c.pickL) c.pickL.visible=false; // it stays on the shoulder while you swim (the Death Note opens out of the hand to write)
   if(e.isPlayer) syncVest(e);
-  if(e.bounceT>0&&near){ // hugging the knees inside the ball
-    for(const sd of ['Left','Right']){ const k=B[sd+'Leg'].getWorldPosition(new V()).addScaledVector(fwdB,0.12), sh=B[sd+'Arm'].getWorldPosition(new V());
-      solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],k,sh.clone().addScaledVector(rightB,sd==='Left'?-0.5:0.5).addScaledVector(upB,-0.3)); }
-  } else if(e.throwA&&near){
-    throwPose(e,c,rightB,fwdB,upB);
-  } else if(cons&&near){
-    consPose(e,c,cons,useK,rightB,fwdB,upB,dt);
-  } else if(near&&pickaxe&&e.fistSt&&!((A.zgP||0)>0.3&&!(e.punches&&e.punches.length))){
-    fistArms(e,B,rightB,upB,fwdB);
-  } else if(near&&pickaxe&&e.writing){
-    noteArms(e,B,rightB,upB,fwdB);
-  } else if(near&&e.zgFloat&&!held&&!(pickaxe&&c.pick.visible)){
-    zgArms(['Left','Right']);
-  } else if(held){
-    const H=HOLD[held.id], S=c.gunMount.scale.x; D(A,'reload',(e.isPlayer?!!e.reloading:e.reloadT>0)?1:0,a);
-    const sh=B.RightArm.getWorldPosition(new V()); g.worldToLocal(sh);
-    const adsK=e.isPlayer&&ads?1:0, cp=Math.cos(pE), sn=Math.sin(pE), dk=Math.pow(1-A.draw,2);
-    // sprinting carries the gun low and canted; switching weapons raises the new one into place
-    const tp=e.isPlayer&&!adsK?1-sp:0; // third person: carry the gun out to the side so the camera can see it
-    const o=new V(H.g[0]-S*H.r[0]-0.08*adsK-0.06*sp+0.16*tp,H.g[1]-S*H.r[1]+0.04*adsK-0.12*sp-0.35*dk+0.03*tp,H.g[2]-S*H.r[2]+A.recoil*0.09+0.06*sp);
-    const oy=o.y*cp-o.z*sn, oz=o.y*sn+o.z*cp;
-    const dn=(A.dn||0)*A.sprint; c.gunMount.position.set(sh.x+o.x,sh.y+oy+0.035*sp*(Math.abs(A.dn||0)-0.5),sh.z+oz); // the gun bobs and sways with the sprint stride
-    c.gunMount.rotation.set(pE+A.recoil*0.22-0.45*A.reload-0.5*sp-1.0*dk,0.35*sp+0.1*dn,0.6*A.reload+0.45*sp+0.08*dn);
-    if(near&&c.held){ c.gunMount.updateMatrixWorld(true);
-      const rt=c.gunMount.localToWorld(new V(...H.r)), lt=c.gunMount.localToWorld(new V(...H.l));
-      if(A.reload>0.05){ lt.lerp(c.gunMount.localToWorld(new V(0,-0.32,-0.05)),A.reload*(0.5+0.5*Math.sin(matchTime*8))); }
-      const rS=B.RightArm.getWorldPosition(new V()), lS=B.LeftArm.getWorldPosition(new V());
-      solveIK(B.RightArm,B.RightForeArm,B.RightHand,rt,rS.clone().addScaledVector(right,0.3).addScaledVector(upB,-0.8).addScaledVector(fwdV,-0.1));
-      solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,lt,lS.clone().addScaledVector(right,-0.5).addScaledVector(upB,-0.7));
-      // right hand wrapped round the grip, left hand palm up under the barrel
-      const gq=c.gunMount.getWorldQuaternion(new T.Quaternion()), dir=a=>new V(...a).applyQuaternion(gq);
-      poseHand(B,'Right',dir([-0.1,-0.1,-0.99]),dir([-1,0,0.1]),0.75);
-      if(A.reload<0.5) poseHand(B,'Left',dir(H.lf||[0.45,0.1,-0.9]),dir(H.ln||[0,1,0]),0.55);
-    }
-  } else if(pickaxe&&near){
-    const P=pickPose(e), sh=B.RightArm.getWorldPosition(new V());
-    const tgt=g.localToWorld(g.worldToLocal(sh.clone()).add(P.h));
-    // sprinting: the left arm pumps while the pickaxe stays on the shoulder, riding up and down a little with the stride
-    const pump=e.onGround&&!busy&&!c.pickL?A.sprint*(1-cr):0, dn=A.dn||0;
-    if(pump>0.01){ rotateBoneWorld(B.LeftArm,rightB,-0.8*dn*pump); rotateBoneWorld(B.LeftForeArm,rightB,0.55*pump); tgt.addScaledVector(upB,0.025*Math.abs(dn)*pump); }
-    if(!busy){ tgt.addScaledVector(upB,0.008*Math.sin(matchTime*1.7+(e.walkT||0))); } // breathing: the shoulder rises and falls a touch
-    const natL=B.LeftHand.getWorldPosition(new V());
-    solveIK(B.RightArm,B.RightForeArm,B.RightHand,tgt,sh.clone().addScaledVector(right,0.5).addScaledVector(upB,-0.55).addScaledVector(fwdB,-0.1));
-    c.pick.quaternion.copy(P.q);
-    // at rest the right fist closes round the handle (knuckles out) and the handle runs through the palm
-    D(A,'pk2',e.swingT>0||e.guardK>0.3?1:0,1-Math.exp(-20*dt)); const rest=1-A.pk2;
-    const hw=B.RightHand.getWorldPosition(new V());
-    if(rest>0.01){ g.updateMatrixWorld(true); const hd=new V(0,1,0).applyQuaternion(c.pick.getWorldQuaternion(new T.Quaternion()));
-      const pn=rightB.clone().negate(); pn.addScaledVector(hd,-pn.dot(hd)).normalize(); const pf=new V().crossVectors(hd.clone().negate(),pn);
-      poseHand(B,'Right',pf,pn,0.8*rest); hw.addScaledVector(pf,0.07*rest).addScaledVector(pn,0.03*rest); }
-    g.worldToLocal(hw); c.pick.position.copy(hw);
-    // swinging, the left hand joins just above the right; at rest it hangs free
-    const w2=A.pk2*(1-pump);
-    if(c.pickL) dualLeft(c,B,g,P,rightB,upB,fwdB,rest);
-    else if(w2>0.01){ c.pick.updateMatrixWorld(true); const lS=B.LeftArm.getWorldPosition(new V());
-      solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,natL.clone().lerp(c.pick.localToWorld(new V(0,0.15,0)),w2),lS.clone().addScaledVector(right,-0.6).addScaledVector(upB,-0.5)); }
-    else if(e.zgFloat) zgArms(['Left']);
+  let br=0;
+  if(e.emote&&near){ br=1; emotePose(e,X); }                                            // [S4]
+  else if(e.bounceT>0&&near){ br=2; bounceArms(e,X); }                                  // [S2]
+  else if(e.throwA&&near){ br=3; throwPose(e,c,rightB,fwdB,upB); }                      // [S3]
+  else if(cons&&near){ br=4; consPose(e,c,cons,X.useK,rightB,fwdB,upB,X.dt); }          // [S3]
+  else if(near&&pickaxe&&e.fistSt&&!((A.zgP||0)>0.3&&!(e.punches&&e.punches.length))){ br=5; fistArms(e,B,rightB,upB,fwdB); } // [S3]
+  else if(near&&pickaxe&&e.writing){ br=6; noteArms(e,B,rightB,upB,fwdB); }             // [S3]
+  else if(near&&(e.zgFloat||A.zgFF||A.zgLK>0.02)&&!held&&!(pickaxe&&c.pick.visible)){ br=7; zgArms(e,X,['Left','Right']); } // [S2]
+  else if(held){ br=8; gunArms(e,X); }                                                   // [S3] far bots too (the gun mount)
+  else if(pickaxe&&near){ br=9; pickArms(e,X); }                                         // [S3]
+  X.branch=br; const key=(near?1:0)+'|'+br+'|'+c.heldKey+'|'+(pickaxe?1:0); if(c.blKey!==key){ c.blKey=key; poseSnap(c,0.16); }
+}
+// [S2] hugging the knees inside the bouncer ball
+function bounceArms(e,X){ const {B,A,rightB,upB,fwdB}=X, w=A.zgBn==null?1:Math.min(1,A.zgBn*1.4);
+  for(const sd of ['Left','Right']){ const k=B[sd+'Leg'].getWorldPosition(new V()).addScaledVector(fwdB,0.12), sh=B[sd+'Arm'].getWorldPosition(new V());
+    if(w<0.99) k.lerp(B[sd+'Hand'].getWorldPosition(new V()),1-w); // reach for the knees over the first 0.2 s
+    solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],k,sh.clone().addScaledVector(rightB,sd==='Left'?-0.5:0.5).addScaledVector(upB,-0.3)); }
+}
+const mixA=(a,t,w)=>{ if(w>0.001){ a[0]=lerp(a[0],t[0],w); a[1]=lerp(a[1],t[1],w); a[2]=lerp(a[2],t[2],w); } };
+// [S2] zero-g arms: drifting, they float out and wave like a jellyfish; swimming, a big breaststroke (reach, sweep
+// wide, pull, tuck) on the same beat as the frog kick
+// sprinting (propelling) is a front crawl: the arms take turns reaching overhead, pulling down under the body to
+// the hip and swinging back over with the elbow high, while the body rolls from side to side with each pull
+// On top of that: brace for the flip (out and up), the tucked flip and the windmilling fall, the superhero landing (free arm back
+// for balance), the push-off sweep, the booster's overhead reach, knock-back flailing and the star pop of the Bouncer Ball.
+function zgArms(e,X,sides){ const A=e.anim, {B,rightB,upB,fwdB}=X; const P=A.zgP||0, Sw=A.zgS*(1-P), I=Math.max(0,1-Sw-P), u=A.zgB, tI=A.zgI;
+  const Br=A.zgBr||0, Kk=A.zgKk||0, Bo=A.zgBo||0, Kb=A.zgKb||0, Pop=A.zgPop||0, pu=A.push>0?1-A.push:1, pw=A.push>0?1-smooth(0.55,1,pu):0;
+  const falling=A.zgFF&&!e.onGround&&!e.zgFloat, tk=falling?0.95*Math.sin(Math.PI*clamp(A.zgFs||0,0,1)):0, wf=falling?1-tk:0, am=Math.exp(-(A.zgFT||0)*1.2), land=A.zgLK||0;
+  for(const sd of sides){ const sx=sd==='Right'?1:-1, ph=sx>0?0:1.7, sh=B[sd+'Arm'].getWorldPosition(new V());
+    const st=zgStroke(u), fr=loopPath(FREESTYLE,((A.zgF||0)+(sx>0?0:0.5))%1);
+    const o=[I*(0.4+0.06*Math.sin(tI*0.9+ph))+Sw*st[0]+P*fr[0], I*(-0.2+0.1*Math.sin(tI*0.7+ph))+Sw*st[1]+P*fr[1], I*(0.1+0.07*Math.sin(tI*0.55+ph))+Sw*st[2]+P*fr[2]];
+    mixA(o,[0.56+0.02*Math.sin(tI*22+ph),0.04,0.12],Br*0.9);                                              // brace: spread out and up
+    mixA(o,[0.62+0.12*am*Math.sin(TAU*2*tI+ph),0.08+0.2*am*Math.sin(TAU*2*tI+ph+1.4),0.05],wf);          // fall: spread, windmilling less and less
+    if(pw>0) mixA(o,pu<0.4?[0.12,0.62,0.45]:[0.24,lerp(0.5,-0.42,smooth(0.4,0.7,pu)),lerp(0.4,0.03,smooth(0.4,0.7,pu))],pw); // propel kick-off: reach overhead, sweep to the hips
+    mixA(o,[0.28,-0.4,0.02],Kk*0.9);                                                                     // push off the ceiling: arms sweep down
+    mixA(o,[0.12,0.62,0.3],Bo);                                                                          // booster: superman
+    mixA(o,[0.45+0.3*Math.sin(tI*11+ph),0.2+0.35*Math.sin(tI*9+ph*2),0.1+0.25*Math.sin(tI*7+ph)],Kb);    // knock-back: flailing
+    mixA(o,[0.66,0.42,0.1],Pop);                                                                         // star pop
+    if(land>0.01&&sx>0) mixA(o,[0.6,-0.2,-0.3],land);                                                    // landing: the free arm swings back for balance
+    const t=sh.clone().addScaledVector(rightB,sx*o[0]).addScaledVector(upB,o[1]).addScaledVector(fwdB,o[2]);
+    if(tk>0.01){ const kn=B[sd+'Leg'].getWorldPosition(new V()).addScaledVector(fwdB,0.12); t.lerp(kn,Math.min(1,tk*1.2)); } // hugging the knees mid-flip
+    const pole=sh.clone().addScaledVector(rightB,sx*0.6).addScaledVector(upB,0.05-0.05*P).addScaledVector(fwdB,-0.3-0.15*P);
+    solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],t,pole);
+    rotateBoneWorld(B[sd+'Hand'],fwdB,sx*(0.3*I*Math.sin(tI*1.6+ph)+0.4*Sw*Math.sin(TAU*u))); } }
+// [S3] a gun in hand: the mount is placed for everyone (far bots too), the arms reach for it only when near
+function gunArms(e,X){ const {c,A,B,g,near,held,a,sp,pE,right,upB,fwdV}=X;
+  const H=HOLD[held.id], S=c.gunMount.scale.x; D(A,'reload',(e.isPlayer?!!e.reloading:e.reloadT>0)?1:0,a);
+  const sh=B.RightArm.getWorldPosition(new V()); g.worldToLocal(sh);
+  const adsK=e.isPlayer&&ads?1:0, cp=Math.cos(pE), sn=Math.sin(pE), dk=Math.pow(1-A.draw,2);
+  // sprinting carries the gun low and canted; switching weapons raises the new one into place
+  const tp=e.isPlayer&&!adsK?1-sp:0; // third person: carry the gun out to the side so the camera can see it
+  const o=new V(H.g[0]-S*H.r[0]-0.08*adsK-0.06*sp+0.16*tp,H.g[1]-S*H.r[1]+0.04*adsK-0.12*sp-0.35*dk+0.03*tp,H.g[2]-S*H.r[2]+A.recoil*0.09+0.06*sp);
+  const oy=o.y*cp-o.z*sn, oz=o.y*sn+o.z*cp;
+  const dn=(A.dn||0)*A.sprint; c.gunMount.position.set(sh.x+o.x,sh.y+oy+0.035*sp*(Math.abs(A.dn||0)-0.5),sh.z+oz); // the gun bobs and sways with the sprint stride
+  c.gunMount.rotation.set(pE+A.recoil*0.22-0.45*A.reload-0.5*sp-1.0*dk,0.35*sp+0.1*dn,0.6*A.reload+0.45*sp+0.08*dn);
+  if(near&&c.held){ c.gunMount.updateMatrixWorld(true);
+    const rt=c.gunMount.localToWorld(new V(...H.r)), lt=c.gunMount.localToWorld(new V(...H.l));
+    if(A.reload>0.05){ lt.lerp(c.gunMount.localToWorld(new V(0,-0.32,-0.05)),A.reload*(0.5+0.5*Math.sin(matchTime*8))); }
+    const rS=B.RightArm.getWorldPosition(new V()), lS=B.LeftArm.getWorldPosition(new V());
+    solveIK(B.RightArm,B.RightForeArm,B.RightHand,rt,rS.clone().addScaledVector(right,0.3).addScaledVector(upB,-0.8).addScaledVector(fwdV,-0.1));
+    solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,lt,lS.clone().addScaledVector(right,-0.5).addScaledVector(upB,-0.7));
+    // right hand wrapped round the grip, left hand palm up under the barrel
+    const gq=c.gunMount.getWorldQuaternion(new T.Quaternion()), dir=a=>new V(...a).applyQuaternion(gq);
+    poseHand(B,'Right',dir([-0.1,-0.1,-0.99]),dir([-1,0,0.1]),0.75);
+    if(A.reload<0.5) poseHand(B,'Left',dir(H.lf||[0.45,0.1,-0.9]),dir(H.ln||[0,1,0]),0.55);
   }
+}
+// [S3] the pickaxe: resting on the right shoulder, or swung with both hands (dual blades: one in each hand)
+function pickArms(e,X){ const {c,A,B,g,busy,cr,dt,rightB,upB,fwdB,right}=X;
+  const P=pickPose(e), sh=B.RightArm.getWorldPosition(new V());
+  const tgt=g.localToWorld(g.worldToLocal(sh.clone()).add(P.h));
+  // sprinting: the left arm pumps while the pickaxe stays on the shoulder, riding up and down a little with the stride
+  const pump=e.onGround&&!busy&&!c.pickL?A.sprint*(1-cr):0, dn=A.dn||0;
+  if(pump>0.01){ rotateBoneWorld(B.LeftArm,rightB,-0.8*dn*pump); rotateBoneWorld(B.LeftForeArm,rightB,0.55*pump); tgt.addScaledVector(upB,0.025*Math.abs(dn)*pump); }
+  if(!busy){ tgt.addScaledVector(upB,0.008*Math.sin(matchTime*1.7+(e.walkT||0))); } // breathing: the shoulder rises and falls a touch
+  const natL=B.LeftHand.getWorldPosition(new V());
+  solveIK(B.RightArm,B.RightForeArm,B.RightHand,tgt,sh.clone().addScaledVector(right,0.5).addScaledVector(upB,-0.55).addScaledVector(fwdB,-0.1));
+  c.pick.quaternion.copy(P.q);
+  // at rest the right fist closes round the handle (knuckles out) and the handle runs through the palm
+  D(A,'pk2',e.swingT>0||e.guardK>0.3?1:0,1-Math.exp(-20*dt)); const rest=1-A.pk2;
+  const hw=B.RightHand.getWorldPosition(new V());
+  if(rest>0.01){ g.updateMatrixWorld(true); const hd=new V(0,1,0).applyQuaternion(c.pick.getWorldQuaternion(new T.Quaternion()));
+    const pn=rightB.clone().negate(); pn.addScaledVector(hd,-pn.dot(hd)).normalize(); const pf=new V().crossVectors(hd.clone().negate(),pn);
+    poseHand(B,'Right',pf,pn,0.8*rest); hw.addScaledVector(pf,0.07*rest).addScaledVector(pn,0.03*rest); }
+  g.worldToLocal(hw); c.pick.position.copy(hw);
+  // swinging, the left hand joins just above the right; at rest it hangs free
+  const w2=A.pk2*(1-pump);
+  if(c.pickL) dualLeft(c,B,g,P,rightB,upB,fwdB,rest);
+  else if(w2>0.01){ c.pick.updateMatrixWorld(true); const lS=B.LeftArm.getWorldPosition(new V());
+    solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,natL.clone().lerp(c.pick.localToWorld(new V(0,0.15,0)),w2),lS.clone().addScaledVector(right,-0.6).addScaledVector(upB,-0.5)); }
+  else if(e.zgFloat) zgArms(e,X,['Left']);
+}
+// [S0] any layer can pull a hand toward a world target on top of the arm layer: X.armOv.Left={t,pole,w} re-solves the
+// left arm toward lerp(hand,t,w), w 0..1 (pole: optional world elbow hint). Nothing to do on most frames.
+const _ao1=new V(), _ao2=new V(), _ao3=new V(), ARM_SIDES=['Left','Right'];
+function applyArmOverrides(e,X){ const O=X.armOv; if(!O||!(O.Left||O.Right)) return; const B=X.B;
+  for(const sd of ARM_SIDES){ const o=O[sd]; if(!o||!(o.w>0.001)) continue; const sh=B[sd+'Arm'].getWorldPosition(_ao1), t=B[sd+'Hand'].getWorldPosition(_ao2).lerp(o.t,Math.min(1,o.w));
+    const pole=o.pole||_ao3.copy(sh).addScaledVector(X.rightB,sd==='Left'?-0.5:0.5).addScaledVector(X.upB,-0.6).addScaledVector(X.fwdB,-0.2);
+    solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],t,pole); } }
+// [S3] moving parts of the held gun: sparks and wings, the next rocket, the pump
+function animProps(e,X){ const {c,A}=X;
   if(c.held&&c.held.userData.sparks){ const t=matchTime; for(const sp of c.held.userData.sparks){ const [x,a,r]=sp.userData.o; sp.position.set(x+Math.cos(a+t*3)*r*0.6,0.03+Math.sin(a*2+t*4)*0.06,-0.08+Math.sin(a+t*3)*r); sp.scale.setScalar(0.04+0.03*Math.abs(Math.sin(t*6+a*3))); sp.material.rotation=t*2; }
     for(const w of c.held.userData.wings) w.scale.y=1+0.06*Math.sin(matchTime*5); }
   if(c.held&&c.held.userData.warhead){ const k=e.isPlayer?clamp(e.fireCd/0.45,0,1):0; for(const m of c.held.userData.warhead){ m.visible=k<0.98; m.position.z=-0.5*k; } } // a new rocket slides into the muzzle
   if(c.held&&c.held.userData.pump){ const k=clamp(A.pumpT/0.45,0,1); c.held.userData.pump.position.z=-0.38+(A.pumpT>0&&A.pumpT<0.45?Math.sin(k*Math.PI)*0.14:0); }
-  // --- hitboxes follow the skeleton
+}
+// [S1] after every layer: blend out a layer switch (poseSnap), then remember the final pose
+function animPost(e,X){ poseBlend(X.c,X.dt); poseStore(X.c); }
+// [S0] hitboxes follow the skeleton
+function animHitboxes(e,X){ const {c,B,g}=X;
   const hd=B.Head.getWorldPosition(new V()); g.worldToLocal(hd); c.hb.head.position.set(hd.x,hd.y+0.1,hd.z);
   const ch=B.Spine2.getWorldPosition(new V()); g.worldToLocal(ch); c.hb.chest.position.set(ch.x,ch.y-0.12,ch.z);
   const hp=B.Hips.getWorldPosition(new V()); g.worldToLocal(hp); const lh=Math.max(0.4,hp.y+0.05); c.hb.legs.scale.y=lh; c.hb.legs.position.set(hp.x,lh/2,hp.z);
 }
+// ================= emotes =================
+// [S4] Dances and emotes. B plays the last one, holding B opens the wheel. While one plays e.emote={E,k,t,w,yaw,out,...}:
+// animateGLB turns the body to e.emote.yaw, animCtx puts every item away and animArms gives the arm layer to emotePose.
+// Hand paths are [u,x,y,z] from that shoulder in body axes (x right, y up, z FORWARD; metres for the stock rig, scaled to
+// the body). hips [u,dx,dy,yaw,roll,pitch], chest [u,pitch,roll,yaw] and head [u,pitch,roll,yaw] are the NET pose in the body
+// frame (+pitch leans back, +roll leans right, +yaw turns left). u runs 0..1 once per loop (bpm and beats) or once per play (dur).
+const EM:any={on:[],last:'wave',wheel:false,held:false,hold:0,pRef:null,camK:0,camKV:0};
+const EMOTES:any={
+  wave:{n:'Wave',dur:2.8,
+    R:[[0,0.12,-0.50,0.02],[0.13,0.22,0.06,0.16],[0.22,0.24,0.27,0.14],[0.84,0.24,0.27,0.14],[0.93,0.20,-0.05,0.12],[1,0.12,-0.50,0.02]],
+    L:[[0,-0.12,-0.50,0.02],[0.2,-0.10,-0.46,0.06],[0.85,-0.10,-0.46,0.06],[1,-0.12,-0.50,0.02]],
+    chest:[[0,0,0,0],[0.2,0.05,0.05,-0.22],[0.85,0.05,0.05,-0.22],[1,0,0,0]],
+    head:[[0,0,0,0],[0.2,0.05,0.12,-0.10],[0.85,0.05,0.12,-0.10],[1,0,0,0]],
+    hips:[[0,0,0,0,0,0],[0.25,0.035,-0.01,0,-0.05,0],[0.85,0.035,-0.01,0,-0.05,0],[1,0,0,0,0,0]],
+    wag:{f:2.9,amp:0.07,roll:0.5,a:0.2,b:0.88}, pole:{R:[0.6,-0.1,-0.3]}, hand:{R:{c:0.05,f:[0.12,1,0.05],n:[0,0,1]},L:{c:0.45}}},
+  floss:{n:'Floss',loop:1,bpm:120,beats:2,
+    R:[[0,0.34,-0.22,-0.40],[0.25,0.0,-0.30,-0.46],[0.5,-0.50,-0.20,-0.30],[0.75,0.0,-0.30,-0.46]],
+    L:[[0,0.56,-0.22,0.30],[0.25,0.10,-0.36,0.42],[0.5,-0.34,-0.22,0.38],[0.75,0.10,-0.36,0.42]],
+    hips:[[0,-0.13,-0.07,-0.25,-0.14,0],[0.25,0,-0.02,0,0,0],[0.5,0.13,-0.07,0.25,0.14,0],[0.75,0,-0.02,0,0,0]],
+    chest:[[0,-0.12,0.14,-0.75],[0.25,-0.08,0,0],[0.5,-0.12,-0.14,0.75],[0.75,-0.08,0,0]],
+    head:[[0,0,0.05,-0.30],[0.25,0,0,0],[0.5,0,-0.05,0.30],[0.75,0,0,0]], hand:{R:{c:1.3},L:{c:1.3}}},
+  pump:{n:'Fist pump',loop:1,bpm:128,beats:2,
+    R:[[0,0.08,0.46,0.10],[0.25,0.12,0.02,0.30],[0.5,0.12,-0.12,0.26],[0.75,0.12,0.02,0.30]],
+    L:[[0,-0.12,-0.12,0.26],[0.25,-0.12,0.02,0.30],[0.5,-0.08,0.46,0.10],[0.75,-0.12,0.02,0.30]],
+    hips:[[0,0,0.01,0,0,0],[0.25,0,-0.06,0,0,0],[0.5,0,0.01,0,0,0],[0.75,0,-0.06,0,0,0]],
+    chest:[[0,0.12,0.12,0.15],[0.25,-0.05,0,0],[0.5,0.12,-0.12,-0.15],[0.75,-0.05,0,0]],
+    head:[[0,0.2,0,0],[0.25,-0.05,0,0],[0.5,0.2,0,0],[0.75,-0.05,0,0]], hand:{R:{c:1.35},L:{c:1.35}}},
+  robot:{n:'Robot',loop:1,bpm:100,beats:4,step:8,
+    R:[[0,0.30,0.14,0.10],[0.25,0.10,0.02,0.34],[0.5,0.30,-0.06,0.22],[0.75,0.06,0.12,0.30]],
+    L:[[0,-0.10,0.02,0.34],[0.25,-0.30,0.14,0.10],[0.5,-0.06,0.12,0.30],[0.75,-0.30,-0.06,0.22]],
+    hips:[[0,0,-0.03,0,0,0],[0.125,0,0,0,0,0],[0.25,0,-0.03,0,0,0],[0.375,0,0,0,0,0],[0.5,0,-0.03,0,0,0],[0.625,0,0,0,0,0],[0.75,0,-0.03,0,0,0],[0.875,0,0,0,0,0]],
+    chest:[[0,0,0,0.22],[0.25,0,0,0],[0.5,0,0,-0.22],[0.75,0,0,0]], head:[[0,0,0,0.45],[0.25,0,0,0],[0.5,0,0,-0.45],[0.75,0,0,0]], hand:{R:{c:0.1},L:{c:0.1}}},
+  disco:{n:'Disco point',loop:1,bpm:110,beats:2,
+    R:[[0,0.30,0.42,0.10],[0.18,0.32,0.44,0.10],[0.5,-0.34,-0.38,0.22],[0.68,-0.36,-0.40,0.22]],
+    L:[[0,-0.30,-0.34,0.08],[0.5,-0.30,-0.34,0.08]],
+    hips:[[0,0.05,-0.05,0.30,-0.10,0],[0.25,0,0,0,0,0],[0.5,-0.05,-0.05,-0.30,0.10,0],[0.75,0,0,0,0,0]],
+    chest:[[0,0.1,-0.14,0.0],[0.5,0.05,0.14,0.0]], head:[[0,0.1,0.1,-0.3],[0.5,-0.1,-0.1,0.3]],
+    pole:{L:[-0.9,-0.1,-0.1]}, hand:{R:{pt:1,c:1.25},L:{c:0.5}}},
+  dab:{n:'Dab',dur:2.1,
+    R:[[0,0.12,-0.50,0.02],[0.09,-0.14,0.10,0.24],[0.84,-0.14,0.10,0.24],[0.96,0.12,-0.50,0.02],[1,0.12,-0.50,0.02]],
+    L:[[0,-0.12,-0.50,0.02],[0.09,-0.50,0.20,0.06],[0.84,-0.50,0.20,0.06],[0.96,-0.12,-0.50,0.02],[1,-0.12,-0.50,0.02]],
+    hips:[[0,0,0,0,0,0],[0.09,0.02,-0.04,0,0,0],[0.84,0.02,-0.04,0,0,0],[1,0,0,0,0,0]],
+    chest:[[0,0,0,0],[0.09,-0.1,0.0,-0.2],[0.84,-0.1,0.0,-0.2],[1,0,0,0]], head:[[0,0,0,0],[0.09,-0.55,0.2,-0.6],[0.84,-0.55,0.2,-0.6],[1,0,0,0]],
+    pole:{R:[0.6,0.5,0.0]}, hand:{R:{c:0.2},L:{c:0.2}}},
+  salute:{n:'Salute',dur:2.2,
+    R:[[0,0.12,-0.50,0.02],[0.1,-0.02,0.14,0.20],[0.82,-0.02,0.14,0.20],[0.9,0.12,-0.50,0.02],[1,0.12,-0.50,0.02]],
+    L:[[0,-0.12,-0.50,0.02],[0.1,-0.08,-0.52,0.0],[0.82,-0.08,-0.52,0.0],[1,-0.12,-0.50,0.02]],
+    chest:[[0,0,0,0],[0.1,0.1,0,0],[0.82,0.1,0,0],[0.9,0,0,0],[1,0,0,0]], head:[[0,0,0,0],[0.1,0.06,0,0],[0.82,0.06,0,0],[0.9,0,0,0],[1,0,0,0]],
+    pole:{R:[0.6,0.15,-0.2]}, hand:{R:{c:0.08,f:[0.7,0.3,-0.5],n:[0,-0.8,0.5]},L:{c:0.5}}},
+  flip:{n:'Somersault',dur:1.7,zg:1,flip:1}
+};
+const EM_ORDER=['wave','floss','pump','robot','disco','dab','salute','flip'];
+try{ const v=localStorage.getItem('stormIslandEmote'); if(v&&EMOTES[v]) EM.last=v; }catch(e){}
+// keyed paths: K=[[u,a,b,..],..]. loop: a closed Catmull-Rom ring through the keys; otherwise open, held at both ends
+function emKey(K,u,loop,o){
+  const n=K.length, m=K[0].length; let i=0; for(let j=0;j<n;j++) if(u>=K[j][0]) i=j;
+  let a,b,c,d,t1;
+  if(loop){ a=K[(i+n-1)%n]; b=K[i]; c=K[(i+1)%n]; d=K[(i+2)%n]; t1=i+1<n?K[i+1][0]:1; }
+  else { b=K[i]; if(i>=n-1){ for(let j=1;j<m;j++) o[j-1]=b[j]; return o; } a=K[Math.max(0,i-1)]; c=K[i+1]; d=K[Math.min(n-1,i+2)]; t1=c[0]; }
+  const k=clamp((u-b[0])/Math.max(1e-6,t1-b[0]),0,1), k2=k*k, k3=k2*k;
+  for(let j=1;j<m;j++) o[j-1]=0.5*(2*b[j]+(c[j]-a[j])*k+(2*a[j]-5*b[j]+4*c[j]-d[j])*k2+(3*b[j]-a[j]-3*c[j]+d[j])*k3);
+  return o; }
+const _eP=[0,0,0,0,0,0], _eH=[0,0,0,0,0,0], _eK=[0,0,0,0,0,0], _eG=[0,0,0,0,0,0];
+const emCh=(K,u,loop,o,n)=>{ if(!K){ for(let i=0;i<n;i++) o[i]=0; return o; } return emKey(K,u,loop,o); };
+const _eR=new V(), _eU=new V(), _eF=new V(), _eS=new V(), _eT=new V(), _eTg=new V(), _eN=new V(), _ePo=new V(), _eFv=new V(), _eNv=new V(), _eFw=new V(), _eX=new V(1,0,0);
+const _eA=new V(), _eB=new V(), _eC=new V(), _eP1=new V(), _eP2=new V(), _eFeet=[new V(),new V()];
+// the stock rig's shoulder to wrist length: emote offsets are metres at that size and scale with the arm (titan, tiny, big skins)
+function emScale(B){ B.RightArm.getWorldPosition(_eA); B.RightForeArm.getWorldPosition(_eB); B.RightHand.getWorldPosition(_eC); return (_eA.distanceTo(_eB)+_eB.distanceTo(_eC))/0.523; }
+// elbow hint: out, down and back by default; only the part across the arm counts, and a fallback keeps it from flipping when the hand is in line with it
+function emPole(out,sh,tg,sx,r,up,fw,P){
+  const px=P?P[0]:sx*0.55, py=P?P[1]:-0.45, pz=P?P[2]:-0.30;
+  _eP1.set(0,0,0).addScaledVector(r,px).addScaledVector(up,py).addScaledVector(fw,pz);
+  _eP2.subVectors(tg,sh); const L=_eP2.length(); if(L>1e-4) _eP2.multiplyScalar(1/L);
+  _eP1.addScaledVector(_eP2,-_eP1.dot(_eP2)); const m=_eP1.length(), k=1-smooth(0.12,0.3,m);
+  if(k>0){ _eA.copy(r).multiplyScalar(sx); _eA.addScaledVector(_eP2,-_eA.dot(_eP2)); if(_eA.lengthSq()<0.04){ _eA.copy(up); _eA.addScaledVector(_eP2,-_eA.dot(_eP2)); } _eP1.addScaledVector(_eA.normalize(),0.3*k); }
+  return out.copy(sh).add(_eP1); }
+const _eAx=new V(), _eF1=new V(), _eN1=new V();
+// hand: fingers along F, palm toward N, every finger curled by `curl` (the index finger stays straight when pointing)
+function emHand(B,sd,F,N,curl,point){
+  poseHand(B,sd,F,N,0); if(!curl&&!point) return;
+  _eF1.copy(F).normalize(); _eN1.copy(N).addScaledVector(_eF1,-N.dot(_eF1)).normalize(); _eAx.crossVectors(_eF1,_eN1);
+  for(const fg of ['Index','Middle','Ring','Pinky']) for(let k=1;k<=3;k++){ const b=B[sd+'Hand'+fg+k]; if(b) rotateBoneWorld(b,_eAx,(point&&fg==='Index'?0.05:curl)*(k===1?0.8:1)); }
+  if(curl>0.6) for(let k=1;k<=3;k++){ const b=B[sd+'HandThumb'+k]; if(b) rotateBoneWorld(b,_eAx,curl*0.45); } // fist: the thumb folds over the fingers
+}
+// both feet back onto where they stood (_eFeet), whatever the hips just did; the knees point along fw
+function emPlant(B,fw,up,tw){ for(let i=0;i<2;i++){ const sd=i?'Right':'Left'; B[sd+'UpLeg'].getWorldPosition(_eA); _eB.copy(_eA).addScaledVector(fw,1.2).addScaledVector(up,-0.4);
+  solveIK(B[sd+'UpLeg'],B[sd+'Leg'],B[sd+'Foot'],_eFeet[i],_eB); if(tw) rotateBoneWorld(B[sd+'Foot'],up,tw); } }
+// the arm layer while emoting, and the whole-body pose (hips, spine, head, planted feet). X needs c, B, g, rightB, upB, fwdB (+pitch)
+function emotePose(e,X){ const em=e.emote, E=em&&em.E; if(!E) return;
+  const {c,B}=X, W=smooth(0,1,em.w), t=em.t, loop=!!E.loop;
+  const u=loop?((t*E.bpm/(60*E.beats))%1):Math.min(1,t/E.dur), uq=E.step?(Math.floor(u*E.step)+smooth(0,0.22,(u*E.step)%1))/E.step:u;
+  const r=_eR.copy(X.rightB), up=_eU.copy(X.upB), fw=_eF.copy(X.fwdB);
+  const ground=!!e.onGround&&!e.zgFloat;
+  if(ground){ B.LeftFoot.getWorldPosition(_eFeet[0]); B.RightFoot.getWorldPosition(_eFeet[1]); }
+  // the somersault turns the whole body about its middle (c.spin; nothing but the skeleton hangs off it while the hands are empty)
+  if(E.flip){ const ang=-TAU*easeIO(clamp((u-0.2)/0.6,0,1))*W; c.spin.quaternion.setFromAxisAngle(_eX,ang); c.emSpin=true;
+    _eS.set(0,c.spin.scale.y,0).applyQuaternion(c.spin.quaternion); c.spin.position.set(0,1,0).sub(_eS); X.g.updateMatrixWorld(true);
+    c.model.getWorldQuaternion(_qm); r.set(1,0,0).applyQuaternion(_qm); fw.set(0,0,-1).applyQuaternion(_qm); up.set(0,1,0).applyQuaternion(_qm); }
+  else if(c.emSpin){ c.spin.quaternion.identity(); c.emSpin=false; }
+  const S=emScale(B);
+  // hips: slide and turn the pelvis, then the spine and head take the net pose (each bone adds a share of what is left to do)
+  const hp=emCh(E.hips,uq,loop,_eH,5), ch=emCh(E.chest,uq,loop,_eK,3), hd=emCh(E.head,uq,loop,_eG,3);
+  c.model.position.x=hp[0]*W; c.model.position.y+=hp[1]*W; c.model.updateMatrixWorld(true);
+  const hy=hp[2]*W, hr=hp[3]*W, hpi=hp[4]*W;
+  rotateBoneWorld(B.Hips,up,hy); rotateBoneWorld(B.Hips,fw,hr); rotateBoneWorld(B.Hips,r,hpi);
+  const cp=ch[0]*W, cr=ch[1]*W, cy=ch[2]*W;
+  for(const n of ['Spine','Spine1','Spine2']){ rotateBoneWorld(B[n],r,(cp-hpi)/3); rotateBoneWorld(B[n],fw,(cr-hr)/3); rotateBoneWorld(B[n],up,(cy-hy)/3); }
+  rotateBoneWorld(B.Neck,r,(hd[0]*W-cp)*0.6-(X.pitch||0)*0.5*W); rotateBoneWorld(B.Head,r,(hd[0]*W-cp)*0.4);
+  rotateBoneWorld(B.Neck,fw,(hd[1]*W-cr)*0.6); rotateBoneWorld(B.Head,fw,(hd[1]*W-cr)*0.4);
+  rotateBoneWorld(B.Neck,up,(hd[2]*W-cy)*0.6); rotateBoneWorld(B.Head,up,(hd[2]*W-cy)*0.4);
+  if(ground) emPlant(B,_eFw.copy(fw).applyAxisAngle(up,hy),up,-hy);
+  // the somersault: tuck, roll, open out into a star
+  let tk=0, star=0;
+  if(E.flip){ tk=smooth(0,0.2,u)*(1-smooth(0.76,0.88,u)); star=smooth(0.8,0.9,u)*(1-smooth(0.95,1,u));
+    for(const sd of ['Left','Right']){ const sx=sd==='Right'?1:-1;
+      rotateBoneWorld(B[sd+'UpLeg'],r,1.3*tk*W); rotateBoneWorld(B[sd+'Leg'],r,-2.0*tk*W); rotateBoneWorld(B[sd+'UpLeg'],fw,-sx*0.5*star*W); } }
+  // arms: IK to a hand path, blended in and out by W; the elbow follows a continuous hint
+  for(const sd of ['Right','Left']){ const sx=sd==='Right'?1:-1, K=sd==='Right'?E.R:E.L; if(!K&&!E.flip) continue;
+    const sh=B[sd+'Arm'].getWorldPosition(_eS), cur=B[sd+'Hand'].getWorldPosition(_eT), tg=_eTg;
+    if(E.flip){ const kn=B[sd+'Leg'].getWorldPosition(_eN).addScaledVector(fw,0.12*S);
+      tg.copy(sh).addScaledVector(r,sx*0.5*S).addScaledVector(up,0.28*S).addScaledVector(fw,0.05*S).lerp(kn,tk); }
+    else { emKey(K,uq,loop,_eP); let px=_eP[0];
+      if(E.wag&&sd==='Right'){ const hold=smooth(E.wag.a-0.08,E.wag.a,u)*(1-smooth(E.wag.b,E.wag.b+0.08,u)); em.wg=Math.sin(TAU*E.wag.f*t)*hold; px+=E.wag.amp*em.wg; }
+      tg.copy(sh).addScaledVector(r,px*S).addScaledVector(up,_eP[1]*S).addScaledVector(fw,_eP[2]*S); }
+    tg.lerpVectors(cur,tg,W);
+    const pole=emPole(_ePo,sh,tg,sx,r,up,fw,E.pole&&E.pole[sd[0]]);
+    solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],tg,pole);
+    // the hand
+    const H=E.hand&&E.hand[sd[0]], curl=(H&&H.c!=null?H.c:E.flip?0.9:0.5)*W;
+    B[sd+'Hand'].getWorldPosition(_eS); B[sd+'ForeArm'].getWorldPosition(_eT);
+    const F=_eFv.copy(_eS).sub(_eT).normalize(), N=_eNv.copy(r).multiplyScalar(-sx);
+    if(H&&H.f){ F.set(0,0,0).addScaledVector(r,H.f[0]).addScaledVector(up,H.f[1]).addScaledVector(fw,H.f[2]); if(sd==='Right'&&E.wag) F.applyAxisAngle(fw,E.wag.roll*(em.wg||0)); }
+    if(H&&H.n) N.set(0,0,0).addScaledVector(r,H.n[0]).addScaledVector(up,H.n[1]).addScaledVector(fw,H.n[2]);
+    emHand(B,sd,F,N,curl,H&&H.pt); }
+}
+// ---- starting, stopping and the per-frame timers
+function emoteOk(e,E){
+  if(!e.alive||lockedUp(e)||e.bounceT>0) return false;
+  if(E.zg&&(!e.zgFloat||ZG.state==='ceil')) return false;
+  if(e.zgFloat){ if(e.zgPropel||Math.hypot(e.vel.x,e.vel.y,e.vel.z)>4) return false; } else if(!e.onGround) return false;
+  if(e.isPlayer&&(ads||e.consuming||e.throwA||e.reloading||e.swingT>0||mouse.l||mouse.r||e.writing)) return false;
+  return true; }
+// begin an emote on anyone (no checks): the hero on the home screen uses this directly
+function emBegin(e,key,o?){ const E=EMOTES[key], old=e.emote;
+  e.emote={E,k:key,t:0,w:old?Math.min(0.4,old.w):0,yaw:old?old.yaw:e.yaw,out:false,max:(o&&o.max)||0,sel:e.sel,hp:e.hp+e.shield,ceil:ZG.state==='ceil',ground:!!e.onGround,fc:e.fireCd||0};
+  if(o&&o.face) e.emote.yaw=Math.atan2(-(o.face.x-e.pos.x),-(o.face.z-e.pos.z));
+  if(o&&o.yaw!=null) e.emote.yaw=o.yaw;
+  if(!old) poseSnap(e.ch,0.2);
+  return !old; }
+function startEmote(e,key,o?){ const E=EMOTES[key]; if(!E||!emoteOk(e,E)) return false; if(emBegin(e,key,o)) EM.on.push(e); return true; }
+function emEnd(e){ const c=e.ch; e.emote=null; if(c){ c.spin.quaternion.identity(); c.emSpin=false; c.model.position.x=0; poseSnap(c,0.2); } }
+function stopEmote(e,instant?){ const em=e.emote; if(!em) return; if(instant||em.w<=0.001){ emEnd(e); const i=EM.on.indexOf(e); if(i>=0) EM.on.splice(i,1); } else em.out=true; }
+// B played the emote you picked; refuses (and says so) when the body is busy
+function playerEmote(key){ const p=player; if(!p||!p.alive||state!=='play'||shopOpen) return false; const E=EMOTES[key]; if(!E) return false;
+  if(E.zg&&(!p.zgFloat||ZG.state==='ceil')){ toast('Needs zero-g'); return false; }
+  if(!startEmote(p,key)) return false; EM.last=key; try{ localStorage.setItem('stormIslandEmote',key); }catch(e){} return true; }
+// anything that needs the camera aimed (a shot, a swing, the ball) ends the emote this instant and snaps the camera back behind you
+function emStopNow(p){ if(!p||!p.emote||p.emote.out) return; stopEmote(p,true); EM.camK=0; EM.camKV=0; updateCamera(0); }
+function emCancel(e,em,dt){
+  if(e.isPlayer){ if(keys.KeyW||keys.KeyA||keys.KeyS||keys.KeyD||keys.Space||keys.KeyC||keys.ControlLeft||keys.ShiftLeft||keys.ShiftRight||mouse.l||mouse.r) return true;
+    if(e.sel!==em.sel||e.consuming||e.throwA||e.reloading||e.swingT>0||Math.hypot(e.vel.x,e.vel.y,e.vel.z)>6) return true; }
+  else { if(e.fireCd>em.fc+0.01||e.knockT>0) return true; em.fc=e.fireCd; e.vel.multiplyScalar(Math.exp(-5*dt)); e.zgTx=0; /* upright, not in the swim tilt */ }
+  if(e.hp+e.shield<em.hp-0.01||e.bounceT>0||lockedUp(e)) return true;
+  if((ZG.state==='ceil')!==em.ceil||!!e.onGround!==em.ground) return true;
+  return false; }
+// advance one emote: fade in, fade out when it ends or is cancelled (free: nothing cancels it). false once it is gone
+function emTick(e,dt,free?){ const em=e.emote; if(!em) return false; em.t+=dt;
+  if(em.out){ em.w-=dt/0.2; em.yaw+=wrapPi(e.yaw-em.yaw)*(1-Math.exp(-18*dt)); if(em.w<=0){ emEnd(e); return false; } return true; }
+  em.w=Math.min(1,em.w+dt/0.22);
+  if((!free&&emCancel(e,em,dt))||(!em.E.loop&&em.t>=em.E.dur)||(em.max&&em.t>=em.max)) em.out=true;
+  return true; }
+function updateEmote(dt){
+  const p=player; if(!p) return;
+  if(EM.pRef!==p){ EM.pRef=p; EM.on.length=0; EM.held=false; emWheelClose(); EM.camK=0; EM.camKV=0; }
+  if(EM.held&&!EM.wheel){ EM.hold+=dt; if(EM.hold>0.2&&p.alive) emWheelOpen(); }
+  if(EM.wheel&&!p.alive) emWheelClose();
+  for(let i=EM.on.length-1;i>=0;i--){ const e=EM.on[i];
+    if(!e.emote||!e.alive||combatants.indexOf(e)<0){ if(e.emote) emEnd(e); EM.on.splice(i,1); continue; }
+    if(!emTick(e,dt)) EM.on.splice(i,1); }
+}
+// a bot that wins a fight in zero-g with the camera nearby sometimes gloats for a moment (it stops the instant it fires or is hurt)
+function emoteOnKill(killer,victim){
+  if(victim===player) player.killer=killer; // the death camera frames whoever did it
+  if(killer.isPlayer||!player||!player.alive||ZG.state==='ceil'||!killer.alive||killer.emote||EM.on.length>4||Math.random()>0.3) return;
+  if(killer.pos.distanceTo(camera.position)>28||lockedUp(killer)||killer.bounceT>0||killer.knockT>0) return;
+  for(const o of combatants) if(o.alive&&o!==killer&&o!==victim&&!o.isPlayer&&o.pos.distanceToSquared(killer.pos)<625) return; // nobody else close by
+  startEmote(killer,pick(['floss','pump','disco','robot','wave','flip']),{max:2.4,face:camera.position}); }
+// ---- the emote wheel (DOM in index.html; this fills it). Hold B, move the mouse, release to play; 1-8 pick directly
+const EW:any={built:false,on:0,cx:0,cy:0,step:Math.PI*2/8,R0:78,R1:186};
+const EM_IC={ // little stick figures on a 48x48 grid: t=[shoulder x,y,hip x,y], a=[elbow x,y,hand x,y] per arm, w=waving marks
+  wave:{a:[[31,15,35,6],[20,24,18,32]],w:[[38,3,41,6],[40,9,43,12]]}, floss:{a:[[31,24,38,31],[29,22,34,13]],t:[26,17,21,31]},
+  pump:{a:[[31,14,33,5],[19,25,25,22]]}, robot:{a:[[33,17,33,9],[15,17,15,25]]}, disco:{a:[[31,12,38,5],[14,23,20,30]],t:[26,17,22,31]},
+  dab:{a:[[34,11,26,11],[14,12,5,6]]}, salute:{a:[[33,14,26,9],[21,25,20,33]]}, flip:{ring:1} };
+function emIcon(k){ const d=EM_IC[k]||{a:[[31,24,34,31],[17,24,14,31]]}, t=d.t||[24,17,24,31]; let s='<svg viewBox="0 0 48 48" aria-hidden="true">';
+  if(d.ring) return s+'<path d="M37 14a15 15 0 1 0 3.5 11" fill="none"/><path d="M34 7l4 7-8 1" fill="none"/><circle cx="24" cy="23" r="4.4" class="f"/><path d="M18 29q6 7 12 0" fill="none"/></svg>';
+  s+=`<circle cx="${(t[0]+(t[0]-t[2])*0.4).toFixed(1)}" cy="${t[1]-8}" r="4.4" class="f"/><path d="M${t[0]} ${t[1]}L${t[2]} ${t[3]}M${t[2]} ${t[3]}L${t[2]-6} 39L${t[2]-6} 46M${t[2]} ${t[3]}L${t[2]+6} 39L${t[2]+6} 46" fill="none"/>`;
+  for(const a of d.a) s+=`<path d="M${t[0]} ${t[1]}L${a[0]} ${a[1]}L${a[2]} ${a[3]}" fill="none"/>`;
+  for(const w of d.w||[]) s+=`<path d="M${w[0]} ${w[1]}L${w[2]} ${w[3]}" fill="none" opacity=".7"/>`;
+  return s+'</svg>'; }
+function ewArc(r0,r1,a0,a1){ const P=(r,a)=>(Math.cos(a)*r).toFixed(1)+' '+(Math.sin(a)*r).toFixed(1); return `M${P(r1,a0)}A${r1} ${r1} 0 0 1 ${P(r1,a1)}L${P(r0,a1)}A${r0} ${r0} 0 0 0 ${P(r0,a0)}Z`; }
+function ewBuild(){ if(EW.built) return; EW.built=true; const st=$q('#emoteWheel .ew-stage'), n=EM_ORDER.length; EW.step=TAU/n;
+  let svg='<svg class="ew-ring" viewBox="-220 -220 440 440" aria-hidden="true"><defs><linearGradient id="ewg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5cf0ff" stop-opacity=".5"/><stop offset="1" stop-color="#ff3bd4" stop-opacity=".42"/></linearGradient></defs>', sl='';
+  for(let i=0;i<n;i++){ const a=-Math.PI/2+i*EW.step, g=0.035; svg+=`<path class="ew-w" data-i="${i}" d="${ewArc(EW.R0,EW.R1,a-EW.step/2+g,a+EW.step/2-g)}"/>`;
+    const rm=(EW.R0+EW.R1)/2, E=EMOTES[EM_ORDER[i]];
+    sl+=`<div class="ew-slot" data-i="${i}" style="left:${(220+Math.cos(a)*rm).toFixed(1)}px;top:${(220+Math.sin(a)*rm).toFixed(1)}px">${emIcon(EM_ORDER[i])}<span>${E.n}</span><kbd>${i+1}</kbd>${E.zg?'<em>zero-g</em>':''}</div>`; }
+  svg+='</svg>'; st.innerHTML=svg+sl+'<div class="ew-center"><span class="ew-k">Emote</span><b id="ewName"></b><i>Release <kbd>B</kbd> to play</i></div><div class="ew-cursor" id="ewCur"></div>'; }
+function ewRender(){ const el=$('emoteWheel'); el.querySelectorAll('.ew-w').forEach((w:any)=>w.classList.toggle('on',+w.dataset.i===EW.on));
+  el.querySelectorAll('.ew-slot').forEach((s:any)=>{ s.classList.toggle('on',+s.dataset.i===EW.on); s.classList.toggle('lock',!!EMOTES[EM_ORDER[+s.dataset.i]].zg&&!!player&&(!player.zgFloat||ZG.state==='ceil')); });
+  $('ewName').textContent=EMOTES[EM_ORDER[EW.on]].n; $('ewCur').style.transform=`translate(${EW.cx.toFixed(1)}px,${EW.cy.toFixed(1)}px)`; }
+function emWheelOpen(){ if(EM.wheel||!player||!player.alive) return; ewBuild(); EM.wheel=true;
+  const i=Math.max(0,EM_ORDER.indexOf(EM.last)), a=-Math.PI/2+i*EW.step; EW.on=i; EW.cx=Math.cos(a)*64; EW.cy=Math.sin(a)*64; ewRender();
+  const el=$('emoteWheel'); el.style.setProperty('--s',String(Math.max(0.55,Math.min(1.3,Math.min(innerWidth,innerHeight)*0.78/440)))); el.hidden=false; void el.offsetWidth; el.classList.add('show'); }
+function emWheelClose(){ if(!EM.wheel) return; EM.wheel=false; const el=$('emoteWheel'); el.classList.remove('show'); el.hidden=true; }
+// the wheel takes the mouse (it moves a cursor, not the camera); these listeners sit in front of the game's own
+addEventListener('mousemove',ev=>{ if(!EM.wheel||state!=='play') return; ev.stopImmediatePropagation();
+  EW.cx+=(ev.movementX||0)*0.9; EW.cy+=(ev.movementY||0)*0.9; const l=Math.hypot(EW.cx,EW.cy), mx=EW.R1-34; if(l>mx){ EW.cx*=mx/l; EW.cy*=mx/l; }
+  if(l>26) EW.on=(Math.round((Math.atan2(EW.cy,EW.cx)+Math.PI/2)/EW.step)%EM_ORDER.length+EM_ORDER.length)%EM_ORDER.length; ewRender(); },true);
+addEventListener('keydown',ev=>{ if(state!=='play'||!player||!player.alive) return; const c=keyCode(ev);
+  if(EM.wheel&&c.startsWith('Digit')){ ev.stopImmediatePropagation(); ev.preventDefault(); const n=+c.slice(5); if(n>=1&&n<=EM_ORDER.length){ emWheelClose(); EM.held=false; playerEmote(EM_ORDER[n-1]); } return; }
+  if(c==='KeyB'){ if(!ev.repeat&&!shopOpen){ EM.held=true; EM.hold=0; } return; }
+  if(!ev.repeat&&player.emote&&(c==='KeyQ'||c==='KeyR'||c==='KeyE'||c.startsWith('Digit'))) emStopNow(player); },true);
+addEventListener('keyup',ev=>{ if(keyCode(ev)!=='KeyB') return; const p=player, was=EM.held; EM.held=false; if(!p||state!=='play'){ emWheelClose(); return; }
+  if(EM.wheel){ const k=EM_ORDER[EW.on]; emWheelClose(); if(p.alive) playerEmote(k); }
+  else if(was&&p.alive){ if(p.emote&&!p.emote.out) stopEmote(p); else playerEmote(EM.last); } },true);
+addEventListener('mousedown',ev=>{ if(state!=='play'||!player) return;
+  if(EM.wheel){ ev.stopImmediatePropagation(); ev.preventDefault(); const k=EM_ORDER[EW.on]; emWheelClose(); EM.held=false; if(ev.button===0) playerEmote(k); return; }
+  if(player.emote&&!player.emote.out) emStopNow(player); },true);
+addEventListener('wheel',()=>{ if(player&&player.emote&&!player.emote.out&&state==='play') stopEmote(player); },{capture:true,passive:true});
+addEventListener('blur',()=>{ EM.held=false; emWheelClose(); });
+document.addEventListener('pointerlockchange',()=>{ if(!document.pointerLockElement){ EM.held=false; emWheelClose(); } });
 // ================= characters =================
 // everyone in the match: the player and the bots share these fields; bots and the player add their own on top
 type Combatant=Record<string,any>;
@@ -1343,7 +1831,7 @@ function eliminate(t,killer,weapon,info?){
   t.alive=false; t.hp=0; t.deadT=0; aliveCount--; startDeath(t,deathKind(weapon,info),info);
   charMeshes=charMeshes.filter(m=>m.userData.ent!==t); targetsDirty=true;
   feed(killer?`${killer.name} eliminated ${t.name}${weapon?' · '+weapon:''}`:weapon?`${t.name} ${t===player?'were':'was'} hit by a ${weapon}`:`${t.name} was eliminated`,killer===player||t===player);
-  if(killer){ killer.kills++; if(killer===player){ player.bank++; sfx('elim'); banner('Eliminated',t.name+' · '+(aliveCount)+' left',2); pwOnKill(t); } }
+  if(killer){ killer.kills++; emoteOnKill(killer,t); /* [S4] bots gloat, the death cam frames the killer */ if(killer===player){ player.bank++; sfx('elim'); banner('Eliminated',t.name+' · '+(aliveCount)+' left',2); pwOnKill(t); } }
   if(t.curse){ const c=t.curse; t.curse=null; if(c.alive) pwBlast(chest(t),{src:c,r:6,dmg:30,col:0xffc21a,name:'Ancient Curse'}); } // Temple Idol: the curse goes off
   // every elimination heals the winner and tops up their shield
   if(killer&&killer.alive&&killer!==t){ const add=50, hp=Math.min(100-killer.hp,add); killer.hp+=hp; killer.shield=Math.min(100,killer.shield+add-hp); }
@@ -1562,35 +2050,84 @@ function drawMap(){
 // ================= camera =================
 let camOverride=null;
 const camFwd=new V(), camRight=new V(), _zc=new V(); let camDist=4.2, camDistNow=4.2, fov=72;
+// [S4] camera feel. All of it is cosmetic: the aim direction stays exactly where the mouse put it (the guns read
+// camera.getWorldDirection), so rotational shake and the recoil kick are a lens shift (setViewOffset), and the follow lag
+// moves the camera and its target together.
+const CAM:any={have:false,out:4.2,rp:0,rpV:0,land:0,landV:0,lastRec:0,lastLand:0,fk:0,fkT:0,prop:false,boost:0,flip:null,lagOn:false,sx:0,sy:0,sz:0,sxV:0,syV:0,szV:0,dead:false,dT:0,a0:0,r0:9,h0:3,d0:new V(),killer:null};
+const camNoise=(t,f,ph)=>0.6*Math.sin(t*f+ph)+0.3*Math.sin(2.13*t*f+1.7+ph)+0.1*Math.sin(4.37*t*f+0.4+ph*1.3);
+// a lens shift in NDC units (x right, y up): reads as a small turn of the head without turning the aim
+function camShift(ox,oy){
+  if(Math.abs(ox)+Math.abs(oy)<1e-5){ if(camera.view&&camera.view.enabled) camera.clearViewOffset(); else camera.updateProjectionMatrix(); return; }
+  const W=renderer.domElement.clientWidth||innerWidth, H=renderer.domElement.clientHeight||innerHeight; camera.setViewOffset(W,H,-ox*W/2,oy*H/2,W,H); }
 function updateCamera(dt){
   if(state==='armory'){ updateArmory(dt); return; }
-  if(camOverride){ camera.position.copy(camOverride.pos); camera.lookAt(camOverride.look); return; }
+  if(camOverride){ if(camera.view&&camera.view.enabled) camera.clearViewOffset(); camera.position.copy(camOverride.pos); camera.lookAt(camOverride.look); return; }
   camera.up.set(0,1,0);
   // home screen: a slow orbit round the inside of the box
-  if(state==='menu'||!player){ const t=performance.now()/1000*0.04; camera.position.set(Math.cos(t)*60,ZG.H*0.55,Math.sin(t)*60); camera.lookAt(0,ZG.H*0.4,0); if(camera.fov!==60){ camera.fov=60; camera.updateProjectionMatrix(); } return; }
-  const p=player;
-  if(!p.alive){ const a=matchTime*0.25; camera.position.set(p.pos.x+Math.cos(a)*9,p.pos.y+3.5,p.pos.z+Math.sin(a)*9); clampToBox(camera.position); camera.lookAt(p.pos.x,p.pos.y+1,p.pos.z); return; }
-  const cp=Math.cos(p.pitch); camFwd.set(-Math.sin(p.yaw)*cp,Math.sin(p.pitch),-Math.cos(p.yaw)*cp); camRight.set(Math.cos(p.yaw),0,-Math.sin(p.yaw));
-  const pivot=tv1.set(p.pos.x,p.pos.y+1.7-0.5*p.anim.crouch,p.pos.z);
-  const gun=!!curItem()&&curItem().kind==='gun', dist=p.bounceT>0?7.5:ads?2.0:gun?3.4:4.6, side=ads?0.8:gun?1.1:0.85; pivot.y+=ads?0.05:gun?0.3:0.45;
+  if(state==='menu'||!player){ const t=performance.now()/1000*0.04; camera.position.set(Math.cos(t)*60,ZG.H*0.55,Math.sin(t)*60); camera.lookAt(0,ZG.H*0.4,0); camera.fov=60; CAM.have=CAM.lagOn=CAM.dead=false; camShift(0,0); return; }
+  const p=player, A=p.anim;
+  if(!p.alive){ camDead(p,dt); return; }
+  CAM.dead=false;
+  // emoting: the camera swings round in front of you (the mouse still orbits it) and eases back when the emote ends
+  spring(EM,'camK',p.emote&&!p.emote.out?1:0,1.8,1,dt); const ek=clamp(EM.camK,0,1);
+  const cyaw=p.yaw+Math.PI*ek, cp=Math.cos(p.pitch); camFwd.set(-Math.sin(cyaw)*cp,Math.sin(p.pitch),-Math.cos(cyaw)*cp); camRight.set(Math.cos(cyaw),0,-Math.sin(cyaw));
+  const pivot=tv1.set(p.pos.x,p.pos.y+1.7-0.5*A.crouch,p.pos.z);
+  const gun=!!curItem()&&curItem().kind==='gun', dist=lerp(p.bounceT>0?7.5:ads?2.0:gun?3.4:4.6,3.6,ek), side=(ads?0.8:gun?1.1:0.85)*(1-ek); pivot.y+=lerp(ads?0.05:gun?0.3:0.45,-0.45,ek);
   // sprinting on the ceiling: a little head bob and the camera eases back
-  const sp=p.anim.sprint||0; pivot.y+=Math.abs(Math.sin(matchTime*8.5))*0.07*sp*(p.onGround?1:0)-(p.anim.land||0)*0.25;
+  const sp=A.sprint||0;
+  // landing: the camera dips and settles (Stream 1's landS spring when it exists, else one of ours kicked by the landing)
+  let ld=A.landS; if(ld===undefined){ const la=A.land||0; if(la>CAM.lastLand+0.05) CAM.landV+=la*9; CAM.lastLand=la; ld=spring(CAM,'land',0,3.2,0.55,dt); }
+  pivot.y+=Math.abs(Math.sin(matchTime*8.5))*0.07*sp*(p.onGround?1:0)-ld*1.1;
   const tS=p.titanS||1; pivot.y+=1.55*(tS-1); // a titan's eyes are way up high, and the camera backs off to fit it in
   camDist=lerp(camDist,(dist+0.45*sp)*(1+0.4*(tS-1)),1-Math.exp(-12*dt));
   const start=tv2.copy(pivot).addScaledVector(camRight,side); let d=camDist;
-  // pull in so a block never comes between the camera and you
+  // pull in so a block never comes between the camera and you: at once going in, a glide coming back out
   tv3.copy(camFwd).negate(); ray.set(start,tv3); ray.near=0; ray.far=camDist; const h=ray.intersectObjects(structsAlong(start,tv3,camDist),false); if(h.length) d=Math.max(0.4,h[0].distance-0.25);
-  camDistNow=d;
+  if(!CAM.have){ CAM.out=d; CAM.have=true; } else if(d<=CAM.out) CAM.out=d; else CAM.out+=Math.min(d-CAM.out,3*dt+(d-CAM.out)*(1-Math.exp(-7*dt)));
+  d=CAM.out; camDistNow=d;
   camera.position.copy(start).addScaledVector(camFwd,-d);
   tv3.set(start.x+camFwd.x*60,start.y+camFwd.y*60,start.z+camFwd.z*60);
   // upside down on the ceiling: the whole view rolls over around the body, so the ceiling becomes your floor
-  if(ZG.camRoll>0.001){ const ax=tv4.set(-Math.sin(p.yaw),0,-Math.cos(p.yaw)), c=_zc.set(p.pos.x,p.pos.y+1,p.pos.z);
+  if(ZG.camRoll>0.001){ const ax=tv4.set(-Math.sin(cyaw),0,-Math.cos(cyaw)), c=_zc.set(p.pos.x,p.pos.y+1,p.pos.z);
     camera.position.sub(c).applyAxisAngle(ax,ZG.camRoll).add(c); tv3.sub(c).applyAxisAngle(ax,ZG.camRoll).add(c); camera.up.set(0,1,0).applyAxisAngle(ax,ZG.camRoll); }
+  // follow lag: the camera trails a fast body a little (critically damped, so it never overshoots; position and target move together)
+  const bx=p.pos.x, by=p.pos.y, bz=p.pos.z;
+  if(!CAM.lagOn||Math.abs(CAM.sx-bx)+Math.abs(CAM.sy-by)+Math.abs(CAM.sz-bz)>4){ CAM.sx=bx; CAM.sy=by; CAM.sz=bz; CAM.sxV=CAM.syV=CAM.szV=0; CAM.lagOn=true; }
+  spring(CAM,'sx',bx,9,1,dt); spring(CAM,'sy',by,9,1,dt); spring(CAM,'sz',bz,9,1,dt);
+  const lx=CAM.sx-bx, ly=CAM.sy-by, lz=CAM.sz-bz, ll=Math.hypot(lx,ly,lz), lk=(ll>0.5?0.5/ll:1)*Math.pow(clamp(d/Math.max(camDist,0.5),0,1),2);
+  camera.position.x+=lx*lk; camera.position.y+=ly*lk; camera.position.z+=lz*lk; tv3.x+=lx*lk; tv3.y+=ly*lk; tv3.z+=lz*lk;
   clampToBox(camera.position);
   camera.lookAt(tv3);
-  if(camShake>0){ camShake=Math.max(0,camShake-dt*(camShake>0.3?1.1:0.5)); const s=camShake*camShake*0.9+camShake*0.15; camera.position.x+=rnd(-s,s); camera.position.y+=rnd(-s,s); camera.position.z+=rnd(-s,s); camera.rotation.z+=rnd(-s,s)*0.04; }
-  const it=curItem(), tf=ads?(it&&WEAP[it.id].zoom?20:52):72+7*sp;
-  fov=lerp(fov,tf,1-Math.exp(-14*dt)); camera.fov=fov; camera.updateProjectionMatrix();
+  const it=curItem(), tf=ads?(it&&WEAP[it.id].zoom?20:52):72+7*sp, ft=1/Math.tan(fov*Math.PI/360); let ox=0, oy=0;
+  // shake: smooth noise (not white), mostly a lens shift, a little roll and a little position
+  if(camShake>0){ camShake=Math.max(0,camShake-dt*(camShake>0.3?1.1:0.5)); const s=camShake*camShake*0.9+camShake*0.15, tm=performance.now()/1000;
+    camera.position.x+=camNoise(tm,23,0)*s*0.4; camera.position.y+=camNoise(tm,21,2.1)*s*0.4; camera.position.z+=camNoise(tm,25,4.3)*s*0.4; camera.rotation.z+=camNoise(tm,17,1.3)*s*0.05;
+    ox+=camNoise(tm,19,3.3)*s*0.09*ft; oy+=camNoise(tm,16,5.1)*s*0.09*ft; }
+  // recoil: a quick lens kick up that settles (visual only; the gun's own pitch is untouched)
+  const rc=A.recoil||0; if(rc>CAM.lastRec+0.02) CAM.rpV+=(rc-CAM.lastRec)*2.0; CAM.lastRec=rc; spring(CAM,'rp',0,9,0.5,dt); oy-=CAM.rp*ft;
+  // field of view: wider when sprinting, a punch on the kick-off, on a booster pad and when gravity flips
+  if(p.zgPropel&&!CAM.prop) CAM.fkT=Math.max(CAM.fkT,6); CAM.prop=!!p.zgPropel;
+  const bt=p.boostT||0; if(bt>CAM.boost+0.4) CAM.fkT=Math.max(CAM.fkT,10); CAM.boost=bt;
+  if(p.flip&&p.flip!==CAM.flip) CAM.fkT=Math.max(CAM.fkT,5); CAM.flip=p.flip||null;
+  CAM.fkT*=Math.exp(-2.4*dt); CAM.fk=lerp(CAM.fk,CAM.fkT,1-Math.exp(-18*dt));
+  fov=lerp(fov,tf,1-Math.exp(-14*dt)); camera.fov=fov+(ads?0:CAM.fk); camShift(ox,oy);
+}
+// dying: the camera glides from where it was into the slow orbit round the body, swings to put the killer in front of the
+// corpse for a moment, and rolls upright if you died on the ceiling
+function camDead(p,dt){
+  const d=p.death, bc=d?d.c:_zc.set(p.pos.x,p.pos.y+1,p.pos.z);
+  if(!CAM.dead){ CAM.dead=true; CAM.dT=0; const dx=camera.position.x-bc.x, dz=camera.position.z-bc.z; CAM.a0=Math.atan2(dz,dx); CAM.r0=clamp(Math.hypot(dx,dz),2,12); CAM.h0=camera.position.y-bc.y; camera.getWorldDirection(CAM.d0); EM.camK=0; EM.camKV=0; }
+  CAM.dT+=dt; const k=smooth(0,0.7,CAM.dT), kl=p.killer&&p.killer.alive&&p.killer!==p&&p.killer.pos.distanceTo(bc)<90?p.killer:null;
+  const kw=kl?smooth(0.3,0.7,CAM.dT)*(1-smooth(1.1,1.7,CAM.dT)):0;
+  let a=CAM.a0+CAM.dT*0.25; if(kl) a=angLerp(a,Math.atan2(bc.z-kl.pos.z,bc.x-kl.pos.x),kw);
+  const r=lerp(lerp(CAM.r0,9,k),6.5,kw), hh=lerp(CAM.h0,3.5,k);
+  camera.position.set(bc.x+Math.cos(a)*r,bc.y+hh,bc.z+Math.sin(a)*r); clampToBox(camera.position);
+  tv3.copy(bc); if(kl) tv3.lerp(_zc.set(kl.pos.x,kl.pos.y+1.2,kl.pos.z),0.4*kw);
+  tv4.subVectors(tv3,camera.position).normalize(); tv4.lerpVectors(CAM.d0,tv4,k).normalize();
+  tv3.copy(camera.position).addScaledVector(tv4,20);
+  camera.up.set(0,1,0).applyAxisAngle(tv4,ZG.camRoll*(1-k)); camera.lookAt(tv3);
+  if(camShake>0){ camShake=Math.max(0,camShake-dt*(camShake>0.3?1.1:0.5)); }
+  fov=lerp(fov,72,1-Math.exp(-6*dt)); camera.fov=fov; camShift(0,0);
 }
 function clampToBox(v){ const m=ZG.L-0.4; v.x=clamp(v.x,-m,m); v.z=clamp(v.z,-m,m); v.y=clamp(v.y,0.4,ZG.H-0.4); return v; }
 function updateSun(){ const f=(state==='menu'||!player)?tv4.set(0,0,0):player.pos; sun.position.copy(f).addScaledVector(SUN_DIR,200); sun.target.position.copy(f); }
@@ -1904,7 +2441,7 @@ function buildSkinStand(dir?){
   showEquip(); [...$('armSets').children].forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.s===it.t)));
 }
 function updateSkinStand(t,dt){
-  for(const c of skShown){ c.mixer.update(dt); swayGear({onGround:true,walkT:0},c,0,dt); }
+  for(const c of skShown){ c.mixer.update(dt); swayGear({onGround:true,walkT:0},c,0,dt); standLife(c,dt); } // [S4] idle life and a wave on the pedestal
 }
 // a fixed row of skins for screenshots (test hook)
 function updateLineup(t,dt){
@@ -1955,7 +2492,7 @@ function dressPick(c,eq){
   for(const o of [...c.pick.children]){ c.pick.remove(o); if(o.userData.skin) disposeObj(o); }
   const w=new T.Group(); w.userData.skin=true; w.add(makePickaxe3D(eq,true)); c.pick.add(w);
   if(c.pickL){ c.g.remove(c.pickL); disposeObj(c.pickL); c.pickL=null; }
-  const F=PX.formOf(eq); if(F&&F.dual){ c.pickL=new T.Group(); const w2=new T.Group(); w2.userData.skin=true; w2.add(makePickaxe3D(eq,true)); c.pickL.add(w2); c.pickL.visible=false; c.g.add(c.pickL); }
+  const F=c.form=PX.formOf(eq); if(F&&F.dual){ c.pickL=new T.Group(); const w2=new T.Group(); w2.userData.skin=true; w2.add(makePickaxe3D(eq,true)); c.pickL.add(w2); c.pickL.visible=false; c.g.add(c.pickL); } // c.form: the weapon form (null for a plain pickaxe) for the swing classes [S3]
 }
 function equipCurrent(){
   setRandom(false);
@@ -2025,9 +2562,23 @@ function zgMove(e,dt){
   if(p.z<-L){ p.z=-L; e.vel.z=0; } else if(p.z>L){ p.z=L; e.vel.z=0; }
   if(p.y<0.05){ p.y=0.05; if(e.vel.y<0) e.vel.y=0; hitY=-1; } else if(p.y+h>ZG.H-0.05){ p.y=ZG.H-0.05-h; if(e.vel.y>0) e.vel.y=0; hitY=1; }
   const was=e.onGround; e.onGround=ZG.state==='ceil'&&hitY===1;
-  if(e.onGround&&!was&&e.zgFall>8){ e.anim.land=clamp(e.zgFall/20,0.3,1); if(e===player){ sfx('land',null,{v:e.zgFall,surf:'rock'}); camShake=Math.max(camShake,0.35); } }
+  if(e.onGround&&!was){ const A=e.anim, big=A.zgFF&&e.zgFall>15; A.zgFF=0; // the first touch after a gravity flip, fast enough: a superhero landing
+    if(e.zgFall>8){ A.land=clamp(e.zgFall/20,0.3,1); if(e===player){ sfx('land',null,{v:e.zgFall,surf:'rock'}); camShake=Math.max(camShake,0.35); }
+      if(big){ A.landBig=1; A.zgLT=0; landDust(e); if(e===player){ camShake=Math.max(camShake,0.8); sfx('slam',null,{v:0.7}); } } } }
   e.zgFall=e.onGround?0:Math.max(0,e.vel.y);
   e.zgFloat=ZG.state!=='ceil';
+}
+// [S2] dust from a hard landing: a flat ring racing outward and a ring of puffs that roll away from the surface
+// (no cracks: slamFx leaves those). Only for the player and whoever is near the camera. Variation comes from hashE, not Math.random
+function landDust(e){
+  if(!(e===player||e.pos.distanceTo(camera.position)<48)) return;
+  const x=e.pos.x, y=e.pos.y+2-0.08, z=e.pos.z, hs=k=>hashE(e,k);
+  const ringM=new T.MeshBasicMaterial({color:0xffffff,transparent:true,side:T.DoubleSide,depthWrite:false,opacity:0.8}), ring=new T.Mesh(new T.RingGeometry(0.55,1,40),ringM);
+  ring.position.set(x,y,z); ring.rotation.x=Math.PI/2; world.add(ring);
+  effects.push({t:0,dur:0.45,obj:ring,upd:(ef,k)=>{ ring.scale.setScalar(0.6+k*5.5); ringM.opacity=0.8*(1-k)*(1-k); },done:()=>{ ring.geometry.dispose(); ringM.dispose(); }});
+  for(let i=0;i<10;i++){ const a=i/10*TAU+hs(20)*0.6, sp=2.6+hs(21+i)*2.6, v=new V(Math.cos(a)*sp,-0.5-hs(40+i)*0.8,Math.sin(a)*sp), mat=new T.MeshBasicMaterial({color:0xc9ced6,transparent:true,depthWrite:false}), m=new T.Mesh(GEO.puff,mat);
+    m.position.set(x+Math.cos(a)*0.5,y,z+Math.sin(a)*0.5); world.add(m);
+    effects.push({t:0,dur:0.55+hs(60+i)*0.3,obj:m,upd:(ef,k,dt)=>{ m.position.addScaledVector(v,dt); v.multiplyScalar(Math.exp(-3.2*dt)); m.scale.setScalar(0.9+k*2.4); mat.opacity=0.62*(1-k)*(1-k); },done:()=>mat.dispose()}); }
 }
 // stamina: the propel burst drains it; it refills after a short rest, and running dry locks it until it is a third full
 function zgStamina(e,want,dt){
@@ -2070,9 +2621,24 @@ function updateZG(dt){
   ZG.t-=dt; ZG.flash=Math.max(0,ZG.flash-dt*1.2);
   if(ZG.state==='float'&&ZG.t<=0){ ZG.state='warn'; ZG.t=3; banner('Gravity flip!','',3); sfx('stormWarn'); }
   else if(ZG.state==='warn'){ if(Math.floor(ZG.t*4)!==Math.floor((ZG.t+dt)*4)) sfx('alarm',null,{hi:Math.floor(ZG.t*4)%2===0});
-    if(ZG.t<=0){ ZG.state='ceil'; ZG.t=rnd(14,20); for(const e of combatants){ e.zgRoll=Math.PI; e.vel.y=Math.max(e.vel.y,6); e.zgPropel=false; } sfx('gravUp'); camShake=Math.max(camShake,0.5); banner('Upside down!','',2.5); } }
-  else if(ZG.state==='ceil'&&ZG.t<=0){ ZG.state='float'; ZG.t=rnd(24,36); ZG.flash=1; for(const e of combatants){ e.zgRoll=0; e.onGround=false; e.vel.y=-rnd(2,4); } sfx('gravDown'); banner('Zero-G','',2); }
-  const want=ZG.state==='ceil'?Math.PI:0; ZG.camRoll+=(want-ZG.camRoll)*(1-Math.exp(-5*dt)); if(Math.abs(want-ZG.camRoll)<0.002) ZG.camRoll=want;
+    if(ZG.t<=0){ ZG.state='ceil'; ZG.t=rnd(14,20); for(const e of combatants){ startFlip(e,'up'); e.zgRoll=Math.PI; e.vel.y=Math.max(e.vel.y,6); e.zgPropel=false; } sfx('gravUp'); camShake=Math.max(camShake,0.5); banner('Upside down!','',2.5); camRollTo(Math.PI,0.05); } }
+  else if(ZG.state==='ceil'&&ZG.t<=0){ ZG.state='float'; ZG.t=rnd(24,36); ZG.flash=1; for(const e of combatants){ startFlip(e,'down'); e.zgRoll=0; e.onGround=false; e.vel.y=-rnd(2,4); } sfx('gravDown'); banner('Zero-G','',2); camRollTo(0,0.05); }
+  updateCamRoll(dt);
+}
+// the camera's roll about the player's look axis (S4's updateCamera just applies ZG.camRoll; controls invert once it passes PI/2).
+// A soft spring that starts a beat after the body, so the body leads and the room follows it over; the half turn takes ~0.5 s.
+// When nothing started a roll (a test jumped the state, a new match) it just eases to the target as it always did.
+const CAMR:any={on:false,to:0,wait:0,last:0,r:0,rV:0};
+function camRollTo(to,wait){ CAMR.on=true; CAMR.to=to; CAMR.wait=wait; CAMR.r=ZG.camRoll; CAMR.rV=0; CAMR.last=ZG.camRoll; }
+function updateCamRoll(dt){
+  const want=ZG.state==='ceil'?Math.PI:0;
+  if(CAMR.on&&(CAMR.to!==want||Math.abs(ZG.camRoll-CAMR.last)>0.05)) CAMR.on=false; // something else moved it: drop the curve
+  if(CAMR.on){
+    if(CAMR.wait>0) CAMR.wait-=dt;
+    else{ spring(CAMR,'r',want,want?0.95:0.8,0.84,dt); ZG.camRoll=CAMR.r;
+      if(Math.abs(want-CAMR.r)<0.003&&Math.abs(CAMR.rV)<0.02){ ZG.camRoll=want; CAMR.on=false; } }
+    CAMR.last=ZG.camRoll; return; }
+  ZG.camRoll+=(want-ZG.camRoll)*(1-Math.exp(-5*dt)); if(Math.abs(want-ZG.camRoll)<0.002) ZG.camRoll=want;
 }
 // bots turn smoothly, at most a turn and a bit per second, so they never snap round
 const BOT_TURN=7;
@@ -2196,7 +2762,7 @@ function updatePads(dt){
   for(const e of combatants){ if(!e.alive||e.bounceT>0) continue; e.padT=Math.max(0,(e.padT||0)-dt); e.boostT=Math.max(0,(e.boostT||0)-dt); if(e.padT>0) continue;
     for(const pd of ZG.pads){ tv3.set(e.pos.x,e.pos.y+1,e.pos.z).sub(pd.pos); const along=tv3.dot(pd.n); if(along<-0.5||along>2.6) continue;
       tv3.addScaledVector(pd.n,-along); if(tv3.length()>PAD_R+0.3) continue;
-      e.vel.addScaledVector(pd.n,-e.vel.dot(pd.n)).addScaledVector(pd.n,PAD_V); e.onGround=false; e.padT=0.6; e.boostT=1.1; pd.pulse=1;
+      e.vel.addScaledVector(pd.n,-e.vel.dot(pd.n)).addScaledVector(pd.n,PAD_V); e.onGround=false; e.padT=0.6; e.boostT=1.1; pd.pulse=1; e.anim.zgPvX=1; /* [S2] a launch, not a knock-back */
       sfx('boost',pd.pos.clone()); if(e===player) camShake=Math.max(camShake,0.3); break; } }
 }
 // ================= explosions & fire =================
@@ -2511,7 +3077,7 @@ const ballEdge=new T.LineBasicMaterial({color:0xd8f6ff,transparent:true,opacity:
 const ballGeo=new T.IcosahedronGeometry(1,2), ballEdgeGeo=new T.EdgesGeometry(new T.IcosahedronGeometry(1.01,1));
 function startBounce(p){
   if(!p.bouncer||!p.alive||p.bounceT>0) return; if(p.bouncer.cd>0){ sfx('deny'); return; }
-  cancelActions(); p.throwA=null; p.bounceT=BOUNCE_T; p.bounceHit=new Set(); p.bounceKick=0;
+  cancelActions(); p.throwA=null; p.bounceT=BOUNCE_T; p.bounceHit=new Set(); p.bounceKick=0; p.anim.zgPvX=1; poseSnap(p.ch,0.12);
   const a=Math.random()*TAU, dir=new V(Math.cos(a),rnd(-0.5,0.5),Math.sin(a)).normalize(); camera.getWorldDirection(tv1); p.vel.copy(dir.lerp(tv1,0.5).normalize().multiplyScalar(BALL_V));
   if(!p.ball){ const g=new T.Group(); g.add(new T.Mesh(ballGeo,ballMat)); g.add(new T.LineSegments(ballEdgeGeo,ballEdge)); p.ball=g; }
   p.ball.scale.setScalar(0.01); world.add(p.ball); sfx('ballOn'); camShake=Math.max(camShake,0.3);
@@ -2536,11 +3102,12 @@ function updateBounce(p,dt){
   // the ball: grows in, rolls along its path, squashes on each bounce
   const B=p.ball, gin=Math.min(1,(BOUNCE_T-p.bounceT)/0.2); p.bounceKick=Math.max(0,p.bounceKick-dt*5);
   B.position.copy(c); B.scale.setScalar(r*gin*(1+0.12*p.bounceKick)); B.children[0].material.opacity=0.32;
-  _dv.crossVectors(UP,p.vel); if(_dv.lengthSq()>1e-4){ B.rotateOnWorldAxis(_dv.normalize(),BALL_V*dt/r); }
+  _dv.crossVectors(UP,p.vel); if(_dv.lengthSq()>1e-4){ B.rotateOnWorldAxis(_dv.normalize(),BALL_V*dt/r); (p.bounceW||(p.bounceW=new V())).copy(_dv).multiplyScalar(BALL_V/r*0.35); } // [S2] the body rolls along inside at a third of the ball's rate
   if(p.bounceT<=0) endBounce(p);
 }
 function endBounce(p){
   p.bounceT=0; p.bouncer.cd=BOUNCE_CD; p.vel.multiplyScalar(0.15); if(p.ball) world.remove(p.ball);
+  p.anim.zgPop=1; p.anim.zgPvX=1; p.bounceW=null; poseSnap(p.ch,0.12); // [S2] the star pop: arms and legs fling out as the ball bursts
   const c=new V(p.pos.x,p.pos.y+1,p.pos.z);
   for(let i=0;i<26;i++){ const m=new T.Mesh(shardGeo,shardMats[3].clone()); m.position.copy(c).add(new V(rnd(-1,1),rnd(-1,1),rnd(-1,1)).normalize().multiplyScalar(BALL_R)); world.add(m);
     const v=m.position.clone().sub(c).normalize().multiplyScalar(rnd(5,10)); effects.push({t:0,dur:rnd(0.5,0.9),obj:m,upd:(e,k,dt)=>{ m.position.addScaledVector(v,dt); m.rotation.x+=dt*9; m.scale.setScalar(1-k); m.material.opacity=1-k; },done:()=>m.material.dispose()}); }
@@ -4026,6 +4593,7 @@ function update(dt){
   for(const e of combatants){ updateStatus(e,dt); pwStatus(e,dt); }
   updatePunches(player,dt); updateKunais(dt); updateTitan(player,dt); updateKi(player,dt); updateGuard(player,dt); updateWriting(player,dt); updateBW(dt);
   for(const b of bots) updateBotZG(b,dt);
+  updateEmote(dt);                                    // [S4] emote timers, cancels, the wheel and bots gloating
   for(const e of combatants) animateGLB(e,dt);
   drawPunches(player);
   updateEffects(dt);
@@ -4038,16 +4606,53 @@ const HERO:any={scene:new T.Scene(),cam:new T.PerspectiveCamera(26,1,0.1,60),c:n
   HERO.scene.add(k,k.target,r,r.target,f,f.target);
   const ring=new T.Mesh(new T.PlaneGeometry(1.8,1.8),new T.MeshBasicMaterial({map:glowTex,color:0x5cf0ff,transparent:true,opacity:0.55,depthWrite:false,blending:T.AdditiveBlending})); ring.rotation.x=-Math.PI/2; ring.position.y=0.01; HERO.scene.add(ring); HERO.ring=ring;
   HERO.cam.position.set(0,1.0,8.2); HERO.cam.lookAt(0,0.98,0); }
+// [S4] the hero's life: a stand-in entity so the emote layer works on it, breathing, weight shifts, a head that follows the cursor,
+// a wave when you arrive and now and then a dance (click it to make it dance)
+const HERO_EM=['wave','floss','pump','robot','disco','dab','salute'], HM={x:0,y:0,t:-99}, _hl0=new V(), _hl1=new V(), _hl2=new V();
+addEventListener('pointermove',ev=>{ HM.x=ev.clientX; HM.y=ev.clientY; HM.t=performance.now()/1000; });
+function heroStand(c){ return {etype:'hero',isPlayer:false,alive:true,onGround:true,zgFloat:false,vel:new V(),pos:new V(),yaw:0,sel:0,hp:0,shield:0,fireCd:0,anim:{},ch:c,emote:null}; }
+function heroEmote(k){ const e=HERO.e; if(!e||!EMOTES[k]||(e.emote&&!e.emote.out)) return; emBegin(e,k,{max:EMOTES[k].loop?rnd(4.5,6.5):0}); }
+// idle: weight over one foot (feet stay planted), breathing, and the head and chest turning toward look={y: yaw, p: pitch}
+function emIdle(X,t,look){ const {B,c,rightB,upB,fwdB}=X;
+  B.LeftFoot.getWorldPosition(_eFeet[0]); B.RightFoot.getWorldPosition(_eFeet[1]);
+  const ws=Math.sin(t*TAU/6.4+0.8), br=Math.sin(t*TAU*0.27);
+  c.model.position.x=0.022*ws; c.model.updateMatrixWorld(true);
+  rotateBoneWorld(B.Hips,fwdB,0.04*ws); for(const n of ['Spine','Spine1','Spine2']) rotateBoneWorld(B[n],fwdB,-0.019*ws);
+  rotateBoneWorld(B.Spine2,rightB,0.02*br); rotateBoneWorld(B.Neck,rightB,-0.012*br);
+  emPlant(B,fwdB,upB,0);
+  if(look){ rotateBoneWorld(B.Spine2,upB,0.18*look.y); rotateBoneWorld(B.Neck,upB,0.45*look.y); rotateBoneWorld(B.Head,upB,0.37*look.y); rotateBoneWorld(B.Neck,rightB,0.5*look.p); rotateBoneWorld(B.Head,rightB,0.5*look.p); }
+}
+// the hero looks at the mouse (eased back to a slow glance about when it has been still a while)
+function heroLook(X,dt,W,H,t){ const act=1-smooth(4,9,performance.now()/1000-HM.t); let ty=0.22*Math.sin(t*0.45)*(1-act), tp=0.05*Math.sin(t*0.31)*(1-act);
+  if(act>0.001){ const hd=X.B.Head.getWorldPosition(_hl0); HERO.cam.updateMatrixWorld(); _hl1.set(HM.x/W*2-1,-(HM.y/H*2-1),0.5).unproject(HERO.cam).sub(HERO.cam.position).normalize();
+    HERO.cam.getWorldDirection(_hl2); const dd=_hl2.dot(_hl1); if(dd>0.01){ _hl1.multiplyScalar(_hl0.clone().sub(HERO.cam.position).dot(_hl2)/dd).add(HERO.cam.position).sub(hd);
+      const x=_hl1.dot(X.rightB), y=_hl1.dot(X.upB), z=_hl1.dot(X.fwdB); ty+=clamp(Math.atan2(-x,z),-1,1)*act; tp+=clamp(Math.atan2(y,Math.hypot(x,z)),-0.5,0.5)*act; } }
+  spring(HERO,'ly',ty,3,0.85,dt); spring(HERO,'lp',tp,3,0.85,dt); return {y:HERO.ly,p:HERO.lp}; }
+// click the hero to make it dance
+document.addEventListener('pointerdown',ev=>{ if(state!=='menu'||$('menu').hidden||!HERO.box) return; const t=ev.target as Element; if(t.closest&&t.closest('button,a,input,label,summary,.drawer,.modal')) return;
+  const b=HERO.box; if(ev.clientX>b.x0&&ev.clientX<b.x1&&ev.clientY>b.y0&&ev.clientY<b.y1) heroEmote(pick(HERO_EM)); });
+// the locker's pedestal: the skin breathes, shifts its weight, waves when you land on it and now and then dances
+function standLife(c,dt){ let S=c.sl; if(!S) S=c.sl={e:heroStand(c),next:0.9,t:0,first:true};
+  S.t+=dt; const e=S.e; S.next-=dt; if(!e.emote&&S.next<=0){ emBegin(e,S.first?'wave':pick(HERO_EM)); if(e.emote.E.loop) e.emote.max=rnd(4,6); S.first=false; S.next=rnd(8,13); }
+  c.model.position.set(0,0,0); emTick(e,dt,true); c.g.updateMatrixWorld(true); c.model.getWorldQuaternion(_qm);
+  const X:any={e,c,B:c.bones,g:c.g,pitch:0,rightB:new V(1,0,0).applyQuaternion(_qm),fwdB:new V(0,0,-1).applyQuaternion(_qm),upB:new V(0,1,0).applyQuaternion(_qm)};
+  if(e.emote) emotePose(e,X); else emIdle(X,S.t,null); }
 function heroFrame(dt){
   if(!SOLDIER) return false;
   const W=innerWidth, H=innerHeight; if(W<900||H<520) return false;
   const sk=equippedSkin(), eq=equippedPick(), key=(sk?sk.n:'')+'|'+(eq?eq.n:'');
-  if(!HERO.c||HERO.key!==key){ if(HERO.c) HERO.scene.remove(HERO.c.g); const c=makeCharacterGLB(); if(sk) applySkin(c,sk); if(eq) dressPick(c,eq); c.pick.visible=!!eq; HERO.c=c; HERO.key=key; HERO.scene.add(c.g); }
-  const c=HERO.c, B=c.bones, g=c.g; HERO.t+=dt; const t=HERO.t;
-  g.rotation.y=Math.PI-0.45+0.12*Math.sin(t*0.35); // a three-quarter view, turning a touch
-  c.mixer.update(dt); swayGear({onGround:true,walkT:0},c,0,dt); g.updateMatrixWorld(true);
+  if(!HERO.c||HERO.key!==key){ if(HERO.c) HERO.scene.remove(HERO.c.g); const c=makeCharacterGLB(); if(sk) applySkin(c,sk); if(eq) dressPick(c,eq); c.pick.visible=!!eq; HERO.c=c; HERO.key=key; HERO.scene.add(c.g); HERO.e=heroStand(c); HERO.next=HERO.seen?0.6:1.5; HERO.spinT=HERO.seen?0:9; HERO.seen=true; if(HERO.fy==null) HERO.fy=Math.PI-0.45; }
+  const c=HERO.c, B=c.bones, g=c.g, e=HERO.e; HERO.t+=dt; const t=HERO.t;
+  // [S4] it greets you, then does something every 9-14 s; it turns to face you while it dances and does a twirl when the skin or pickaxe changes
+  HERO.next-=dt; if(!e.emote&&HERO.next<=0){ heroEmote(HERO.first===false?pick(HERO_EM):'wave'); HERO.first=false; HERO.next=rnd(9,14); }
+  const emOn=!!e.emote&&!e.emote.out; HERO.fy=angLerp(HERO.fy,emOn?Math.PI+0.06*Math.sin(t*0.6):Math.PI-0.45+0.12*Math.sin(t*0.35),1-Math.exp(-5*dt));
+  if(HERO.spinT<1.1) HERO.spinT+=dt; g.rotation.y=HERO.fy+(HERO.spinT<1.1?TAU*easeIO(clamp(HERO.spinT/1.1,0,1)):0); // a three-quarter view, turning a touch
+  c.model.position.set(0,0,0); c.mixer.update(dt); swayGear({onGround:true,walkT:0},c,0,dt); g.updateMatrixWorld(true);
   c.model.getWorldQuaternion(_qm); const rightB=new V(1,0,0).applyQuaternion(_qm), fwdB=new V(0,0,-1).applyQuaternion(_qm), upB=new V(0,1,0).applyQuaternion(_qm);
-  if(eq&&!eq.anime||eq&&eq.anime==='nichirin'||eq&&eq.anime==='kunai'){
+  const hx:any={e,c,B,g,pitch:0,rightB,fwdB,upB}; emTick(e,dt,true);
+  if(e.emote){ emotePose(e,hx); c.pick.visible=false; if(c.pickL) c.pickL.visible=false; }
+  else emIdle(hx,t,heroLook(hx,dt,W,H,t));
+  if(!e.emote&&(eq&&!eq.anime||eq&&eq.anime==='nichirin'||eq&&eq.anime==='kunai')){ // [S4] INTEGRATOR: Stream 3's pickHold(c,e,P,rightB,upB,fwdB,rest) replaces the pickPose/IK/hand block below
     const P=pickPose({swingT:0,guardK:0,swingSide:0}), sh=B.RightArm.getWorldPosition(new V());
     const tgt=g.localToWorld(g.worldToLocal(sh.clone()).add(P.h)).addScaledVector(upB,0.008*Math.sin(t*1.7));
     solveIK(B.RightArm,B.RightForeArm,B.RightHand,tgt,sh.clone().addScaledVector(rightB,0.5).addScaledVector(upB,-0.55).addScaledVector(fwdB,-0.1));
@@ -4056,11 +4661,15 @@ function heroFrame(dt){
     const pn=rightB.clone().negate(); pn.addScaledVector(hd,-pn.dot(hd)).normalize(); const pf=new V().crossVectors(hd.clone().negate(),pn);
     poseHand(B,'Right',pf,pn,0.8); hw.addScaledVector(pf,0.07).addScaledVector(pn,0.03); g.worldToLocal(hw); c.pick.position.copy(hw);
     if(c.pickL) dualLeft(c,B,g,P,rightB,upB,fwdB,1);
-  } else c.pick.visible=false; // the fists and the Death Note have nothing to rest on a shoulder
+  } else if(!e.emote) c.pick.visible=false; // the fists and the Death Note have nothing to rest on a shoulder
+  poseBlend(c,dt); poseStore(c); // [S4] so Stream 1's inertial blend works on the hero too
   HERO.ring.material.opacity=0.45+0.12*Math.sin(t*2);
   // sit the character just right of the middle of the screen, between the logo and the play card
   const F=eq&&PX.formOf(eq), long=!!(F&&F.Lk>1); HERO.cam.position.set(0,long?1.2:1.0,long?9.8:8.2); HERO.cam.lookAt(0,long?1.25:0.98,0); // step back for scythes and spears
   HERO.cam.aspect=W/H; HERO.cam.setViewOffset(W,H,-W*0.09,0,W,H); HERO.cam.updateProjectionMatrix();
+  // where the hero is on screen (a click on it makes it dance)
+  HERO.cam.updateMatrixWorld(); _hl0.copy(g.position).project(HERO.cam); _hl1.set(g.position.x,g.position.y+1.9,g.position.z).project(HERO.cam);
+  { const cx=(_hl0.x*0.5+0.5)*W, y0=(0.5-_hl0.y*0.5)*H, y1=(0.5-_hl1.y*0.5)*H, hh=Math.abs(y0-y1); HERO.box={x0:cx-hh*0.3,x1:cx+hh*0.3,y0:Math.min(y0,y1),y1:Math.max(y0,y1)}; }
   return true;
 }
 function loop(now){
@@ -4089,4 +4698,5 @@ window.__game={keys,camera,sfx:(k,o)=>sfx(k,null,o),get audioOk(){return !!(AC&&
   lineup:(ids,yaw)=>{ if(armGroup) scene.remove(armGroup); armGroup=new T.Group(); armGroup.position.set(0,ARM_Y,0); skShown=[]; ids.forEach((id,k)=>{ const c=standChar(SK.ITEMS[id]); c.g.position.x=(k-(ids.length-1)/2)*1.25; c.g.userData.o=0; c.g.userData.yaw=yaw; armGroup.add(c.g); skShown.push(c); }); studioLights(armGroup); armGroup.userData.dist=ids.length*0.75+1.6; scene.add(armGroup); },
   equipPick:n=>{ equippedName=n; applyPickSkin(player); refreshHotbar(); }, get POW(){return POW;}, get pw(){return {shots:pwShots.length,zones:pwZones.length,zd:pwZones.map(z=>{ const e=combatants.find(c=>c!==player&&c.alive); return e?+z.pos.distanceTo(e.pos).toFixed(1):-1; }),pd:+chest(player).distanceTo(camera.position).toFixed(1),walls:pwWalls.map(w=>[w.m.position.toArray().map(Math.round),w.m.scale.x,w.m.visible])};},
   renderer,scene,mouse,shop:()=>openShop(),fire:()=>playerFire(),kill:(e,weapon,info)=>eliminate(e,null,weapon,info),colliderCount:()=>colliders.size,get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},get ZG(){return ZG;},get splats(){return splats.length;},get heartT(){return heartT;},startMatch,update,setState:s=>state=s};
+Object.assign(window.__game,{emote:(k,o)=>startEmote(player,k,o),emoteOn:(e,k,o)=>startEmote(e,k,o),stopEmote:()=>stopEmote(player,true),EM,EMOTES,get HERO(){return HERO;},heroEmote:k=>heroEmote(k)}); // [S4] test hooks
 })();
