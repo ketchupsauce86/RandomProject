@@ -228,6 +228,7 @@ function makeGunModel(id,r){
     const by={}; for(const p of parts){ if(p[1]==='pump'){ p[4]+=0.38; } (by[p[1]]=by[p[1]]||[]).push(p); }
     gunGeoCache[key]=Object.keys(by).map(mk=>[mk,mergeParts(by[mk])]); }
   const g=new T.Group();
+  if(id==='mf') return mfModel(g,r);
   for(const [mk,geo] of gunGeoCache[key]){ const m=new T.Mesh(geo,partMat(mk,r)); m.castShadow=true;
     if(mk==='pump'){ m.position.z=-0.38; g.userData.pump=m; } if(mk==='wing') g.userData.wings=(g.userData.wings||[]).concat(m); if(mk==='green'||mk==='olive') (g.userData.warhead=g.userData.warhead||[]).push(m); g.add(m); }
   const s=SUPP[id], mz=new T.Object3D(); mz.position.set(0,MUZZLE[id][0],MUZZLE[id][1]+(s&&r>=s[0]?s[1]:0)); g.add(mz); g.userData.muzzle=mz;
@@ -243,6 +244,18 @@ function makeGunModel(id,r){
   if(id==='drone') g.userData.pilot=glow(0xff3b30,0.07,0.2,-0.02,0.08);
   return g;
 }
+// [S3] the Mirror Fractal pair: each pistol is its own group pivoting at its grip (g.userData.gR / gL, in gun space at
+// HOLD.mf.r / HOLD.mf.l), so each hand carries, kicks and spins its own gun (the reload). Muzzle 2 rides the left gun.
+function mfModel(g,r){ const H=HOLD.mf; g.userData.wings=[]; g.userData.sparks=[];
+  for(const [sd,pv] of [['R',H.r],['L',H.l]] as [string,number[]][]){ const ck='mf'+r+sd;
+    if(!gunGeoCache[ck]){ const by={}; for(const q of GUN_PARTS.mf()){ if(sd==='R'?q[2]<=-0.15:q[2]>-0.15) continue; const p=[...q]; p[2]-=pv[0]; p[3]-=pv[1]; p[4]-=pv[2]; (by[p[1]]=by[p[1]]||[]).push(p); }
+      gunGeoCache[ck]=Object.keys(by).map(mk=>[mk,mergeParts(by[mk])]); }
+    const s=new T.Group(); s.position.set(pv[0],pv[1],pv[2]); g.add(s); g.userData['g'+sd]=s;
+    for(const [mk,geo] of gunGeoCache[ck]){ const m=new T.Mesh(geo,partMat(mk,r)); m.castShadow=true; if(mk==='wing') g.userData.wings.push(m); s.add(m); }
+    const mz=new T.Object3D(); mz.position.set((sd==='R'?0:-0.3)-pv[0],MUZZLE.mf[0]-pv[1],MUZZLE.mf[1]-pv[2]); s.add(mz); if(sd==='R') g.userData.muzzle=mz; else g.userData.muzzles=[g.userData.muzzle,mz]; }
+  for(const x of [0,-0.3]){ const h=new T.Sprite(mfAuraMat); h.position.set(x,0.03,-0.08); h.scale.setScalar(0.55); g.add(h);
+    for(let i=0;i<5;i++){ const sp=new T.Sprite(mfSparkMat); sp.scale.setScalar(0.05); sp.userData.o=[x,i/5*TAU,0.13+0.04*(i%2)]; g.add(sp); g.userData.sparks.push(sp); } }
+  return g; }
 const mfAuraMat=new T.SpriteMaterial({map:glowTex,color:0xffc93a,transparent:true,opacity:0.32,depthWrite:false});
 const mfSparkMat=new T.SpriteMaterial({map:sparkTex,color:0xffb000,transparent:true,depthWrite:false});
 const consGeo:Record<string,any>={};
@@ -835,20 +848,20 @@ const SB_A=[F,[0.26, 0.18,0.16,0.02, 0.40,0.60,0.70, -0.10,-0.70,0.70, -0.45, 0.
   [0.70,-0.32,-0.38,-0.30, -0.70,-0.30,-0.65, 0.50,0.60,-0.60, 0.40,-0.10],
   [1.00,-0.18,-0.25,-0.36, -0.20,0.50,-0.85, null,0,0, 0.15,-0.05]];
 // daggers: a stab from the hip straight down the crosshair; both at once, a double downward plunge
-const DG_STAB=[F,[0.30, 0.12,-0.30,0.05, 0.05,0.10,-0.99, 0,0.99,0.10, -0.25, 0.05],
-  [0.52,-0.06,-0.16,-0.52, 0,0.08,-1.00, 0,1.00,0.08, 0.30,-0.15],
+const DG_STAB=[F,[0.30, 0.14,-0.28,0.10, 0.05,0.10,-0.99, 0,0.99,0.10, -0.35, 0.06],
+  [0.52,-0.06,-0.16,-0.52, 0,0.08,-1.00, 0,1.00,0.08, 0.45,-0.22],
   [0.70, 0.00,-0.22,-0.38, 0,0.08,-1.00, 0,1.00,0.08, 0.15,-0.08],
   [1.00, 0.10,-0.30,-0.05, 0.05,0.10,-0.99, 0,0.99,0.10, 0,0]];
 const DG_DOWN=[F,[0.36,-0.05,0.30,-0.12, 0,-0.20,-0.98, 0,0.98,-0.20, 0, 0.15],
   [0.52,-0.10,-0.25,-0.40, 0,-0.85,-0.50, 0,0.50,-0.85, 0,-0.30],
   [1.00, 0.06,-0.45,-0.10, 0.05,-0.95,-0.30, 0,0.30,-0.95, 0,0]];
 // spear: two thrusts and a wide sweep (the front hand lets go for the sweep)
-const SP_JAB=[F,[0.28, 0.16,-0.18,0.12, -0.08,0.06,-0.99, 0,1,0.06, -0.35, 0.05],
-  [0.52,-0.04,-0.12,-0.50, -0.02,0.04,-1.00, 0,1,0.04, 0.30,-0.22],
+const SP_JAB=[F,[0.28, 0.18,-0.16,0.20, -0.08,0.06,-0.99, 0,1,0.06, -0.45, 0.08],
+  [0.52,-0.04,-0.12,-0.50, -0.02,0.04,-1.00, 0,1,0.04, 0.42,-0.30],
   [0.68,-0.04,-0.12,-0.48, -0.02,0.04,-1.00, 0,1,0.04, 0.28,-0.20],
   [1.00, 0.14,-0.18,0.08, -0.06,0.06,-0.99, 0,1,0.06, -0.20,0]];
-const SP_JAB_HI=[F,[0.26, 0.16,-0.10,0.12, -0.08,0.14,-0.99, 0,1,0.14, -0.35, 0.05],
-  [0.52,-0.04,-0.04,-0.50, -0.02,0.12,-0.99, 0,1,0.12, 0.30,-0.22],
+const SP_JAB_HI=[F,[0.26, 0.18,-0.08,0.20, -0.08,0.14,-0.99, 0,1,0.14, -0.45, 0.08],
+  [0.52,-0.04,-0.04,-0.50, -0.02,0.12,-0.99, 0,1,0.12, 0.42,-0.30],
   [0.64,-0.04,-0.04,-0.48, -0.02,0.12,-0.99, 0,1,0.12, 0.28,-0.20],
   [1.00, 0.14,-0.16,0.08, -0.06,0.06,-0.99, 0,1,0.06, -0.20,0]];
 const SP_SWEEP=[F,[0.30, 0.32,-0.12,0.06, 0.90,0.10,0.42, 0,1,0, -0.75, 0.05],
@@ -952,9 +965,11 @@ function startSwing(p,dur,side?,o?){
 // Once a frame, before pickPose: notice a new swing (remember the pose it starts from) and the end of one (hold the
 // follow-through, then ease home); the guard and charge weights. Swings set straight on swingT (old callers, the test
 // rig) still work: they start from the current pose and last SWING_T.
+function backOut(u){ const v=u-1; return 1+2.70158*v*v*v+1.70158*v*v; } // ease out with a little overshoot
 const PK_HOLD=0.12, PK_RET=0.34, pkD=(o,k,t,a)=>{ o[k]=(o[k]||0)+(t-(o[k]||0))*a; };
 function pkTick(e,X){ const A=X.A, dt=X.dt;
-  if(!A.pkCur){ A.pkCur={R:pkPose(),L:pkPose()}; A.pkFrom={R:pkPose(),L:pkPose()}; A.pkEndP={R:pkPose(),L:pkPose()}; const r=(e.ch.swing||SWINGS.pick).restK; pkCopy(A.pkCur.R,r); pkCopy(A.pkCur.L,r); }
+  if(!A.pkCur){ A.pkCur={R:pkPose(),L:pkPose()}; A.pkFrom={R:pkPose(),L:pkPose()}; A.pkEndP={R:pkPose(),L:pkPose()}; const r=(e.ch.swing||SWINGS.pick).restK; pkCopy(A.pkCur.R,r); pkCopy(A.pkCur.L,r); A.pkDr=0; }
+  A.pkDr=Math.min(1,(A.pkDr==null?1:A.pkDr)+dt/0.3); // the draw: out from behind the shoulder
   const T0=e.swingT||0;
   if(e.pkNew||T0>(A.pkLT||0)+1e-4){ if(!e.pkNew){ e.swingDur=Math.max(SWING_T,T0); e.pkFl=false; e.pkTh=false; } e.pkNew=false;
     pkCopy(A.pkFrom.R,A.pkCur.R); pkCopy(A.pkFrom.L,A.pkCur.L); A.pkEnd=false; A.pkK=0; }
@@ -985,6 +1000,12 @@ function pickPose(e){
   P.h.copy(P.vR.g).applyQuaternion(_pkP); P.q.copy(P.vR.q).premultiply(_pkP);
   if(S.dual){ const v=P.vL; P.hL.set(-v.g.x,v.g.y,v.g.z).applyQuaternion(_pkP); P.qL.set(v.q.x,-v.q.y,-v.q.z,v.q.w).multiply(_qFlip).premultiply(_pkP); P.tw=P.vR.tw-v.tw; P.ln=P.vR.ln+v.ln; }
   else { P.hL.set(-P.h.x,P.h.y,P.h.z); P.qL.set(P.q.x,-P.q.y,-P.q.z,P.q.w).multiply(_qFlip); P.tw=P.vR.tw; P.ln=P.vR.ln; }
+  // drawn from behind the right shoulder, handle tipped back, with a little overshoot as it lands in place
+  const dd=A.pkDr==null||A.pkDr>=1?0:1-backOut(A.pkDr);
+  if(dd){ _pkP.setFromAxisAngle(_pkX,1.3*dd); P.h.x+=0.05*dd; P.h.y+=0.25*dd; P.h.z+=0.25*dd; P.q.premultiply(_pkP); P.hL.x-=0.05*dd; P.hL.y+=0.25*dd; P.hL.z+=0.25*dd; P.qL.premultiply(_pkP); }
+  // weapon fidget (player, long idle): a lift and a twirl of the weapon round its handle, then back onto the shoulder
+  const fk=A.rkFid&&A.rkFid.id==='pick'?A.rkFid.k:0;
+  if(fk>0&&!swing){ const b=Math.sin(Math.PI*fk); P.h.y+=0.07*b; P.h.z-=0.08*b; _pkP.setFromAxisAngle(_pkU.set(0,1,0),TAU*smooth(0.25,0.75,fk)); P.q.multiply(_pkP); P.qL.multiply(_pkP); }
   const two=S.two?S.two[0]+(S.two[1]-S.two[0])*act:0; P.two=two*(swing&&tr.lw?pkW(tr.lw,k):1); P.act=act; P.k=k; P.swing=swing; P.tr=tr;
   return P;
 }
@@ -1234,7 +1255,8 @@ function consPose(e,c,id,k,rightB,fwdB,upB,dt){
   const ik=(sd,t,pole)=>solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],t,pole);
   const bell=(a,b)=>k<a||k>b?0:Math.sin((k-a)/(b-a)*Math.PI);
   // holding it ready: potions shown off at chest height, the kit and the roll at the belly
-  const idle=chest.clone().addScaledVector(rightB,0.17).addScaledVector(upB,-0.14).addScaledVector(fwdB,0.08).addScaledVector(upB,0.015*Math.sin(matchTime*2.4+e.walkT));
+  if(A.rkCId!==id){ A.rkCId=id; A.rkCT=0; } A.rkCT=(A.rkCT||0)+dt; const dd=A.rkCT<0.3?1-backOut(A.rkCT/0.3):0; // [S3] up from the belt
+  const idle=chest.clone().addScaledVector(rightB,0.17+0.05*dd).addScaledVector(upB,-0.14-0.32*dd).addScaledVector(fwdB,0.08-0.06*dd).addScaledVector(upB,0.015*Math.sin(matchTime*2.4+e.walkT));
   const tick=(key,period)=>{ const n=Math.floor(k*dur/period); if(A[key]!==n){ const first=A[key]==null||A[key]>n; A[key]=n; return !first; } return false; };
   {
     const big=id==='big', u=Math.max(0,k), ka=k<0?0:smooth(0,0.14,k), kl=smooth(0.82,0.94,u), dr=ka*(1-kl), prog=clamp((u-0.14)/0.68,0,1);
@@ -1340,10 +1362,24 @@ function animCtx(e,dt,a,aS){
 }
 // [S3] combat timers and the sprint carry: recoil settles, the muzzle flash and the pump run out, and a gun nobody is
 // aiming drops into the low sprint carry (A.sprPose)
+// (A.recoil stays the camera's scalar; the gun itself kicks on per-class springs rkZ/rkX/rkY). Bots that have not seen
+// anyone for a second relax into a low carry. ADS (A.ads) eases in over about 0.15 s.
 function animCombatState(e,X){ const {c,A,held,dt,aS}=X;
   A.recoil=Math.max(0,A.recoil-dt*8); A.flash-=dt; c.flash.visible=A.flash>0; A.pumpT+=dt;
   const aiming=X.aiming=e.isPlayer?(ads||mouse.l||!!e.reloading):(A.recoil>0.05||!!e.enemy);
-  D(A,'sprPose',held&&!aiming?A.sprint:0,aS);
+  if(!e.isPlayer) A.rkCalm=aiming?0:(A.rkCalm||0)+dt;
+  D(A,'sprPose',held&&!aiming?Math.max(A.sprint,!e.isPlayer&&A.rkCalm>1?0.6:0):0,aS);
+  pkD(A,'ads',e.isPlayer&&ads&&held?1:0,1-Math.exp(-16*dt));
+  if(held&&(A.rkZV||A.rkXV||A.rkYV||Math.abs(A.rkX||0)>1e-4)){ const R=RECOIL[held.id]||RECOIL.ar; spring(A,'rkZ',0,R.f,R.d,dt); spring(A,'rkX',0,R.f,R.d,dt); spring(A,'rkY',0,R.f,R.d,dt); spring(A,'rkM',0,R.f,R.d,dt);
+    if(Math.abs(A.rkZ)+Math.abs(A.rkX)+Math.abs(A.rkY)+Math.abs(A.rkM)+Math.abs(A.rkZV)+Math.abs(A.rkXV)+Math.abs(A.rkYV)+Math.abs(A.rkMV)<1e-4) A.rkZ=A.rkX=A.rkY=A.rkM=A.rkZV=A.rkXV=A.rkYV=A.rkMV=0; }
+  A.boltT=(A.boltT==null?9:A.boltT)+dt;
+  if(!X.cons) A.rkCId=null;
+  // weapon fidgets: after a long idle the player inspects the gun or twirls the pickaxe (A.fidget tells S1's body
+  // fidgets a weapon one is playing; one by S1 is left alone)
+  if(e.isPlayer){ const idle=!mouse.l&&!ads&&!(e.swingT>0)&&!e.reloading&&!e.consuming&&!e.throwA&&X.speed<0.4&&(held||X.pickaxe&&!e.fistSt&&!e.writing);
+    A.rkIdle=idle?(A.rkIdle||0)+dt:0; const F0=A.fidget;
+    if(A.rkFid){ A.rkFid.k+=dt/1.3; if(A.rkFid.k>=1||!idle){ A.rkFid=null; if(F0&&F0.id==='weapon') A.fidget=null; } else A.fidget={id:'weapon',k:A.rkFid.k}; }
+    else if(A.rkIdle>6&&!(F0&&F0.id!=='weapon')){ A.rkIdle=-2; A.rkFid={id:held?'gun':'pick',k:0}; } }
 }
 // [S1] clip blending (the soldier ships with Idle, Walk, Run and T-pose; everything else is layered on top)
 function animClips(e,X){ const {c,A,fwd,speed,aS,dt}=X;
@@ -1432,9 +1468,14 @@ function animTorso(e,X){ const {A,B,near,upB,right,speed,side,fwd,back,aS,cr,hel
     if(held){ for(const n of ['Spine','Spine1','Spine2']) rotateBoneWorld(B[n],right,pE/3); } else rotateBoneWorld(B.Neck,right,pitch*0.5); }
 }
 // [S3] rifle stance: the chest turns a little toward the gun side so the left hand can reach under the barrel, eyes stay on target
-function animCombatTorso(e,X){ const {A,B,near,upB,held,sp,aS}=X; if(!near) return;
+// The kick runs back through the chest (heavier guns more), and aiming down sights drops the cheek onto the stock.
+function animCombatTorso(e,X){ const {A,B,near,upB,held,sp,aS,right,fwdB}=X; if(!near) return;
   D(A,'stance',held?1-sp:0,aS); if(A.stance>0.01){ const st=A.stance*(held&&held.id==='pistol'?0.5:held&&held.id==='mf'?0.1:1);
     rotateBoneWorld(B.Spine1,upB,-0.24*st); rotateBoneWorld(B.Spine2,upB,-0.16*st); rotateBoneWorld(B.Neck,upB,0.4*st); if(B.LeftShoulder) rotateBoneWorld(B.LeftShoulder,upB,-0.25*st); }
+  if(!held) return; const R=RECOIL[held.id]||RECOIL.ar;
+  if(R.sp&&A.rkX) rotateBoneWorld(B.Spine2,right,A.rkX*R.sp/(R.x||1));
+  const fi=A.rkFid&&A.rkFid.id==='gun'?Math.sin(Math.PI*A.rkFid.k):0; if(fi>0.01){ rotateBoneWorld(B.Neck,upB,-0.3*fi); rotateBoneWorld(B.Neck,right,-0.25*fi); }
+  const ad=A.ads||0; if(ad>0.01){ const hand=held.id==='pistol'||held.id==='mf'||held.id==='tsr'; rotateBoneWorld(B.Neck,fwdB,(hand?0.04:0.13)*ad); rotateBoneWorld(B.Neck,right,-0.07*ad); rotateBoneWorld(B.Spine2,upB,(hand?0:-0.06)*ad); }
 }
 // [S1] flinch when hit
 function animHit(e,X){ const {A,B,near,right}=X; if(!near) return;
@@ -1488,27 +1529,56 @@ function zgArms(e,X,sides){ const A=e.anim, {B,rightB,upB,fwdB}=X; const P=A.zgP
     const pole=sh.clone().addScaledVector(rightB,sx*0.6).addScaledVector(upB,0.05-0.05*P).addScaledVector(fwdB,-0.3-0.15*P);
     solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],t,pole);
     rotateBoneWorld(B[sd+'Hand'],fwdB,sx*(0.3*I*Math.sin(tI*1.6+ph)+0.4*Sw*Math.sin(TAU*u))); } }
-// [S3] a gun in hand: the mount is placed for everyone (far bots too), the arms reach for it only when near
+// [S3] a gun in hand: the mount is placed for everyone (far bots too), the arms reach for it only when near.
+// Aiming down sights raises the gun to the eye (A.ads eases in), each class kicks on its own springs (RECOIL), a new gun
+// is drawn from the low right, the hip or (RPG) over the shoulder with a little overshoot while the left hand arrives a
+// beat later, the pump hand rides the pump, the sniper's right hand works the bolt after a shot, and the MF pair reload
+// with a flourish (each gun stays in its own hand). Relaxed bots let go with the left hand and swim with it.
+const DRAW={rifle:[0.10,-0.35,0.10,-1.0,0.6],hand:[0.12,-0.45,0.05,-1.2,0],rpg:[0.05,0.25,0.35,0.8,0],drone:[0,-0.3,0,-0.6,0]};
+const _ga=new V(), _gb=new V(), _gc=new V(), _gd=new V(), _ge=new V(), _gq=new T.Quaternion();
+
 function gunArms(e,X){ const {c,A,B,g,near,held,a,sp,pE,right,upB,fwdV}=X;
-  const H=HOLD[held.id], S=c.gunMount.scale.x; D(A,'reload',(e.isPlayer?!!e.reloading:e.reloadT>0)?1:0,a);
-  const sh=B.RightArm.getWorldPosition(new V()); g.worldToLocal(sh);
-  const adsK=e.isPlayer&&ads?1:0, cp=Math.cos(pE), sn=Math.sin(pE), dk=Math.pow(1-A.draw,2);
-  // sprinting carries the gun low and canted; switching weapons raises the new one into place
-  const tp=e.isPlayer&&!adsK?1-sp:0; // third person: carry the gun out to the side so the camera can see it
-  const o=new V(H.g[0]-S*H.r[0]-0.08*adsK-0.06*sp+0.16*tp,H.g[1]-S*H.r[1]+0.04*adsK-0.12*sp-0.35*dk+0.03*tp,H.g[2]-S*H.r[2]+A.recoil*0.09+0.06*sp);
+  const id=held.id, H=HOLD[id], S=c.gunMount.scale.x, mf=id==='mf', hand=id==='pistol'||mf||id==='tsr', R=RECOIL[id]||RECOIL.ar;
+  D(A,'reload',(e.isPlayer?!!e.reloading:e.reloadT>0)?1:0,a);
+  const sh=B.RightArm.getWorldPosition(_ga); g.worldToLocal(sh);
+  const adsK=A.ads||0, cp=Math.cos(pE), sn=Math.sin(pE), dr=A.draw>=1?0:1-backOut(clamp(A.draw,0,1));
+  const Dc=id==='rpg'?DRAW.rpg:id==='drone'?DRAW.drone:hand?DRAW.hand:DRAW.rifle;
+  const tp=e.isPlayer?(1-adsK)*(1-sp):0; // third person: carry the gun out to the side so the camera can see it
+  // the MF reload, by fraction k of MF_RELOAD: muzzles tip up and out, the guns come together and tap, each spins once
+  // round the trigger finger, then back up to aim
+  let tip=0, tog=0, spR=0, spL=0;
+  if(mf&&e.isPlayer&&e.reloading){ const k=clamp(e.reloading.t/e.reloading.dur,0,1); tip=smooth(0,0.1,k)*(1-smooth(0.2,0.34,k)); tog=smooth(0.22,0.38,k)*(1-smooth(0.5,0.62,k)); spR=smooth(0.5,0.76,k); spL=smooth(0.54,0.8,k);
+    if(near&&(A.rkK||0)<0.42&&k>=0.42) sfx('clink'); A.rkK=k; } else A.rkK=0;
+  const o=_gb.set(H.g[0]-S*H.r[0]-0.08*adsK-0.06*sp+0.16*tp,H.g[1]-S*H.r[1]+(hand?0.1:0.13)*adsK-0.12*sp+0.03*tp-0.06*tog,H.g[2]-S*H.r[2]+0.03*adsK+(A.rkZ||0)+0.06*sp+0.1*tog);
   const oy=o.y*cp-o.z*sn, oz=o.y*sn+o.z*cp;
-  const dn=(A.dn||0)*A.sprint; c.gunMount.position.set(sh.x+o.x,sh.y+oy+0.035*sp*(Math.abs(A.dn||0)-0.5),sh.z+oz); // the gun bobs and sways with the sprint stride
-  c.gunMount.rotation.set(pE+A.recoil*0.22-0.45*A.reload-0.5*sp-1.0*dk,0.35*sp+0.1*dn,0.6*A.reload+0.45*sp+0.08*dn);
+  const dn=(A.dn||0)*A.sprint; c.gunMount.position.set(sh.x+o.x+Dc[0]*dr,sh.y+oy+0.035*sp*(Math.abs(A.dn||0)-0.5)+Dc[1]*dr,sh.z+oz+Dc[2]*dr); // the gun bobs and sways with the sprint stride
+  const rl=mf?0:A.reload, bz=R.buzz&&A.recoil>0.02?R.buzz*Math.sin(matchTime*88):0, bu=(A.boltT-0.25)/0.6, bolt=id==='sniper'&&bu>0&&bu<1?Math.sin(bu*Math.PI):0;
+  const fi=A.rkFid&&A.rkFid.id==='gun'?Math.sin(Math.PI*A.rkFid.k):0; // inspecting the gun
+  c.gunMount.rotation.set(pE+(A.rkX||0)-0.45*rl-0.5*sp+Dc[3]*dr+bz+0.55*tip+0.15*fi,0.35*sp+0.1*dn+(A.rkY||0)+0.7*bz-0.35*fi,0.6*rl+0.45*sp+0.08*dn+Dc[4]*dr+0.15*bolt+0.75*fi);
+  const U=c.held&&c.held.userData, gR=mf&&U&&U.gR, gL=mf&&U&&U.gL;
+  if(gR&&gL){ const kR=(A.rkSide||0)===0?A.rkM||0:0, kL=(A.rkSide||0)===1?A.rkM||0:0;
+    gR.position.set(H.r[0]-0.1*tog,H.r[1],H.r[2]); gL.position.set(H.l[0]+0.1*tog,H.l[1],H.l[2]);
+    gR.rotation.set(kR-TAU*spR,0,-0.5*tip+0.35*tog); gL.rotation.set(kL-TAU*spL,0,0.5*tip-0.35*tog); }
   if(near&&c.held){ c.gunMount.updateMatrixWorld(true);
-    const rt=c.gunMount.localToWorld(new V(...H.r)), lt=c.gunMount.localToWorld(new V(...H.l));
-    if(A.reload>0.05){ lt.lerp(c.gunMount.localToWorld(new V(0,-0.32,-0.05)),A.reload*(0.5+0.5*Math.sin(matchTime*8))); }
-    const rS=B.RightArm.getWorldPosition(new V()), lS=B.LeftArm.getWorldPosition(new V());
+    const natL=B.LeftHand.getWorldPosition(_gc);
+    let rt, lt;
+    if(gR&&gL){ rt=gR.localToWorld(_ga.set(0,0,0)); lt=gL.localToWorld(_gb.set(0,0,0)); }
+    else { rt=c.gunMount.localToWorld(_ga.set(H.r[0],H.r[1],H.r[2]));
+      const pk=U.pump&&A.pumpT>0&&A.pumpT<0.45?Math.sin(clamp(A.pumpT/0.45,0,1)*Math.PI)*0.14:0; // the left hand rides the pump
+      lt=c.gunMount.localToWorld(_gb.set(H.l[0],H.l[1],H.l[2]+pk));
+      if(bolt>0){ const lift=0.04*smooth(0.1,0.3,bu)*(1-smooth(0.7,0.9,bu)), pull=0.08*smooth(0.3,0.5,bu)*(1-smooth(0.55,0.75,bu)); // work the bolt
+        rt.lerp(c.gunMount.localToWorld(_gd.set(0.05,0.03+lift,0.12+pull)),smooth(0,0.2,bu)*(1-smooth(0.8,1,bu))); }
+      if(A.reload>0.05) lt.lerp(c.gunMount.localToWorld(_gd.set(0,-0.32,-0.05)),A.reload*(0.5+0.5*Math.sin(matchTime*8))); }
+    if(A.draw<1) lt.lerp(natL,1-smooth(0.35,0.85,A.draw)); // the left hand comes onto a new gun a beat after it is up
+    const rS=B.RightArm.getWorldPosition(_gd), lS=B.LeftArm.getWorldPosition(_ge);
     solveIK(B.RightArm,B.RightForeArm,B.RightHand,rt,rS.clone().addScaledVector(right,0.3).addScaledVector(upB,-0.8).addScaledVector(fwdV,-0.1));
-    solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,lt,lS.clone().addScaledVector(right,-0.5).addScaledVector(upB,-0.7));
-    // right hand wrapped round the grip, left hand palm up under the barrel
-    const gq=c.gunMount.getWorldQuaternion(new T.Quaternion()), dir=a=>new V(...a).applyQuaternion(gq);
-    poseHand(B,'Right',dir([-0.1,-0.1,-0.99]),dir([-1,0,0.1]),0.75);
-    if(A.reload<0.5) poseHand(B,'Left',dir(H.lf||[0.45,0.1,-0.9]),dir(H.ln||[0,1,0]),0.55);
+    const calm=!e.isPlayer&&e.zgFloat?smooth(1,1.5,A.rkCalm||0):0;
+    if(calm>0){ zgArms(e,X,['Left']); if(calm<1) lt.lerp(B.LeftHand.getWorldPosition(_gc),calm); else lt=null; }
+    if(lt) solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,lt,lS.addScaledVector(right,-0.5).addScaledVector(upB,-0.7));
+    // right hand wrapped round the grip, left hand palm up under the barrel (or round its own pistol)
+    (gR||c.gunMount).getWorldQuaternion(_gq); poseHand(B,'Right',_gd.set(-0.1,-0.1,-0.99).applyQuaternion(_gq),_ge.set(-1,0,0.1).applyQuaternion(_gq),0.75);
+    if(lt&&(gL||A.reload<0.5)){ if(gL) gL.getWorldQuaternion(_gq); else c.gunMount.getWorldQuaternion(_gq); const lf=H.lf||[0.45,0.1,-0.9], ln=H.ln||[0,1,0];
+      poseHand(B,'Left',_gd.set(lf[0],lf[1],lf[2]).applyQuaternion(_gq),_ge.set(ln[0],ln[1],ln[2]).applyQuaternion(_gq),0.55); }
   }
 }
 // [S3] the pickaxe: resting on the shoulder (each weapon form its own way), or swung (dual blades: one in each hand)
@@ -1591,8 +1661,15 @@ function setHeld(e,it){
 }
 function muzzlePos(e,out){ const c=e.ch; if(c.held) return (c.held.userData.muzzles?c.held.userData.muzzles[e.anim.mfSide||0]:c.held.userData.muzzle).getWorldPosition(out); return out.set(e.pos.x,e.pos.y+1.5,e.pos.z); }
 const KICK={ar:0.55,smg:0.35,pump:1,pistol:0.6,sniper:1,rpg:1.3,mf:0.3,frz:0.1,tsr:0.8,flm:0.06,pb:0.12,drone:0.15};
+// [S3] how each gun class kicks: z back (m), x muzzle climb (rad), y random yaw, sp share of the climb taken by the
+// chest, f/d spring frequency (Hz) and damping; buzz: a steady shake while it streams (flamethrower, freeze ray)
+const RECOIL={ar:{z:.05,x:.10,y:.03,sp:.04,f:9,d:.45},smg:{z:.03,x:.06,y:.04,sp:.02,f:12,d:.5},pump:{z:.13,x:.32,y:.04,sp:.14,f:5,d:.4},
+  pistol:{z:.04,x:.38,y:.02,sp:.03,f:8,d:.45},sniper:{z:.15,x:.36,y:.03,sp:.16,f:4.5,d:.45},rpg:{z:.2,x:.22,y:.02,sp:.22,f:3.5,d:.5},
+  mf:{z:.04,x:.28,y:.02,sp:.02,f:9,d:.45},tsr:{z:.06,x:.22,sp:.03,f:7,d:.5},pb:{z:.02,x:.04,y:.03,f:12,d:.6},frz:{buzz:.006,f:12,d:.6},flm:{buzz:.01,f:12,d:.6},drone:{z:.01,f:9,d:.6}};
 function fireFx(e,w,id){
-  const A=e.anim; A.recoil=Math.min(1.2,A.recoil+KICK[id]); A.flash=0.05; e.ch.flash.scale.setScalar(rnd(0.6,1.1)*(id==='pump'||id==='sniper'?1.5:1)); e.ch.flash.material.rotation=Math.random()*6;
+  const A=e.anim; A.recoil=Math.min(1.2,A.recoil+KICK[id]);
+  { const R=RECOIL[id]||RECOIL.ar, v=TAU*R.f*1.3; if(id==='mf'){ A.rkMV=(A.rkMV||0)+(R.x||0)*v; A.rkSide=A.mfSide||0; } else A.rkXV=(A.rkXV||0)+(R.x||0)*v;
+    A.rkZV=(A.rkZV||0)+(R.z||0)*v; A.rkYV=(A.rkYV||0)+(Math.random()*2-1)*(R.y||0)*v; if(id==='sniper') A.boltT=0; } A.flash=0.05; e.ch.flash.scale.setScalar(rnd(0.6,1.1)*(id==='pump'||id==='sniper'?1.5:1)); e.ch.flash.material.rotation=Math.random()*6;
   if(id==='pump') A.pumpT=-0.15;
   if(id==='rpg'){ rpgBackblast(e); return; }
   if(WEAP[id].sp){ A.flash=0; return; } // the special guns make their own light: no muzzle flash, no brass
@@ -2778,7 +2855,9 @@ function throwPose(e,c,rightB,fwdB,upB){
   const R=[[0,natR],[0.12,rel(grab,0,-0.04,0.06)],[0.24,grab],[0.34,rel(gp,0,0.0,0.2)],[0.47,rel(chest,0.06,-0.04,0)],[0.58,rel(rS,0.14,0.3,-0.3)],[THROW_REL,rel(rS,0.02,0.32,0.3)],[0.74,rel(rS,-0.12,0.05,0.55)],[0.86,rel(rS,-0.3,-0.25,0.35)],[1,natR]];
   const L=[[0,natL],[0.3,natL],[0.44,rel(chest,-0.02,-0.02,0.02)],[0.53,rel(chest,-0.28,-0.04,-0.02)],[0.64,rel(lS,-0.08,0.12,0.5)],[0.8,rel(lS,-0.1,0.0,0.45)],[1,natL]];
   const elbowUp=bell(0.45,0.75), poleR=rS.clone().addScaledVector(rightB,0.5).addScaledVector(upB,-0.6+0.9*elbowUp).addScaledVector(fwdB,-0.15);
-  solveIK(B.RightArm,B.RightForeArm,B.RightHand,pathAt(R,k),poleR);
+  const pa=(e.isPlayer?e.pitch||0:0)*0.6*smooth(0.45,0.6,k)*(1-smooth(0.86,1,k)), rt=pathAt(R,k);
+  if(pa) rt.sub(rS).applyAxisAngle(rightB,pa).add(rS);
+  solveIK(B.RightArm,B.RightForeArm,B.RightHand,rt,poleR);
   solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,pathAt(L,k),lS.clone().addScaledVector(rightB,-0.5).addScaledVector(upB,-0.6).addScaledVector(fwdB,-0.1));
   // fingers close round the grenade while it is held
   const hold=A.grabbed&&!A.released, h=w(B.RightHand), f0=w(B.RightHandMiddle1).sub(h).normalize(), a0=w(B.RightHandPinky1).sub(w(B.RightHandIndex1)); a0.addScaledVector(f0,-a0.dot(f0)).normalize();
@@ -3962,6 +4041,9 @@ function punchFx(p,s){ for(let i=0;i<(s>=1?8:3);i++) mote(mistMat,p.clone(),rnd(
 const _fa=new V();
 function fistArms(e,B,rightB,upB,fwdB){
   const aim=e.isPlayer?camera.getWorldDirection(_fa):fwdB, ext=e.punchExt||{Right:0,Left:0}, S=e.titanS||1, ch=e.aCharge>0?Math.min(1,e.aCharge*3):0;
+  const tw=0.35*(ext.Right-ext.Left), lean=Math.max(ext.Right,ext.Left); // [S3] the hips and chest throw the punch
+  if(Math.abs(tw)>1e-3){ rotateBoneWorld(B.Spine1,upB,tw*0.6); rotateBoneWorld(B.Spine2,upB,tw*0.4); }
+  if(lean>1e-3) rotateBoneWorld(B.Spine1,rightB,-0.12*lean);
   for(const [sd,sx] of [['Right',1],['Left',-1]] as [string,number][]){
     const sh=B[sd+'Arm'].getWorldPosition(new V()), x=ext[sd];
     let t=sh.clone().addScaledVector(fwdB,0.3*S).addScaledVector(upB,-0.1*S).addScaledVector(rightB,-sx*0.13*S);
@@ -4149,7 +4231,8 @@ const _nX=new V(), _nY=new V(), _nZ=new V(), _nm=new T.Matrix4();
 function noteArms(e,B,rightB,upB,fwdB){
   const bk=openBook(e), u=bk.userData, ch=B.Spine2.getWorldPosition(new V()), t=matchTime;
   // held up out in front and a little to the right, tipped back toward the over-the-shoulder camera so you can read it
-  const c=ch.addScaledVector(fwdB,0.44).addScaledVector(upB,0.06).addScaledVector(rightB,0.14);
+  const op=e.writing?smooth(0,0.2,e.writing.t):1, c=ch.addScaledVector(fwdB,0.44-0.2*(1-op)).addScaledVector(upB,0.06-0.2*(1-op)).addScaledVector(rightB,0.14+0.08*(1-op)); // [S3] opens out of the hand
+  bk.scale.setScalar(1.3*(0.55+0.45*op)); bk.children[0].rotation.y=0.12+1.45*(1-op); bk.children[1].rotation.y=-0.12-1.45*(1-op);
   _nZ.copy(upB).multiplyScalar(0.55).addScaledVector(fwdB,-0.75).addScaledVector(rightB,0.3).normalize(); _nX.copy(rightB).addScaledVector(_nZ,-rightB.dot(_nZ)).normalize(); _nY.crossVectors(_nZ,_nX);
   bk.position.copy(c); bk.quaternion.setFromRotationMatrix(_nm.makeBasis(_nX,_nY,_nZ)); bk.updateMatrixWorld(true);
   const w=e.writing, k=w?Math.min(1,w.t/(w.hold?NOTE_MAX:NOTE_TAP)):0;
