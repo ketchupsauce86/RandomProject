@@ -965,6 +965,9 @@ function placeAboutMiddle(e,g){ if(lockedUp(e)) bodyHold(e,g); else bodyQuat(e,g
 function bodyPose(e,g,c,a,dt,X){
   c.spin.position.set(0,0,0);
   bodyQuat(e,g,X); rootAboutMiddle(e,g);
+  // zero-g has no strafe hip twist: animTorso's twist is written for the ceiling's handedness (P1-2), and the velocity-driven bank
+  // in bodyQuat does that job. Remove this line if you want S1's twist back in zero-g once its sign is fixed there.
+  if(e.zgFloat) X.speed=0;
 }
 // [S0] a damped spring toward x: o[k] is the value and o[k+'V'] its velocity, f the frequency in Hz, z the damping ratio
 // (1 = no overshoot). Sub-stepped, so the 0.3 s steps of throttled far bots cannot blow it up. Returns the value.
@@ -1221,37 +1224,88 @@ function animLegs(e,X){ const {c,A,B,near,upB}=X;
   c.model.position.y=-0.48*crE;
 }
 // [S2] zero-g: a lazy bob while drifting, and cartoon squash and stretch: long on the kick, squashed on the tuck
-function animZG(e,X){ const {c,A,dt}=X;
-  let sqY=1;
+function animZG(e,X){ const {c,A,B,g,dt,near}=X;
+  let sqY=1, feetAnchor=0;
+  // phases differ per bot (P1-13): without this the whole field swims in sync. hashE, not Math.random, keeps gameplay's random stream untouched
+  if(A.zgB===undefined){ A.zgB=e.isPlayer?0:hashE(e,3); A.zgF=e.isPlayer?0:hashE(e,4); }
+  // envelopes of the zero-g and flip poses (all exp/linear in dt, so throttled bots stay correct)
+  const ek=r=>1-Math.exp(-r*dt), warn=ZG.state==='warn', gnd=ZG.state==='ceil'&&e.onGround;
+  D(A,'zgBr',warn?smooth(1.9+0.35*hashE(e,9),0.4,ZG.t):0,ek(8)); A.zgBf=warn?Math.pow(ZG.t*4-Math.floor(ZG.t*4),3):0; // brace for the flip; a flinch on each alarm beep
+  D(A,'zgPre',gnd&&ZG.t<0.24?smooth(0.24,0.04,ZG.t):0,ek(20)); // crouch just before gravity returns
+  A.zgKk=Math.max(0,(A.zgKk||0)-dt/0.55); A.zgKb=Math.max(0,(A.zgKb||0)-dt/0.9); A.zgPop=Math.max(0,(A.zgPop||0)-dt/0.45); A.push=Math.max(0,(A.push||0)-dt/0.35);
+  D(A,'zgBn',e.bounceT>0?1:0,ek(12)); D(A,'zgBo',smooth(0.02,0.25,(e.boostT||0)/1.1),ek(14));
+  if(e.zgPropel&&!A.zgPp) A.push=1; A.zgPp=!!e.zgPropel; // the rising edge of propel is a kick-off
+  A.zgFT=A.zgFF?(A.zgFT||0)+dt:0; // seconds since the fall began
+  // the superhero landing: attack, hold, release; walking away cancels it (A.landBig is the 1 -> 0 impulse other streams read)
+  if(A.zgLT!=null&&A.zgLT<1.5){ A.zgLT+=dt; const u=A.zgLT; A.landBig=Math.max(0,1-u);
+    A.zgLC=e.onGround&&X.speed<2?Math.max(0,(A.zgLC||0)-dt/0.5):Math.min(1,(A.zgLC||0)+dt/(e.onGround?0.15:0.08));
+    A.zgLK=smooth(0,0.07,u)*(1-smooth(0.42,1.0,u))*(1-A.zgLC);
+    sqY*=1-0.15*Math.exp(-6*u)*Math.cos(18*u); feetAnchor=1; }
+  else A.zgLK=0;
+  if(A.zgFF&&!e.onGround&&e.vel.y>8) sqY*=1+0.05*smooth(8,38,e.vel.y); // stretched while falling
+  { const pu=1-A.push; if(A.push>0) sqY*=1-0.04*Math.sin(Math.PI*clamp(pu/0.28,0,1))+0.09*Math.sin(Math.PI*clamp((pu-0.28)/0.35,0,1)); } // propel kick: a squash on the tuck, long on the snap
+  // sink into the landing or the push-off crouch with the feet planted
+  const K=Math.max(A.zgLK||0,(A.zgPre||0)*0.5);
+  if(near&&K>0.01&&!e.bounceT){ const want=(A.zgLK>=A.zgPre*0.5?0.7:0.3)*Math.max(A.zgLK,A.zgPre), cur=-c.model.position.y;
+    if(!X.feet) X.feet=[B.LeftFoot.getWorldPosition(new V()),B.RightFoot.getWorldPosition(new V())];
+    if(want>cur) c.model.position.y-=want-cur; }
   if(e.zgFloat){ const kz=1-Math.exp(-8*dt); D(A,'zgP',e.zgPropel?1:0,kz); D(A,'zgS',e.zgPropel?0:smooth(1.5,7,e.vel.length()),1-Math.exp(-4*dt));
     A.zgT=(A.zgT||e.walkT)+dt*lerp(3.2,13,A.zgP); A.zgB=((A.zgB||0)+dt*(0.4+0.5*A.zgS))%1; A.zgI=(A.zgI||e.walkT*3)+dt; A.zgF=((A.zgF||0)+dt*0.95)%1;
     const P=A.zgP, Sw=A.zgS*(1-P), I=(1-P)*(1-A.zgS), u=A.zgB;
     c.model.position.y+=I*0.05*Math.sin(A.zgI*1.2)+Sw*0.06*(frogK(u)-0.5); // drifting bobs gently; each kick surges the body forward
-    sqY=1+I*0.008*Math.sin(A.zgI*1.2+1); }
-  else if(A.zgP){ A.zgP=0; A.zgS=0; }
-  c.spin.scale.set(1/Math.sqrt(sqY),sqY,1/Math.sqrt(sqY)); c.spin.position.y+=1-sqY; // squash about the middle of the body
+    sqY*=1+I*0.008*Math.sin(A.zgI*1.2+1); }
+  else if(A.zgP||A.zgS){ A.zgP*=Math.exp(-12*dt); A.zgS*=Math.exp(-12*dt); if(A.zgP<0.01) A.zgP=0; if(A.zgS<0.01) A.zgS=0; } // ease out of the swim as gravity returns (it used to snap)
+  c.spin.scale.set(1/Math.sqrt(sqY),sqY,1/Math.sqrt(sqY)); c.spin.position.y+=(1-sqY)*(1-feetAnchor); // squash about the middle of the body (the landing squash sits on its feet)
 }
 // [S1] foot IK: the feet go back where animLegs planted them
 function animFeet(e,X){ const {B,feet,fwdV,upB}=X;
   if(feet){ for(const [i,sd] of [[0,'Left'],[1,'Right']]){ const hip=B[sd+'UpLeg'].getWorldPosition(new V()); const pole=hip.clone().addScaledVector(fwdV,1.2).addScaledVector(upB,-0.4); solveIK(B[sd+'UpLeg'],B[sd+'Leg'],B[sd+'Foot'],feet[i],pole); } }
 }
 // [S2] the legs inside the bouncer ball and in zero-g. Returns true when it posed the legs (the jump and sprint legs then stay off)
-function animZGLegs(e,X){ const {A,B,rightB,upB,fwdB}=X;
-  if(e.bounceT>0){ bend(X,'Left',1.7,-2.3); bend(X,'Right',1.6,-2.2); rotateBoneWorld(B.Spine1,rightB,0.35); rotateBoneWorld(B.Neck,rightB,0.4); return true; }
+const _g1=new V(), _g2=new V(), _g3=new V(), _g4=new V(), _g5=new V();
+function animZGLegs(e,X){ const {A,B,rightB,upB,fwdB,dt}=X; const tI0=A.zgI||0;
+  if(e.bounceT>0||A.zgBn>0.02&&e.zgFloat){ const w=A.zgBn, kk=A.bounceKick||0; // the Bouncer Ball: tuck in over 0.2 s, squeeze on each bounce
+    bend(X,'Left',1.7*w,-2.3*w); bend(X,'Right',1.6*w,-2.2*w); rotateBoneWorld(B.Spine1,rightB,-0.35*w-0.12*kk*w); rotateBoneWorld(B.Neck,rightB,-0.25*w); if(e.bounceT>0) return true; }
+  // superhero landing: left foot forward, right knee trailing near the surface, chest and head down, then up
+  if(X.near&&(A.zgLK||0)>0.02&&X.feet){ const K=A.zgLK, u=A.zgLT, hd=1-smooth(0.3,0.6,u), f=X.feet;
+    rotateBoneWorld(B.Hips,rightB,-0.2*K); rotateBoneWorld(B.Spine1,rightB,-0.55*K); rotateBoneWorld(B.Spine2,rightB,-0.3*K); rotateBoneWorld(B.Neck,rightB,-0.4*K*hd+0.15*K*(1-hd));
+    const hL=B.LeftUpLeg.getWorldPosition(_g1), hR=B.RightUpLeg.getWorldPosition(_g2);
+    const tL=_g3.copy(f[0]).addScaledVector(fwdB,0.3*K).addScaledVector(rightB,-0.05*K), tR=_g4.copy(f[1]).addScaledVector(fwdB,-0.38*K).addScaledVector(upB,0.08*K);
+    solveIK(B.LeftUpLeg,B.LeftLeg,B.LeftFoot,tL,hL.clone().addScaledVector(fwdB,1.0).addScaledVector(rightB,-0.2));
+    solveIK(B.RightUpLeg,B.RightLeg,B.RightFoot,tR,hR.clone().addScaledVector(upB,-0.9).addScaledVector(fwdB,0.1).addScaledVector(rightB,0.15));
+    rotateBoneWorld(B.RightFoot,rightB,0.7*K);
+    const sh=B.LeftArm.getWorldPosition(_g5), dn=Math.max(0,sh.clone().sub(f[0]).dot(upB)); // the left fist goes to the surface ahead of the left foot
+    const fist=sh.clone().addScaledVector(upB,-dn).addScaledVector(fwdB,0.16).addScaledVector(rightB,-0.04), w=smooth(0,0.1,u)*(1-smooth(0.45,0.8,u))*(1-A.zgLC);
+    X.armOv.Left={t:fist,w}; return true; }
+  // falling toward the ceiling after the flip: tucked while it turns, then the legs reach for the surface
+  if(A.zgFF&&!e.onGround&&!e.zgFloat){ const tk=0.95*Math.sin(Math.PI*clamp(A.zgFs||0,0,1)), tI=tI0+(A.zgFT||0), ttc=Math.max(0,(ZG.H-2.05-e.pos.y)/Math.max(e.vel.y,4)), rp=smooth(0.25,0.06,ttc);
+    for(const [sd,off] of [['Left',0],['Right',2.1]] as [string,number][]){ const ex=0.2+0.12*Math.sin(tI*5+off)+0.3*rp, kx=0.28+0.12*Math.sin(tI*5+off+1)+0.25*rp;
+      bend(X,sd,lerp(ex,1.7,tk),-lerp(kx,2.3,tk)); }
+    rotateBoneWorld(B.Spine1,rightB,-0.5*tk); rotateBoneWorld(B.Neck,rightB,-0.45*(1-tk)-0.2*tk); return true; }
   if(e.zgFloat){
     // three ways to move in zero-g, blended: drifting (a lazy bicycle with the knees falling apart), swimming
     // (a big frog kick timed to the arm stroke) and propelling (legs pedal like a cartoon character running on air)
     const P=A.zgP, Sw=A.zgS*(1-P), I=(1-P)*(1-A.zgS), u=A.zgB, tI=A.zgI;
     // sprinting: a quick flutter kick from the hips with loose knees, three kicks to every arm stroke
     const frog=frogK(u), glide=u>=0.84||u<0.12?1:0, fl=TAU*3*(A.zgF||0);
+    const Br=A.zgBr||0, Kk=A.zgKk||0, Bo=A.zgBo||0, Kb=A.zgKb||0, Pop=A.zgPop||0, pu=A.push>0?1-A.push:1, pw=A.push>0?1-smooth(0.45,1,pu):0; // brace, push-off kick, booster, knock-back flail, bouncer pop, propel kick-off
     for(const [sd,off,sx] of [['Left',0,-1],['Right',Math.PI,1]] as [string,number,number][]){ const ti=tI*0.9+off, tf=fl+off;
-      const th=I*(0.3+0.22*Math.sin(ti))+Sw*(0.05+1.05*frog)+P*(0.1+0.26*Math.sin(tf));
-      const kn=I*(0.5+0.3*(Math.sin(ti+1.1)+1)/2)+Sw*(0.1+1.7*frog)+P*(0.18+0.38*Math.max(0,Math.sin(tf+1.2)));
-      bend(X,sd,th,-kn); rotateBoneWorld(B[sd+'UpLeg'],fwdB,-sx*(I*(0.14+0.05*Math.sin(ti*0.7))+Sw*0.5*frog)); }
+      let th=I*(0.3+0.22*Math.sin(ti))+Sw*(0.05+1.05*frog)+P*(0.1+0.26*Math.sin(tf));
+      let kn=I*(0.5+0.3*(Math.sin(ti+1.1)+1)/2)+Sw*(0.1+1.7*frog)+P*(0.18+0.38*Math.max(0,Math.sin(tf+1.2)));
+      let sp=I*(0.14+0.05*Math.sin(ti*0.7))+Sw*0.5*frog;
+      th=lerp(th,0.55,0.8*Br); kn=lerp(kn,0.95,0.8*Br);                 // brace: knees half tucked
+      th=lerp(th,pu<0.3?0.9*smooth(0,0.3,pu):lerp(0.9,-0.3,smooth(0.28,0.42,pu)),pw); kn=lerp(kn,pu<0.3?1.6*smooth(0,0.3,pu):lerp(1.6,0.05,smooth(0.28,0.42,pu)),pw); // propel kick-off: tuck, then snap straight
+      th=lerp(th,-0.3,Kk); kn=lerp(kn,0.05,Kk); sp*=1-Kk;                  // push off the ceiling: legs kick straight
+      th=lerp(th,-0.05,Bo); kn=lerp(kn,0.08,Bo); sp*=1-Bo;                 // booster: legs together
+      th+=Kb*0.55*Math.sin(tI*9+off*1.3); kn+=Kb*(0.5+0.5*Math.sin(tI*8+off)); sp+=Kb*0.3;
+      th=lerp(th,0.2,Pop); sp=lerp(sp,0.55,Pop);                           // the star pop when the ball bursts
+      bend(X,sd,th,-kn); rotateBoneWorld(B[sd+'UpLeg'],fwdB,-sx*sp); }
     const roll=Math.sin(TAU*((A.zgF||0)+0.12)); // the body rolls toward the arm that is pulling
     rotateBoneWorld(B.Spine1,upB,0.32*P*roll); rotateBoneWorld(B.Hips,upB,-0.12*P*roll);
-    rotateBoneWorld(B.Neck,rightB,0.4*P+0.3*Sw+(e.zgTx||0)*-0.3); rotateBoneWorld(B.Neck,upB,0.25*I*Math.sin(tI*0.4)-0.2*P*roll);
-    rotateBoneWorld(B.Hips,fwdB,0.08*I*Math.sin(tI*0.7)); rotateBoneWorld(B.Spine1,rightB,0.07*I*Math.sin(tI*0.9)-0.14*Sw*frog+0.06*Sw*glide);
+    { const yl=-0.55*clamp(A.zgYl||0,-0.9,0.9)*(1-0.6*P); rotateBoneWorld(B.Hips,upB,yl); rotateBoneWorld(B.Spine,upB,-yl*0.5); rotateBoneWorld(B.Spine1,upB,-yl*0.5); } // yaw drag: the legs lag behind a turn
+    rotateBoneWorld(B.Neck,rightB,0.4*P+0.3*Sw+(A.zgPt||0)*-0.3+0.35*Br); rotateBoneWorld(B.Neck,upB,0.25*I*Math.sin(tI*0.4)-0.2*P*roll);
+    rotateBoneWorld(B.Hips,fwdB,0.08*I*Math.sin(tI*0.7)); rotateBoneWorld(B.Spine1,rightB,0.07*I*Math.sin(tI*0.9)-0.14*Sw*frog+0.06*Sw*glide-0.18*Br+0.12*Bo);
+    if((A.zgBf||0)*Br>0.01){ const f=A.zgBf*Br; rotateBoneWorld(B.Spine1,rightB,-0.05*f); rotateBoneWorld(B.LeftShoulder,fwdB,0.07*f); rotateBoneWorld(B.RightShoulder,fwdB,-0.07*f); } // a flinch on every alarm beep
     return true; }
   return false;
 }
@@ -1304,25 +1358,40 @@ function animArms(e,X){ const {c,A,B,near,held,pickaxe,cons,rightB,fwdB,upB}=X;
   else if(cons&&near){ br=4; consPose(e,c,cons,X.useK,rightB,fwdB,upB,X.dt); }          // [S3]
   else if(near&&pickaxe&&e.fistSt&&!((A.zgP||0)>0.3&&!(e.punches&&e.punches.length))){ br=5; fistArms(e,B,rightB,upB,fwdB); } // [S3]
   else if(near&&pickaxe&&e.writing){ br=6; noteArms(e,B,rightB,upB,fwdB); }             // [S3]
-  else if(near&&e.zgFloat&&!held&&!(pickaxe&&c.pick.visible)){ br=7; zgArms(e,X,['Left','Right']); } // [S2]
+  else if(near&&(e.zgFloat||A.zgFF||A.zgLK>0.02)&&!held&&!(pickaxe&&c.pick.visible)){ br=7; zgArms(e,X,['Left','Right']); } // [S2]
   else if(held){ br=8; gunArms(e,X); }                                                   // [S3] far bots too (the gun mount)
   else if(pickaxe&&near){ br=9; pickArms(e,X); }                                         // [S3]
   X.branch=br; const key=(near?1:0)+'|'+br+'|'+c.heldKey+'|'+(pickaxe?1:0); if(c.blKey!==key){ c.blKey=key; poseSnap(c,0.16); }
 }
 // [S2] hugging the knees inside the bouncer ball
-function bounceArms(e,X){ const {B,rightB,upB,fwdB}=X;
+function bounceArms(e,X){ const {B,A,rightB,upB,fwdB}=X, w=A.zgBn==null?1:Math.min(1,A.zgBn*1.4);
   for(const sd of ['Left','Right']){ const k=B[sd+'Leg'].getWorldPosition(new V()).addScaledVector(fwdB,0.12), sh=B[sd+'Arm'].getWorldPosition(new V());
+    if(w<0.99) k.lerp(B[sd+'Hand'].getWorldPosition(new V()),1-w); // reach for the knees over the first 0.2 s
     solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],k,sh.clone().addScaledVector(rightB,sd==='Left'?-0.5:0.5).addScaledVector(upB,-0.3)); }
 }
+const mixA=(a,t,w)=>{ if(w>0.001){ a[0]=lerp(a[0],t[0],w); a[1]=lerp(a[1],t[1],w); a[2]=lerp(a[2],t[2],w); } };
 // [S2] zero-g arms: drifting, they float out and wave like a jellyfish; swimming, a big breaststroke (reach, sweep
 // wide, pull, tuck) on the same beat as the frog kick
 // sprinting (propelling) is a front crawl: the arms take turns reaching overhead, pulling down under the body to
 // the hip and swinging back over with the elbow high, while the body rolls from side to side with each pull
+// On top of that: brace for the flip (out and up), the tucked flip and the windmilling fall, the superhero landing (free arm back
+// for balance), the push-off sweep, the booster's overhead reach, knock-back flailing and the star pop of the Bouncer Ball.
 function zgArms(e,X,sides){ const A=e.anim, {B,rightB,upB,fwdB}=X; const P=A.zgP||0, Sw=A.zgS*(1-P), I=Math.max(0,1-Sw-P), u=A.zgB, tI=A.zgI;
+  const Br=A.zgBr||0, Kk=A.zgKk||0, Bo=A.zgBo||0, Kb=A.zgKb||0, Pop=A.zgPop||0, pu=A.push>0?1-A.push:1, pw=A.push>0?1-smooth(0.55,1,pu):0;
+  const falling=A.zgFF&&!e.onGround&&!e.zgFloat, tk=falling?0.95*Math.sin(Math.PI*clamp(A.zgFs||0,0,1)):0, wf=falling?1-tk:0, am=Math.exp(-(A.zgFT||0)*1.2), land=A.zgLK||0;
   for(const sd of sides){ const sx=sd==='Right'?1:-1, ph=sx>0?0:1.7, sh=B[sd+'Arm'].getWorldPosition(new V());
     const st=zgStroke(u), fr=loopPath(FREESTYLE,((A.zgF||0)+(sx>0?0:0.5))%1);
-    const out=I*(0.4+0.06*Math.sin(tI*0.9+ph))+Sw*st[0]+P*fr[0], up=I*(-0.2+0.1*Math.sin(tI*0.7+ph))+Sw*st[1]+P*fr[1], fw=I*(0.1+0.07*Math.sin(tI*0.55+ph))+Sw*st[2]+P*fr[2];
-    const t=sh.clone().addScaledVector(rightB,sx*out).addScaledVector(upB,up).addScaledVector(fwdB,fw);
+    const o=[I*(0.4+0.06*Math.sin(tI*0.9+ph))+Sw*st[0]+P*fr[0], I*(-0.2+0.1*Math.sin(tI*0.7+ph))+Sw*st[1]+P*fr[1], I*(0.1+0.07*Math.sin(tI*0.55+ph))+Sw*st[2]+P*fr[2]];
+    mixA(o,[0.56+0.02*Math.sin(tI*22+ph),0.04,0.12],Br*0.9);                                              // brace: spread out and up
+    mixA(o,[0.62+0.12*am*Math.sin(TAU*2*tI+ph),0.08+0.2*am*Math.sin(TAU*2*tI+ph+1.4),0.05],wf);          // fall: spread, windmilling less and less
+    if(pw>0) mixA(o,pu<0.4?[0.12,0.62,0.45]:[0.24,lerp(0.5,-0.42,smooth(0.4,0.7,pu)),lerp(0.4,0.03,smooth(0.4,0.7,pu))],pw); // propel kick-off: reach overhead, sweep to the hips
+    mixA(o,[0.28,-0.4,0.02],Kk*0.9);                                                                     // push off the ceiling: arms sweep down
+    mixA(o,[0.12,0.62,0.3],Bo);                                                                          // booster: superman
+    mixA(o,[0.45+0.3*Math.sin(tI*11+ph),0.2+0.35*Math.sin(tI*9+ph*2),0.1+0.25*Math.sin(tI*7+ph)],Kb);    // knock-back: flailing
+    mixA(o,[0.66,0.42,0.1],Pop);                                                                         // star pop
+    if(land>0.01&&sx>0) mixA(o,[0.6,-0.2,-0.3],land);                                                    // landing: the free arm swings back for balance
+    const t=sh.clone().addScaledVector(rightB,sx*o[0]).addScaledVector(upB,o[1]).addScaledVector(fwdB,o[2]);
+    if(tk>0.01){ const kn=B[sd+'Leg'].getWorldPosition(new V()).addScaledVector(fwdB,0.12); t.lerp(kn,Math.min(1,tk*1.2)); } // hugging the knees mid-flip
     const pole=sh.clone().addScaledVector(rightB,sx*0.6).addScaledVector(upB,0.05-0.05*P).addScaledVector(fwdB,-0.3-0.15*P);
     solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],t,pole);
     rotateBoneWorld(B[sd+'Hand'],fwdB,sx*(0.3*I*Math.sin(tI*1.6+ph)+0.4*Sw*Math.sin(TAU*u))); } }
@@ -2403,7 +2472,7 @@ function updatePads(dt){
   for(const e of combatants){ if(!e.alive||e.bounceT>0) continue; e.padT=Math.max(0,(e.padT||0)-dt); e.boostT=Math.max(0,(e.boostT||0)-dt); if(e.padT>0) continue;
     for(const pd of ZG.pads){ tv3.set(e.pos.x,e.pos.y+1,e.pos.z).sub(pd.pos); const along=tv3.dot(pd.n); if(along<-0.5||along>2.6) continue;
       tv3.addScaledVector(pd.n,-along); if(tv3.length()>PAD_R+0.3) continue;
-      e.vel.addScaledVector(pd.n,-e.vel.dot(pd.n)).addScaledVector(pd.n,PAD_V); e.onGround=false; e.padT=0.6; e.boostT=1.1; pd.pulse=1;
+      e.vel.addScaledVector(pd.n,-e.vel.dot(pd.n)).addScaledVector(pd.n,PAD_V); e.onGround=false; e.padT=0.6; e.boostT=1.1; pd.pulse=1; e.anim.zgPvX=1; /* [S2] a launch, not a knock-back */
       sfx('boost',pd.pos.clone()); if(e===player) camShake=Math.max(camShake,0.3); break; } }
 }
 // ================= explosions & fire =================
@@ -2718,7 +2787,7 @@ const ballEdge=new T.LineBasicMaterial({color:0xd8f6ff,transparent:true,opacity:
 const ballGeo=new T.IcosahedronGeometry(1,2), ballEdgeGeo=new T.EdgesGeometry(new T.IcosahedronGeometry(1.01,1));
 function startBounce(p){
   if(!p.bouncer||!p.alive||p.bounceT>0) return; if(p.bouncer.cd>0){ sfx('deny'); return; }
-  cancelActions(); p.throwA=null; p.bounceT=BOUNCE_T; p.bounceHit=new Set(); p.bounceKick=0;
+  cancelActions(); p.throwA=null; p.bounceT=BOUNCE_T; p.bounceHit=new Set(); p.bounceKick=0; p.anim.zgPvX=1; poseSnap(p.ch,0.12);
   const a=Math.random()*TAU, dir=new V(Math.cos(a),rnd(-0.5,0.5),Math.sin(a)).normalize(); camera.getWorldDirection(tv1); p.vel.copy(dir.lerp(tv1,0.5).normalize().multiplyScalar(BALL_V));
   if(!p.ball){ const g=new T.Group(); g.add(new T.Mesh(ballGeo,ballMat)); g.add(new T.LineSegments(ballEdgeGeo,ballEdge)); p.ball=g; }
   p.ball.scale.setScalar(0.01); world.add(p.ball); sfx('ballOn'); camShake=Math.max(camShake,0.3);
@@ -2743,11 +2812,12 @@ function updateBounce(p,dt){
   // the ball: grows in, rolls along its path, squashes on each bounce
   const B=p.ball, gin=Math.min(1,(BOUNCE_T-p.bounceT)/0.2); p.bounceKick=Math.max(0,p.bounceKick-dt*5);
   B.position.copy(c); B.scale.setScalar(r*gin*(1+0.12*p.bounceKick)); B.children[0].material.opacity=0.32;
-  _dv.crossVectors(UP,p.vel); if(_dv.lengthSq()>1e-4){ B.rotateOnWorldAxis(_dv.normalize(),BALL_V*dt/r); }
+  _dv.crossVectors(UP,p.vel); if(_dv.lengthSq()>1e-4){ B.rotateOnWorldAxis(_dv.normalize(),BALL_V*dt/r); (p.bounceW||(p.bounceW=new V())).copy(_dv).multiplyScalar(BALL_V/r*0.35); } // [S2] the body rolls along inside at a third of the ball's rate
   if(p.bounceT<=0) endBounce(p);
 }
 function endBounce(p){
   p.bounceT=0; p.bouncer.cd=BOUNCE_CD; p.vel.multiplyScalar(0.15); if(p.ball) world.remove(p.ball);
+  p.anim.zgPop=1; p.anim.zgPvX=1; p.bounceW=null; poseSnap(p.ch,0.12); // [S2] the star pop: arms and legs fling out as the ball bursts
   const c=new V(p.pos.x,p.pos.y+1,p.pos.z);
   for(let i=0;i<26;i++){ const m=new T.Mesh(shardGeo,shardMats[3].clone()); m.position.copy(c).add(new V(rnd(-1,1),rnd(-1,1),rnd(-1,1)).normalize().multiplyScalar(BALL_R)); world.add(m);
     const v=m.position.clone().sub(c).normalize().multiplyScalar(rnd(5,10)); effects.push({t:0,dur:rnd(0.5,0.9),obj:m,upd:(e,k,dt)=>{ m.position.addScaledVector(v,dt); m.rotation.x+=dt*9; m.scale.setScalar(1-k); m.material.opacity=1-k; },done:()=>m.material.dispose()}); }
