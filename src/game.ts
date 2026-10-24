@@ -1228,6 +1228,7 @@ function animZG(e,X){ const {c,A,B,g,dt,near}=X;
   let sqY=1, feetAnchor=0;
   // phases differ per bot (P1-13): without this the whole field swims in sync. hashE, not Math.random, keeps gameplay's random stream untouched
   if(A.zgB===undefined){ A.zgB=e.isPlayer?0:hashE(e,3); A.zgF=e.isPlayer?0:hashE(e,4); }
+  if(A.zgBr===undefined){ A.zgBr=A.zgPre=A.zgBn=A.zgBo=A.zgKk=A.zgKb=A.zgPop=A.push=A.zgLK=A.zgBf=0; } // lazily, so makeCombatant's defaults stay untouched
   // envelopes of the zero-g and flip poses (all exp/linear in dt, so throttled bots stay correct)
   const ek=r=>1-Math.exp(-r*dt), warn=ZG.state==='warn', gnd=ZG.state==='ceil'&&e.onGround;
   D(A,'zgBr',warn?smooth(1.9+0.35*hashE(e,9),0.4,ZG.t):0,ek(8)); A.zgBf=warn?Math.pow(ZG.t*4-Math.floor(ZG.t*4),3):0; // brace for the flip; a flinch on each alarm beep
