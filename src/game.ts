@@ -1339,8 +1339,8 @@ const EMOTES:any={
   floss:{n:'Floss',loop:1,bpm:120,beats:2,
     R:[[0,0.26,-0.36,-0.30],[0.25,0,-0.42,-0.32],[0.5,-0.40,-0.36,-0.22],[0.75,0,-0.42,-0.32]],
     L:[[0,0.40,-0.36,0.22],[0.25,0.02,-0.44,0.28],[0.5,-0.26,-0.38,0.30],[0.75,0.02,-0.44,0.28]],
-    hips:[[0,-0.06,-0.05,0,-0.08,0],[0.25,0,0,0,0,0],[0.5,0.06,-0.05,0,0.08,0],[0.75,0,0,0,0,0]],
-    chest:[[0,-0.1,0.10,-0.40],[0.25,-0.05,0,0],[0.5,-0.1,-0.10,0.40],[0.75,-0.05,0,0]],
+    hips:[[0,-0.11,-0.07,0,-0.12,0],[0.25,0,0,0,0,0],[0.5,0.11,-0.07,0,0.12,0],[0.75,0,0,0,0,0]],
+    chest:[[0,-0.1,0.10,-0.55],[0.25,-0.05,0,0],[0.5,-0.1,-0.10,0.55],[0.75,-0.05,0,0]],
     head:[[0,0,0.04,-0.14],[0.25,0,0,0],[0.5,0,-0.04,0.14],[0.75,0,0,0]], hand:{R:{c:1.3},L:{c:1.3}}},
   pump:{n:'Fist pump',loop:1,bpm:128,beats:2,
     R:[[0,0.08,0.46,0.10],[0.25,0.12,0.02,0.30],[0.5,0.12,-0.12,0.26],[0.75,0.12,0.02,0.30]],
@@ -1524,7 +1524,7 @@ function ewBuild(){ if(EW.built) return; EW.built=true; const st=$q('#emoteWheel
   let svg='<svg class="ew-ring" viewBox="-220 -220 440 440" aria-hidden="true"><defs><linearGradient id="ewg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5cf0ff" stop-opacity=".5"/><stop offset="1" stop-color="#ff3bd4" stop-opacity=".42"/></linearGradient></defs>', sl='';
   for(let i=0;i<n;i++){ const a=-Math.PI/2+i*EW.step, g=0.035; svg+=`<path class="ew-w" data-i="${i}" d="${ewArc(EW.R0,EW.R1,a-EW.step/2+g,a+EW.step/2-g)}"/>`;
     const rm=(EW.R0+EW.R1)/2, E=EMOTES[EM_ORDER[i]];
-    sl+=`<div class="ew-slot" data-i="${i}" style="left:${(Math.cos(a)*rm).toFixed(1)}px;top:${(Math.sin(a)*rm).toFixed(1)}px">${emIcon(EM_ORDER[i])}<span>${E.n}</span><kbd>${i+1}</kbd>${E.zg?'<em>zero-g</em>':''}</div>`; }
+    sl+=`<div class="ew-slot" data-i="${i}" style="left:${(220+Math.cos(a)*rm).toFixed(1)}px;top:${(220+Math.sin(a)*rm).toFixed(1)}px">${emIcon(EM_ORDER[i])}<span>${E.n}</span><kbd>${i+1}</kbd>${E.zg?'<em>zero-g</em>':''}</div>`; }
   svg+='</svg>'; st.innerHTML=svg+sl+'<div class="ew-center"><span class="ew-k">Emote</span><b id="ewName"></b><i>Release <kbd>B</kbd> to play</i></div><div class="ew-cursor" id="ewCur"></div>'; }
 function ewRender(){ const el=$('emoteWheel'); el.querySelectorAll('.ew-w').forEach((w:any)=>w.classList.toggle('on',+w.dataset.i===EW.on));
   el.querySelectorAll('.ew-slot').forEach((s:any)=>{ s.classList.toggle('on',+s.dataset.i===EW.on); s.classList.toggle('lock',!!EMOTES[EM_ORDER[+s.dataset.i]].zg&&!!player&&(!player.zgFloat||ZG.state==='ceil')); });
