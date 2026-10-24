@@ -1,4 +1,4 @@
-// Home screen polish: the version badge and "What's new" list (from version.js), a WebGL glitch-light
+// Home screen polish: the version badge and the News panel (releases from version.js, announcements and chapters from news.js), a WebGL glitch-light
 // layer drawn over the live box (raw GLSL, no three.js), and GSAP motion. Everything here is optional
 // decoration: if GSAP or WebGL is missing the menu still works and simply sits still.
 (()=>{
@@ -10,7 +10,27 @@
   $('pauseVer').textContent=`Inverted v${V.version}`;
   $('wnMeta').textContent=`v${V.version} · build ${V.build} · ${V.date}`;
   const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  $('wnList').innerHTML=(V.notes||[]).map(n=>`<li><span class="v">v${esc(n.v)}</span><span class="t">${esc(n.title)}</span><span class="d">${esc(n.date)}</span></li>`).join('');
+  // News: announcements (news.js), the newest release, then every release grouped into chapters with a few fun tags
+  const N=window.GAME_NEWS||{announcements:[],chapters:[]}, notes=(V.notes||[]).map(n=>({...n,title:String(n.title).replace(/\s*\(v[\d.]+\)$/,''),m:+String(n.v).split('.')[1]||0}));
+  const TAGS=[['🔫','Weapons',/gun|rpg|grenade|ray|taser|flame|drone|paintball|\bmf\b|sniper|weapon|ammo|blade|sword/i],['⛏️','Pickaxes',/pickaxe|\bpicks?\b|power-up/i],
+    ['🎨','Style',/skin|locker|loadout|look|outfit|glow|font|homepage|ui\b|news/i],['🔊','Sound',/sound|audio|heartbeat/i],['🌍','World',/island|box|block|gravity|zero-g|booster|jet|vending|season|bus/i],
+    ['🏃','Moves',/swim|jump|animation|somersault|arms|glider|drop|swing|shoulder|death/i],['⚡','Speed',/lag|smoother|faster/i],['🤖','Bots',/bots?\b|100 players/i]];
+  const tagsOf=t=>TAGS.filter(x=>x[2].test(t)).slice(0,2).map(x=>`<span class="tg">${x[0]} ${x[1]}</span>`).join('');
+  const fmt=d=>{ const x=new Date(d+'T12:00:00'); return isNaN(x)?d:x.toLocaleDateString(undefined,{month:'short',day:'numeric'}); };
+  $('wnAnnc').innerHTML=(N.announcements||[]).map(a=>`<article class="an${a.soon?' soon':''}" style="--c1:${esc(a.c1)};--c2:${esc(a.c2)}"><span class="em" aria-hidden="true">${esc(a.emoji)}</span><span class="tag">${esc(a.tag)}</span><h3>${esc(a.title)}</h3><p>${esc(a.body)}</p></article>`).join('');
+  const top=notes[0];
+  $('wnLatest').innerHTML=top?`<div class="latest"><span class="big">v${esc(top.v)}</span><span class="lbl"><b>New</b>Latest update · ${esc(fmt(top.date))}</span><span class="t">${esc(top.title)}</span><span class="tags">${tagsOf(top.title)}</span></div>`:'';
+  const chaps=(N.chapters||[]).slice().sort((a,b)=>b.from-a.from);
+  $('wnList').innerHTML=chaps.map((c,i)=>{ const hi=i?chaps[i-1].from:Infinity, rows=notes.filter(n=>n.m>=c.from&&n.m<hi); if(!rows.length) return '';
+    return `<details class="chap"${i===0?' open':''}><summary><span class="ce" aria-hidden="true">${esc(c.emoji)}</span><span class="cn">${esc(c.n)}</span><span class="cd">${esc(c.d)}</span><span class="cc">${rows.length} update${rows.length>1?'s':''}</span></summary><ol>`+
+      rows.map(n=>`<li><span class="v">v${esc(n.v)}</span><span class="t">${esc(n.title)}</span><span class="d">${esc(fmt(n.date))}</span><span class="tags">${tagsOf(n.title)}</span></li>`).join('')+`</ol></details>`; }).join('');
+  const first=notes[notes.length-1];
+  $('wnFoot').textContent=first?`${notes.length} updates since ${fmt(first.date)} · thanks for playing ✨`:'';
+  // the newest announcement also sits under the logo; the badge shows a dot until this version's news has been opened
+  const an=(N.announcements||[])[0];
+  if(an){ const b=$('anncBtn'); b.hidden=false; b.querySelector('.annc-tag').textContent=`${an.emoji} ${an.tag}`; b.querySelector('.annc-txt').textContent=an.title; b.setAttribute('aria-label',`${an.tag}: ${an.title}. Open the news`); }
+  let seen=''; try{ seen=localStorage.getItem('invertedNewsSeen')||''; }catch(e){}
+  if(seen!==V.version) $('verBtn').classList.add('has-new');
   console.info(`%c Inverted v${V.version} `,'background:#5cf0ff;color:#1a0b45;font-weight:700;border-radius:3px');
 
   // ---- drawer and modal, animated in and out
@@ -21,7 +41,9 @@
   const closeDrawer=()=>{ hide(drawer,{x:60}); cBtn.setAttribute('aria-expanded','false'); };
   cBtn.addEventListener('click',()=>drawer.hidden?openDrawer():closeDrawer());
   $('controlsClose').addEventListener('click',()=>{ closeDrawer(); cBtn.focus(); });
-  $('verBtn').addEventListener('click',()=>{ show(wn,{y:24,opacity:0}); if(gs&&!calm) gs.from('#wnList li',{y:14,opacity:0,stagger:0.04,duration:0.3,delay:0.1,ease:'power2.out'}); $('wnClose').focus(); });
+  const openNews=()=>{ show(wn,{y:24,opacity:0}); if(gs&&!calm) gs.from('#whatsNew .an, #whatsNew .latest, #whatsNew .chap',{y:14,opacity:0,stagger:0.05,duration:0.3,delay:0.1,ease:'power2.out'}); $('wnClose').focus();
+    $('verBtn').classList.remove('has-new'); try{ localStorage.setItem('invertedNewsSeen',V.version); }catch(e){} };
+  $('verBtn').addEventListener('click',openNews); $('anncBtn').addEventListener('click',openNews);
   const closeWn=()=>{ hide(wn,{y:16}); $('verBtn').focus(); };
   $('wnClose').addEventListener('click',closeWn);
   wn.addEventListener('click',e=>{ if(e.target===wn) closeWn(); });
@@ -47,6 +69,7 @@
     tl.from('.topbar',{y:-30,opacity:0,duration:0.6})
       .from('.logo .l1',{x:-120,skewX:-18,opacity:0,duration:0.7},'-=0.3')
       .from('.logo .l2',{x:-120,skewX:-18,opacity:0,duration:0.7},'-=0.55')
+      .from('.annc',{x:-40,opacity:0,duration:0.5},'-=0.35')
       .from('.loadout > *',{y:24,opacity:0,stagger:0.08,duration:0.45},'-=0.3')
       .from('.playcard',{x:60,opacity:0,duration:0.55},'-=0.5');
     // a short burst of jitter on the logo, like a bad signal

@@ -4,7 +4,7 @@ A 3D zero-gravity shooter that runs in the browser. You and 100 bots float insid
 
 **Play online:** https://ketchupsauce86.github.io/RandomProject/ (updates automatically about a minute after `main` changes; hard refresh with Ctrl+Shift+R to get the newest version).
 
-Needs a keyboard and mouse. The **Armory** button shows every gun design, and its **Pickaxes** tab shows 100 pickaxes in 3D across ten themed sets. Open the **Locker** to equip a pickaxe or one of 56 original skins in nine themes, each with repainted armor and 3D gear like capes, hats, hair, wings and halos. The bots wear them too. Turn on **Random each match** in the Locker to get a surprise pickaxe or skin (or both) every match.
+Needs a keyboard and mouse. The **Armory** button shows every gun design, and its **Pickaxes** tab shows 100 pickaxes in 3D across ten themed sets. Most of them have been reforged into real weapons (dual blades, greatswords, reaper scythes, spears, battle axes and twin daggers) that keep their set's look; the Christmas set is next. Open the **Locker** to equip a pickaxe or one of 56 original skins in nine themes, each with repainted armor and 3D gear like capes, hats, hair, wings and halos. The bots wear them too. Turn on **Random each match** in the Locker to get a surprise pickaxe or skin (or both) every match.
 
 ## Controls
 
@@ -39,6 +39,7 @@ Other files:
 - `ui.js`: the home screen polish: version badge, What's new list, a GLSL glitch-light layer and GSAP motion.
 - `soldier.js`: the character rig, packed as base64 glTF.
 - `version.js`: the version badge (see below).
+- `news.js`: the News panel's announcements and the chapters its update log is grouped into.
 - `sounds/` and `sounds.js`: recorded sound effects that replace synthesized ones (see below).
 
 ## Sounds
@@ -59,7 +60,7 @@ This rewrites `sounds.js`. Recordings still get the game's 3D panning, distance 
 
 ## Version
 
-The version badge in the top-right corner of the home screen opens a **What's new** list, and the pause screen shows the version too. Every merged pull request is one release (v1.13.0 is the 13th). Before opening a pull request, stamp the next version:
+The version badge in the top-right corner of the home screen opens the **News** panel: announcements from `news.js`, then every release grouped into chapters, and the pause screen shows the version too. Every merged pull request is one release (v1.13.0 is the 13th). Before opening a pull request, stamp the next version:
 
 ```
 python3 tools/stamp_version.py --next "Short title of this release"
