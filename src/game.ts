@@ -899,10 +899,17 @@ function spring(o,k,x,f,z,dt){ const w=TAU*f, kv=k+'V'; let p=o[k]||0, v=o[kv]||
 function motionState(e,dt){
   const A=e.anim, fx=-Math.sin(e.yaw), fz=-Math.cos(e.yaw), fwd=e.vel.x*fx+e.vel.z*fz, side=-e.vel.x*fz+e.vel.z*fx, speed=Math.hypot(e.vel.x,e.vel.z);
   const yr=wrapPi(e.yaw-(A.lastYaw==null?e.yaw:A.lastYaw))/Math.max(dt,1e-3); A.lastYaw=e.yaw;
-  e.bankT=e.onGround?clamp(yr*0.03,-0.22,0.22)*smooth(4,10,speed):0;
+  // lean into the turn. Upside down on the ceiling the roll adds the other way, so flip it there (body frame, not world)
+  e.bankT=e.onGround?clamp(yr*0.03,-0.22,0.22)*smooth(4,10,speed)*(e.zgRoll>1.5?-1:1):0;
   const aS=1-Math.exp(-7*dt);
   D(A,'sprint',e.onGround?smooth(8.6,10.6,speed):e.zgPropel?1:0,aS);
-  A.land=Math.max(0,(A.land||0)-dt*3.2); A.hit=Math.max(0,(A.hit||0)-dt*5); A.draw=Math.min(1,(A.draw==null?1:A.draw)+dt*3.5);
+  // landing: zgMove sets A.land (0.3..1) on touchdown. Its rising edge kicks a spring, A.landS: a quick compression
+  // (~60-80 ms), a recovery that overshoots ~12% and settles; heavier landings sink deeper and come back slower.
+  // A.landS (0..~0.6, crouch units) is the shared contract the camera reads
+  const ld=A.land||0; if(ld>(A.landP||0)+0.01){ A.landF=lerp(3.4,2.4,ld); A.landSV=(A.landSV||0)+0.6*ld*TAU*A.landF/0.522; } // peak = v0*0.522/w at zeta 0.55
+  spring(A,'landS',0,A.landF||3,0.55,dt);
+  A.land=Math.max(0,ld-dt*3.2); A.landP=A.land; A.hit=Math.max(0,(A.hit||0)-dt*5); A.draw=Math.min(1,(A.draw==null?1:A.draw)+dt*3.5);
+  A.lcYr=yr;
   return {fx,fz,fwd,side,speed};
 }
 // ---- deaths: each cause plays out differently, then the body shatters into glowing cubes
@@ -1170,14 +1177,26 @@ function animCombatState(e,X){ const {c,A,held,dt,aS}=X;
   const aiming=X.aiming=e.isPlayer?(ads||mouse.l||!!e.reloading):(A.recoil>0.05||!!e.enemy);
   D(A,'sprPose',held&&!aiming?A.sprint:0,aS);
 }
+// Gait: Walk and Run share one phase A.ph (0..1, Walk's normalized time; Run runs RUN_PH ahead so the feet agree),
+// advanced by the distance travelled over the stride the blended legs actually sweep, so the planted foot keeps up
+// with the ground. Measured from the clips (FK at MODEL_SCALE 1.1): Walk sweeps 1.82 m a cycle, Run 3.23 m.
+// The sprint overlay (animLegPose) swings the thighs further, so a sprint stride is longer. Contacts at A.ph ~0.26 (left) and ~0.75 (right).
+const WALK_D=1.033, RUN_D=0.70, STR_W=1.82, STR_R=3.23, RUN_PH=0.11, STR_SPR=0.25, PH_STEP=[0.26,0.75];
+const _lv1=new V(), _lv2=new V(), _lv3=new V(), _lq1=new T.Quaternion();
 // [S1] clip blending (the soldier ships with Idle, Walk, Run and T-pose; everything else is layered on top)
 function animClips(e,X){ const {c,A,fwd,speed,aS,dt}=X;
-  const s=X.s=e.onGround?speed:0, back=X.back=fwd<-0.5?-1:1;
+  A.lcBack=fwd<-0.5?-1:fwd>0.2?1:(A.lcBack||1); // backpedalling, with hysteresis (the phase just runs backward: no pop)
+  const s=X.s=e.onGround?speed:0, back=X.back=A.lcBack;
   const wRun=smooth(3.5,6.5,s), wWalk=smooth(0.3,2,s)*(1-wRun), wT=0;
   const wIdle=Math.max(0,1-wRun-wWalk-wT), W=c.w;
   D(W,'Idle',wIdle,aS); D(W,'Walk',wWalk,aS); D(W,'Run',wRun,aS); D(W,'TPose',wT,aS);
   for(const n in c.act) c.act[n].setEffectiveWeight(W[n]);
-  c.act.Walk.setEffectiveTimeScale(back*clamp(s/1.8,0.7,1.6)); c.act.Run.setEffectiveTimeScale(back*clamp(s/(5.5+1.2*A.sprint),0.8,2.15)); // sprinting takes longer strides instead of faster steps
+  // stride for the target blend (the weights lag a little; a full stride keeps the cadence natural while they catch up)
+  const sc=c.g.scale.y*c.model.scale.y/MODEL_SCALE, str=(wWalk*STR_W+wRun*STR_R*(1+STR_SPR*A.sprint))*sc;
+  const rate=str>1e-3?Math.min(lerp(1.6,3.6,wRun),s/str):0; A.lcStr=str;
+  A.ph=(((A.ph==null?(e.walkT||0)%1:A.ph)+back*rate*dt)%1+1)%1; // (seeded from walkT: no extra Math.random)
+  c.act.Walk.setEffectiveTimeScale(0); c.act.Run.setEffectiveTimeScale(0);
+  c.act.Walk.time=A.ph*WALK_D; c.act.Run.time=((A.ph+RUN_PH)%1)*RUN_D;
   // near: every procedural layer runs. Hysteresis (in under 50 m, out past 56 m) so bots on the edge do not flicker,
   // and a long blend across the switch
   const nr=!player||e===player||e.pos.distanceTo(camera.position)<(c.lcNear?56:50);
@@ -1194,12 +1213,17 @@ function animAxes(X){ const {c,g}=X;
 // [S0] swing a leg: th at the hip, kn at the knee, both about the body's right axis
 function bend(X,sd,th,kn){ rotateBoneWorld(X.B[sd+'UpLeg'],X.rightB,th); rotateBoneWorld(X.B[sd+'Leg'],X.rightB,kn); }
 // [S1] legs: crouch and the squash after a landing lower the body while IK keeps the feet planted (animFeet)
+// Compression crE (1 = full crouch, the hips 0.48 m lower): the crouch, the landing spring A.landS and A.dip (shared:
+// impacts, superhero landings, emotes write it and return it to 0). A.hipOff (shared, metres in the body frame:
+// x right, y up, z forward) shifts the hips with the feet left where they were; A.lcHip is S1's own idle weight shift.
 function animLegs(e,X){ const {c,A,B,near,upB}=X;
-  const cr=X.cr=A.crouch, crE=X.crE=Math.max(cr,e.onGround?A.land*0.75:0);
+  const cr=X.cr=A.crouch, crE=X.crE=Math.max(cr,A.landS||0,A.dip||0), ho=A.hipOff;
+  const hx=(ho?ho.x||0:0)+(A.lcHip||0), hy=ho?ho.y||0:0, hz=ho?ho.z||0:0, shift=Math.abs(hx)+Math.abs(hy)+Math.abs(hz)>2e-4;
   let feet=null;
-  if(near&&crE>0.01){ feet=[B.LeftFoot.getWorldPosition(new V()),B.RightFoot.getWorldPosition(new V())]; if(A.air>0.5){ feet[0].addScaledVector(upB,0.25*A.air); feet[1].addScaledVector(upB,0.4*A.air); } }
+  if(near&&(crE>0.01||shift)){ feet=[B.LeftFoot.getWorldPosition(new V()),B.RightFoot.getWorldPosition(new V())]; if(A.air>0.5){ feet[0].addScaledVector(upB,0.25*A.air); feet[1].addScaledVector(upB,0.4*A.air); } }
   X.feet=feet;
   c.model.position.y=-0.48*crE;
+  if(shift&&near){ const hp=B.Hips, gs=X.g.scale.x; hp.getWorldPosition(_lv1).addScaledVector(X.rightB,hx*gs).addScaledVector(upB,hy*gs).addScaledVector(X.fwdB,hz*gs); hp.position.copy(hp.parent.worldToLocal(_lv1)); } // (the mixer rewrites Hips.position every frame)
 }
 // [S2] zero-g: a lazy bob while drifting, and cartoon squash and stretch: long on the kick, squashed on the tuck
 function animZG(e,X){ const {c,A,dt}=X;
@@ -1239,14 +1263,16 @@ function animZGLegs(e,X){ const {A,B,rightB,upB,fwdB}=X;
 // [S1] jump and sprint legs (near only; animZGLegs goes first)
 function animLegPose(e,X){ const {A,B,rightB,fwdB,held,pickaxe,cr,dt}=X;
   if(A.air>0.02){
-    // jump: knees tuck on the way up, legs reach down for the landing, arms swing up then out for balance
-    const up=clamp(e.vel.y/10.5,-1,1), tk=smooth(-0.5,0.6,up)*A.air;
-    bend(X,'Left',0.35*A.air+0.95*tk,-(0.35*A.air+1.35*tk)); bend(X,'Right',0.12*A.air+0.5*tk,-(0.55*A.air+0.95*tk));
-    if(!held&&!(pickaxe&&e.swingT>0)){ const lift=tk*1.9+A.air*0.25, out=Math.max(0,A.air-tk)*0.85;
+    // jump: knees tuck on the way up, legs reach down for the landing, arms swing up then out for balance.
+    // "Up" is away from the surface: on the ceiling that is world -y (the jump is vel.y=-10.5)
+    const up=clamp((ZG.state==='ceil'?-1:1)*e.vel.y/10.5,-1,1), tk=smooth(-0.5,0.6,up)*A.air, rch=1-0.55*smooth(-0.3,-0.9,up); // falling fast: legs straighten to reach
+    if(!e.onGround){ bend(X,'Left',(0.35*A.air+0.95*tk)*rch,-(0.35*A.air+1.35*tk)*rch); bend(X,'Right',(0.12*A.air+0.5*tk)*rch,-(0.55*A.air+0.95*tk)*rch); } // touched down: the foot IK has the legs
+    if(!held&&!(pickaxe&&e.swingT>0)){ const lift=tk*1.9+A.air*0.25, out=Math.max(0,A.air-tk)*0.85; // the arms settle as A.air runs out
       rotateBoneWorld(B.LeftArm,rightB,lift); rotateBoneWorld(B.RightArm,rightB,lift); rotateBoneWorld(B.LeftArm,fwdB,out); rotateBoneWorld(B.RightArm,fwdB,-out); }
-  } else if(e.onGround&&A.sprint>0.02){
+  }
+  if(e.onGround&&A.sprint>0.02){
     // sprint: on top of the run clip, a longer stride and a high knee on whichever leg is swinging through
-    const sp=A.sprint*(1-cr), d=B.LeftFoot.getWorldPosition(new V()).sub(B.RightFoot.getWorldPosition(new V())).dot(fwdB), dn=clamp(d/0.5,-1,1);
+    const sp=A.sprint*(1-cr)*(1-A.air), d=B.LeftFoot.getWorldPosition(new V()).sub(B.RightFoot.getWorldPosition(new V())).dot(fwdB), dn=clamp(d/0.5,-1,1);
     const vd=(dn-(A.dn==null?dn:A.dn))/Math.max(dt,1e-3); A.dn=dn; D(A,'swingL',clamp(vd*0.35,-1,1),1-Math.exp(-18*dt));
     const lift=1-Math.abs(dn)*0.6;
     bend(X,'Left',0.32*dn*sp+0.25*sp*Math.max(0,A.swingL),-1.0*sp*Math.max(0,A.swingL)*lift); bend(X,'Right',-0.32*dn*sp+0.25*sp*Math.max(0,-A.swingL),-1.0*sp*Math.max(0,-A.swingL)*lift);
@@ -1254,9 +1280,13 @@ function animLegPose(e,X){ const {A,B,rightB,fwdB,held,pickaxe,cr,dt}=X;
 }
 // [S1] upper body: strafe twist, crouch and sprint lean, aim pitch (the flinch is animHit)
 function animTorso(e,X){ const {A,B,near,upB,right,speed,side,fwd,back,aS,cr,held,s,pitch,pE}=X;
-  const twist=speed>1.2?clamp(Math.atan2(side,Math.abs(fwd))*back,-0.85,0.85):0; D(A,'twist',twist,aS);
+  // hips turn toward the way you travel (strafe right: hips right), legs keep running "forward" for the clip.
+  // side is along world-yaw right; in the body frame it flips on the ceiling (the body is rolled over)
+  const twist=speed>1.2?-clamp(Math.atan2(side*(e.zgRoll>1.5?-1:1),Math.abs(fwd))*back,-0.85,0.85):0; D(A,'twist',twist,aS);
   if(near){ rotateBoneWorld(B.Hips,upB,A.twist); rotateBoneWorld(B.Spine,upB,-A.twist*0.5); rotateBoneWorld(B.Spine1,upB,-A.twist*0.5); }
-  if(near){ const lean=-0.28*cr-(held?0.06:0)*Math.min(1,s/4)-0.34*A.sprint; rotateBoneWorld(B.Spine,right,lean); if(A.sprint>0.01) rotateBoneWorld(B.Neck,right,0.2*A.sprint); // lean into a sprint, eyes up
+  if(near){ const ls=A.landS||0; // landing: fold forward into the compression (and lift the chest on the rebound), shoulders sag with the weight
+    const lean=-0.28*cr-(held?0.06:0)*Math.min(1,s/4)-0.34*A.sprint-0.3*ls; rotateBoneWorld(B.Spine,right,lean); if(A.sprint>0.01||ls>0.01) rotateBoneWorld(B.Neck,right,0.2*A.sprint+0.18*Math.max(0,ls)); // lean into a sprint, eyes up
+    if(ls>0.01&&B.LeftShoulder){ rotateBoneWorld(B.LeftShoulder,X.fwdB,-0.2*ls); rotateBoneWorld(B.RightShoulder,X.fwdB,0.2*ls); }
     if(held){ for(const n of ['Spine','Spine1','Spine2']) rotateBoneWorld(B[n],right,pE/3); } else rotateBoneWorld(B.Neck,right,pitch*0.5); }
 }
 // [S3] rifle stance: the chest turns a little toward the gun side so the left hand can reach under the barrel, eyes stay on target
