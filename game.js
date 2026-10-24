@@ -2107,6 +2107,27 @@
       ]
     ];
     const _pd = new V(), _ps = new V(), _pz = new V(), _pm = new T.Matrix4();
+    const _qFlip = new T.Quaternion().setFromAxisAngle(new V(0, 1, 0), Math.PI);
+    function dualLeft(c, B, g, P, rightB, upB, fwdB, rest) {
+      const shL = B.LeftArm.getWorldPosition(new V()), hL = P.h.clone();
+      hL.x = -hL.x;
+      solveIK(B.LeftArm, B.LeftForeArm, B.LeftHand, g.localToWorld(g.worldToLocal(shL.clone()).add(hL)), shL.clone().addScaledVector(rightB, -0.5).addScaledVector(upB, -0.55).addScaledVector(fwdB, -0.1));
+      const q = P.q;
+      c.pickL.quaternion.set(q.x, -q.y, -q.z, q.w).multiply(_qFlip);
+      c.pickL.visible = true;
+      const hwL = B.LeftHand.getWorldPosition(new V());
+      if (rest > 0.01) {
+        g.updateMatrixWorld(true);
+        const hd = new V(0, 1, 0).applyQuaternion(c.pickL.getWorldQuaternion(new T.Quaternion()));
+        const pn = rightB.clone();
+        pn.addScaledVector(hd, -pn.dot(hd)).normalize();
+        const pf = new V().crossVectors(hd, pn);
+        poseHand(B, "Left", pf, pn, 0.8 * rest);
+        hwL.addScaledVector(pf, 0.07 * rest).addScaledVector(pn, 0.03 * rest);
+      }
+      g.worldToLocal(hwL);
+      c.pickL.position.copy(hwL);
+    }
     function pickPose(e) {
       const K = PICK_KEYS[e.swingSide || 0], k = e.swingT > 0 ? clamp(1 - e.swingT / SWING_T, 0, 1) : 0;
       let i = 0;
@@ -2904,6 +2925,7 @@
       };
       const busy = e.swingT > 0 || e.guardK > 0.05;
       c.pick.visible = pickaxe && !e.writing;
+      if (c.pickL) c.pickL.visible = false;
       if (e.isPlayer) syncVest(e);
       if (e.bounceT > 0 && near) {
         for (const sd of ["Left", "Right"]) {
@@ -2948,7 +2970,7 @@
       } else if (pickaxe && near) {
         const P = pickPose(e), sh = B.RightArm.getWorldPosition(new V());
         const tgt = g.localToWorld(g.worldToLocal(sh.clone()).add(P.h));
-        const pump = e.onGround && !busy ? A.sprint * (1 - cr) : 0, dn = A.dn || 0;
+        const pump = e.onGround && !busy && !c.pickL ? A.sprint * (1 - cr) : 0, dn = A.dn || 0;
         if (pump > 0.01) {
           rotateBoneWorld(B.LeftArm, rightB, -0.8 * dn * pump);
           rotateBoneWorld(B.LeftForeArm, rightB, 0.55 * pump);
@@ -2975,7 +2997,8 @@
         g.worldToLocal(hw);
         c.pick.position.copy(hw);
         const w2 = A.pk2 * (1 - pump);
-        if (w2 > 0.01) {
+        if (c.pickL) dualLeft(c, B, g, P, rightB, upB, fwdB, rest);
+        else if (w2 > 0.01) {
           c.pick.updateMatrixWorld(true);
           const lS = B.LeftArm.getWorldPosition(new V());
           solveIK(B.LeftArm, B.LeftForeArm, B.LeftHand, natL.clone().lerp(c.pick.localToWorld(new V(0, 0.15, 0)), w2), lS.clone().addScaledVector(right, -0.6).addScaledVector(upB, -0.5));
@@ -4396,9 +4419,20 @@
       }
       return sh;
     }
-    function makePickaxe3D(it, held) {
+    function makePickaxe3D(it, held, one) {
       if (it.anime) return makeAnime3D(it, held);
-      const Z = PX.SIZES[it.sz], L = Z.L, HS = PX.headScale(it), alpha = it.x.alpha || 1;
+      const F = PX.formOf(it), SY = F ? F.sy : 1;
+      if (F && F.dual && !held && !one) {
+        const g2 = new T.Group(), a = makePickaxe3D(it, false, true), b = makePickaxe3D(it, false, true);
+        a.rotation.z = -0.42;
+        b.rotation.set(0, Math.PI, -0.42);
+        a.position.x = -0.25;
+        b.position.x = 0.25;
+        g2.add(a, b);
+        g2.userData.trail = a.userData.trail;
+        return g2;
+      }
+      const L = PX.pickLen(it), HS = PX.headScale(it), alpha = it.x.alpha || 1;
       const g = new T.Group(), inner = new T.Group();
       g.add(inner);
       const Ph = (o) => new T.MeshPhongMaterial(Object.assign({ shininess: 45, specular: 3815994 }, o));
@@ -4420,16 +4454,20 @@
       hg.scale.setScalar(HS);
       inner.add(hg);
       const sideCol = new T.Color(it.h1).lerp(new T.Color(it.h2), 0.5).lerp(new T.Color(it.edge), 0.35);
-      hg.add(new T.Mesh(geo, [mat({ map: tex, emissive: 16777215, emissiveMap: tex, emissiveIntensity: 0.12 }), mat({ color: sideCol, emissive: sideCol.clone().multiplyScalar(0.12), shininess: 70 })]));
-      const collar = new T.Mesh(new T.CylinderGeometry(11, 11, 26, 16), Ph({ color: it.edge, shininess: 80, specular: 6710886 }));
+      const blade = new T.Mesh(geo, [mat({ map: tex, emissive: 16777215, emissiveMap: tex, emissiveIntensity: 0.12 }), mat({ color: sideCol, emissive: sideCol.clone().multiplyScalar(0.12), shininess: 70 })]);
+      blade.scale.y = SY;
+      if (F && F.sy > 1) blade.scale.z = 0.6;
+      hg.add(blade);
+      const gy = F && F.guard ? -10 : -1;
+      const collar = new T.Mesh(F && F.guard ? new T.BoxGeometry(62, 10, 20) : new T.CylinderGeometry(11, 11, 26, 16), Ph({ color: it.edge, shininess: 80, specular: 6710886 }));
       collar.scale.z = 0.95;
-      collar.position.set(0, -1, 0);
+      collar.position.set(0, gy, 0);
       hg.add(collar);
       if (it.x.gem) {
         const gm = Ph({ color: it.x.gem, emissive: new T.Color(it.x.gem).multiplyScalar(0.4), shininess: 120, specular: 16777215 }), gg = new T.SphereGeometry(6, 16, 12);
         for (const z of [13, -13]) {
           const gem = new T.Mesh(gg, gm);
-          gem.position.set(0, -1, z);
+          gem.position.set(0, gy, F && F.guard ? z * 0.85 : z);
           gem.scale.z = 0.55;
           hg.add(gem);
         }
@@ -4457,8 +4495,8 @@
       else add(new T.CylinderGeometry(9, 9, 10, 14), pc, pe - 3);
       if (it.x.glow && !held) {
         const halo = new T.Sprite(auraMats(it.x.glow).halo);
-        halo.scale.setScalar(170 * HS);
-        halo.position.set(100, -46, -25);
+        halo.scale.setScalar(170 * HS * Math.sqrt(SY));
+        halo.position.set(100, -46 + (SY - 1) * 28 * HS, -25);
         inner.add(halo);
       }
       if (it.x.parts && !held) {
@@ -4478,9 +4516,9 @@
         g.scale.setScalar(54e-4);
         return g;
       }
-      const top = 48 - 56 * HS, bot = 50 + L + 18;
+      const top = 48 - 58 * HS * SY, bot = 50 + L + 18;
       inner.position.set(-100, (top + bot) / 2, 0);
-      g.scale.setScalar(0.016);
+      g.scale.setScalar(0.016 * Math.min(1, 250 / (bot - top)));
       g.rotation.z = -0.55;
       return g;
     }
@@ -4523,7 +4561,7 @@
       lkTint(r.c);
       lkPut(h, dir || 0);
       if (LK.kind !== "picks" || dir == null) lkFrame(true);
-      lkInfo(it.n, `${it.set.n} set \xB7 ${pxIdx + 1} of ${PX.ITEMS.length}`, r, it.anime ? `${it.hero} \xB7 ${it.pw}` : `${Z.n} size`);
+      lkInfo(it.n, `${it.set.n} set \xB7 ${pxIdx + 1} of ${PX.ITEMS.length}`, r, it.anime ? `${it.hero} \xB7 ${it.pw}` : it.form ? `${it.form.n} \xB7 ${Z.n} size` : `${Z.n} size`);
       $("armNote").textContent = it.pwd || "";
       $("armLabels").innerHTML = "";
       showEquip();
@@ -4851,8 +4889,13 @@
     $("armGunsTab").addEventListener("click", () => setArmMode("guns"));
     lkInitRail();
     let equippedName = "Standard Issue";
+    const PICK_RENAMED = { "Jack's Grin": "Jack-o-Lantern", "Night Wing": "Spooky Shadow", "Reaper's Toll": "Grim Reaper", "Candy Corn Crusher": "Candy Corn", "Witch's Brew": "Witch's Wart", "Ghost Light": "Glossy Ghost" };
     try {
-      const v = localStorage.getItem("stormIslandPick");
+      let v = localStorage.getItem("stormIslandPick");
+      if (v && PICK_RENAMED[v]) {
+        v = PICK_RENAMED[v];
+        localStorage.setItem("stormIslandPick", v);
+      }
       if (v && PX && PX.ITEMS.some((i) => i.n === v)) equippedName = v;
     } catch (e) {
     }
@@ -4939,14 +4982,6 @@
     function applyPickSkin(e) {
       const eq = equippedPick();
       if (!eq || !e || !e.ch) return;
-      const c = e.ch;
-      for (const o of [...c.pick.children]) {
-        c.pick.remove(o);
-        if (o.userData.skin) disposeObj(o);
-      }
-      const w = new T.Group();
-      w.userData.skin = true;
-      w.add(makePickaxe3D(eq, true));
       if (e === player) {
         animeSt = eq.anime || null;
         e.punches = [];
@@ -4960,7 +4995,32 @@
         e.guard = false;
         e.guardK = 0;
       }
+      dressPick(e.ch, eq);
+    }
+    function dressPick(c, eq) {
+      for (const o of [...c.pick.children]) {
+        c.pick.remove(o);
+        if (o.userData.skin) disposeObj(o);
+      }
+      const w = new T.Group();
+      w.userData.skin = true;
+      w.add(makePickaxe3D(eq, true));
       c.pick.add(w);
+      if (c.pickL) {
+        c.g.remove(c.pickL);
+        disposeObj(c.pickL);
+        c.pickL = null;
+      }
+      const F = PX.formOf(eq);
+      if (F && F.dual) {
+        c.pickL = new T.Group();
+        const w2 = new T.Group();
+        w2.userData.skin = true;
+        w2.add(makePickaxe3D(eq, true));
+        c.pickL.add(w2);
+        c.pickL.visible = false;
+        c.g.add(c.pickL);
+      }
     }
     function equipCurrent() {
       setRandom(false);
@@ -8171,7 +8231,7 @@
     };
     const POWERS = {
       // ---------- Halloween
-      "Jack's Grin": {
+      "Jack-o-Lantern": {
         tap: { swing: (p) => fan(p, { look: "pumpkin", speed: 9, fuse: 1, size: 1, dmg: 0, stick: true, end: (at) => pwBlast(at, { r: 4.5, dmg: 30, col: 16747039 }) }) },
         hold: { cd: 9, go: (p) => {
           fan(p, { look: "pumpkin", size: 2.6, speed: 34, life: 3, boomOnWall: true, end: (at) => {
@@ -8180,7 +8240,7 @@
           } });
         } }
       },
-      "Night Wing": {
+      "Spooky Shadow": {
         tap: { swing: (p) => fan(p, { look: "bat", col: 3811930, n: 3, spread: 0.35, speed: 26, home: 5, homeR: 40, life: 2.5, dmg: 6, size: 0.8 }) },
         hold: { cd: 8, go: (p) => pwDash(p, { speed: 36, dur: 2, dmg: 15, col: 3811930, each: (e) => pwSlow(e, 0.2) }) }
       },
@@ -8193,7 +8253,7 @@
           pwWall(p, { n: 3, w: 1.6, h: 2.6, d: 0.6, dist: 4, dur: 6, col: 5133152, gap: 2.2 });
         } }
       },
-      "Reaper's Toll": {
+      "Grim Reaper": {
         tap: { wide: true, dmg: 1.1 },
         hold: { cd: 8, go: (p) => {
           const c = chest(p), ring = new T.Mesh(pwGeo.crescent, pwMats(10181887).flat.clone());
@@ -8214,11 +8274,11 @@
           sfx("katana", c.clone());
         } }
       },
-      "Candy Corn Crusher": {
+      "Candy Corn": {
         tap: { spd: 1.15, swing: (p) => fan(p, { look: "dart", col: 16756778, n: 3, spread: 0.08, speed: 70, dmg: 6, life: 1 }) },
         hold: { cd: 6, go: (p) => fan(p, { look: "dart", col: 16756778, n: 15, spread: 0.4, vspread: 0.08, speed: 65, dmg: 7, life: 1.1 }) }
       },
-      "Witch's Brew": {
+      "Witch's Wart": {
         tap: { hit: (p, e, at) => {
           pwSlow(e, 0.35);
           for (let i = 0; i < 5; i++) mote(pwMats(6021194).soft, at.clone(), rnd(0.3, 0.6), 0.5, rv(2.5));
@@ -8236,7 +8296,7 @@
         tap: { hit: (p, e) => pwStun(e, 1) },
         hold: { cd: 5, go: (p) => pwGrapple(p, { col: 16054010, speed: 46 }) }
       },
-      "Ghost Light": {
+      "Glossy Ghost": {
         tap: { thru: true },
         hold: { cd: 12, go: (p) => {
           buff(p, "ghost", 2);
@@ -10861,6 +10921,73 @@
       updateEffects(dt);
     }
     let lastT = performance.now(), hudAcc = 0, perfStage = 0, perfFrames = 0, perfTime = 0;
+    const HERO = { scene: new T.Scene(), cam: new T.PerspectiveCamera(26, 1, 0.1, 60), c: null, key: "", t: 0 };
+    {
+      HERO.scene.add(new T.HemisphereLight(14213887, 3811930, 0.85));
+      const k = new T.DirectionalLight(16774374, 0.95);
+      k.position.set(2, 3, 5);
+      const r = new T.DirectionalLight(16743136, 0.7);
+      r.position.set(-4, 2, -3);
+      const f = new T.DirectionalLight(6091007, 0.55);
+      f.position.set(4, 1, -4);
+      HERO.scene.add(k, k.target, r, r.target, f, f.target);
+      const ring = new T.Mesh(new T.PlaneGeometry(1.8, 1.8), new T.MeshBasicMaterial({ map: glowTex, color: 6091007, transparent: true, opacity: 0.55, depthWrite: false, blending: T.AdditiveBlending }));
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.01;
+      HERO.scene.add(ring);
+      HERO.ring = ring;
+      HERO.cam.position.set(0, 1, 8.2);
+      HERO.cam.lookAt(0, 0.98, 0);
+    }
+    function heroFrame(dt) {
+      if (!SOLDIER) return false;
+      const W = innerWidth, H = innerHeight;
+      if (W < 900 || H < 520) return false;
+      const sk = equippedSkin(), eq = equippedPick(), key = (sk ? sk.n : "") + "|" + (eq ? eq.n : "");
+      if (!HERO.c || HERO.key !== key) {
+        if (HERO.c) HERO.scene.remove(HERO.c.g);
+        const c2 = makeCharacterGLB();
+        if (sk) applySkin(c2, sk);
+        if (eq) dressPick(c2, eq);
+        c2.pick.visible = !!eq;
+        HERO.c = c2;
+        HERO.key = key;
+        HERO.scene.add(c2.g);
+      }
+      const c = HERO.c, B = c.bones, g = c.g;
+      HERO.t += dt;
+      const t = HERO.t;
+      g.rotation.y = Math.PI - 0.45 + 0.12 * Math.sin(t * 0.35);
+      c.mixer.update(dt);
+      swayGear({ onGround: true, walkT: 0 }, c, 0, dt);
+      g.updateMatrixWorld(true);
+      c.model.getWorldQuaternion(_qm);
+      const rightB = new V(1, 0, 0).applyQuaternion(_qm), fwdB = new V(0, 0, -1).applyQuaternion(_qm), upB = new V(0, 1, 0).applyQuaternion(_qm);
+      if (eq && !eq.anime || eq && eq.anime === "nichirin" || eq && eq.anime === "kunai") {
+        const P = pickPose({ swingT: 0, guardK: 0, swingSide: 0 }), sh = B.RightArm.getWorldPosition(new V());
+        const tgt = g.localToWorld(g.worldToLocal(sh.clone()).add(P.h)).addScaledVector(upB, 8e-3 * Math.sin(t * 1.7));
+        solveIK(B.RightArm, B.RightForeArm, B.RightHand, tgt, sh.clone().addScaledVector(rightB, 0.5).addScaledVector(upB, -0.55).addScaledVector(fwdB, -0.1));
+        c.pick.quaternion.copy(P.q);
+        g.updateMatrixWorld(true);
+        const hw = B.RightHand.getWorldPosition(new V()), hd = new V(0, 1, 0).applyQuaternion(c.pick.getWorldQuaternion(new T.Quaternion()));
+        const pn = rightB.clone().negate();
+        pn.addScaledVector(hd, -pn.dot(hd)).normalize();
+        const pf = new V().crossVectors(hd.clone().negate(), pn);
+        poseHand(B, "Right", pf, pn, 0.8);
+        hw.addScaledVector(pf, 0.07).addScaledVector(pn, 0.03);
+        g.worldToLocal(hw);
+        c.pick.position.copy(hw);
+        if (c.pickL) dualLeft(c, B, g, P, rightB, upB, fwdB, 1);
+      } else c.pick.visible = false;
+      HERO.ring.material.opacity = 0.45 + 0.12 * Math.sin(t * 2);
+      const F = eq && PX.formOf(eq), long = !!(F && F.Lk > 1);
+      HERO.cam.position.set(0, long ? 1.2 : 1, long ? 9.8 : 8.2);
+      HERO.cam.lookAt(0, long ? 1.25 : 0.98, 0);
+      HERO.cam.aspect = W / H;
+      HERO.cam.setViewOffset(W, H, -W * 0.09, 0, W, H);
+      HERO.cam.updateProjectionMatrix();
+      return true;
+    }
     function loop(now) {
       requestAnimationFrame(loop);
       const dt = Math.min(0.15, Math.max(0, (now - lastT) / 1e3));
@@ -10908,6 +11035,12 @@
         drawMap();
       }
       renderer.render(scene, camera);
+      if (state === "menu" && !$("menu").hidden && heroFrame(dt)) {
+        renderer.autoClear = false;
+        renderer.clearDepth();
+        renderer.render(HERO.scene, HERO.cam);
+        renderer.autoClear = true;
+      }
     }
     $("playBtn").disabled = true;
     $("playBtn").textContent = "Loading\u2026";

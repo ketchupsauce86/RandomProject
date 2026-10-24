@@ -21,15 +21,15 @@ const SETS=[
 // [name, rarity, head shape, head top, head bottom, edge, handle style, handle a, handle b, pattern, pattern color, extras{parts,gem,glow,drip,pom}, flavor]
 const RAW={
 halloween:[
- ['Jack\'s Grin',2,'classic','#ffa23a','#c4430c','#6d2304','wrap','#3c6b2a','#24401a','jack','#ffe14d',{parts:'embers',glow:'#ffb13d'},'Carved fresh every October 31st. The grin never fades.'],
- ['Night Wing',3,'bat','#3d2a55','#140b20','#b07cff','bone','#d8ccb0','#8f8064','none','',{parts:'bats',glow:'#9b5cff',gem:'#ff3b5c'},'It only comes out after sundown.'],
+ ['Jack-o-Lantern',2,'classic','#ffa23a','#c4430c','#6d2304','wrap','#3c6b2a','#24401a','jack','#ffe14d',{parts:'embers',glow:'#ffb13d'},'Carved fresh every October 31st. The grin never fades.'],
+ ['Spooky Shadow',3,'bat','#3d2a55','#140b20','#b07cff','bone','#d8ccb0','#8f8064','none','',{parts:'bats',glow:'#9b5cff',gem:'#ff3b5c'},'It only comes out after sundown.'],
  ['Grave Digger',1,'hammer','#9aa0a6','#4d5257','#2d3134','plain','#7a5634','#4a3018','cracks','#7fbf5a',{},'Six feet is a good start.'],
- ['Reaper\'s Toll',4,'scythe','#3a3a46','#0b0b10','#cfd6e0','twist','#2a2230','#5e4a70','none','',{parts:'wisps',glow:'#7cffb2',gem:'#7cffb2',pom:'skull'},'Everyone pays eventually.'],
- ['Candy Corn Crusher',1,'classic','#fff6d8','#ffb000','#a35a00','plain','#fff6d8','#e0c9a0','bands','',{bands:['#fff6d8','#ffb000','#ff6a00']},'Nobody admits they like candy corn. This one does.'],
- ['Witch\'s Brew',2,'crescent','#8bff6a','#1f7a2a','#0d3a14','twist','#4a2a6a','#2a1640','dots','#c9ff9e',{parts:'bubbles',glow:'#6dff6a'},'Stirred clockwise, three times, under a full moon.'],
+ ['Grim Reaper',4,'scythe','#3a3a46','#0b0b10','#cfd6e0','twist','#2a2230','#5e4a70','none','',{parts:'wisps',glow:'#7cffb2',gem:'#7cffb2',pom:'skull'},'Everyone pays eventually.'],
+ ['Candy Corn',1,'classic','#fff6d8','#ffb000','#a35a00','plain','#fff6d8','#e0c9a0','bands','',{bands:['#fff6d8','#ffb000','#ff6a00']},'Nobody admits they like candy corn. This one does.'],
+ ['Witch\'s Wart',2,'crescent','#8bff6a','#1f7a2a','#0d3a14','twist','#4a2a6a','#2a1640','dots','#c9ff9e',{parts:'bubbles',glow:'#6dff6a'},'Stirred clockwise, three times, under a full moon.'],
  ['Bone Pick',2,'claw','#f6eedb','#b9a985','#6b5d40','bone','#efe5cd','#a6957a','none','',{pom:'skull'},'Borrowed from a skeleton. It wants it back.'],
  ['Spider Silk',3,'classic','#2b2b33','#09090c','#5a5a66','wrap','#1b1b20','#c8c8d4','web','#e8e8f2',{gem:'#ff2d2d'},'Spun overnight by something with too many legs.'],
- ['Ghost Light',3,'wing','#f2fcff','#8fcfff','#5aa0d6','twist','#cdeeff','#7fb8e6','none','',{parts:'wisps',glow:'#9fe6ff',alpha:.82},'Swings right through walls. Mostly.'],
+ ['Glossy Ghost',3,'wing','#f2fcff','#8fcfff','#5aa0d6','twist','#cdeeff','#7fb8e6','none','',{parts:'wisps',glow:'#9fe6ff',alpha:.82},'Swings right through walls. Mostly.'],
  ['Pumpkin King',4,'axe','#ff9a2a','#b13a00','#ffd23f','wrap','#2c4a1c','#ffd23f','jack','#fff27a',{parts:'embers',glow:'#ff8a1f',gem:'#54ff7a'},'Rules the patch with an iron stem.'],
 ],
 christmas:[
@@ -144,15 +144,15 @@ storm:[
 
 // name: [shape, size, power-up, what it does]
 const EXTRA={
-'Jack\'s Grin':['classic','m','Pumpkin Bomb','Every 5th hit drops a pumpkin that bursts for 30 damage.'],
-'Night Wing':['bat','l','Bat Swarm','Hits release three bats that ping nearby enemies on your map.'],
+'Jack-o-Lantern':['classic','m','Pumpkin Bomb','Every 5th hit drops a pumpkin that bursts for 30 damage.'],
+'Spooky Shadow':['bat','l','Bat Swarm','Hits release three bats that ping nearby enemies on your map.'],
 'Grave Digger':['shovel','l','Dig Deep','Harvesting stone gives double materials.'],
-'Reaper\'s Toll':['scythe','g','Soul Harvest','Eliminations with it restore 50 health.'],
-'Candy Corn Crusher':['classic','t','Sugar High','Move 15% faster while it\'s out.'],
-'Witch\'s Brew':['crescent','s','Bubbling Brew','Hits leave a green puddle that slows enemies.'],
+'Grim Reaper':['scythe','g','Soul Harvest','Eliminations with it restore 50 health.'],
+'Candy Corn':['classic','t','Sugar High','Move 15% faster while it\'s out.'],
+'Witch\'s Wart':['crescent','s','Bubbling Brew','Hits leave a green puddle that slows enemies.'],
 'Bone Pick':['claw','m','Rattle','Hitting a wall reveals enemies behind it for 2 seconds.'],
 'Spider Silk':['sickle','m','Web Shot','Every 4th swing fires a web that roots an enemy for 1 second.'],
-'Ghost Light':['wing','l','Phase Swing','Your swings pass straight through your own builds.'],
+'Glossy Ghost':['wing','l','Phase Swing','Your swings pass straight through your own builds.'],
 'Pumpkin King':['double','g','Harvest Moon','Doubles all materials gathered at night.'],
 'Candy Cane Classic':['hook','s','Peppermint Rush','A short speed boost after every wall you break.'],
 'Holly Jolly':['leaf','m','Mistletoe','Healing items heal 25% more.'],
@@ -247,15 +247,15 @@ const EXTRA={
 };
 // what each pickaxe's two moves do, for the locker (the moves themselves are POWERS in src/game.ts)
 const MOVES={
- "Jack's Grin":["Swing drops a little pumpkin bomb that bursts a second later for 30 damage.","Lob a giant jack-o'-lantern that splits into 5 mini pumpkin bombs when it lands."],
- "Night Wing":["Swing lets out 3 bats that fly to the nearest enemy and nip it.","Turn into a bat swarm and fly fast for 2 seconds, biting everyone you pass through."],
+ "Jack-o-Lantern":["Swing drops a little pumpkin bomb that bursts a second later for 30 damage.","Lob a giant jack-o'-lantern that splits into 5 mini pumpkin bombs when it lands."],
+ "Spooky Shadow":["Swing lets out 3 bats that fly to the nearest enemy and nip it.","Turn into a bat swarm and fly fast for 2 seconds, biting everyone you pass through."],
  "Grave Digger":["Shovel scoop flings grave dirt that blinds the target for 1 second.","Slam the shovel to raise 3 floating tombstones that block bullets for 6 seconds."],
- "Reaper's Toll":["Wide scythe sweep that hits everyone in front of you.","Spin the scythe in a full circle around you. Every enemy it hits heals you 10."],
- "Candy Corn Crusher":["Quick jab that spits 3 candy corn darts.","Spray a fan of 15 candy corn darts."],
- "Witch's Brew":["Hits splash green brew that slows the target.","Throw a bubbling potion that leaves a green cloud. Anyone inside is slowed and poisoned for 5 seconds."],
+ "Grim Reaper":["Wide scythe sweep that hits everyone in front of you.","Spin the scythe in a full circle around you. Every enemy it hits heals you 10."],
+ "Candy Corn":["Quick jab that spits 3 candy corn darts.","Spray a fan of 15 candy corn darts."],
+ "Witch's Wart":["Hits splash green brew that slows the target.","Throw a bubbling potion that leaves a green cloud. Anyone inside is slowed and poisoned for 5 seconds."],
  "Bone Pick":["Hits show the target's skeleton through walls for 3 seconds.","Throw a bone boomerang that hits on the way out and again on the way back."],
  "Spider Silk":["Hits web the target in place for 1 second.","Shoot a web line at a wall and zip straight to it."],
- "Ghost Light":["Swing passes through blocks and hits whoever is behind them.","Go ghost: invisible and bulletproof for 2 seconds, then reappear with a scream that stuns everyone close."],
+ "Glossy Ghost":["Swing passes through blocks and hits whoever is behind them.","Go ghost: invisible and bulletproof for 2 seconds, then reappear with a scream that stuns everyone close."],
  "Pumpkin King":["Heavy double-axe chop that does big damage.","Summon 6 flaming pumpkins that circle you for 6 seconds and burn anyone they touch."],
  "Candy Cane Classic":["Hook swing that yanks the target toward you.","Hook onto a block and swing around it like a grappling hook."],
  "Holly Jolly":["Every hit heals you 5.","Hang a sprig of mistletoe. Stay near it to heal 10 a second for 5 seconds."],
@@ -357,6 +357,30 @@ SETS.forEach(s=>(RAW[s.id]||[]).forEach(r=>{
   const mv=MOVES[n]; // the tap and hold moves replace the old battle-royale power-ups
   ITEMS.push({i:ITEMS.length,set:s,n,rar,shape:shp||shape,h1,h2,edge,hs,ha,hb,pat,pc,x:x||{},flav,sz,pw,tap:mv[0],hold:mv[1],pwd:'Tap: '+mv[0]+' Hold: '+mv[1]});
 }));
+// Most pickaxes aren't pickaxes any more: each one is reforged into a weapon form below that keeps its colours,
+// artwork and moves. The Christmas set is next in line for its own rework, so it stays as it is for now.
+const FORM_OF={
+ 'Jack-o-Lantern':'greatsword','Spooky Shadow':'sabre','Grim Reaper':'reaper','Candy Corn':'dagger','Witch\'s Wart':'spear','Bone Pick':'sabre','Spider Silk':'dagger','Glossy Ghost':'bigaxe',
+ 'Fresh Tag':'sabre','Drip Lord':'greatsword','Wildstyle':'spear','Wet Paint':'reaper','Throw-Up':'bigaxe','Burner':'dagger','Stencil':'sabre','Rooftop King':'greatsword',
+ 'Pixel Pick':'dagger','Synthwave':'sabre','Glitch':'greatsword','Circuit Breaker':'spear','High Score':'bigaxe','Laser Edge':'reaper','Hologram':'greatsword','Bit Crusher':'bigaxe','Overclock':'spear',
+ 'Coral Reef':'sabre','Shark Bite':'greatsword','Kraken':'reaper','Anglerfish':'dagger','Pearl Diver':'sabre','Sunken Treasure':'bigaxe','Abyssal':'reaper','Jellyfish':'spear',
+ 'Obsidian':'dagger','Eruption':'greatsword','Ember Fang':'sabre','Ash Cloud':'reaper','Dragon Scale':'bigaxe','Fire Opal':'dagger','Pumice':'spear','Phoenix Feather':'sabre',
+ 'Lollipop Swirl':'spear','Gummy Bear':'dagger','Bubblegum Pop':'sabre','Chocolate Bar':'greatsword','Sour Blast':'bigaxe','Rock Candy':'greatsword','Cotton Candy':'reaper','Sugar Rush':'sabre',
+ 'Supernova':'greatsword','Moonbeam':'reaper','Black Hole':'sabre','Nebula':'greatsword','Comet Tail':'spear','Saturn Ring':'bigaxe','Stardust':'dagger','Event Horizon':'sabre',
+ 'Vine Whip':'spear','Tiger Stripe':'bigaxe','Jaguar':'sabre','Raptor Claw':'dagger','Venom':'reaper','Temple Idol':'bigaxe','Parrot Plume':'spear','Canopy King':'greatsword',
+ 'Storm Chaser':'spear','Private Jet':'sabre','Last One Standing':'greatsword','Golden Chest':'bigaxe','Shield Potion':'dagger','Eye of the Storm':'reaper',
+};
+// sy stretches the blade along the handle, Lk scales the handle, guard swaps the collar for a crossguard, dual puts one in each hand
+const FORMS={
+ greatsword:{n:'Greatsword',sy:3.3,Lk:.5,guard:1},
+ sabre:{n:'Dual blades',sy:2.2,Lk:.42,guard:1,dual:1},
+ dagger:{n:'Twin daggers',sy:1.25,Lk:.34,guard:1,dual:1},
+ spear:{n:'Spear',sy:1.4,Lk:1.7},
+ reaper:{n:'Reaper scythe',sy:1,Lk:1.85},
+ bigaxe:{n:'Battle axe',sy:1,Lk:1.25},
+};
+ITEMS.forEach(it=>{ const f=FORM_OF[it.n]; if(f){ it.shape=f; it.form=FORMS[f]; } });
+const formOf=it=>it.form||null, pickLen=it=>Math.round(SIZES[it.sz].L*(it.form?it.form.Lk:1));
 // the Anime set: not pickaxes at all but each hero's own way of fighting (the game gives them their own models and moves)
 const ANIME=[
  {n:'Shadow Kunai',hero:'Naruto',anime:'kunai',short:'KUNAI',c:'#ff8a1f',pw:'Shred',pwd:'Tap to slash. Hold to throw fans of kunai that cut straight through.',flav:'Believe it.'},
@@ -398,9 +422,15 @@ const SHAPES={
  sickle:'M100 32 C128 8 178 4 194 40 C176 24 146 28 122 50 L100 56 L86 54 L86 34Z',
  shovel:'M66 54 L66 20 C66 6 84 -4 100 -8 C116 -4 134 6 134 20 L134 54 L112 58 L88 58Z',
  gem:'M100 4 L150 28 L178 48 L100 74 L22 48 L50 28Z',
+ greatsword:'M82 57 L82 4 L100 -10 L118 4 L118 57Z',
+ sabre:'M90 57 L90 8 C92 -1 101 -7 114 -10 C107 0 110 9 110 57Z',
+ dagger:'M86 57 L86 22 L100 -10 L114 22 L114 57Z',
+ spear:'M100 -10 C116 8 120 32 107 57 L93 57 C80 32 84 8 100 -10Z',
+ reaper:'M107 26 C80 2 36 -8 2 18 C12 22 22 36 26 56 C42 36 68 32 94 57 L107 57Z',
+ bigaxe:'M108 34 L72 38 C56 34 38 20 24 -6 C2 28 2 70 24 104 C38 80 56 66 72 62 L108 66 L126 50Z',
  pixel:mirror([[100,28],[60,28],[60,32],[44,32],[44,36],[32,36],[32,42],[24,42],[24,50],[18,50],[18,66],[28,66],[28,58],[36,58],[36,52],[50,52],[50,50],[100,50]]),
 };
-const SHAPE_NAMES={double:'Double axe',halberd:'Halberd',trident:'Trident',mace:'Spiked mace',drill:'Drill',mallet:'Giant mallet',sickle:'Sickle',shovel:'Shovel',gem:'Gem',classic:'Classic pick',axe:'Axe and spike',hammer:'Hammer and spike',crescent:'Crescent',scythe:'Scythe',crystal:'Crystal shards',star:'Star',claw:'Triple claw',saw:'Serrated',hook:'Hook',wing:'Wings',bat:'Bat wings',bolt:'Lightning',leaf:'Leaf',blocky:'Block',pixel:'Pixel'};
+const SHAPE_NAMES={greatsword:'Greatsword',sabre:'Dual blades',dagger:'Twin daggers',spear:'Spear',reaper:'Reaper scythe',bigaxe:'Battle axe',double:'Double axe',halberd:'Halberd',trident:'Trident',mace:'Spiked mace',drill:'Drill',mallet:'Giant mallet',sickle:'Sickle',shovel:'Shovel',gem:'Gem',classic:'Classic pick',axe:'Axe and spike',hammer:'Hammer and spike',crescent:'Crescent',scythe:'Scythe',crystal:'Crystal shards',star:'Star',claw:'Triple claw',saw:'Serrated',hook:'Hook',wing:'Wings',bat:'Bat wings',bolt:'Lightning',leaf:'Leaf',blocky:'Block',pixel:'Pixel'};
 const HANDLE_NAMES={plain:'Smooth',wrap:'Wrapped grip',twist:'Twisted',bone:'Bone',bamboo:'Bamboo',rope:'Rope bound',pixel:'Pixel'};
 
 function patternSVG(it,id,R){
@@ -527,19 +557,19 @@ ANIME_ART.titan=id=>`<circle cx="100" cy="104" r="64" fill="#c4553f" opacity=".1
   `<path d="M118 6 L92 52 L112 54 L86 96 L132 44 L112 42 L132 6Z" fill="#ffd23f" stroke="#a87808" stroke-width="2.5" stroke-linejoin="round"/>`;
 function pickSVG(it,suffix){
   if(it.anime) return `<svg viewBox="0 0 200 200" role="img" aria-label="${it.n}" xmlns="http://www.w3.org/2000/svg"><ellipse cx="100" cy="182" rx="52" ry="7" fill="#000" opacity=".28"/>${ANIME_ART[it.anime]('a'+it.i+(suffix||''))}</svg>`;
-  const id='p'+it.i+suffix, R=rng(it.i*9973+7), x=it.x, alpha=x.alpha||1, Z=SIZES[it.sz], L=Z.L, WIDE={mallet:.8,double:.86,crescent:.9,wing:.9,bat:.9,scythe:.9,claw:.92,leaf:.92}, HS=Z.hs*(Z.hs>1?(WIDE[it.shape]||1):1);
-  const top=48-56*HS, bot=50+L+18, cy=(top+bot)/2;
+  const id='p'+it.i+suffix, R=rng(it.i*9973+7), x=it.x, alpha=x.alpha||1, F=formOf(it), L=pickLen(it), HS=headScale(it), SY=F?F.sy:1;
+  const top=48-58*HS*SY, bot=50+L+18, cy=(top+bot)/2, SC=F?Math.min(1.4,230/(bot-top)):.7;
   const d=SHAPES[it.shape];
   let defs=`<linearGradient id="${id}h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${it.h1}"/><stop offset="1" stop-color="${it.h2}"/></linearGradient><clipPath id="${id}c"><path d="${d}"/></clipPath><linearGradient id="${id}gl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/></linearGradient>`;
   if(x.glow) defs+=`<filter id="${id}f" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur in="SourceAlpha" stdDeviation="4" result="b"/><feFlood flood-color="${x.glow}" flood-opacity=".9"/><feComposite in2="b" operator="in" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
   const pat=patternSVG(it,id,R);
   let drips='';
   if(x.drip){for(const [dx,len] of [[70,18],[84,30],[118,22],[134,12],[52,10]]){drips+=`<path d="M${dx-3} 48 L${dx-3} ${50+len} a3 3 0 0 0 6 0 L${dx+3} 48Z" fill="${x.drip}"/>`;}}
-  const head=`<g${x.glow?` filter="url(#${id}f)"`:''}><g opacity="${alpha}"><path d="${d}" fill="url(#${id}h)"/><g clip-path="url(#${id}c)">${pat}<path d="${d}" fill="url(#${id}gl)"/></g></g><path d="${d}" fill="none" stroke="${it.edge}" stroke-width="${x.edge2?3.2:2.4}" stroke-linejoin="round"/>${drips}</g>`;
-  const collar=`<rect x="89" y="36" width="22" height="26" rx="5" fill="${it.edge}" stroke="rgba(0,0,0,.5)" stroke-width="1.5"/><rect x="91" y="38" width="5" height="22" rx="2" fill="#fff" opacity=".22"/>`+(x.gem?`<circle cx="100" cy="49" r="6" fill="${x.gem}" stroke="rgba(0,0,0,.45)" stroke-width="1.2"/><circle cx="98" cy="47" r="2" fill="#fff" opacity=".8"/>`:'');
+  const head=`<g${x.glow?` filter="url(#${id}f)"`:''}><g opacity="${alpha}"><path d="${d}" fill="url(#${id}h)"/><g clip-path="url(#${id}c)">${pat}<path d="${d}" fill="url(#${id}gl)"/></g></g><path d="${d}" fill="none" stroke="${it.edge}" stroke-width="${x.edge2?3.2:2.4}" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>${drips}</g>`;
+  const collar=F&&F.guard?`<rect x="70" y="53" width="60" height="10" rx="4" fill="${it.edge}" stroke="rgba(0,0,0,.5)" stroke-width="1.5"/><rect x="72" y="55" width="56" height="2.5" rx="1" fill="#fff" opacity=".25"/>`+(x.gem?`<circle cx="100" cy="58" r="6" fill="${x.gem}" stroke="rgba(0,0,0,.45)" stroke-width="1.2"/>`:''):`<rect x="89" y="36" width="22" height="26" rx="5" fill="${it.edge}" stroke="rgba(0,0,0,.5)" stroke-width="1.5"/><rect x="91" y="38" width="5" height="22" rx="2" fill="#fff" opacity=".22"/>`+(x.gem?`<circle cx="100" cy="49" r="6" fill="${x.gem}" stroke="rgba(0,0,0,.45)" stroke-width="1.2"/><circle cx="98" cy="47" r="2" fill="#fff" opacity=".8"/>`:'');
   let parts='';
   if(x.parts&&PART[x.parts]){for(let k=0;k<10;k++){const a=R()*Math.PI*2,r=(44+L*.12)+R()*28;const px=100+Math.cos(a)*r,py=96+Math.sin(a)*r*.9;parts+=`<g transform="translate(${px.toFixed(1)} ${py.toFixed(1)})">${PART[x.parts](R)}</g>`;}}
-  return `<svg viewBox="0 0 200 200" role="img" aria-label="${it.n} pickaxe" xmlns="http://www.w3.org/2000/svg"><defs>${defs}</defs><ellipse cx="100" cy="182" rx="${30+L*.18}" ry="7" fill="#000" opacity=".28"/>${parts}<g class="swing"><g transform="translate(100 100) rotate(36) scale(.7) translate(-100 ${(-cy).toFixed(1)})">${handleSVG(it,id,L)}<g transform="translate(0 ${L-130})">${pommelSVG(it)}</g><g transform="translate(100 48) scale(${HS}) translate(-100 -48)">${head}${collar}</g></g></g></svg>`;
+  return `<svg viewBox="0 0 200 200" role="img" aria-label="${it.n} pickaxe" xmlns="http://www.w3.org/2000/svg"><defs>${defs}</defs><ellipse cx="100" cy="182" rx="${30+L*.18}" ry="7" fill="#000" opacity=".28"/>${parts}<g class="swing">${(F&&F.dual?[[30,1],[-30,-1]]:[[36,1]]).map(([r,m])=>`<g transform="translate(100 100) rotate(${r}) scale(${(SC*m).toFixed(3)} ${SC.toFixed(3)}) translate(-100 ${(-cy).toFixed(1)})">${handleSVG(it,id,L)}<g transform="translate(0 ${L-130})">${pommelSVG(it)}</g><g transform="translate(100 48) scale(${HS} ${(HS*SY).toFixed(3)}) translate(-100 -48)">${head}</g><g transform="translate(100 48) scale(${HS}) translate(-100 -48)">${collar}</g></g>`).join('')}</g></svg>`;
 }
 
 
@@ -551,10 +581,10 @@ function headSVG(it){
 }
 // handle as a flat strip, for wrapping around a 3D cylinder
 function handleStripSVG(it){
-  const L=SIZES[it.sz].L, id='g'+it.i;
+  const L=pickLen(it), id='g'+it.i;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="93 50 14 ${L}" width="64" height="${Math.round(L*4)}">${handleSVG(it,id,L)}</svg>`;
 }
 // how much a giant head is shrunk so wide shapes still fit (matches pickSVG)
-function headScale(it){ const Z=SIZES[it.sz], WIDE={mallet:.8,double:.86,crescent:.9,wing:.9,bat:.9,scythe:.9,claw:.92,leaf:.92}; return Z.hs*(Z.hs>1?(WIDE[it.shape]||1):1); }
-window.PICKAXES={headScale,SETS,ITEMS,SIZES,SHAPES,SHAPE_NAMES,HANDLE_NAMES,pickSVG,headSVG,handleStripSVG};
+function headScale(it){ const Z=SIZES[it.sz], WIDE={mallet:.8,double:.86,crescent:.9,wing:.9,bat:.9,scythe:.9,claw:.92,leaf:.92,bigaxe:.86,reaper:.9}; return Math.min(it.form&&it.form.sy>1?1.1:9,Z.hs*(Z.hs>1?(WIDE[it.shape]||1):1)); }
+window.PICKAXES={headScale,FORMS,formOf,pickLen,SETS,ITEMS,SIZES,SHAPES,SHAPE_NAMES,HANDLE_NAMES,pickSVG,headSVG,handleStripSVG};
 })();
