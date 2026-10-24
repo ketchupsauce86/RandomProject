@@ -1181,8 +1181,9 @@ function animCombatState(e,X){ const {c,A,held,dt,aS}=X;
 // advanced by the distance travelled over the stride the blended legs actually sweep, so the planted foot keeps up
 // with the ground. Measured from the clips (FK at MODEL_SCALE 1.1): Walk sweeps 1.82 m a cycle, Run 3.23 m.
 // The sprint overlay (animLegPose) swings the thighs further, so a sprint stride is longer. Contacts at A.ph ~0.26 (left) and ~0.75 (right).
-const WALK_D=1.033, RUN_D=0.70, STR_W=1.82, STR_R=3.23, RUN_PH=0.11, STR_SPR=0.25, PH_STEP=[0.26,0.75];
-const _lv1=new V(), _lv2=new V(), _lv3=new V(), _lq1=new T.Quaternion();
+const WALK_D=1.033, RUN_D=0.70, STR_W=1.82, STR_R=3.23, RUN_PH=0.11, STR_SPR=0.0, PH_STEP=[0.26,0.75];
+const _lv1=new V(), _lv2=new V(), _lv3=new V(), _lq1=new T.Quaternion(), _lq2=new T.Quaternion(), _lq3=new T.Quaternion();
+const B_wq=b=>b.getWorldQuaternion(_lq3);
 // [S1] clip blending (the soldier ships with Idle, Walk, Run and T-pose; everything else is layered on top)
 function animClips(e,X){ const {c,A,fwd,speed,aS,dt}=X;
   A.lcBack=fwd<-0.5?-1:fwd>0.2?1:(A.lcBack||1); // backpedalling, with hysteresis (the phase just runs backward: no pop)
@@ -1279,7 +1280,34 @@ function animLegPose(e,X){ const {A,B,rightB,fwdB,held,pickaxe,cr,dt}=X;
   }
 }
 // [S1] upper body: strafe twist, crouch and sprint lean, aim pitch (the flinch is animHit)
+// ---- [S1] far-bot pose caches (P0-6). Past the near edge no arm IK or zero-g leg layer runs, so far bots would hold
+// a floating gun with Idle-clip arms and float like standing statues. Near bots record their final upper body per
+// held gun (stance or sprint carry, zero-g or ceiling) and their zero-g legs per swim mode; far bots copy them in
+// before the gun mount is placed (~19 quaternion copies and one matrix update, no IK).
+const LC_UP=['Spine','Spine1','Spine2','Neck','Head','LeftShoulder','LeftArm','LeftForeArm','LeftHand','RightShoulder','RightArm','RightForeArm','RightHand'];
+const LC_LEG=['LeftUpLeg','LeftLeg','LeftFoot','RightUpLeg','RightLeg','RightFoot'];
+const HOLD_CACHE:any={}, LEG_CACHE:any={};
+const lcPB=X=>X.sp>0.5?0:clamp(Math.round(X.pE/0.3),-3,3); // aim-pitch bin (the spine and arms follow the pitch)
+const lcHoldKey=(e,X,id?,pb?)=>(id||X.held.id)+(e.zgFloat?'z':'c')+(X.sp>0.5?'s':'a')+(pb==null?lcPB(X):pb);
+const lcLegKey=A=>{ const P=A.zgP||0, Sw=(A.zgS||0)*(1-P); return P>0.5?'P':Sw>0.5?'S':'I'; };
+function lcBonesOf(c,names,k){ return c[k]||(c[k]=names.map(n=>c.bones[n])); }
+function lcCacheStore(e,X){ const {c,A}=X; if(!X.near||e.isPlayer||(c.blT<c.blD)) return;
+  if(X.branch===8&&c.held&&(Math.abs(X.pE-0.3*lcPB(X))<0.12||Math.abs(lcPB(X))===3)&&A.recoil<0.05&&A.draw>0.99&&(A.reload||0)<0.02&&A.hit<0.02&&Math.abs(A.look||0)<0.1&&!((A.hitS||0)>0.02)&&(X.sp<0.05&&A.stance>0.85||X.sp>0.95)){
+    const k=lcHoldKey(e,X); let en=HOLD_CACHE[k]; if(!en) en=HOLD_CACHE[k]={t:-9,q:new Float32Array(LC_UP.length*4)};
+    if(matchTime-en.t>0.5){ en.t=matchTime; lcBonesOf(c,LC_UP,'lcUpB').forEach((b,i)=>b.quaternion.toArray(en.q,i*4));
+      X.g.getWorldQuaternion(_lq1).invert().multiply(B_wq(c.bones.Spine)).toArray(en.q,0); } } // the Spine is kept relative to the root group, not the hips: no twist, no clip sway
+  if(e.zgFloat&&!(e.bounceT>0)){ const P=A.zgP||0, Sw=(A.zgS||0)*(1-P), I=(1-P)*(1-(A.zgS||0)); if(Math.max(P,Sw,I)>0.8){
+    const k=lcLegKey(A), ring=LEG_CACHE[k]||(LEG_CACHE[k]={t:-9,i:0,q:[]}); if(matchTime-ring.t>0.3){ ring.t=matchTime;
+      const q=ring.q[ring.i]||(ring.q[ring.i]=new Float32Array(LC_LEG.length*4)); lcBonesOf(c,LC_LEG,'lcLegB').forEach((b,i)=>b.quaternion.toArray(q,i*4)); ring.i=(ring.i+1)%4; } } }
+}
+function lcCacheApply(e,X){ const {c,A}=X; let any=false;
+  if(X.held){ const en=HOLD_CACHE[lcHoldKey(e,X)]||HOLD_CACHE[lcHoldKey(e,X,null,0)]||HOLD_CACHE[lcHoldKey(e,X,'ar')]||HOLD_CACHE[lcHoldKey(e,X,'ar',0)]; if(en){ any=true; lcBonesOf(c,LC_UP,'lcUpB').forEach((b,i)=>b.quaternion.fromArray(en.q,i*4));
+    const sp=c.bones.Spine; sp.parent.getWorldQuaternion(_lq2).invert().multiply(X.g.getWorldQuaternion(_lq1)).multiply(sp.quaternion); sp.quaternion.copy(_lq2); } }
+  if(e.zgFloat){ const ring=LEG_CACHE[lcLegKey(A)]; if(ring&&ring.q.length){ any=true; const q=ring.q[((e.walkT*7)|0)%ring.q.length]; lcBonesOf(c,LC_LEG,'lcLegB').forEach((b,i)=>b.quaternion.fromArray(q,i*4)); } }
+  if(any) c.model.updateMatrixWorld(true);
+}
 function animTorso(e,X){ const {A,B,near,upB,right,speed,side,fwd,back,aS,cr,held,s,pitch,pE}=X;
+  if(!near) lcCacheApply(e,X);
   // hips turn toward the way you travel (strafe right: hips right), legs keep running "forward" for the clip.
   // side is along world-yaw right; in the body frame it flips on the ceiling (the body is rolled over)
   const twist=speed>1.2?-clamp(Math.atan2(side*(e.zgRoll>1.5?-1:1),Math.abs(fwd))*back,-0.85,0.85):0; D(A,'twist',twist,aS);
@@ -1402,7 +1430,7 @@ function animProps(e,X){ const {c,A}=X;
 // [S1] after every layer: blend out a layer switch (poseSnap), then remember the final pose
 function animPost(e,X){ const c=X.c;
   c.lcGunIK=X.near&&X.branch===8&&!!c.held; c.lcBook=X.branch===6?e.dnBook:null; // what the hands are holding (props ride the blend)
-  poseBlend(c,X.dt); poseStore(c); }
+  poseBlend(c,X.dt); poseStore(c); lcCacheStore(e,X); }
 // [S0] hitboxes follow the skeleton
 function animHitboxes(e,X){ const {c,B,g}=X;
   const hd=B.Head.getWorldPosition(new V()); g.worldToLocal(hd); c.hb.head.position.set(hd.x,hd.y+0.1,hd.z);
