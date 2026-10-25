@@ -937,7 +937,11 @@ function startDeath(t,kind,info){
   if(kind==='explosion'||kind==='burn') t.ch.model.traverse(o=>{ if(o.isMesh&&o.material&&o.material.color){ o.material=o.material.clone(); o.material.color.multiplyScalar(0.25); } });
   if(t===player) camShake=Math.max(camShake,kind==='shot'?0.4:1);
   // the body eases out of whatever it was doing, and what was in its hands stays in its hands
-  const c=t.ch; poseSnap(c,0.3); c.lcDead=true; d.props=[];
+  const c=t.ch; poseSnap(c,0.32); c.lcDead=true; d.props=[];
+  d.q.copy(c.g.quaternion); // start from the body as it was drawn (swim tilt, roll, bank), not an upright copy
+  c.model.getWorldQuaternion(_qm); d.hd=[dir.dot(_lv1.set(1,0,0).applyQuaternion(_qm)),dir.dot(_lv1.set(0,1,0).applyQuaternion(_qm)),dir.dot(_lv1.set(0,0,-1).applyQuaternion(_qm))]; // hit direction in the body frame
+  d.head=!!(info&&info.head); d.dj=0; d.djV=23*(d.head?1.5:1)*(kind==='shot'||kind==='burn'?1:0.6); // impact jolt (spring, peak ~1)
+  const fr=x=>{ const s=Math.sin(x)*43758.5453; return s-Math.floor(s); }; d.rk=[fr(d.av.x*91.3+1),fr(d.av.y*47.1+2),fr(d.av.z*13.7+3)]; // per-body variety, no extra Math.random
   for(const [o,h] of [[c.gunMount,'RightHand'],[c.pick,'RightHand'],[c.pickL,'LeftHand'],[c.consG,'RightHand'],[c.handG,'RightHand']] as any[])
     if(o&&o.visible&&(o!==c.gunMount||c.held)) d.props.push([o,c.bones[h],propRel(o,c.bones[h],new T.Matrix4())]);
 }
@@ -990,15 +994,40 @@ function deathPose(e,g,c,dt){
   // blown up or burned: the body smoulders until it breaks apart
   if((d.kind==='explosion'||d.kind==='burn')&&g.visible){ d.fx+=dt; if(d.fx>0.06){ d.fx=0; flame(_dv.copy(d.c).add(new V(rnd(-0.4,0.4),rnd(-0.7,0.7),rnd(-0.4,0.4))),rnd(0.5,0.9),rnd(0.35,0.6),new V(rnd(-0.5,0.5),rnd(1,2.5),rnd(-0.5,0.5))); } }
   const W=c.w; W.TPose=d.spread; W.Idle=(1-d.spread); W.Walk=W.Run=0; for(const k in c.act) c.act[k].setEffectiveWeight(W[k]);
-  c.mixer.update(d.kind==='ice'?0:d.t<0.3?dt*0.3:0); // frozen bodies keep the pose they froze in
-  // squash against the wall right after the hit
-  const s=d.stuck?Math.exp(-d.stuck.t*7)*Math.sin(Math.min(1,d.stuck.t*12)*Math.PI):0; c.spin.scale.set(1+0.3*s,1+0.15*s,1-0.55*s);
-  g.quaternion.copy(d.q); _pc.set(0,1,0).applyQuaternion(d.q); g.position.copy(d.c).sub(_pc);
+  if(d.kind!=='ice') c.mixer.update(d.t<0.3?dt*0.3:0); // frozen bodies keep exactly the pose they froze in (no mixer: the bones stay put)
+  // squash against the wall right after the hit, and a beat before the shatter: the body shivers and burns white
+  const s=d.stuck?Math.exp(-d.stuck.t*7)*Math.sin(Math.min(1,d.stuck.t*12)*Math.PI):0, bt=smooth(d.shatterAt-0.3,d.shatterAt,d.t), fl=1+bt*(0.045*Math.sin(d.t*TAU*15)-0.05);
+  c.spin.scale.set((1+0.3*s)*fl,(1+0.15*s)*fl,(1-0.55*s)*fl);
+  if(bt>0&&g.visible) deathGlow(c,d,bt);
+  // the splat slams flat against the surface in a few frames instead of one (d.q stays the logical orientation)
+  const vq=d.vq||(d.vq=d.q.clone()); if(d.stuck&&d.stuck.t<0.25) vq.slerp(d.q,1-Math.exp(-35*dt)); else vq.copy(d.q);
+  g.quaternion.copy(vq); _pc.set(0,1,0).applyQuaternion(vq); g.position.copy(d.c).sub(_pc);
   e.pos.copy(d.c).y-=1;
-  g.updateMatrixWorld(true); poseBlend(c,dt); poseStore(c);
+  g.updateMatrixWorld(true);
+  if(d.kind!=='ice'&&(e===player||e.pos.distanceTo(camera.position)<40)) deathBody(e,c,d,dt);
+  poseBlend(c,dt); poseStore(c);
   if(d.props) for(const [o,h,rel] of d.props) propPlace(o,h,rel);
   if(d.t>=d.shatterAt&&g.visible) shatter(e);
 }
+// [S1] the dead body is not a statue: the hit folds the chest along the bullet (a spring, harder for headshots), the
+// arms and legs trail the tumble and flop, and over ~0.8 s it goes limp (knees and spine curl). Near deaths only.
+const _lcdb={B:null,rightB:new V()}, _lcdw=new V(), _lcda=new V(), _lcdl=new V(), _lcdu=new V(), _lcdf=new V();
+function deathBody(e,c,d,dt){ const B=c.bones, sp=d.spread, lim=1-sp*0.8; spring(d,'dj',0,3.2,0.32,dt);
+  c.model.getWorldQuaternion(_qm); const r=_lcdb.rightB.set(1,0,0).applyQuaternion(_qm), u=_lcdu.set(0,1,0).applyQuaternion(_qm), f=_lcdf.set(0,0,-1).applyQuaternion(_qm); _lcdb.B=B;
+  _lcdw.set(0,0,0).addScaledVector(r,d.hd[0]).addScaledVector(u,d.hd[1]).addScaledVector(f,d.hd[2]); _lcda.crossVectors(u,_lcdw); if(_lcda.lengthSq()<1e-4) _lcda.copy(r); _lcda.normalize(); // fold axis: the chest goes with the bullet
+  const dj=d.dj, sl=smooth(0,0.8,d.t)*(d.stuck?0.3:1)*(1-sp), av=d.av.length(), lag=Math.min(0.6,0.12*av)*lim;
+  if(av>1e-3) _lcdl.copy(d.av).divideScalar(av); else _lcdl.copy(r);
+  rotateBoneWorld(B.Spine,r,-0.32*sl); // limp: curl forward
+  rotateBoneWorld(B.Spine1,_lcda,0.38*dj*lim); rotateBoneWorld(B.Spine2,_lcda,0.2*dj*lim);
+  rotateBoneWorld(B.Neck,_lcda,(d.head?0.9:0.35)*dj); rotateBoneWorld(B.Neck,r,-0.35*sl); // the head whips, then droops
+  for(const [sd,i,sx] of [['Left',0,-1],['Right',1,1]] as [string,number,number][]){ const ph=d.rk[i]*TAU, fl=0.32*Math.exp(-1.3*d.t)*Math.sin(d.t*(6+2*d.rk[i])+ph)*lim;
+    rotateBoneWorld(B[sd+'Arm'],_lcdl,-lag); rotateBoneWorld(B[sd+'Arm'],_lcda,-0.6*dj*lim); rotateBoneWorld(B[sd+'Arm'],f,sx*(fl+0.25*sl)); // trail the spin, fling back from the hit, flop and drift out
+    rotateBoneWorld(B[sd+'ForeArm'],r,-(0.25+0.45*d.rk[(i+1)%3])*sl); // elbows soften
+    bend(_lcdb,sd,(0.15+0.35*d.rk[(i+2)%3])*sl,-(0.3+0.4*d.rk[i])*sl); rotateBoneWorld(B[sd+'UpLeg'],_lcdl,-0.5*lag); }
+}
+// the last beat before the shatter: the body burns white (materials cloned once; skins share theirs)
+function deathGlow(c,d,k){ if(!d.glow){ d.glow=[]; c.model.traverse(o=>{ if(o.isMesh&&o.material&&o.material.emissive){ o.material=o.material.clone(); if(o.material.emissiveMap){ o.material.emissiveMap=null; o.material.needsUpdate=true; } d.glow.push(o.material); } }); }
+  for(const m of d.glow) m.emissive.setRGB(1.3*k,1.3*k,1.4*k); }
 const _qm=new T.Quaternion();
 // ---- potions in hand: chugged with the head thrown back, a gulp at a time, then an "ahh" shake (the big one
 // ends with a wipe of the mouth)
