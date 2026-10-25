@@ -2032,11 +2032,22 @@
     }
     const _hq = new T.Quaternion(), _hm0 = new T.Matrix4(), _hm1 = new T.Matrix4(), _hw = (o) => o.getWorldPosition(new V());
     function poseHand(B, sd, F2, N, curl) {
+      for (const fg of ["Index", "Middle", "Ring", "Pinky", "Thumb"]) for (const k of [1, 2, 3]) {
+        const b = B[sd + "Hand" + fg + k];
+        if (b && b.userData.q0) b.quaternion.copy(b.userData.q0);
+      }
       const h = B[sd + "Hand"], s = sd === "Right" ? 1 : -1, hp = _hw(h);
       const f0 = _hw(B[sd + "HandMiddle1"]).sub(hp).normalize(), a0 = _hw(B[sd + "HandPinky1"]).sub(_hw(B[sd + "HandIndex1"]));
       a0.addScaledVector(f0, -a0.dot(f0)).normalize();
       const n0 = new V().crossVectors(f0, a0).multiplyScalar(s);
-      const f1 = F2.clone().normalize(), n1 = N.clone().addScaledVector(f1, -N.dot(f1)).normalize(), a1 = new V().crossVectors(n1, f1).multiplyScalar(s);
+      const f1 = F2.clone().normalize(), n1 = N.clone().addScaledVector(f1, -N.dot(f1));
+      if (n1.lengthSq() < 0.09) {
+        const up = _hw(B.Spine2).sub(_hw(B.Hips)).normalize();
+        n1.copy(up).negate().addScaledVector(f1, up.dot(f1));
+        if (n1.lengthSq() < 0.09) n1.crossVectors(f1, up);
+      }
+      n1.normalize();
+      const a1 = new V().crossVectors(n1, f1).multiplyScalar(s);
       _hm0.makeBasis(f0, a0, n0).transpose();
       _hm1.makeBasis(f1, a1, n1).multiply(_hm0);
       _hq.setFromRotationMatrix(_hm1);
@@ -2138,9 +2149,9 @@
       drone: { r: [0.085, -0.03, 0.11], l: [-0.085, -0.03, 0.11], g: [-0.16, -0.24, -0.33], lf: [0.2, 0.2, -0.95], ln: [0.3, 0.9, 0] }
     };
     const SWING_T = 0.42, PICK_HIT = 0.52, F = null;
-    const PICK_REST = [0, -0.06, -0.24, -0.22, 0.22, 0.83, 0.5, 0, 0.5, -0.83, 0, 0];
-    const SL_REST = [0, -0.06, -0.24, -0.22, 0.22, 0.83, 0.5, 0, -0.5, 0.83, 0, 0];
-    const GS_REST = [0, -0.02, -0.3, -0.2, 0.18, 0.75, 0.63, 0, 0.64, -0.77, 0, 0];
+    const PICK_REST = [0, 0.14, -0.42, -0.16, 0.5, 0.7, -0.5, -0.22, 0.66, 0.71, 0.08, 0];
+    const SL_REST = [0, 0.14, -0.42, -0.16, 0.5, 0.7, -0.5, 0.22, -0.66, -0.71, 0.08, 0];
+    const GS_REST = [0, 0.02, -0.42, -0.24, -0.25, 0.72, -0.65, 0.97, 0.25, 0, 0.15, 0];
     const DG_REST = [0, 0.06, -0.5, -0.12, 0.05, 0.3, -0.95, 0, 0.95, 0.3, 0, 0];
     const SP_REST = [0, 0.16, -0.4, -0.1, 0.15, 0.85, -0.5, 0, 0.5, 0.86, 0, 0];
     const RP_REST = [0, 0, -0.3, -0.18, 0.08, 0.95, 0.3, 0, -0.3, 0.95, 0, 0];
@@ -2303,13 +2314,13 @@
     const SWINGS = {
       pick: { rest: PICK_REST, grip: { at: 0 }, hand2: { k: 0.25 }, two: [0, 1], pitchK: 0.6, tracks: [{ R: PICK_A }, { R: PICK_B }, { R: PICK_C, dip: 0.15, shake: 0.05 }] },
       slam: { rest: SL_REST, grip: { at: 0 }, hand2: { k: 0.28 }, two: [0, 1], pitchK: 0.55, tracks: [{ R: SLAM_A, dip: 0.35, shake: 0.12, wu: 2 }, { R: SLAM_B, dip: 0.12 }] },
-      greatsword: { rest: GS_REST, grip: { guard: 1 }, hand2: { m: -0.095 }, two: [0, 1], pitchK: 0.6, tracks: [{ R: GS_A, dip: 0.12 }, { R: GS_B, dip: 0.08 }, { R: GS_C, dip: 0.3, shake: 0.12 }] },
+      greatsword: { rest: GS_REST, grip: { guard: 1 }, hand2: { m: -0.095 }, two: [0.9, 1], pitchK: 0.6, tracks: [{ R: GS_A, dip: 0.12 }, { R: GS_B, dip: 0.08 }, { R: GS_C, dip: 0.3, shake: 0.12 }] },
       katana: { rest: GS_REST, grip: { m: 0.13 }, hand2: { m: -0.1 }, two: [0, 1], pitchK: 0.6, guard: PICK_GUARD, tracks: [{ R: GS_A }, { R: GS_B }] },
       sabre: { rest: SL_REST, grip: { guard: 1 }, dual: 1, pitchK: 0.6, guard: SB_GUARD, tracks: [{ R: SB_A, L: "guard" }, { R: "guard", L: SB_A }, { R: SB_A, L: SB_A, dip: 0.15, shake: 0.05 }] },
       dagger: { rest: DG_REST, grip: { guard: 1 }, dual: 1, pitchK: 0.9, guard: DG_GUARD, tracks: [{ R: DG_STAB, L: "guard" }, { R: "guard", L: DG_STAB }, { R: DG_DOWN, L: DG_DOWN, dip: 0.2 }] },
-      spear: { rest: SP_REST, grip: { k: 0.4 }, hand2: { k: 0.3 }, two: [0, 1], pitchK: 0.9, tracks: [{ R: SP_JAB, dip: 0.1 }, { R: SP_JAB_HI }, { R: SP_SWEEP, lw: [[0, 1], [0.14, 0], [0.62, 0], [0.8, 1]], dip: 0.1 }] },
-      reaper: { rest: RP_REST, grip: { k: 0.03 }, hand2: { k: 0.42 }, two: [0, 1], pitchK: 0.6, tracks: [{ R: RP_REAP, dip: 0.15 }, { R: RP_HOOK, dip: 0.1 }] },
-      bigaxe: { rest: SL_REST, grip: { k: 0.45 }, hand2: { k: -0.42 }, two: [0, 1], pitchK: 0.6, tracks: [{ R: AX_A, dip: 0.25, shake: 0.06, wu: 2 }, { R: AX_B, dip: 0.1 }] },
+      spear: { rest: SP_REST, grip: { k: 0.4 }, hand2: { k: 0.3 }, two: [0.9, 1], pitchK: 0.9, tracks: [{ R: SP_JAB, dip: 0.1 }, { R: SP_JAB_HI }, { R: SP_SWEEP, lw: [[0, 1], [0.14, 0], [0.62, 0], [0.8, 1]], dip: 0.1 }] },
+      reaper: { rest: RP_REST, grip: { k: 0.03 }, hand2: { k: 0.42 }, two: [0.9, 1], pitchK: 0.6, tracks: [{ R: RP_REAP, dip: 0.15 }, { R: RP_HOOK, dip: 0.1 }] },
+      bigaxe: { rest: SL_REST, grip: { k: 0.45 }, hand2: { k: -0.42 }, two: [0.9, 1], pitchK: 0.6, tracks: [{ R: AX_A, dip: 0.25, shake: 0.06, wu: 2 }, { R: AX_B, dip: 0.1 }] },
       kunai: { rest: KN_REST, grip: { m: 0 }, pitchK: 0.8, off: [-0.14, -0.18, -0.32], tracks: [{ R: KN_A }, { R: KN_B }], throw: [{ R: KN_THROW }, { R: KN_THROW }] }
     };
     const SWING_OF = {
@@ -2611,7 +2622,10 @@
       spin.add(model);
       const bones = {};
       model.traverse((o) => {
-        if (o.isBone) bones[o.name.replace(/^mixamorig:?/, "")] = o;
+        if (o.isBone) {
+          bones[o.name.replace(/^mixamorig:?/, "")] = o;
+          if (/Hand(Index|Middle|Ring|Pinky|Thumb)\d/.test(o.name)) o.userData.q0 = o.quaternion.clone();
+        }
         if (o.isMesh) {
           o.castShadow = true;
           o.frustumCulled = false;
@@ -4188,7 +4202,7 @@
       for (const sd of sides) {
         const sx = sd === "Right" ? 1 : -1, ph = sx > 0 ? 0 : 1.7, sh = B[sd + "Arm"].getWorldPosition(new V());
         const st = zgStroke(u), fr = loopPath(FREESTYLE, ((A.zgF || 0) + (sx > 0 ? 0 : 0.5)) % 1);
-        const o = [I * (0.4 + 0.06 * Math.sin(tI * 0.9 + ph)) + Sw * st[0] + P * fr[0], I * (-0.2 + 0.1 * Math.sin(tI * 0.7 + ph)) + Sw * st[1] + P * fr[1], I * (0.1 + 0.07 * Math.sin(tI * 0.55 + ph)) + Sw * st[2] + P * fr[2]];
+        const o = [I * (0.27 + 0.05 * Math.sin(tI * 0.9 + ph)) + Sw * st[0] + P * fr[0], I * (-0.34 + 0.07 * Math.sin(tI * 0.7 + ph)) + Sw * st[1] + P * fr[1], I * (0.12 + 0.06 * Math.sin(tI * 0.55 + ph)) + Sw * st[2] + P * fr[2]];
         mixA(o, [0.56 + 0.02 * Math.sin(tI * 22 + ph), 0.04, 0.12], Br * 0.9);
         mixA(o, [0.62 + 0.12 * am * Math.sin(TAU * 2 * tI + ph), 0.08 + 0.2 * am * Math.sin(TAU * 2 * tI + ph + 1.4), 0.05], wf);
         if (pw > 0) mixA(o, pu < 0.4 ? [0.12, 0.62, 0.45] : [0.24, lerp(0.5, -0.42, smooth(0.4, 0.7, pu)), lerp(0.4, 0.03, smooth(0.4, 0.7, pu))], pw);
@@ -4467,7 +4481,7 @@
         hips: [[0, 0, -0.03, 0, 0, 0], [0.125, 0, 0, 0, 0, 0], [0.25, 0, -0.03, 0, 0, 0], [0.375, 0, 0, 0, 0, 0], [0.5, 0, -0.03, 0, 0, 0], [0.625, 0, 0, 0, 0, 0], [0.75, 0, -0.03, 0, 0, 0], [0.875, 0, 0, 0, 0, 0]],
         chest: [[0, 0, 0, 0.22], [0.25, 0, 0, 0], [0.5, 0, 0, -0.22], [0.75, 0, 0, 0]],
         head: [[0, 0, 0, 0.45], [0.25, 0, 0, 0], [0.5, 0, 0, -0.45], [0.75, 0, 0, 0]],
-        hand: { R: { c: 0.1 }, L: { c: 0.1 } }
+        hand: { R: { c: 0.05, f: [-0.15, 0, 1], n: [0, -1, 0] }, L: { c: 0.05, f: [0.15, 0, 1], n: [0, -1, 0] } }
       },
       disco: {
         n: "Disco point",
@@ -4679,7 +4693,7 @@
         const H = E.hand && E.hand[sd[0]], curl = (H && H.c != null ? H.c : E.flip ? 0.9 : 0.5) * W;
         B[sd + "Hand"].getWorldPosition(_eS);
         B[sd + "ForeArm"].getWorldPosition(_eT);
-        const F2 = _eFv.copy(_eS).sub(_eT).normalize(), N = _eNv.copy(r).multiplyScalar(-sx);
+        const F2 = _eFv.copy(_eS).sub(_eT).normalize(), N = _eNv.copy(r).multiplyScalar(-sx).addScaledVector(up, -0.35);
         if (H && H.f) {
           F2.set(0, 0, 0).addScaledVector(r, H.f[0]).addScaledVector(up, H.f[1]).addScaledVector(fw, H.f[2]);
           if (sd === "Right" && E.wag) F2.applyAxisAngle(fw, E.wag.roll * (em.wg || 0));
@@ -9474,10 +9488,35 @@
         soft: new T.SpriteMaterial({ map: glowTex, color: c, transparent: true, depthWrite: false, opacity: 0.6 }),
         spark: new T.SpriteMaterial({ map: sparkTex, color: c, transparent: true, depthWrite: false }),
         fog: new T.MeshBasicMaterial({ color: c, transparent: true, depthWrite: false, opacity: 0.13, side: T.DoubleSide }),
-        glass: new T.MeshBasicMaterial({ color: c, transparent: true, depthWrite: false, opacity: 0.45, side: T.DoubleSide })
+        glass: new T.MeshBasicMaterial({ color: c, transparent: true, depthWrite: false, opacity: 0.45, side: T.DoubleSide }),
+        glow: new T.SpriteMaterial({ map: glowTex, color: c, transparent: true, depthWrite: false, blending: PW_ADD, opacity: 0.9 }),
+        hot: new T.SpriteMaterial({ map: glowTex, color: c.clone().lerp(new T.Color(1, 1, 1), 0.75), transparent: true, depthWrite: false, blending: PW_ADD }),
+        zap: new T.SpriteMaterial({ map: sparkTex, color: c.clone().lerp(new T.Color(1, 1, 1), 0.4), transparent: true, depthWrite: false, blending: PW_ADD })
       };
       PWM.set(col, m);
       return m;
+    }
+    const PW_U = { t: { value: 0 } }, PW_ADD = T.NormalBlending;
+    const PW_VS = "varying vec3 vN; varying vec3 vV; varying vec3 vP; varying vec2 vUv; void main(){ vec4 w=modelMatrix*vec4(position,1.0); vP=position; vUv=uv; vN=normalize(mat3(modelMatrix)*normal); vV=normalize(cameraPosition-w.xyz); gl_Position=projectionMatrix*viewMatrix*w; }";
+    function pwField(col, op) {
+      return new T.ShaderMaterial({
+        uniforms: { t: PW_U.t, c: { value: new T.Color(col) }, op: { value: op } },
+        vertexShader: PW_VS,
+        transparent: true,
+        depthWrite: false,
+        side: T.DoubleSide,
+        blending: PW_ADD,
+        fragmentShader: "uniform float t; uniform vec3 c; uniform float op; varying vec3 vN; varying vec3 vV; varying vec3 vP; void main(){ float f=1.0-abs(dot(normalize(vN),normalize(vV))); float rim=pow(f,2.2); float bands=0.5+0.5*sin(vP.y*14.0-t*3.0+sin(vP.x*6.0+t)*1.5); float hex=smoothstep(0.82,1.0,abs(sin(vP.x*22.0+t*0.7)*sin(vP.z*22.0-t*0.5))); float a=op*(0.35+rim*5.0+bands*0.6+hex*1.4); gl_FragColor=vec4(mix(c,vec3(1.0),rim*0.45),min(a,0.85)); }"
+      });
+    }
+    function pwPanel(col) {
+      return new T.ShaderMaterial({
+        uniforms: { t: PW_U.t, c: { value: new T.Color(col) } },
+        vertexShader: PW_VS,
+        transparent: true,
+        depthWrite: true,
+        fragmentShader: "uniform float t; uniform vec3 c; varying vec3 vN; varying vec3 vV; varying vec2 vUv; void main(){ vec2 u=vUv*vec2(8.0,6.0); vec2 g=abs(fract(u+vec2(mod(floor(u.y),2.0)*0.5,0.0))-0.5); float grid=smoothstep(0.42,0.5,max(g.x,g.y)); vec2 e=min(vUv,1.0-vUv); float edge=smoothstep(0.06,0.0,min(e.x,e.y)); float scan=smoothstep(0.04,0.0,abs(fract(vUv.y-t*0.35)-0.5)); float f=1.0-abs(dot(normalize(vN),normalize(vV))); float glow=grid*0.7+edge*1.4+scan*0.9+pow(f,3.0)*0.8; vec3 col=c*0.5+c*glow*1.3+vec3(1.0)*(edge*0.5+scan*0.25); gl_FragColor=vec4(col,0.62+glow*0.3); }"
+      });
     }
     const pwGeo = {
       orb: new T.SphereGeometry(0.25, 16, 12),
@@ -9563,9 +9602,21 @@
         m.position.y = 1;
       } else add(pwGeo.orb, M.solid);
       if (look !== "holo" && look !== "crate") {
-        const h = new T.Sprite(M.soft);
-        h.scale.setScalar(1.1);
+        const h = new T.Sprite(M.glow);
+        h.scale.setScalar(1.5);
         g.add(h);
+        const c = new T.Sprite(M.hot);
+        c.scale.setScalar(0.55);
+        g.add(c);
+        const orb = new T.Group();
+        orb.userData.orbit = 1;
+        for (let i = 0; i < 3; i++) {
+          const sp = new T.Sprite(M.zap), a = i * TAU / 3;
+          sp.position.set(Math.cos(a) * 0.5, Math.sin(a) * 0.5, 0);
+          sp.scale.setScalar(0.28);
+          orb.add(sp);
+        }
+        g.add(orb);
       }
       g.scale.setScalar(size || 1);
       return g;
@@ -9688,6 +9739,23 @@
           ring.scale.setScalar(0.5 + r * 1.2 * k);
           ring.material.opacity = 0.9 * (1 - k);
         }, done: () => ring.material.dispose() });
+        const fl = new T.Sprite(pwMats(col).hot.clone());
+        fl.position.copy(at);
+        world.add(fl);
+        effects.push({ t: 0, dur: 0.25, obj: fl, upd: (e, k) => {
+          fl.scale.setScalar(r * (0.8 + 1.6 * k));
+          fl.material.opacity = 1 - k;
+        }, done: () => fl.material.dispose() });
+        const gr = new T.Mesh(shockRing, pwMats(col).flat.clone());
+        gr.material.blending = PW_ADD;
+        gr.position.copy(at);
+        gr.lookAt(at.clone().add(UP));
+        world.add(gr);
+        effects.push({ t: 0, dur: 0.55, obj: gr, upd: (e, k) => {
+          gr.scale.setScalar(0.3 + r * 1.5 * Math.sqrt(k));
+          gr.material.opacity = 1 - k;
+        }, done: () => gr.material.dispose() });
+        for (let i = 0; i < Math.min(16, 4 + r * 1.5); i++) mote(pwMats(col).zap, at.clone(), rnd(0.4, 0.8), rnd(0.4, 0.7), rv(1).normalize().multiplyScalar(rnd(6, 14) * r / 5), rnd(-9, 9));
         for (let i = 0; i < Math.min(24, 6 + r * 2); i++) mote(pwMats(col).spark, at.clone(), rnd(0.3, 0.6), rnd(0.3, 0.6), rv(1).normalize().multiplyScalar(rnd(4, 10) * r / 5), rnd(-6, 6));
         sfx(r > 6 ? "boom" : "shockS", at.clone(), { gain: 0.7 });
         camShake = Math.max(camShake, clamp(1.2 - at.distanceTo(player.pos) / 40, 0, 0.6) * Math.min(1, r / 6));
@@ -9746,10 +9814,14 @@
     }
     const _pws = new V(), _pn = new V();
     function updatePwShots(dt) {
+      PW_U.t.value += dt;
       for (let i = pwShots.length - 1; i >= 0; i--) {
         const P = pwShots[i], o = P.o;
         P.t += dt;
-        for (const c of P.m.children) if (c.userData.flap) c.rotation.y = c.userData.flap * 0.6 * Math.sin(P.t * 24);
+        for (const c of P.m.children) {
+          if (c.userData.flap) c.rotation.y = c.userData.flap * 0.6 * Math.sin(P.t * 24);
+          if (c.userData.orbit) c.rotation.z += dt * 9;
+        }
         if (P.latch) {
           const e = P.latch;
           if (!e.alive || P.t > P.lt) {
@@ -9870,23 +9942,28 @@
         P.m.position.copy(P.pos);
         if (o.spin) P.m.rotateZ(o.spin * dt);
         else P.m.lookAt(_pws.copy(P.pos).add(P.vel));
-        if (o.trail) {
-          P.trail -= dt;
-          if (P.trail <= 0) {
-            P.trail = 0.03;
-            mote(pwMats(o.trail).soft, P.pos.clone(), rnd(0.3, 0.5) * (o.size || 1), 0.35, new V());
-          }
+        P.trail -= dt;
+        if (P.trail <= 0) {
+          P.trail = 0.03;
+          const M = pwMats(o.trail || o.col || PC);
+          mote(M.glow, P.pos.clone(), rnd(0.35, 0.6) * (o.size || 1), 0.4, new V());
+          if (Math.random() < 0.5) mote(M.zap, P.pos.clone().add(rv(0.25)), rnd(0.15, 0.3) * (o.size || 1), rnd(0.3, 0.5), rv(1.5), rnd(-8, 8));
         }
       }
     }
     function pwZone(o) {
-      const Z = { o, t: 0, tick: 0, pos: (o.at || chest(o.follow || player)).clone(), m: null, fx: 0 };
+      const Z = { o, t: 0, tick: 0, pos: (o.at || chest(o.follow || player)).clone(), m: null, rg: null, fx: 0 };
       if (!o.bare) {
-        const m = new T.Mesh(pwGeo.sphere, pwMats(o.col || PC).fog.clone());
+        const m = new T.Mesh(pwGeo.sphere, pwField(o.col || PC, o.op || 0.13));
         m.scale.setScalar(0.1);
         m.position.copy(Z.pos);
         world.add(m);
         Z.m = m;
+        const rg = new T.Mesh(pwGeo.ring, pwMats(o.col || PC).flat.clone());
+        rg.material.blending = PW_ADD;
+        rg.rotation.x = Math.PI / 2;
+        m.add(rg);
+        Z.rg = rg;
       }
       pwZones.push(Z);
       return Z;
@@ -9896,7 +9973,11 @@
         const Z = pwZones[i], o = Z.o;
         Z.t += dt;
         if (Z.t > o.dur) {
-          if (Z.m) world.remove(Z.m);
+          if (Z.m) {
+            world.remove(Z.m);
+            Z.m.material.dispose();
+            Z.rg.material.dispose();
+          }
           pwZones.splice(i, 1);
           if (o.end) o.end(Z.pos.clone(), Z);
           continue;
@@ -9906,7 +9987,10 @@
         if (Z.m) {
           Z.m.position.copy(Z.pos);
           Z.m.scale.setScalar(o.r * Math.min(1, Z.t * 5));
-          Z.m.material.opacity = (o.op || 0.13) * fade;
+          Z.m.material.uniforms.op.value = (o.op || 0.13) * fade;
+          Z.rg.rotation.z += dt * 1.5;
+          Z.rg.rotation.y = 0.25 * Math.sin(Z.t * 1.3);
+          Z.rg.material.opacity = 0.55 * fade * (0.7 + 0.3 * Math.sin(Z.t * 7));
         }
         Z.fx -= dt;
         if (Z.fx <= 0) {
@@ -9935,7 +10019,7 @@
       for (let k = 0; k < n; k++) {
         const off = (k - (n - 1) / 2) * (o.gap || (o.w || 4) + 0.4), x = c.x + (along === "z" ? off : 0), z = c.z + (along === "x" ? off : 0);
         const sx = along === "x" ? o.d || 0.5 : o.w || 4, sz = along === "z" ? o.d || 0.5 : o.w || 4, sy = o.h || 3;
-        const m = new T.Mesh(new T.BoxGeometry(sx, sy, sz), pwMats(o.col || PC).solid);
+        const m = new T.Mesh(new T.BoxGeometry(sx, sy, sz), pwPanel(o.col || PC));
         m.position.set(x, c.y, z);
         world.add(m);
         const piece = { meshes: [m], box: boxOf(x, c.y, z, sx, sy, sz) };
@@ -9959,6 +10043,7 @@
           pwWalls.splice(i, 1);
           world.remove(W.m);
           W.m.geometry.dispose();
+          W.m.material.dispose();
           const j = structMeshes.indexOf(W.m);
           if (j >= 0) structMeshes.splice(j, 1);
           colliders.delete(W.piece.box);
@@ -14347,6 +14432,16 @@
     }, heroEmote: (k) => heroEmote(k) });
     Object.assign(window.__game, { BR, brOpenChest, get MODE() {
       return MODE;
+    } });
+    Object.assign(window.__game, { pwGo: () => {
+      const H = POW && POW.hold;
+      if (!H) return false;
+      if (H.kind === "chan") {
+        for (let i = 0; i < 20; i++) H.tick(player, 0.05, i * 0.05);
+        return true;
+      }
+      H.go(player, 1);
+      return true;
     } });
   })();
 })();
