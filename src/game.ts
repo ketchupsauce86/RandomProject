@@ -4992,15 +4992,9 @@ function heroFrame(dt){
   const hx:any={e,c,B,g,pitch:0,rightB,fwdB,upB}; emTick(e,dt,true);
   if(e.emote){ emotePose(e,hx); c.pick.visible=false; if(c.pickL) c.pickL.visible=false; }
   else emIdle(hx,t,heroLook(hx,dt,W,H,t));
-  if(!e.emote&&(eq&&!eq.anime||eq&&eq.anime==='nichirin'||eq&&eq.anime==='kunai')){ // [S4] INTEGRATOR: Stream 3's pickHold(c,e,P,rightB,upB,fwdB,rest) replaces the pickPose/IK/hand block below
-    const P=pickPose({swingT:0,guardK:0,swingSide:0}), sh=B.RightArm.getWorldPosition(new V());
-    const tgt=g.localToWorld(g.worldToLocal(sh.clone()).add(P.h)).addScaledVector(upB,0.008*Math.sin(t*1.7));
-    solveIK(B.RightArm,B.RightForeArm,B.RightHand,tgt,sh.clone().addScaledVector(rightB,0.5).addScaledVector(upB,-0.55).addScaledVector(fwdB,-0.1));
-    c.pick.quaternion.copy(P.q); g.updateMatrixWorld(true);
-    const hw=B.RightHand.getWorldPosition(new V()), hd=new V(0,1,0).applyQuaternion(c.pick.getWorldQuaternion(new T.Quaternion()));
-    const pn=rightB.clone().negate(); pn.addScaledVector(hd,-pn.dot(hd)).normalize(); const pf=new V().crossVectors(hd.clone().negate(),pn);
-    poseHand(B,'Right',pf,pn,0.8); hw.addScaledVector(pf,0.07).addScaledVector(pn,0.03); g.worldToLocal(hw); c.pick.position.copy(hw);
-    if(c.pickL) dualLeft(c,B,g,P,rightB,upB,fwdB,1);
+  if(!e.emote&&(eq&&!eq.anime||eq&&eq.anime==='nichirin'||eq&&eq.anime==='kunai')){ // [S3] the form's rest pose through pickHold
+    const P=pickPose({swingT:0,guardK:0,swingSide:0,ch:c}); P.h.y+=0.008*Math.sin(t*1.7); // [S3] each form's own rest pose and grip, breathing
+    c.pick.visible=true; pickHold(c,e,P,rightB,upB,fwdB,1);
   } else if(!e.emote) c.pick.visible=false; // the fists and the Death Note have nothing to rest on a shoulder
   poseBlend(c,dt); poseStore(c); // [S4] so Stream 1's inertial blend works on the hero too
   HERO.ring.material.opacity=0.45+0.12*Math.sin(t*2);
