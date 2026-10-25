@@ -3439,7 +3439,7 @@
         const d = _csph.center.distanceTo(camera.position);
         const see = e === player || _frus.intersectsSphere(_csph), far = d > GEAR_D && e !== player;
         c.inView = see;
-        c.spin.visible = see && !(e === player && bv(e, "hide"));
+        c.spin.visible = see && !(e === player && bv(e, "hide")) && e.br !== "jet";
         c.gunMount.visible = see && !far;
         if (c.gear && c.gearFar !== far) {
           c.gearFar = far;
@@ -5193,6 +5193,7 @@
       else if (d.z < 0) t = Math.min(t, (-L - o.z) / d.z);
       if (d.y > 0) t = Math.min(t, (ZG.H - o.y) / d.y);
       else if (d.y < 0) t = Math.min(t, -o.y / d.y);
+      if (MODE === "br" && BR.h) t = Math.min(t, brRayT(o, d, t));
       return Math.max(0, t);
     }
     function hasLOS(a, b) {
@@ -5203,6 +5204,7 @@
       ray.set(a, tv3);
       ray.near = 0.5;
       ray.far = dist - 0.5;
+      if (MODE === "br" && BR.h && brRayT(a, tv3, dist) < dist - 0.5) return false;
       return ray.intersectObjects(meshesAlong(a, tv3, dist, false), false).length === 0;
     }
     function jitter(dir, s, out) {
@@ -5805,9 +5807,12 @@
       $("shFill").style.width = clamp(p.shield, 0, 100) + "%";
       $("aliveN").textContent = aliveCount;
       $("killN").textContent = p.kills;
-      const st = $("gravTxt");
-      st.textContent = ZG.state === "warn" ? "Gravity flip!" : ZG.state === "ceil" ? "Ceiling \xB7 " + Math.ceil(ZG.t) + "s" : "Zero-G";
-      st.className = ZG.state === "warn" ? "flip" : ZG.state === "ceil" ? "ceil" : "";
+      if (MODE === "br") brHud();
+      else {
+        const st = $("gravTxt");
+        st.textContent = ZG.state === "warn" ? "Gravity flip!" : ZG.state === "ceil" ? "Ceiling \xB7 " + Math.ceil(ZG.t) + "s" : "Zero-G";
+        st.className = ZG.state === "warn" ? "flip" : ZG.state === "ceil" ? "ceil" : "";
+      }
       const it = curItem();
       $("bankN").textContent = p.bank;
       if (slotEls[0]) slotEls[0].children[3].textContent = POW && p.pwCd > 0 ? Math.ceil(p.pwCd) + "s" : "";
@@ -5874,6 +5879,10 @@
       mapBase = document.createElement("canvas");
       mapBase.width = mapBase.height = MAPS;
       const g = mapBase.getContext("2d");
+      if (MODE === "br") {
+        brMapBase(g, MAPS);
+        return;
+      }
       g.fillStyle = "#eef0f3";
       g.fillRect(0, 0, MAPS, MAPS);
       g.strokeStyle = "#c4c8ce";
@@ -5896,7 +5905,29 @@
       }
     }
     function drawMap() {
-      const g = mctx, k = MAPS / (2 * ZG.L), p = player;
+      const p = player;
+      if (MODE === "br") {
+        const g2 = mctx, k2 = MAPS / BR.W;
+        g2.drawImage(mapBase, 0, 0);
+        brMapDraw(g2, MAPS);
+        g2.save();
+        g2.translate((p.pos.x + BR.W / 2) * k2, (p.pos.z + BR.W / 2) * k2);
+        g2.rotate(Math.atan2(-Math.cos(p.yaw), -Math.sin(p.yaw)));
+        g2.beginPath();
+        g2.moveTo(7, 0);
+        g2.lineTo(-5, 4.5);
+        g2.lineTo(-2.5, 0);
+        g2.lineTo(-5, -4.5);
+        g2.closePath();
+        g2.fillStyle = "#ffd23f";
+        g2.strokeStyle = "#1b2440";
+        g2.lineWidth = 1.5;
+        g2.fill();
+        g2.stroke();
+        g2.restore();
+        return;
+      }
+      const g = mctx, k = MAPS / (2 * ZG.L);
       g.drawImage(mapBase, 0, 0);
       g.fillStyle = "#ff3347";
       for (const f of ZG.flyers || []) g.fillRect((f.pos.x - f.h.x + ZG.L) * k, (f.pos.z - f.h.z + ZG.L) * k, Math.max(3, f.h.x * 2 * k), Math.max(3, f.h.z * 2 * k));
@@ -5955,6 +5986,15 @@
         return;
       }
       camera.up.set(0, 1, 0);
+      if ((state === "menu" || !player) && MODE === "br") {
+        const t = performance.now() / 1e3 * 0.03;
+        camera.position.set(Math.cos(t) * 230, 95, Math.sin(t) * 230);
+        camera.lookAt(0, 10, 0);
+        camera.fov = 60;
+        CAM.have = CAM.lagOn = CAM.dead = false;
+        camShift(0, 0);
+        return;
+      }
       if (state === "menu" || !player) {
         const t = performance.now() / 1e3 * 0.04;
         camera.position.set(Math.cos(t) * 60, ZG.H * 0.55, Math.sin(t) * 60);
@@ -12718,6 +12758,891 @@
       const b = ev.target.closest("button");
       if (b) buyItem(+b.dataset.i);
     });
+    const _brv0 = new V(), _brv1 = new V();
+    let MODE = "zg";
+    try {
+      if (localStorage.getItem("invertedMode") === "br") MODE = "br";
+    } catch (e) {
+    }
+    const BR = { W: 760, N: 152, R: 330, h: null, storm: null, jet: null, chests: [], trees: [], wall: null, water: null, sky: null, clouds: [], houses: [], t: 0 };
+    const BR_SEA = -0.8, BR_G = 26, BR_JET_Y = 160;
+    let brSeed = 1;
+    function brHash(x, z) {
+      let h = x * 374761393 + z * 668265263 + brSeed * 144269 | 0;
+      h = Math.imul(h ^ h >>> 13, 1274126177);
+      return ((h ^ h >>> 16) >>> 0) / 4294967296;
+    }
+    function brNoise(x, z) {
+      const ix = Math.floor(x), iz = Math.floor(z), fx = x - ix, fz = z - iz, u = fx * fx * (3 - 2 * fx), v = fz * fz * (3 - 2 * fz);
+      return lerp(lerp(brHash(ix, iz), brHash(ix + 1, iz), u), lerp(brHash(ix, iz + 1), brHash(ix + 1, iz + 1), u), v);
+    }
+    function brFbm(x, z) {
+      let s = 0, a = 0.5;
+      for (let i = 0; i < 4; i++) {
+        s += a * brNoise(x, z);
+        x *= 2.03;
+        z *= 2.03;
+        a *= 0.5;
+      }
+      return s;
+    }
+    function brRaw(x, z) {
+      const wob = (brFbm(x / 140 + 9, z / 140 + 3) - 0.5) * 90, d = Math.hypot(x, z) / (BR.R + wob);
+      let h = 3 + (brFbm(x / 90 + 31, z / 90 + 17) - 0.5) * 14;
+      const ridge = 1 - Math.abs(2 * brFbm(x / 60 + 3, z / 60 + 71) - 1), mtn = smooth(0.55, 0.75, brFbm(x / 200 + 50, z / 200 + 8));
+      h += mtn * ridge * ridge * 42;
+      const f = smooth(0.78, 1.02, d);
+      return h * (1 - f) - 9 * f;
+    }
+    function brHeight(x, z) {
+      const H = BR.h;
+      if (!H) return 0;
+      const C = BR.W / BR.N, fx = (x + BR.W / 2) / C, fz = (z + BR.W / 2) / C;
+      if (fx < 0 || fz < 0 || fx >= BR.N || fz >= BR.N) return -9;
+      const ix = Math.floor(fx), iz = Math.floor(fz), u = fx - ix, v = fz - iz, W = BR.N + 1, A = H[iz * W + ix], B = H[iz * W + ix + 1], Cc = H[(iz + 1) * W + ix], D2 = H[(iz + 1) * W + ix + 1];
+      return lerp(lerp(A, B, u), lerp(Cc, D2, u), v);
+    }
+    function brFloor(x, z) {
+      return Math.max(brHeight(x, z), BR_SEA - 0.9);
+    }
+    function brRayT(o, d, far) {
+      const step = 2.5;
+      for (let t = step; t < far; t += step) {
+        const y = o.y + d.y * t;
+        if (y < brHeight(o.x + d.x * t, o.z + d.z * t)) return Math.max(0, t - step * 0.5);
+        if (y > 90 && d.y >= 0) break;
+      }
+      return far;
+    }
+    const _brc = new T.Color(), _brc2 = new T.Color();
+    function brColor(x, z, h, slope, out) {
+      const n = brNoise(x * 0.05, z * 0.05), n2 = brNoise(x * 0.21 + 7, z * 0.21 + 3);
+      if (h < BR_SEA + 0.4) return out.setRGB(0.32, 0.28, 0.62);
+      if (h < 1.6) return out.setRGB(0.78, 0.62, 0.9).lerp(_brc2.setRGB(0.66, 0.5, 0.88), n);
+      out.setRGB(0.24 + n * 0.16, 0.6 + n * 0.18, 0.3 + n2 * 0.1);
+      out.lerp(_brc2.setRGB(0.1 + n * 0.05, 0.36 + n * 0.08, 0.32), smooth(0.45, 0.7, brNoise(x / 80, z / 80)) * 0.7);
+      const rock = Math.max(smooth(0.65, 1, slope), smooth(20, 26, h));
+      if (rock > 0) {
+        const st = Math.pow(Math.sin(h * 0.9 + n * 5 + x * 0.02) * 0.5 + 0.5, 10);
+        _brc2.setRGB(0.3 + n2 * 0.08, 0.28 + n2 * 0.06, 0.6 + n2 * 0.1);
+        if (st > 0.05) _brc2.lerp(_brc.setRGB(0.6, 0.75, 1), st * 0.9);
+        out.lerp(_brc2, rock);
+      }
+      const snow = smooth(30, 36, h + n * 3);
+      if (snow > 0) out.lerp(_brc2.setRGB(0.9, 0.92, 1), snow);
+      return out;
+    }
+    const BRU = { time: { value: 0 } };
+    function brWave(m, amp2) {
+      m.onBeforeCompile = (sh) => {
+        sh.uniforms.uT = BRU.time;
+        sh.vertexShader = "uniform float uT;\n" + sh.vertexShader.replace(
+          "#include <begin_vertex>",
+          `#include <begin_vertex>
+  #ifdef USE_INSTANCING
+  vec3 ip=vec3(instanceMatrix[3][0],instanceMatrix[3][1],instanceMatrix[3][2]);
+  #else
+  vec3 ip=vec3(0.0);
+  #endif
+  float sw=sin(uT*1.6+ip.x*0.11+ip.z*0.07)+0.4*sin(uT*3.1+ip.z*0.2); transformed.x+=sw*${amp2.toFixed(3)}*max(0.0,position.y); transformed.z+=cos(uT*1.3+ip.x*0.09)*${(amp2 * 0.6).toFixed(3)}*max(0.0,position.y);`
+        );
+      };
+      return m;
+    }
+    function buildIsland() {
+      brSeed = Math.random() * 1e6 | 0;
+      const N = BR.N, C = BR.W / N, W = N + 1, H = new Float32Array(W * W);
+      BR.h = H;
+      for (let iz = 0; iz <= N; iz++) for (let ix = 0; ix <= N; ix++) H[iz * W + ix] = brRaw(-BR.W / 2 + ix * C, -BR.W / 2 + iz * C);
+      const geo = new T.PlaneGeometry(BR.W, BR.W, N, N);
+      geo.rotateX(-Math.PI / 2);
+      const pos = geo.attributes.position, cols = new Float32Array(pos.count * 3), c = new T.Color();
+      for (let i = 0; i < pos.count; i++) {
+        const ix = i % W, iz = Math.floor(i / W), h = H[iz * W + ix];
+        pos.setY(i, h);
+        const hx = H[iz * W + Math.min(N, ix + 1)] - H[iz * W + Math.max(0, ix - 1)], hz = H[Math.min(N, iz + 1) * W + ix] - H[Math.max(0, iz - 1) * W + ix];
+        brColor(-BR.W / 2 + ix * C, -BR.W / 2 + iz * C, h, Math.hypot(hx, hz) / (2 * C), c);
+        cols[i * 3] = c.r;
+        cols[i * 3 + 1] = c.g;
+        cols[i * 3 + 2] = c.b;
+      }
+      geo.setAttribute("color", new T.BufferAttribute(cols, 3));
+      geo.computeVertexNormals();
+      const ground = new T.Mesh(geo, Lam({ vertexColors: true }));
+      ground.receiveShadow = true;
+      world.add(ground);
+      const rip = canvasTex(128, 128, (g, w) => {
+        g.fillStyle = "#fff";
+        g.fillRect(0, 0, w, w);
+        for (let i = 0; i < 70; i++) {
+          g.strokeStyle = `rgba(120,90,200,${0.15 + Math.random() * 0.2})`;
+          g.lineWidth = 1 + Math.random() * 2;
+          const x = Math.random() * w, y = Math.random() * w;
+          g.beginPath();
+          g.ellipse(x, y, 8 + Math.random() * 18, 2 + Math.random() * 3, 0, 0, TAU);
+          g.stroke();
+        }
+      });
+      rip.wrapS = rip.wrapT = T.RepeatWrapping;
+      rip.repeat.set(60, 60);
+      BR.water = new T.Mesh(new T.PlaneGeometry(BR.W * 3, BR.W * 3).rotateX(-Math.PI / 2), new T.MeshPhongMaterial({ color: 6970608, map: rip, shininess: 110, specular: 12576511, transparent: true, opacity: 0.86, emissive: 1708112 }));
+      BR.water.position.y = BR_SEA;
+      world.add(BR.water);
+      const foam = new T.Mesh(new T.RingGeometry(BR.R * 0.86, BR.R * 1.06, 160, 1).rotateX(-Math.PI / 2), new T.MeshBasicMaterial({ map: glowTex, color: 16777215, transparent: true, opacity: 0.18, depthWrite: false }));
+      foam.position.y = BR_SEA + 0.06;
+      world.add(foam);
+      BR.foam = foam;
+      BR.sky = new T.Mesh(new T.SphereGeometry(1400, 32, 16), new T.ShaderMaterial({
+        side: T.BackSide,
+        depthWrite: false,
+        fog: false,
+        uniforms: { sun: { value: new V(0.4, 0.35, -0.85).normalize() } },
+        vertexShader: "varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
+        fragmentShader: "uniform vec3 sun; varying vec3 vD; void main(){ float h=clamp(vD.y,-0.2,1.0); vec3 top=vec3(0.27,0.36,0.9), mid=vec3(0.66,0.62,1.0), hor=vec3(1.0,0.72,0.86);vec3 c=mix(hor,mid,smoothstep(0.0,0.25,h)); c=mix(c,top,smoothstep(0.25,0.85,h)); float s=max(dot(vD,sun),0.0); c+=vec3(1.0,0.85,0.6)*(pow(s,600.0)*2.0+pow(s,12.0)*0.35); gl_FragColor=vec4(c,1.0); }"
+      }));
+      BR.sky.renderOrder = -10;
+      world.add(BR.sky);
+      BR.clouds = [];
+      const cm = Lam({ color: 16777215, emissive: 4865146, transparent: true, opacity: 0.92 }), cg = new T.IcosahedronGeometry(1, 1);
+      for (let i = 0; i < 26; i++) {
+        const cl = new T.Group();
+        for (let k = 0; k < 5; k++) {
+          const m = new T.Mesh(cg, cm);
+          m.position.set(rnd(-14, 14), rnd(-2, 3), rnd(-6, 6));
+          m.scale.set(rnd(9, 15), rnd(5, 8), rnd(7, 11));
+          cl.add(m);
+        }
+        cl.position.set(rnd(-600, 600), rnd(190, 240), rnd(-600, 600));
+        world.add(cl);
+        BR.clouds.push(cl);
+      }
+      const spots = [];
+      for (let k = 0; k < 4e3 && spots.length < 420; k++) {
+        const x = rnd(-BR.R, BR.R), z = rnd(-BR.R, BR.R), h = brHeight(x, z);
+        if (h < 2.2 || h > 24) continue;
+        if (brNoise(x / 60 + 5, z / 60 + 9) < 0.42) continue;
+        spots.push([x, h, z, rnd(0.8, 1.4)]);
+      }
+      const trunk = new T.InstancedMesh(new T.CylinderGeometry(0.28, 0.42, 4, 6).translate(0, 2, 0), brWave(Lam({ color: 5913194 }), 0.015), spots.length);
+      const crown = new T.InstancedMesh(new T.IcosahedronGeometry(2.6, 0).translate(0, 5.6, 0), brWave(Lam({ color: 16777215, flatShading: true }), 0.045), spots.length);
+      const m4 = new T.Matrix4(), q = new T.Quaternion(), s = new V(), pc = [5234826, 3066280, 9067775, 3920234, 16743121];
+      spots.forEach(([x, h, z, k], i) => {
+        q.setFromAxisAngle(_brv0.set(0, 1, 0), Math.random() * TAU);
+        m4.compose(_brv1.set(x, h - 0.3, z), q, s.set(k, k, k));
+        trunk.setMatrixAt(i, m4);
+        crown.setMatrixAt(i, m4);
+        crown.setColorAt(i, c.setHex(pick(pc)).multiplyScalar(rnd(0.8, 1.1)));
+      });
+      trunk.castShadow = crown.castShadow = true;
+      world.add(trunk, crown);
+      BR.trees = spots;
+      BR.chests = [];
+      BR.houses = [];
+      const wall = GPh(15328511, 20), roof = GPh(8015103, 40), trim = new T.LineBasicMaterial({ color: 6091007 });
+      const box = (x, y, z, sx, sy, sz, mat) => {
+        const m = new T.Mesh(new T.BoxGeometry(sx, sy, sz), mat);
+        m.position.set(x, y, z);
+        m.castShadow = m.receiveShadow = true;
+        world.add(m);
+        m.add(new T.LineSegments(new T.EdgesGeometry(m.geometry), trim));
+        zgSolid(m, boxOf(x, y, z, sx, sy, sz));
+      };
+      for (let k = 0; k < 3e3 && BR.houses.length < 34; k++) {
+        const x = rnd(-BR.R * 0.85, BR.R * 0.85), z = rnd(-BR.R * 0.85, BR.R * 0.85), h = brHeight(x, z);
+        if (h < 2 || h > 20 || BR.houses.some((o) => Math.hypot(o.x - x, o.z - z) < 34)) continue;
+        let flat = true;
+        for (const [dx, dz] of [[5, 5], [-5, 5], [5, -5], [-5, -5]]) if (Math.abs(brHeight(x + dx, z + dz) - h) > 2.2) flat = false;
+        if (!flat) continue;
+        const y = h - 0.4, S = 10, T2 = 0.6, Hh = 4.2;
+        box(x, y + Hh / 2, z - S / 2, S, Hh, T2, wall);
+        box(x - S / 2, y + Hh / 2, z, T2, Hh, S, wall);
+        box(x + S / 2, y + Hh / 2, z, T2, Hh, S, wall);
+        box(x - S / 2 + 1.9, y + Hh / 2, z + S / 2, 3.8, Hh, T2, wall);
+        box(x + S / 2 - 1.9, y + Hh / 2, z + S / 2, 3.8, Hh, T2, wall);
+        box(x, y + Hh + 0.3, z, S + 1, 0.6, S + 1, roof);
+        BR.houses.push({ x, z });
+        brChest(x + rnd(-2, 2), y, z + rnd(-2, 0));
+      }
+      for (let k = 0; k < 4e3 && BR.chests.length < 70; k++) {
+        const x = rnd(-BR.R * 0.9, BR.R * 0.9), z = rnd(-BR.R * 0.9, BR.R * 0.9), h = brHeight(x, z);
+        if (h < 1.5 || h > 26) continue;
+        if (BR.chests.some((o) => Math.hypot(o.x - x, o.z - z) < 22)) continue;
+        brChest(x, h, z);
+      }
+      ZG.L = BR.W * 1.5;
+      ZG.H = 600;
+      ZG.blocks = [];
+      ZG.flyers = [];
+      ZG.pads = [];
+      ZG.vend = [];
+      ZG.state = "land";
+      ZG.t = 0;
+      ZG.camRoll = 0;
+      ZG.flash = 0;
+      brStorm();
+      brJet();
+    }
+    const brChestMat = GPh(16763210, 90, 16773808), brChestLid = GPh(16769146, 90, 16777215);
+    function brChest(x, y, z) {
+      const g = new T.Group();
+      g.position.set(x, y, z);
+      g.rotation.y = Math.random() * TAU;
+      const b = new T.Mesh(new T.BoxGeometry(1.3, 0.7, 0.85), brChestMat);
+      b.position.y = 0.35;
+      const lid = new T.Mesh(new T.BoxGeometry(1.32, 0.3, 0.87), brChestLid);
+      lid.position.set(0, 0.85, 0);
+      const beam = new T.Mesh(new T.CylinderGeometry(0.35, 0.6, 9, 10, 1, true), new T.MeshBasicMaterial({ color: 16765503, transparent: true, opacity: 0.22, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide }));
+      beam.position.y = 5;
+      const glow = new T.Sprite(auraMats(16765503).halo);
+      glow.scale.setScalar(3);
+      glow.position.y = 0.8;
+      g.add(b, lid, beam, glow);
+      world.add(g);
+      BR.chests.push({ x, y, z, g, lid, beam, glow, open: false });
+    }
+    const BR_LOOT = [["ar", 25], ["smg", 20], ["pump", 20], ["pistol", 14], ["sniper", 8], ["pb", 5], ["frz", 3], ["flm", 3], ["tsr", 3], ["rpg", 3]];
+    function brLoot() {
+      let r = Math.random() * BR_LOOT.reduce((a, x) => a + x[1], 0);
+      for (const [id, w] of BR_LOOT) {
+        r -= w;
+        if (r <= 0) return id;
+      }
+      return "ar";
+    }
+    function brGive(it) {
+      const p = player;
+      let slot = -1;
+      for (let k = 1; k < p.slots.length; k++) if (!p.slots[k]) {
+        slot = k;
+        break;
+      }
+      if (slot < 0) {
+        slot = p.sel > 0 ? p.sel : 1;
+      }
+      p.slots[slot] = it;
+      return slot;
+    }
+    function brOpenChest() {
+      const p = player;
+      let best = null, bd = 3.2;
+      for (const ch of BR.chests) {
+        if (ch.open) continue;
+        const d = Math.hypot(ch.x - p.pos.x, ch.y + 0.5 - p.pos.y, ch.z - p.pos.z);
+        if (d < bd) {
+          bd = d;
+          best = ch;
+        }
+      }
+      if (!best) return false;
+      best.open = true;
+      best.beam.visible = false;
+      best.glow.visible = false;
+      effects.push({ t: 0, dur: 0.35, obj: null, upd: (e, k) => {
+        best.lid.rotation.x = -1.9 * k;
+        best.lid.position.set(0, 0.85 + 0.25 * k, -0.3 * k);
+      } });
+      for (let i = 0; i < 14; i++) mote(auraMats(16765503).spark, new V(best.x, best.y + 1, best.z), rnd(0.15, 0.35), rnd(0.5, 0.9), rv(3).add(new V(0, 3, 0)), 6);
+      const id = brLoot(), w = WEAP[id], shop = !!SHOP_GUN(id), r = shop ? 4 : rollRarity(0.6), gun = id === "mf" ? { kind: "gun", id, r: 4, ammo: MF_CLIP } : shop ? { kind: "gun", id, r: 4, ammo: 1, cd: 0 } : { kind: "gun", id, r, ammo: w.mag };
+      const s = brGive(gun);
+      if (Math.random() < 0.6) brGive(Math.random() < 0.5 ? { kind: "cons", id: "mini", count: 2 } : { kind: "cons", id: "big", count: 1 });
+      p.sel = s;
+      refreshHotbar();
+      sfx("pickup", null, { item: { kind: "gun", r: gun.r } });
+      toast(w.name + " \xB7 " + RAR[gun.r].n);
+      return true;
+    }
+    const BR_STAGES = [[40, 40, 190, 1], [30, 30, 120, 2], [25, 25, 70, 5], [20, 20, 35, 8], [15, 15, 12, 10], [10, 20, 0, 12]];
+    function brStorm() {
+      const S = { stage: -1, phase: "wait", t: 30, cur: { x: 0, z: 0, r: BR.R * 1.25 }, from: null, next: null, dps: 1 };
+      BR.storm = S;
+      brNextCircle();
+      const mat = new T.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        side: T.DoubleSide,
+        uniforms: { uT: BRU.time },
+        vertexShader: "varying vec2 vU; varying float vY; varying float vD; void main(){ vU=uv; vY=position.y; vec4 w=modelMatrix*vec4(position,1.0); vD=distance(w.xz,cameraPosition.xz); gl_Position=projectionMatrix*viewMatrix*w; }",
+        fragmentShader: "uniform float uT; varying vec2 vU; varying float vY; varying float vD; float h(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5); } float n(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y); }void main(){ vec2 q=vec2(vU.x*120.0,vU.y*6.0); float s=n(q+vec2(uT*0.6,-uT*0.9))*0.6+n(q*2.3+vec2(-uT*1.4,uT*0.5))*0.4; float bands=0.5+0.5*sin(vU.y*80.0-uT*3.0+s*6.0);float a=(0.3+0.35*s)*(0.75+0.25*bands)*smoothstep(1.0,0.55,vU.y)*mix(1.0,0.14,smoothstep(40.0,260.0,vD)); /* faint far away, a wall of storm up close */ vec3 c=mix(vec3(0.42,0.1,0.85),vec3(1.0,0.3,0.85),s); c+=vec3(0.6,0.9,1.0)*pow(bands,14.0)*0.5; gl_FragColor=vec4(c,a); }"
+      });
+      BR.wall = new T.Mesh(new T.CylinderGeometry(1, 1, 320, 96, 1, true), mat);
+      BR.wall.position.y = 120;
+      BR.wall.renderOrder = 5;
+      world.add(BR.wall);
+      brPlaceWall();
+    }
+    function brNextCircle() {
+      const S = BR.storm;
+      S.stage++;
+      const st = BR_STAGES[Math.min(S.stage, BR_STAGES.length - 1)], r = st[2];
+      const a = Math.random() * TAU, off = Math.max(0, S.cur.r - r) * Math.random() * 0.8;
+      let x = S.cur.x + Math.cos(a) * off, z = S.cur.z + Math.sin(a) * off;
+      if (Math.hypot(x, z) > BR.R * 0.8 - r) {
+        const k = (BR.R * 0.8 - r) / Math.max(1, Math.hypot(x, z));
+        x *= Math.max(0, k);
+        z *= Math.max(0, k);
+      }
+      S.next = { x, z, r };
+      S.phase = "wait";
+      S.t = st[0];
+      S.dur = st[1];
+      S.dps = st[3];
+    }
+    function brPlaceWall() {
+      const c = BR.storm.cur;
+      BR.wall.position.x = c.x;
+      BR.wall.position.z = c.z;
+      BR.wall.scale.set(Math.max(0.5, c.r), 1, Math.max(0.5, c.r));
+    }
+    function brStormUpdate(dt) {
+      const S = BR.storm;
+      S.t -= dt;
+      if (S.phase === "wait" && S.t <= 0) {
+        S.phase = "shrink";
+        S.from = { ...S.cur };
+        S.t = S.dur;
+        banner("The storm is closing in", "Get to the safe zone", 2.5);
+        sfx("stormWarn");
+      } else if (S.phase === "shrink") {
+        const k = 1 - Math.max(0, S.t) / S.dur, e = k * k * (3 - 2 * k);
+        S.cur.x = lerp(S.from.x, S.next.x, e);
+        S.cur.z = lerp(S.from.z, S.next.z, e);
+        S.cur.r = lerp(S.from.r, S.next.r, e);
+        if (S.t <= 0) {
+          S.cur = { ...S.next };
+          if (S.stage < BR_STAGES.length - 1) brNextCircle();
+          else S.phase = "done";
+        }
+      }
+      brPlaceWall();
+      for (const e of combatants) {
+        if (!e.alive || e.br === "jet") continue;
+        const out = Math.hypot(e.pos.x - S.cur.x, e.pos.z - S.cur.z) > S.cur.r;
+        if (out) {
+          e.stormT = (e.stormT || 0) + dt;
+          if (e.stormT >= 1) {
+            e.stormT -= 1;
+            hurt(e, S.dps, null, { soft: true, storm: true, weapon: "Storm", point: e.pos.clone().add(new V(0, 1.3, 0)) });
+          }
+        } else e.stormT = 0;
+      }
+      const p = player, pout = p && p.alive && p.br !== "jet" && Math.hypot(p.pos.x - S.cur.x, p.pos.z - S.cur.z) > S.cur.r;
+      BR.tint = lerp(BR.tint || 0, pout ? 1 : 0, 1 - Math.exp(-4 * dt));
+      $("stormTint").style.opacity = String(BR.tint * 0.55);
+    }
+    function brJet() {
+      const a = Math.random() * TAU, from = new V(Math.cos(a) * BR.R * 1.5, BR_JET_Y, Math.sin(a) * BR.R * 1.5), to = from.clone().multiplyScalar(-1);
+      to.y = BR_JET_Y;
+      const g = new T.Group(), white = GPh(16052991, 80, 16777215), neon = new T.MeshBasicMaterial({ color: 16728020 }), dark = GPh(1709120, 60);
+      const body = new T.Mesh(new T.CylinderGeometry(1.6, 1.6, 22, 16).rotateX(Math.PI / 2), white);
+      const nose = new T.Mesh(new T.SphereGeometry(1.6, 16, 10).scale(1, 1, 2.2), white);
+      nose.position.z = -11;
+      const wing = new T.Mesh(new T.BoxGeometry(26, 0.35, 4.5), white);
+      wing.position.set(0, -0.4, 1);
+      const fin = new T.Mesh(new T.BoxGeometry(0.35, 5, 3.5), white);
+      fin.position.set(0, 3, 9.5);
+      const tail = new T.Mesh(new T.BoxGeometry(9, 0.3, 2.5), white);
+      tail.position.set(0, 0.6, 10);
+      const stripe = new T.Mesh(new T.BoxGeometry(3.3, 0.25, 22.2), neon);
+      stripe.position.y = 0.9;
+      const win = new T.Mesh(new T.BoxGeometry(3.25, 0.6, 12), dark);
+      win.position.set(0, 0.6, -1);
+      g.add(body, nose, wing, fin, tail, stripe, win);
+      g.userData.eng = [-5, 5].map((x) => {
+        const s = new T.Sprite(auraMats(6091007).halo);
+        s.scale.setScalar(4);
+        s.position.set(x, -0.6, 3.5);
+        g.add(s);
+        return s;
+      });
+      g.position.copy(from);
+      g.lookAt(to);
+      world.add(g);
+      BR.jet = { g, from, to, t: 0, dur: 34, done: false, trail: 0 };
+    }
+    function brJetPos(k, out) {
+      return out.lerpVectors(BR.jet.from, BR.jet.to, k);
+    }
+    function brJetUpdate(dt) {
+      const J = BR.jet;
+      if (!J || J.done) return;
+      J.t += dt;
+      const k = J.t / J.dur;
+      brJetPos(k, J.g.position);
+      J.g.rotation.z = Math.sin(J.t * 0.6) * 0.05;
+      J.trail -= dt;
+      if (J.trail <= 0) {
+        J.trail = 0.08;
+        for (const x of [-5, 5]) {
+          const p = J.g.localToWorld(_brv0.set(x, -0.6, 6));
+          mote(smokeMat, p.clone(), rnd(1.4, 2), 2.4, new V(rnd(-0.3, 0.3), rnd(-0.2, 0.2), rnd(-0.3, 0.3)));
+        }
+      }
+      for (const s of J.g.userData.eng) s.scale.setScalar(rnd(3.5, 4.5));
+      if (k >= 1) {
+        J.done = true;
+        const at = J.g.position.clone();
+        world.remove(J.g);
+        for (let i = 0; i < 24; i++) flame(at.clone().add(rv(5)), rnd(3, 6), rnd(0.6, 1.2), rv(14));
+        for (let i = 0; i < 14; i++) smoke(at.clone().add(rv(6)), rnd(4, 7), rnd(1.5, 2.5), rv(6), true);
+        sfx("boom", at, { gain: 1.2 });
+        for (const e of combatants) if (e.br === "jet") brDrop(e);
+      }
+    }
+    function brDrop(e) {
+      const J = BR.jet;
+      e.br = "fall";
+      e.pos.copy(J.g.position);
+      e.pos.y -= 3;
+      e.pos.x += rnd(-3, 3);
+      e.pos.z += rnd(-3, 3);
+      e.vel.set(0, -4, 0);
+      e.zgFloat = true;
+      e.onGround = false;
+      if (e.ch) e.ch.g.visible = true;
+      if (e === player) {
+        sfx("whoosh", null, {});
+        banner("Skydive!", "Space opens your glider", 2);
+      }
+    }
+    const brGlTex = canvasTex(128, 128, (g, w) => {
+      const gr = g.createLinearGradient(0, 0, w, 0);
+      gr.addColorStop(0, "#ff3fd4");
+      gr.addColorStop(0.5, "#7a4cff");
+      gr.addColorStop(1, "#5cf0ff");
+      g.fillStyle = gr;
+      g.fillRect(0, 0, w, w);
+      g.strokeStyle = "rgba(255,255,255,.55)";
+      g.lineWidth = 3;
+      for (let i = 0; i < 6; i++) {
+        g.beginPath();
+        g.moveTo(w / 2, 0);
+        g.lineTo(i * w / 5, w);
+        g.stroke();
+      }
+    });
+    function brGlider() {
+      const g = new T.Group(), sh = new T.Shape();
+      sh.moveTo(0, 1.6);
+      sh.lineTo(2.4, -0.9);
+      sh.quadraticCurveTo(0, -0.4, -2.4, -0.9);
+      sh.lineTo(0, 1.6);
+      const sail = new T.Mesh(new T.ShapeGeometry(sh).rotateX(-Math.PI / 2), new T.MeshLambertMaterial({ map: brGlTex, side: T.DoubleSide, emissive: 4202602 }));
+      sail.rotation.x = 0.38;
+      const edge = new T.Mesh(new T.CylinderGeometry(0.05, 0.05, 5.2, 6).rotateZ(Math.PI / 2), new T.MeshBasicMaterial({ color: 6091007 }));
+      edge.position.set(0, 0, -0.8);
+      const bar = new T.Mesh(new T.CylinderGeometry(0.03, 0.03, 1.4, 6).rotateZ(Math.PI / 2), GPh(2236979, 40));
+      bar.position.set(0, -1.15, 0.2);
+      for (const x of [-0.7, 0.7]) {
+        const r = new T.Mesh(new T.CylinderGeometry(0.025, 0.025, 1.2, 5), GPh(2236979, 40));
+        r.position.set(x, -0.6, 0.15);
+        r.rotation.z = x > 0 ? 0.25 : -0.25;
+        g.add(r);
+      }
+      g.add(sail, edge, bar);
+      g.position.set(0, 3.25, 0.1);
+      g.visible = false;
+      return g;
+    }
+    function brMove(e, dt) {
+      const p = e.pos, r = e.radius, h = 2;
+      if (e.br === "fall") {
+        e.vel.y = Math.max(-46, e.vel.y - BR_G * dt);
+      } else if (e.br === "glide") {
+        e.vel.y = lerp(e.vel.y, -8.5, 1 - Math.exp(-3 * dt));
+      } else e.vel.y -= BR_G * dt;
+      for (const ax of ["x", "z", "y"]) {
+        const d = e.vel[ax] * dt;
+        if (!d) continue;
+        p[ax] += d;
+        for (const b of colliders.near(p.x, p.z, r + 1)) {
+          if (p.x + r <= b.min.x || p.x - r >= b.max.x || p.z + r <= b.min.z || p.z - r >= b.max.z || p.y + h <= b.min.y || p.y >= b.max.y) continue;
+          if (ax === "y") {
+            if (d < 0) {
+              p.y = b.max.y;
+              e.vel.y = 0;
+              e.brStand = true;
+            } else {
+              p.y = b.min.y - h;
+              e.vel.y = 0;
+            }
+          } else {
+            p[ax] = d > 0 ? b.min[ax] - r : b.max[ax] + r;
+            e.vel[ax] *= -0.1;
+          }
+        }
+      }
+      const L = BR.W / 2 - 2;
+      p.x = clamp(p.x, -L, L);
+      p.z = clamp(p.z, -L, L);
+      const fl = brFloor(p.x, p.z), was = e.onGround;
+      let on = e.brStand && e.vel.y <= 0;
+      e.brStand = false;
+      if (p.y <= fl + 0.02) {
+        p.y = fl;
+        if (e.vel.y < 0) e.vel.y = 0;
+        on = true;
+      } else if (was && e.br === "ground" && p.y - fl < 0.5 && e.vel.y <= 0) {
+        p.y = fl;
+        on = true;
+      }
+      e.onGround = on;
+      if (on && e.br !== "ground") {
+        const fall = -Math.min(e.vel.y, 0);
+        e.br = "ground";
+        e.zgFloat = false;
+        e.zgTx = 0;
+        if (e.ch && e.ch.glider) e.ch.glider.visible = false;
+        e.anim.land = clamp(Math.max(fall, 8) / 20, 0.3, 1);
+        if (e === player) {
+          sfx("land", null, { v: 12, surf: "rock" });
+          camShake = Math.max(camShake, 0.3);
+        }
+      }
+      if (e.onGround && !was && e.br === "ground" && (e.brFall || 0) > 9) {
+        e.anim.land = clamp(e.brFall / 20, 0.3, 1);
+        if (e === player) sfx("land", null, { v: e.brFall, surf: "rock" });
+      }
+      e.brFall = e.onGround ? 0 : Math.max(0, -e.vel.y);
+    }
+    function brAir(e, wx, wz, dt) {
+      const auto = e.pos.y - brFloor(e.pos.x, e.pos.z) < 48;
+      if (e.br === "fall") {
+        const sp = 16;
+        e.vel.x = lerp(e.vel.x, wx * sp, 1 - Math.exp(-1.5 * dt));
+        e.vel.z = lerp(e.vel.z, wz * sp, 1 - Math.exp(-1.5 * dt));
+        e.zgTx = -1.35;
+        if (auto || e.brOpen) {
+          e.br = "glide";
+          e.brOpen = false;
+          if (e.ch && e.ch.glider) e.ch.glider.visible = true;
+          if (e === player) sfx("whoosh", null, {});
+        }
+      } else if (e.br === "glide") {
+        const sp = 17;
+        e.vel.x = lerp(e.vel.x, wx * sp, 1 - Math.exp(-2 * dt));
+        e.vel.z = lerp(e.vel.z, wz * sp, 1 - Math.exp(-2 * dt));
+        e.zgTx = -0.25;
+        if (e === player || e.pos.distanceTo(camera.position) < 60) {
+          e.brTr = (e.brTr || 0) - dt;
+          if (e.brTr <= 0 && e.ch && e.ch.glider) {
+            e.brTr = 0.05;
+            for (const x of [-2.4, 2.4]) mote(auraMats(16728020).spark, e.ch.glider.localToWorld(_brv0.set(x, 0, -0.9)).clone(), 0.5, 0.7, new V());
+          }
+        }
+      }
+    }
+    function updatePlayerBR(dt) {
+      const p = player;
+      if (!p.alive) {
+        p.wantJump = false;
+        return;
+      }
+      if (p.br === "jet") {
+        if (p.wantJump && BR.jet.t > 0.4) brDrop(p);
+        else {
+          p.pos.copy(BR.jet.g.position);
+          p.vel.set(0, 0, 0);
+        }
+        p.wantJump = false;
+        return;
+      }
+      if (p.bounceT > 0) {
+        p.wantJump = false;
+        updateBounce(p, dt);
+        return;
+      }
+      let mx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0), mz = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0);
+      const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
+      let wx = fx * mz + rx * mx, wz = fz * mz + rz * mx;
+      const wl = Math.hypot(wx, wz);
+      if (wl > 1) {
+        wx /= wl;
+        wz /= wl;
+      }
+      if (p.br === "fall" || p.br === "glide") {
+        if (p.wantJump && p.br === "fall") p.brOpen = true;
+        brAir(p, wx, wz, dt);
+        p.wantJump = false;
+        brMove(p, dt);
+        return;
+      }
+      if (lockedUp(p)) {
+        p.wantJump = false;
+        p.vel.x *= Math.exp(-6 * dt);
+        p.vel.z *= Math.exp(-6 * dt);
+        brMove(p, dt);
+        return;
+      }
+      const sprint = (keys.ShiftLeft || keys.ShiftRight) && mz > 0 && !ads;
+      p.sprinting = sprint && p.onGround;
+      p.crouch = !!(keys.KeyC || keys.ControlLeft) && p.onGround;
+      const sp = (ads ? 4.5 : p.crouch ? 3.5 : sprint ? 10 : 7) * slowK(p) * bv(p, "spd", 1), k = 1 - Math.exp(-(p.onGround ? 14 : 2.5) * dt);
+      p.vel.x = lerp(p.vel.x, wx * sp, k);
+      p.vel.z = lerp(p.vel.z, wz * sp, k);
+      if (p.onGround && p.wantJump) {
+        p.vel.y = 9.5;
+        p.onGround = false;
+        sfx("jump");
+      }
+      p.wantJump = false;
+      p.zgTx = 0;
+      brMove(p, dt);
+    }
+    function updateBotBR(b, dt) {
+      if (!b.alive) return;
+      if (b.br === "jet") {
+        b.pos.copy(BR.jet.g.position);
+        if (BR.jet.t >= b.dropAt) brDrop(b);
+        return;
+      }
+      if (b.br !== "ground") {
+        const L = b.land, dx = L.x - b.pos.x, dz = L.z - b.pos.z, d = Math.hypot(dx, dz) || 1;
+        botTurn(b, Math.atan2(-dx, -dz), 4, dt);
+        if (b.br === "fall" && b.pos.y - brFloor(b.pos.x, b.pos.z) < b.openAt) b.brOpen = true;
+        brAir(b, dx / d * Math.min(1, d / 20), dz / d * Math.min(1, d / 20), dt);
+        brMove(b, dt);
+        return;
+      }
+      if (b.knockT > 0) {
+        b.knockT -= dt;
+        b.vel.x *= Math.exp(-1 * dt);
+        b.vel.z *= Math.exp(-1 * dt);
+        brMove(b, dt);
+        return;
+      }
+      if (lockedUp(b)) {
+        b.vel.x *= Math.exp(-6 * dt);
+        b.vel.z *= Math.exp(-6 * dt);
+        brMove(b, dt);
+        return;
+      }
+      b.think -= dt;
+      b.fireCd -= dt;
+      b.reloadT -= dt;
+      b.swapT -= dt;
+      b.strafeT -= dt;
+      if (b.enemy && (!b.enemy.alive || b.enemy.br === "jet" || bv(b.enemy, "hide") || b.blindT > 0)) b.enemy = null;
+      const c = tv1.set(b.pos.x, b.pos.y + 1.5, b.pos.z), S = BR.storm;
+      if (b.think <= 0) {
+        b.think = rnd(0.2, 0.35);
+        let best = null, bd = 1e9;
+        for (const o of combatants) {
+          if (o === b || !o.alive || o.br === "jet" || bv(o, "hide")) continue;
+          const d = Math.hypot(o.pos.x - b.pos.x, o.pos.y - b.pos.y, o.pos.z - b.pos.z);
+          if (d < 130 && d < bd && hasLOS(c, tv2.set(o.pos.x, o.pos.y + 1.5, o.pos.z))) {
+            bd = d;
+            best = o;
+          }
+        }
+        if (best) {
+          if (best !== b.enemy) b.seenAt = matchTime;
+          b.enemy = best;
+          b.lastSeenT = matchTime;
+        } else if (b.enemy && matchTime - b.lastSeenT > 1) b.enemy = null;
+        const tgt = S.next || S.cur, out = Math.hypot(b.pos.x - tgt.x, b.pos.z - tgt.z) > tgt.r * 0.85;
+        if (!b.enemy && (!b.goal || out && !b.goalSafe || Math.random() < 0.02)) {
+          const a = Math.random() * TAU, rr = Math.sqrt(Math.random()) * tgt.r * (out ? 0.6 : 0.9);
+          b.goal = new V(tgt.x + Math.cos(a) * rr, 0, tgt.z + Math.sin(a) * rr);
+          b.goalSafe = out;
+        }
+      }
+      let wx = 0, wz = 0;
+      if (b.enemy) {
+        const e = b.enemy, dx = e.pos.x - b.pos.x, dy = e.pos.y - b.pos.y, dz = e.pos.z - b.pos.z, d = Math.hypot(dx, dy, dz) || 1, dh = Math.hypot(dx, dz) || 1;
+        const want = d < 12 && b.inv[1] ? b.inv[1] : b.inv[0];
+        if (want !== b.gun && b.swapT <= 0) {
+          b.gun = want;
+          b.mag = WEAP[want.id].mag;
+          b.fireCd = Math.max(b.fireCd, 0.3);
+          b.swapT = 1.2;
+        }
+        botTurn(b, Math.atan2(-dx, -dz), 12, dt);
+        b.aimPitch = lerp(b.aimPitch || 0, Math.atan2(dy, dh), 1 - Math.exp(-10 * dt));
+        if (b.strafeT <= 0) {
+          b.strafe = Math.random() < 0.5 ? -1 : 1;
+          b.strafeT = rnd(0.4, 1.1);
+        }
+        const pref = WEAP[b.gun.id].pref, fwd = d > pref + 5 ? 1 : d < pref - 4 ? -0.7 : 0;
+        wx = dx / dh * fwd + -dz / dh * b.strafe * 0.8;
+        wz = dz / dh * fwd + dx / dh * b.strafe * 0.8;
+        if (matchTime > (b.wake || 0) && matchTime - b.seenAt > b.react && b.fireCd <= 0 && b.reloadT <= 0 && !(b.jamT > 0)) botShoot(b, e, d);
+      } else if (b.goal) {
+        const dx = b.goal.x - b.pos.x, dz = b.goal.z - b.pos.z, d = Math.hypot(dx, dz);
+        if (d < 4) b.goal = null;
+        else {
+          wx = dx / d;
+          wz = dz / d;
+          botTurn(b, Math.atan2(-dx, -dz), 5, dt);
+        }
+        b.aimPitch = lerp(b.aimPitch || 0, 0, 1 - Math.exp(-6 * dt));
+      }
+      const wl = Math.hypot(wx, wz);
+      if (wl > 1) {
+        wx /= wl;
+        wz /= wl;
+      }
+      const sp = (b.enemy ? 6.5 : 8) * slowK(b), k = 1 - Math.exp(-(b.onGround ? 12 : 2.5) * dt);
+      b.vel.x = lerp(b.vel.x, wx * sp, k);
+      b.vel.z = lerp(b.vel.z, wz * sp, k);
+      b.zgTx = 0;
+      b.stuckT = (b.stuckT || 0) + dt;
+      if (b.stuckT > 0.8) {
+        if (b.lastPos && Math.hypot(b.pos.x - b.lastPos.x, b.pos.z - b.lastPos.z) < 0.8 && wl > 0.1 && b.onGround) {
+          b.vel.y = 9.5;
+          b.onGround = false;
+          if (Math.random() < 0.5) b.goal = null;
+        }
+        (b.lastPos || (b.lastPos = new V())).copy(b.pos);
+        b.stuckT = 0;
+      }
+      brMove(b, dt);
+    }
+    function brSpawn(e, i) {
+      e.br = "jet";
+      e.pos.copy(BR.jet.from);
+      e.vel.set(0, 0, 0);
+      e.onGround = false;
+      e.zgFloat = true;
+      e.zgRoll = 0;
+      e.stam = 100;
+      e.yaw = Math.atan2(BR.jet.from.x - BR.jet.to.x, BR.jet.from.z - BR.jet.to.z);
+      if (e.ch) {
+        e.ch.g.visible = false;
+        if (!e.ch.glider) {
+          e.ch.glider = brGlider();
+          e.ch.g.add(e.ch.glider);
+        }
+      }
+      if (!e.isPlayer) {
+        e.dropAt = rnd(3, BR.jet.dur - 2);
+        const k = e.dropAt / BR.jet.dur, j = brJetPos(k, new V());
+        let x = j.x + rnd(-90, 90), z = j.z + rnd(-90, 90);
+        const rr = Math.hypot(x, z);
+        if (rr > BR.R * 0.8) {
+          x *= BR.R * 0.8 / rr;
+          z *= BR.R * 0.8 / rr;
+        }
+        e.land = new V(x, 0, z);
+        e.openAt = rnd(42, 60);
+        e.wake = 1e9;
+      }
+    }
+    function brScene() {
+      const f = scene.fog;
+      if (MODE === "br") {
+        f.color.setHex(13220082);
+        f.near = 120;
+        f.far = 820;
+        renderer.setClearColor(13220082);
+      } else {
+        f.color.setHex(15132908);
+        f.near = 70;
+        f.far = 330;
+        renderer.setClearColor(15132908);
+      }
+    }
+    function updateBR(dt) {
+      BRU.time.value += dt;
+      BR.t += dt;
+      if (BR.water) BR.water.material.map.offset.set(BR.t * 4e-3, BR.t * 6e-3);
+      if (BR.foam) BR.foam.material.opacity = 0.14 + 0.06 * Math.sin(BR.t * 1.3);
+      for (const cl of BR.clouds) {
+        cl.position.x += dt * 2.5;
+        if (cl.position.x > 700) cl.position.x = -700;
+      }
+      for (const ch of BR.chests) if (!ch.open) {
+        ch.beam.material.opacity = 0.16 + 0.08 * Math.sin(BR.t * 2 + ch.x);
+        ch.glow.scale.setScalar(2.6 + 0.4 * Math.sin(BR.t * 3 + ch.z));
+      }
+      brJetUpdate(dt);
+      brStormUpdate(dt);
+      for (const b of bots) if (b.alive && b.br === "ground" && b.wake === 1e9) b.wake = matchTime + rnd(2, 6);
+      if (BR.sky) BR.sky.position.copy(camera.position);
+    }
+    function brHud() {
+      const S = BR.storm, st = $("gravTxt");
+      if (!S) return;
+      const p = player;
+      st.textContent = p.br === "jet" ? "Space to jump" : S.phase === "wait" ? "Storm in " + fmtTime(Math.max(0, S.t)) : S.phase === "shrink" ? "Storm closing" : "Final circle";
+      st.className = S.phase === "shrink" ? "flip" : "";
+    }
+    function brMapBase(g, M) {
+      const k = M / BR.W, img = g.createImageData(M, M), c = new T.Color();
+      for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) {
+        const wx = x / k - BR.W / 2, wz = y / k - BR.W / 2, h = brHeight(wx, wz);
+        if (h < BR_SEA) c.setRGB(0.36, 0.3, 0.78);
+        else brColor(wx, wz, h, 0, c);
+        const i = (y * M + x) * 4;
+        img.data[i] = c.r * 255;
+        img.data[i + 1] = c.g * 255;
+        img.data[i + 2] = c.b * 255;
+        img.data[i + 3] = 255;
+      }
+      g.putImageData(img, 0, 0);
+      g.fillStyle = "#e9e4ff";
+      for (const o of BR.houses) g.fillRect((o.x + BR.W / 2) * k - 2, (o.z + BR.W / 2) * k - 2, 4, 4);
+    }
+    function brMapDraw(g, M) {
+      const k = M / BR.W, S = BR.storm, P = (x) => (x + BR.W / 2) * k;
+      g.save();
+      g.fillStyle = "rgba(120,40,220,.35)";
+      g.beginPath();
+      g.rect(0, 0, M, M);
+      g.arc(P(S.cur.x), P(S.cur.z), S.cur.r * k, 0, TAU, true);
+      g.fill("evenodd");
+      g.strokeStyle = "#d04cff";
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(P(S.cur.x), P(S.cur.z), S.cur.r * k, 0, TAU);
+      g.stroke();
+      if (S.next) {
+        g.strokeStyle = "#fff";
+        g.setLineDash([4, 3]);
+        g.lineWidth = 1.5;
+        g.beginPath();
+        g.arc(P(S.next.x), P(S.next.z), S.next.r * k, 0, TAU);
+        g.stroke();
+        g.setLineDash([]);
+      }
+      const J = BR.jet;
+      if (J && !J.done) {
+        g.strokeStyle = "rgba(255,255,255,.7)";
+        g.lineWidth = 1;
+        g.beginPath();
+        g.moveTo(P(J.from.x), P(J.from.z));
+        g.lineTo(P(J.to.x), P(J.to.z));
+        g.stroke();
+        g.fillStyle = "#fff";
+        g.fillRect(P(J.g.position.x) - 3, P(J.g.position.z) - 3, 6, 6);
+      }
+      g.fillStyle = "#ffd23f";
+      for (const ch of BR.chests) if (!ch.open) g.fillRect(P(ch.x) - 1.5, P(ch.z) - 1.5, 3, 3);
+      g.restore();
+    }
+    function showMode() {
+      const br = MODE === "br";
+      $("modeZg").setAttribute("aria-checked", String(!br));
+      $("modeBr").setAttribute("aria-checked", String(br));
+      $("modeName").textContent = br ? "Storm Island" : "Zero-G Box";
+      $("modeArt").className = "modeart " + (br ? "br" : "zg");
+      if (!$("playBtn").disabled) $("playBtn").textContent = br ? "Drop in" : "Enter the box";
+    }
+    function setMode(m) {
+      if (m === MODE || state !== "menu") return;
+      MODE = m;
+      try {
+        localStorage.setItem("invertedMode", m);
+      } catch (e) {
+      }
+      sfx("ui");
+      if (SOLDIER) {
+        newMatch();
+        matchUsed = false;
+      }
+      showMode();
+    }
+    $("modeZg").addEventListener("click", () => setMode("zg"));
+    $("modeBr").addEventListener("click", () => setMode("br"));
     function newMatch() {
       if (world) scene.remove(world);
       world = new T.Group();
@@ -12731,8 +13656,13 @@
       matchTime = 0;
       targetsDirty = true;
       hurtFlash = 0;
-      buildZeroG();
-      buildVending();
+      if (MODE === "br") buildIsland();
+      else {
+        ZG.L = 125;
+        ZG.H = 90;
+        buildZeroG();
+        buildVending();
+      }
       projs = [];
       splats = [];
       bolts = [];
@@ -12745,10 +13675,13 @@
       pwLaters = [];
       shopOpen = false;
       $("shop").hidden = true;
-      ZG.state = "float";
-      ZG.t = rnd(20, 26);
-      ZG.camRoll = 0;
-      ZG.flash = 0;
+      if (MODE !== "br") {
+        ZG.state = "float";
+        ZG.t = rnd(20, 26);
+        ZG.camRoll = 0;
+        ZG.flash = 0;
+      }
+      brScene();
       rollLoadout();
       player = makeCombatant("You", true);
       Object.assign(player, {
@@ -12768,22 +13701,33 @@
         wantJump: false,
         shield: 50
       });
-      zgSpawn(player, 0, ZG.BOTS + 1);
+      if (MODE === "br") {
+        player.slots = [null, null, null, null, null, null, null, null, null];
+        player.sel = 0;
+        player.shield = 0;
+        brSpawn(player, 0);
+      } else zgSpawn(player, 0, ZG.BOTS + 1);
       player.pitch = 0;
       applyPickSkin(player);
       for (let i = 0; i < ZG.BOTS; i++) {
         const b = makeBot(i);
         bots.push(b);
-        zgSpawn(b, i + 1, ZG.BOTS + 1);
+        if (MODE === "br") brSpawn(b, i + 1);
+        else zgSpawn(b, i + 1, ZG.BOTS + 1);
         armBot(b);
         b.react = rnd(0.14, 0.3);
         b.wake = SPAWN_GRACE + rnd(0, 6);
         b.skill = rnd(0.5, 0.8);
         b.lastPos = b.pos.clone();
       }
+      if (MODE === "br") for (const b of bots) {
+        b.wake = 1e9;
+      }
       aliveCount = combatants.length;
-      buildFlyers();
-      buildPads();
+      if (MODE !== "br") {
+        buildFlyers();
+        buildPads();
+      }
       renderMapBase();
     }
     function startMatch() {
@@ -12802,7 +13746,7 @@
         renderer.compile(scene, camera);
       } catch (e) {
       }
-      banner("Inverted", "", 2.5);
+      banner(MODE === "br" ? "Storm Island" : "Inverted", MODE === "br" ? "Press Space to jump out of the jet" : "", 2.5);
       requestLock();
     }
     function endMatch(win, killer, cause) {
@@ -12981,6 +13925,10 @@
         } else if (c === "KeyE" || c === "Escape") closeShop();
         return;
       }
+      if (c === "KeyE" && p.alive && MODE === "br" && p.br === "ground") {
+        brOpenChest();
+        return;
+      }
       if (c === "KeyE" && p.alive && nearMachine()) openShop();
       else if (c === "KeyQ") startBounce(p);
       else if (c === "KeyR" && p.alive) startReload(curItem());
@@ -13029,10 +13977,15 @@
     function update(dt) {
       if (player && !player.alive && player.death && player.death.t < 1.6) dt *= 0.4;
       matchTime += dt;
-      updateZG(dt);
-      updateFlyers(dt);
-      updatePads(dt);
-      updatePlayerZG(dt);
+      if (MODE === "br") {
+        updateBR(dt);
+        updatePlayerBR(dt);
+      } else {
+        updateZG(dt);
+        updateFlyers(dt);
+        updatePads(dt);
+        updatePlayerZG(dt);
+      }
       updateActions(dt);
       pwUpdate(dt);
       updateProjs(dt);
@@ -13053,9 +14006,10 @@
       updateGuard(player, dt);
       updateWriting(player, dt);
       updateBW(dt);
-      for (const b of bots) updateBotZG(b, dt);
+      for (const b of bots) if (MODE === "br") updateBotBR(b, dt);
+      else updateBotZG(b, dt);
       updateEmote(dt);
-      for (const e of combatants) animateGLB(e, dt);
+      for (const e of combatants) if (e.br !== "jet") animateGLB(e, dt);
       drawPunches(player);
       updateEffects(dt);
     }
@@ -13292,7 +14246,7 @@
       }
       newMatch();
       $("playBtn").disabled = false;
-      $("playBtn").textContent = "Enter the box";
+      showMode();
       showPickNote();
     });
     requestAnimationFrame(loop);
@@ -13391,5 +14345,8 @@
     Object.assign(window.__game, { emote: (k, o) => startEmote(player, k, o), emoteOn: (e, k, o) => startEmote(e, k, o), stopEmote: () => stopEmote(player, true), EM, EMOTES, get HERO() {
       return HERO;
     }, heroEmote: (k) => heroEmote(k) });
+    Object.assign(window.__game, { BR, brOpenChest, get MODE() {
+      return MODE;
+    } });
   })();
 })();
