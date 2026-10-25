@@ -1579,18 +1579,18 @@ function emotePose(e,X){ const em=e.emote, E=em&&em.E; if(!E) return;
     _eS.set(0,c.spin.scale.y,0).applyQuaternion(c.spin.quaternion); c.spin.position.set(0,1,0).sub(_eS); X.g.updateMatrixWorld(true);
     c.model.getWorldQuaternion(_qm); r.set(1,0,0).applyQuaternion(_qm); fw.set(0,0,-1).applyQuaternion(_qm); up.set(0,1,0).applyQuaternion(_qm); }
   else if(c.emSpin){ c.spin.quaternion.identity(); c.emSpin=false; }
-  const S=emScale(B);
+  const S=emScale(B), mv=smooth(0.6,2.5,e.zgFloat?e.vel.length():Math.hypot(e.vel.x,e.vel.z)), Wl=W*(1-mv);
   // hips: slide and turn the pelvis, then the spine and head take the net pose (each bone adds a share of what is left to do)
   const hp=emCh(E.hips,uq,loop,_eH,5), ch=emCh(E.chest,uq,loop,_eK,3), hd=emCh(E.head,uq,loop,_eG,3);
-  c.model.position.x=hp[0]*W; c.model.position.y+=hp[1]*W; c.model.updateMatrixWorld(true);
-  const hy=hp[2]*W, hr=hp[3]*W, hpi=hp[4]*W;
+  c.model.position.x=hp[0]*Wl; c.model.position.y+=hp[1]*Wl; c.model.updateMatrixWorld(true);
+  const hy=hp[2]*Wl, hr=hp[3]*Wl, hpi=hp[4]*Wl;
   rotateBoneWorld(B.Hips,up,hy); rotateBoneWorld(B.Hips,fw,hr); rotateBoneWorld(B.Hips,r,hpi);
   const cp=ch[0]*W, cr=ch[1]*W, cy=ch[2]*W;
   for(const n of ['Spine','Spine1','Spine2']){ rotateBoneWorld(B[n],r,(cp-hpi)/3); rotateBoneWorld(B[n],fw,(cr-hr)/3); rotateBoneWorld(B[n],up,(cy-hy)/3); }
   rotateBoneWorld(B.Neck,r,(hd[0]*W-cp)*0.6-(X.pitch||0)*0.5*W); rotateBoneWorld(B.Head,r,(hd[0]*W-cp)*0.4);
   rotateBoneWorld(B.Neck,fw,(hd[1]*W-cr)*0.6); rotateBoneWorld(B.Head,fw,(hd[1]*W-cr)*0.4);
   rotateBoneWorld(B.Neck,up,(hd[2]*W-cy)*0.6); rotateBoneWorld(B.Head,up,(hd[2]*W-cy)*0.4);
-  if(ground) emPlant(B,_eFw.copy(fw).applyAxisAngle(up,hy),up,-hy);
+  if(ground&&mv<0.99) emPlant(B,_eFw.copy(fw).applyAxisAngle(up,hy),up,-hy);
   // the somersault: tuck, roll, open out into a star
   let tk=0, star=0;
   if(E.flip){ tk=smooth(0,0.2,u)*(1-smooth(0.76,0.88,u)); star=smooth(0.8,0.9,u)*(1-smooth(0.95,1,u));
@@ -1619,7 +1619,7 @@ function emotePose(e,X){ const em=e.emote, E=em&&em.E; if(!E) return;
 function emoteOk(e,E){
   if(!e.alive||lockedUp(e)||e.bounceT>0) return false;
   if(E.zg&&(!e.zgFloat||ZG.state==='ceil')) return false;
-  if(e.zgFloat){ if(e.zgPropel||Math.hypot(e.vel.x,e.vel.y,e.vel.z)>4) return false; } else if(!e.onGround) return false;
+  if(!e.isPlayer){ if(e.zgFloat){ if(e.zgPropel||Math.hypot(e.vel.x,e.vel.y,e.vel.z)>4) return false; } else if(!e.onGround) return false; } // you can dance on the move
   if(e.isPlayer&&(ads||e.consuming||e.throwA||e.reloading||e.swingT>0||mouse.l||mouse.r||e.writing)) return false;
   return true; }
 // begin an emote on anyone (no checks): the hero on the home screen uses this directly
@@ -1639,16 +1639,17 @@ function playerEmote(key){ const p=player; if(!p||!p.alive||state!=='play'||shop
 // anything that needs the camera aimed (a shot, a swing, the ball) ends the emote this instant and snaps the camera back behind you
 function emStopNow(p){ if(!p||!p.emote||p.emote.out) return; stopEmote(p,true); EM.camK=0; EM.camKV=0; updateCamera(0); }
 function emCancel(e,em,dt){
-  if(e.isPlayer){ if(keys.KeyW||keys.KeyA||keys.KeyS||keys.KeyD||keys.Space||keys.KeyC||keys.ControlLeft||keys.ShiftLeft||keys.ShiftRight||mouse.l||mouse.r) return true;
-    if(e.sel!==em.sel||e.consuming||e.throwA||e.reloading||e.swingT>0||Math.hypot(e.vel.x,e.vel.y,e.vel.z)>6) return true; }
+  if(e.isPlayer){ if(mouse.l||mouse.r) return true; // moving, jumping and boosting keep the dance going (the upper body dances while the legs move)
+    if(e.sel!==em.sel||e.consuming||e.throwA||e.reloading||e.swingT>0) return true; }
   else { if(e.fireCd>em.fc+0.01||e.knockT>0) return true; em.fc=e.fireCd; e.vel.multiplyScalar(Math.exp(-5*dt)); e.zgTx=0; /* upright, not in the swim tilt */ }
   if(e.hp+e.shield<em.hp-0.01||e.bounceT>0||lockedUp(e)) return true;
-  if((ZG.state==='ceil')!==em.ceil||!!e.onGround!==em.ground) return true;
+  if((ZG.state==='ceil')!==em.ceil||!e.isPlayer&&!!e.onGround!==em.ground) return true;
   return false; }
 // advance one emote: fade in, fade out when it ends or is cancelled (free: nothing cancels it). false once it is gone
 function emTick(e,dt,free?){ const em=e.emote; if(!em) return false; em.t+=dt;
   if(em.out){ em.w-=dt/0.2; em.yaw+=wrapPi(e.yaw-em.yaw)*(1-Math.exp(-18*dt)); if(em.w<=0){ emEnd(e); return false; } return true; }
   em.w=Math.min(1,em.w+dt/0.22);
+  if(e.isPlayer) em.yaw+=wrapPi(e.yaw-em.yaw)*(1-Math.exp(-14*dt));
   if((!free&&emCancel(e,em,dt))||(!em.E.loop&&em.t>=em.E.dur)||(em.max&&em.t>=em.max)) em.out=true;
   return true; }
 function updateEmote(dt){
@@ -2068,8 +2069,7 @@ function updateCamera(dt){
   const p=player, A=p.anim;
   if(!p.alive){ camDead(p,dt); return; }
   CAM.dead=false;
-  // emoting: the camera swings round in front of you (the mouse still orbits it) and eases back when the emote ends
-  spring(EM,'camK',p.emote&&!p.emote.out?1:0,1.8,1,dt); const ek=clamp(EM.camK,0,1);
+  const ek=0; // emoting keeps the usual camera behind you
   const cyaw=p.yaw+Math.PI*ek, cp=Math.cos(p.pitch); camFwd.set(-Math.sin(cyaw)*cp,Math.sin(p.pitch),-Math.cos(cyaw)*cp); camRight.set(Math.cos(cyaw),0,-Math.sin(cyaw));
   const pivot=tv1.set(p.pos.x,p.pos.y+1.7-0.5*A.crouch,p.pos.z);
   const gun=!!curItem()&&curItem().kind==='gun', dist=lerp(p.bounceT>0?7.5:ads?2.0:gun?3.4:4.6,3.6,ek), side=(ads?0.8:gun?1.1:0.85)*(1-ek); pivot.y+=lerp(ads?0.05:gun?0.3:0.45,-0.45,ek);
