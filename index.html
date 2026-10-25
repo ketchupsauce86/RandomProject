@@ -28,6 +28,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 #c{outline:none;position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
 .layer{position:absolute;inset:0;pointer-events:none}
 
+#stormTint{background:radial-gradient(ellipse at center,rgba(150,60,255,.12) 30%,rgba(120,20,220,.7) 100%);opacity:0}
 #alarm{background:radial-gradient(ellipse at center,transparent 50%,rgba(255,30,30,.55) 100%);opacity:0}
 #hurt{background:radial-gradient(ellipse at center,transparent 45%,rgba(255,40,60,.75) 100%);opacity:0}
 
@@ -265,6 +266,12 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 .mode{border-color:var(--neon);box-shadow:0 0 0 1px var(--neon),0 10px 40px rgba(0,0,0,.35),0 0 24px rgba(92,240,255,.25)}
 .modeart.zg{background:linear-gradient(135deg,#ffffff 0 22%,transparent 22%),linear-gradient(160deg,transparent 40%,#c9cdd3 40% 52%,transparent 52%),radial-gradient(circle at 30% 70%,#aeb3ba 0 12%,transparent 13%),radial-gradient(circle at 72% 35%,#dfe2e6 0 16%,transparent 17%),repeating-linear-gradient(0deg,#eef0f3 0 9px,#dde0e5 9px 10px),#eef0f3}
 .modeart.zg::after{display:none}
+.modeart.br{background:radial-gradient(circle at 70% 28%,#fff6c8 0 8%,transparent 9%),radial-gradient(ellipse at 50% 85%,#4fe08a 0 30%,transparent 31%),linear-gradient(180deg,#5a6bff 0%,#c58cff 55%,#6a5cf0 56%,#4a3ccf 100%)}
+.modeart.br::after{background:radial-gradient(ellipse at 50% 100%,transparent 55%,rgba(208,76,255,.8) 58%,transparent 64%)}
+.modepick{display:flex;gap:6px;padding:4px;border-radius:999px;background:var(--glass);border:1px solid var(--edge);backdrop-filter:blur(8px)}
+.modepick button{flex:1;font-family:var(--ui);font-weight:700;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:none;border:0;border-radius:999px;padding:8px 10px;cursor:pointer}
+.modepick button[aria-checked="true"]{color:#1a0b45;background:linear-gradient(90deg,var(--neon),#b98cff);box-shadow:0 0 14px rgba(92,240,255,.4)}
+.modepick button:focus-visible{outline:2px solid var(--neon);outline-offset:2px}
 .btnrow.center{justify-content:center}
 #greenfx{background:radial-gradient(ellipse at center,transparent 45%,rgba(40,255,140,.6) 100%);opacity:0}
 .bar .num.stam{font-size:18px;color:#ffd23f}
@@ -397,6 +404,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
   <canvas id="c" tabindex="0" aria-label="Game view"></canvas>
   <div class="layer" id="hurt"></div>
   <div class="layer" id="alarm"></div>
+  <div class="layer" id="stormTint"></div>
   <div class="layer" id="greenfx"></div>
 
   <div class="layer" id="scope" hidden></div>
@@ -443,9 +451,10 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
       <div class="btnrow"><button class="btn2" id="lockerBtn">Locker</button><button class="btn2" id="armoryBtn">Armory</button></div>
     </section>
     <section class="playcard" aria-label="Game mode">
+      <div class="modepick" role="radiogroup" aria-label="Game mode"><button id="modeZg" role="radio">Zero-G Box</button><button id="modeBr" role="radio">Storm Island</button></div>
       <div class="mode">
-        <span class="modeart zg" aria-hidden="true"></span>
-        <span class="modetxt"><span class="modename">Zero-G Box</span><span class="modemeta"><b>101</b> players</span></span>
+        <span class="modeart zg" id="modeArt" aria-hidden="true"></span>
+        <span class="modetxt"><span class="modename" id="modeName">Zero-G Box</span><span class="modemeta" id="modeMeta"><b>101</b> players</span></span>
       </div>
       <button class="btn play" id="playBtn">Enter the box</button>
       <div id="err"></div>

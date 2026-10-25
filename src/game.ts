@@ -228,6 +228,7 @@ function makeGunModel(id,r){
     const by={}; for(const p of parts){ if(p[1]==='pump'){ p[4]+=0.38; } (by[p[1]]=by[p[1]]||[]).push(p); }
     gunGeoCache[key]=Object.keys(by).map(mk=>[mk,mergeParts(by[mk])]); }
   const g=new T.Group();
+  if(id==='mf') return mfModel(g,r);
   for(const [mk,geo] of gunGeoCache[key]){ const m=new T.Mesh(geo,partMat(mk,r)); m.castShadow=true;
     if(mk==='pump'){ m.position.z=-0.38; g.userData.pump=m; } if(mk==='wing') g.userData.wings=(g.userData.wings||[]).concat(m); if(mk==='green'||mk==='olive') (g.userData.warhead=g.userData.warhead||[]).push(m); g.add(m); }
   const s=SUPP[id], mz=new T.Object3D(); mz.position.set(0,MUZZLE[id][0],MUZZLE[id][1]+(s&&r>=s[0]?s[1]:0)); g.add(mz); g.userData.muzzle=mz;
@@ -243,6 +244,18 @@ function makeGunModel(id,r){
   if(id==='drone') g.userData.pilot=glow(0xff3b30,0.07,0.2,-0.02,0.08);
   return g;
 }
+// [S3] the Mirror Fractal pair: each pistol is its own group pivoting at its grip (g.userData.gR / gL, in gun space at
+// HOLD.mf.r / HOLD.mf.l), so each hand carries, kicks and spins its own gun (the reload). Muzzle 2 rides the left gun.
+function mfModel(g,r){ const H=HOLD.mf; g.userData.wings=[]; g.userData.sparks=[];
+  for(const [sd,pv] of [['R',H.r],['L',H.l]] as [string,number[]][]){ const ck='mf'+r+sd;
+    if(!gunGeoCache[ck]){ const by={}; for(const q of GUN_PARTS.mf()){ if(sd==='R'?q[2]<=-0.15:q[2]>-0.15) continue; const p=[...q]; p[2]-=pv[0]; p[3]-=pv[1]; p[4]-=pv[2]; (by[p[1]]=by[p[1]]||[]).push(p); }
+      gunGeoCache[ck]=Object.keys(by).map(mk=>[mk,mergeParts(by[mk])]); }
+    const s=new T.Group(); s.position.set(pv[0],pv[1],pv[2]); g.add(s); g.userData['g'+sd]=s;
+    for(const [mk,geo] of gunGeoCache[ck]){ const m=new T.Mesh(geo,partMat(mk,r)); m.castShadow=true; if(mk==='wing') g.userData.wings.push(m); s.add(m); }
+    const mz=new T.Object3D(); mz.position.set((sd==='R'?0:-0.3)-pv[0],MUZZLE.mf[0]-pv[1],MUZZLE.mf[1]-pv[2]); s.add(mz); if(sd==='R') g.userData.muzzle=mz; else g.userData.muzzles=[g.userData.muzzle,mz]; }
+  for(const x of [0,-0.3]){ const h=new T.Sprite(mfAuraMat); h.position.set(x,0.03,-0.08); h.scale.setScalar(0.55); g.add(h);
+    for(let i=0;i<5;i++){ const sp=new T.Sprite(mfSparkMat); sp.scale.setScalar(0.05); sp.userData.o=[x,i/5*TAU,0.13+0.04*(i%2)]; g.add(sp); g.userData.sparks.push(sp); } }
+  return g; }
 const mfAuraMat=new T.SpriteMaterial({map:glowTex,color:0xffc93a,transparent:true,opacity:0.32,depthWrite:false});
 const mfSparkMat=new T.SpriteMaterial({map:sparkTex,color:0xffb000,transparent:true,depthWrite:false});
 const consGeo:Record<string,any>={};
@@ -766,43 +779,279 @@ const HOLD={ar:{r:[0.015,-0.09,0.21],l:[-0.03,-0.065,-0.17],g:[-0.04,-0.17,-0.24
   rpg:{r:[0.015,0.01,0.23],l:[-0.035,-0.03,-0.03],g:[-0.02,0,-0.22],lf:[0.35,-0.25,-0.9],ln:[0.95,0.2,0]}, // the RPG rests on the shoulder
   frz:{r:[0.015,-0.09,0.2],l:[-0.03,-0.075,-0.06],g:[-0.04,-0.17,-0.25]},tsr:{r:[0.015,-0.05,0.13],l:[-0.035,-0.08,0.1],g:[-0.1,-0.13,-0.37],lf:[0.3,-0.3,-0.9],ln:[0.9,0.4,0]},
   flm:{r:[0.015,-0.09,0.2],l:[-0.03,-0.08,-0.15],g:[-0.04,-0.17,-0.23]},pb:{r:[0.015,-0.09,0.2],l:[-0.03,-0.07,-0.08],g:[-0.04,-0.17,-0.25]},drone:{r:[0.085,-0.03,0.11],l:[-0.085,-0.03,0.11],g:[-0.16,-0.24,-0.33],lf:[0.2,0.2,-0.95],ln:[0.3,0.9,0]}}; // the remote in both hands, thumbs on the sticks
-// The pickaxe swing: both hands on the pickaxe, quick wind-up over one shoulder, a diagonal chop that
-// lands the head on the crosshair, a follow-through across the body, and alternating forehand/backhand combos.
-// Body frame: x right, y up, z back. Keys: [t, grip x,y,z from the right shoulder, handle dir x,y,z, spike dir x,y,z, torso twist, lean]
-const SWING_T=0.42, PICK_HIT=0.52;
-// at rest the pickaxe sits on the right shoulder: the right hand holds the handle low in front of the chest, the
-// handle runs up over the top of the shoulder and the head rests just behind it
-const PICK_REST=[0,-0.06,-0.24,-0.22,0.22,0.83,0.5,0,-0.5,0.83,0,0];
+// ---- [S3] melee swings. Every weapon form has its own swing class (SWINGS): how it rests, where the hands grip it and
+// a combo of tracks that chain into each other. Keys: [t, wrist x,y,z from the right shoulder, handle dir x,y,z, edge or
+// spike dir x,y,z, chest twist, lean], body frame (x right, y up, z back). t is the fraction of the swing: the hit lands at
+// t=PICK_HIT, whatever the swing's length. +twist turns the chest left, +lean leans back (so strikes lean forward).
+// Key 0 of every track is F: the pose the weapon was in when the swing started (rest, guard, the last follow-through,
+// half way back), so combos flow from hit to hit and nothing snaps. An edge given as null keeps the previous key's roll.
+// The handle direction is the model's +y, the spike/edge its +x (hammer faces, axe and scythe blades and the sabre's
+// edge are on -x). Orientations are slerped between keys, so no single segment may turn near 180 degrees.
+const SWING_T=0.42, PICK_HIT=0.52, F=null;
+// rest poses. The pick rests on the shoulder with the spike up and forward, ready to come over the top; hammers and axes
+// rest the same way with the face or blade (-x) up front
+const PICK_REST=[0,-0.06,-0.24,-0.22, 0.22,0.83,0.5, 0,0.5,-0.83, 0,0];
+const SL_REST=[0,-0.06,-0.24,-0.22, 0.22,0.83,0.5, 0,-0.5,0.83, 0,0];
+const GS_REST=[0,-0.02,-0.30,-0.20, 0.18,0.75,0.63, 0,0.64,-0.77, 0,0];          // greatsword and katana on the shoulder
+const DG_REST=[0,0.06,-0.50,-0.12, 0.05,0.30,-0.95, 0,0.95,0.30, 0,0];            // daggers low at the hips, points forward
+const SP_REST=[0,0.16,-0.40,-0.10, 0.15,0.85,-0.50, 0,0.50,0.86, 0,0];            // spear at the side, the point up and forward
+const RP_REST=[0,0.00,-0.30,-0.18, 0.08,0.95,0.30, 0,-0.30,0.95, 0,0];            // reaper: the blade hangs forward over the head
+const KN_REST=[0,0.06,-0.48,-0.14, 0.00,0.30,-0.95, 0,0.95,0.30, 0,0];
 // Tanjiro's guard: both hands on the hilt in front of the chest, blade angled up across the body, edge out
 const PICK_GUARD=[0,-0.2,-0.3,-0.42,-0.55,0.8,-0.25,0.1,0.25,-1,0,0];
-const PICK_KEYS=[
-  [PICK_REST,[0.3,0.14,0.14,-0.02,0.35,0.55,0.75,0.1,0.75,-0.65,-0.5,-0.06],[0.52,0.05,-0.15,-0.48,0.2,0.25,-0.95,-0.3,-0.95,-0.1,0.3,0.24],
-   [0.68,-0.2,-0.42,-0.36,-0.5,-0.25,-0.8,-0.5,-0.6,0.35,0.42,0.18],[1,...PICK_REST.slice(1)]],
-  [PICK_REST,[0.3,-0.5,0.1,-0.06,-0.35,0.55,0.75,-0.1,0.75,-0.65,0.5,-0.06],[0.52,0.15,-0.15,-0.48,0.15,0.25,-0.95,0.3,-0.95,-0.1,-0.2,0.24],
-   [0.68,0.3,-0.4,-0.3,0.65,-0.2,-0.7,0.5,-0.6,0.35,-0.42,0.18],[1,...PICK_REST.slice(1)]]];
-const _pd=new V(), _ps=new V(), _pz=new V(), _pm=new T.Matrix4();
-const _qFlip=new T.Quaternion().setFromAxisAngle(new V(0,1,0),Math.PI);
-// dual blades: the left arm mirrors the right arm's pickaxe pose, with the second blade mirrored in its fist
-function dualLeft(c,B,g,P,rightB,upB,fwdB,rest){
-  const shL=B.LeftArm.getWorldPosition(new V()), hL=P.h.clone(); hL.x=-hL.x;
-  solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,g.localToWorld(g.worldToLocal(shL.clone()).add(hL)),shL.clone().addScaledVector(rightB,-0.5).addScaledVector(upB,-0.55).addScaledVector(fwdB,-0.1));
-  const q=P.q; c.pickL.quaternion.set(q.x,-q.y,-q.z,q.w).multiply(_qFlip); c.pickL.visible=true;
-  const hwL=B.LeftHand.getWorldPosition(new V());
-  if(rest>0.01){ g.updateMatrixWorld(true); const hd=new V(0,1,0).applyQuaternion(c.pickL.getWorldQuaternion(new T.Quaternion()));
-    const pn=rightB.clone(); pn.addScaledVector(hd,-pn.dot(hd)).normalize(); const pf=new V().crossVectors(hd,pn);
-    poseHand(B,'Left',pf,pn,0.8*rest); hwL.addScaledVector(pf,0.07*rest).addScaledVector(pn,0.03*rest); }
-  g.worldToLocal(hwL); c.pickL.position.copy(hwL);
+const SB_GUARD=[0,-0.08,-0.20,-0.34, -0.10,0.70,-0.70, -0.95,0,-0.10, 0,0];       // the hand that is not cutting: blade up in front
+const DG_GUARD=[0,-0.10,-0.08,-0.24, 0.05,0.55,-0.83, 0,0.83,0.55, 0,0];          // dagger by the chin
+// classic pick: forehand chop onto the crosshair, backhand from over the left shoulder, overhead finisher
+const PICK_A=[F,[0.30, 0.14,0.14,-0.02, 0.35,0.55,0.75, 0.10,0.75,-0.65, -0.50, 0.12],
+  [0.52, 0.05,-0.15,-0.48, 0.20,0.25,-0.95, -0.30,-0.95,-0.10, 0.30,-0.22],
+  [0.68,-0.20,-0.42,-0.36, -0.50,-0.25,-0.80, -0.50,-0.60,0.35, 0.42,-0.12],
+  [1.00,-0.15,-0.38,-0.34, -0.45,-0.10,-0.88, -0.40,-0.80,0.30, 0.30,-0.05]];
+const PICK_B=[F,[0.30,-0.50,0.10,-0.06, -0.35,0.55,0.75, -0.10,0.75,-0.65, 0.50, 0.10],
+  [0.52, 0.15,-0.15,-0.48, 0.15,0.25,-0.95, 0.30,-0.95,-0.10, -0.20,-0.20],
+  [0.68, 0.30,-0.40,-0.30, 0.65,-0.20,-0.70, 0.50,-0.60,0.35, -0.42,-0.10],
+  [1.00, 0.18,-0.32,-0.30, 0.50,-0.05,-0.85, 0.40,-0.80,0.30, -0.30,-0.04]];
+const PICK_C=[F,[0.34,-0.08,0.36,0.04, 0.05,0.60,0.80, 0,0.80,-0.60, 0, 0.22],
+  [0.45,-0.10,0.25,-0.22, 0.03,0.91,-0.41, null,0,0, 0,0],
+  [0.52,-0.14,-0.22,-0.48, 0,-0.20,-0.98, 0,-0.98,0.20, 0,-0.30],
+  [0.74,-0.14,-0.30,-0.44, 0,-0.30,-0.95, 0,-0.95,0.30, 0,-0.22],
+  [1.00,-0.10,-0.28,-0.36, 0.05,0.10,-0.99, 0,-0.99,-0.10, 0,-0.08]];
+// hammer, mallet, mace: a long wind-up that hangs at the top, a fast drop and a follow-through held low; then a backhand
+const SLAM_A=[F,[0.30,-0.06,0.36,0.04, 0.10,0.55,0.83, 0,-0.83,0.55, -0.15,0.22],
+  [0.38,-0.06,0.40,0.06, 0.08,0.45,0.89, 0,-0.89,0.45, -0.15,0.26],
+  [0.46,-0.08,0.30,-0.25, 0.04,0.93,-0.36, null,0,0, -0.05,0],
+  [0.52,-0.12,-0.30,-0.46, 0,-0.25,-0.97, 0,0.97,-0.25, 0.10,-0.35],
+  [0.72,-0.12,-0.34,-0.44, 0,-0.30,-0.95, 0,0.95,-0.30, 0.10,-0.30],
+  [1.00,-0.08,-0.30,-0.36, 0.05,0.10,-0.99, 0,0.99,0.10, 0.05,-0.10]];
+const SLAM_B=[F,[0.30,-0.48,-0.05,-0.10, -0.90,0.10,0.40, 0.40,0,0.90, 0.60,0.05],
+  [0.52, 0.06,-0.12,-0.50, 0.35,0.05,-0.94, -0.94,0,-0.35, -0.25,-0.15],
+  [0.72, 0.30,-0.15,-0.22, 0.90,0,-0.40, -0.40,0,-0.90, -0.60,-0.08],
+  [1.00, 0.20,-0.18,-0.22, 0.55,0.55,-0.60, null,0,0, -0.40,0]];
+// greatsword: diagonal cleave, rising backhand, overhead slam; a big coil before each and a heavy hold after
+const GS_A=[F,[0.30, 0.16,0.20,0.04, 0.35,0.45,0.82, -0.10,0.88,-0.45, -0.60, 0.15],
+  [0.43, 0.08,0.16,-0.24, 0.10,0.92,-0.38, null,0,0, -0.15,0],
+  [0.52,-0.10,-0.14,-0.50, -0.30,-0.05,-0.95, -0.30,-0.92,0.25, 0.35,-0.25],
+  [0.70,-0.40,-0.45,-0.28, -0.65,-0.50,-0.55, -0.40,-0.60,0.70, 0.60,-0.18],
+  [1.00,-0.32,-0.36,-0.30, -0.60,-0.25,-0.75, -0.35,-0.75,0.55, 0.45,-0.08]];
+const GS_B=[F,[0.28,-0.42,-0.48,-0.12, -0.75,-0.55,0.35, -0.30,0.70,0.65, 0.65,-0.10],
+  [0.42,-0.25,-0.40,-0.38, -0.25,-0.45,-0.86, null,0,0, 0.25,0],
+  [0.52, 0.04,-0.06,-0.50, 0.50,0.40,-0.77, 0.65,0.60,0.45, -0.25, 0.10],
+  [0.72, 0.16,0.24,-0.22, 0.45,0.85,0.25, 0.60,-0.20,0.75, -0.45, 0.12],
+  [1.00, 0.12,0.24,-0.08, 0.25,0.75,0.60, 0.40,-0.60,0.70, -0.35, 0.10]];
+const GS_C=[F,[0.38,-0.14,0.42,0.02, 0,0.50,0.86, 0,0.86,-0.50, 0, 0.28],
+  [0.46,-0.15,0.30,-0.25, 0,0.89,-0.45, null,0,0, 0,0],
+  [0.52,-0.16,-0.24,-0.50, 0,-0.40,-0.92, 0,-0.92,0.40, 0,-0.38],
+  [0.80,-0.16,-0.30,-0.48, 0,-0.45,-0.90, 0,-0.90,0.45, 0,-0.32],
+  [1.00,-0.10,-0.28,-0.38, 0.05,0.20,-0.98, 0,-0.98,-0.20, 0,-0.10]];
+// one sabre: a diagonal cut from high right to low left that ends up in a guard
+const SB_A=[F,[0.26, 0.18,0.16,0.02, 0.40,0.60,0.70, -0.10,-0.70,0.70, -0.45, 0.08],
+  [0.52,-0.02,-0.10,-0.50, -0.25,0.15,-0.95, 0.40,0.90,0, 0.30,-0.18],
+  [0.70,-0.32,-0.38,-0.30, -0.70,-0.30,-0.65, 0.50,0.60,-0.60, 0.40,-0.10],
+  [1.00,-0.18,-0.25,-0.36, -0.20,0.50,-0.85, null,0,0, 0.15,-0.05]];
+// daggers: a stab from the hip straight down the crosshair; both at once, a double downward plunge
+const DG_STAB=[F,[0.30, 0.14,-0.28,0.10, 0.05,0.10,-0.99, 0,0.99,0.10, -0.35, 0.06],
+  [0.52,-0.06,-0.16,-0.52, 0,0.08,-1.00, 0,1.00,0.08, 0.45,-0.22],
+  [0.70, 0.00,-0.22,-0.38, 0,0.08,-1.00, 0,1.00,0.08, 0.15,-0.08],
+  [1.00, 0.10,-0.30,-0.05, 0.05,0.10,-0.99, 0,0.99,0.10, 0,0]];
+const DG_DOWN=[F,[0.36,-0.05,0.30,-0.12, 0,-0.20,-0.98, 0,0.98,-0.20, 0, 0.15],
+  [0.52,-0.10,-0.25,-0.40, 0,-0.85,-0.50, 0,0.50,-0.85, 0,-0.30],
+  [1.00, 0.06,-0.45,-0.10, 0.05,-0.95,-0.30, 0,0.30,-0.95, 0,0]];
+// spear: two thrusts and a wide sweep (the front hand lets go for the sweep)
+const SP_JAB=[F,[0.28, 0.18,-0.16,0.20, -0.08,0.06,-0.99, 0,1,0.06, -0.45, 0.08],
+  [0.52,-0.04,-0.12,-0.50, -0.02,0.04,-1.00, 0,1,0.04, 0.42,-0.30],
+  [0.68,-0.04,-0.12,-0.48, -0.02,0.04,-1.00, 0,1,0.04, 0.28,-0.20],
+  [1.00, 0.14,-0.18,0.08, -0.06,0.06,-0.99, 0,1,0.06, -0.20,0]];
+const SP_JAB_HI=[F,[0.26, 0.18,-0.08,0.20, -0.08,0.14,-0.99, 0,1,0.14, -0.45, 0.08],
+  [0.52,-0.04,-0.04,-0.50, -0.02,0.12,-0.99, 0,1,0.12, 0.42,-0.30],
+  [0.64,-0.04,-0.04,-0.48, -0.02,0.12,-0.99, 0,1,0.12, 0.28,-0.20],
+  [1.00, 0.14,-0.16,0.08, -0.06,0.06,-0.99, 0,1,0.06, -0.20,0]];
+const SP_SWEEP=[F,[0.30, 0.32,-0.12,0.06, 0.90,0.10,0.42, 0,1,0, -0.75, 0.05],
+  [0.52,-0.12,-0.20,-0.44, -0.35,0,-0.94, 0,1,0, 0.30,-0.15],
+  [0.72,-0.40,-0.22,-0.10, -0.95,0,0.30, 0,1,0, 0.75,-0.05],
+  [1.00,-0.10,-0.30,-0.20, -0.30,0.60,-0.70, 0,1,0, 0.20,0]];
+// reaper scythe: a wide reap across the waist, then an overhead hook pulled back to the hip
+const RP_REAP=[F,[0.32, 0.30,-0.20,0.06, 0.85,0.15,0.50, -0.50,-0.10,0.86, -0.80, 0.08],
+  [0.52,-0.10,-0.25,-0.46, -0.20,0.05,-0.98, 0.98,0,-0.20, 0.30,-0.20],
+  [0.72,-0.44,-0.30,-0.16, -0.90,0,0.40, -0.40,0,-0.92, 0.85,-0.10],
+  [1.00,-0.30,-0.25,-0.26, -0.65,0.45,-0.60, null,0,0, 0.50,-0.05]];
+const RP_HOOK=[F,[0.30,-0.06,0.34,-0.08, 0,0.92,-0.38, 0,0.38,0.92, -0.10, 0.18],
+  [0.52,-0.02,-0.12,-0.46, 0,0.25,-0.97, 0,0.97,0.25, 0.05,-0.20],
+  [0.75, 0.14,-0.46,-0.08, 0.25,0.35,-0.90, 0,0.93,0.36, -0.10, 0.25],
+  [1.00, 0.10,-0.40,-0.10, 0.20,0.50,-0.84, 0,0.86,0.50, -0.05, 0.10]];
+// battle axe: an overhead chop with a hang at the top, then a flat backhand
+const AX_A=[F,[0.38, 0.12,0.24,0.06, 0.30,0.50,0.81, 0,-0.85,0.53, -0.60, 0.18],
+  [0.46, 0.12,0.27,0.07, 0.28,0.46,0.84, 0,-0.88,0.48, -0.62, 0.20],
+  [0.52,-0.04,-0.20,-0.48, -0.15,0.20,-0.97, 0,0.98,0.20, 0.35,-0.32],
+  [0.75,-0.24,-0.42,-0.38, -0.45,-0.35,-0.82, 0,0.92,-0.40, 0.45,-0.25],
+  [1.00,-0.16,-0.34,-0.34, -0.30,0.05,-0.95, 0,1,0.05, 0.25,-0.08]];
+const AX_B=[F,[0.30,-0.48,-0.05,-0.10, -0.90,0.10,0.40, 0.40,0,0.90, 0.60, 0.05],
+  [0.52, 0.06,-0.12,-0.50, 0.35,0.05,-0.94, -0.94,0,-0.35, -0.25,-0.12],
+  [0.72, 0.30,-0.15,-0.22, 0.90,0,-0.40, -0.40,0,-0.90, -0.60,-0.05],
+  [1.00, 0.16,-0.20,-0.26, 0.55,0.55,-0.60, null,0,0, -0.30,0]];
+// kunai (one hand): quick forehand and backhand slashes; held up, a throw from beside the ear
+const KN_A=[F,[0.28, 0.22,0.02,0.00, 0.55,0.45,-0.70, 0,1,0, -0.40, 0.06],
+  [0.52,-0.08,-0.12,-0.48, -0.50,0.10,-0.86, 0,1,0, 0.30,-0.15],
+  [0.72,-0.36,-0.24,-0.30, -0.90,-0.10,0.30, 0,1,0, 0.45,-0.08],
+  [1.00,-0.24,-0.26,-0.30, -0.60,0.30,-0.70, 0,1,0, 0.25,-0.04]];
+const KN_B=[F,[0.28,-0.38,0.00,-0.14, -0.55,0.45,-0.70, 0,1,0, 0.45, 0.06],
+  [0.52, 0.10,-0.12,-0.48, 0.45,0.10,-0.89, 0,1,0, -0.25,-0.15],
+  [0.72, 0.30,-0.22,-0.24, 0.90,-0.05,-0.30, 0,1,0, -0.40,-0.06],
+  [1.00, 0.16,-0.30,-0.24, 0.40,0.30,-0.85, 0,1,0, -0.20,0]];
+const KN_THROW=[F,[0.40, 0.10,0.16,0.10, 0.20,0.95,0.20, 0,0.2,-0.98, -0.35, 0.10],
+  [0.52, 0.02,0.02,-0.50, 0.05,0.40,-0.92, 0,0.92,0.40, 0.25,-0.18],
+  [1.00, 0.06,-0.30,-0.30, 0.05,0.30,-0.95, 0,0.95,0.30, 0.05,-0.04]];
+// The classes. grip: where the right hand holds the weapon (dressPick works out metres from the model); hand2: the left
+// hand along the handle from the right (null: one hand); two: [at rest, swinging] how much the left hand holds on;
+// off: where a free left hand goes while swinging one-handed. A track names a key list per hand (R, L for dual
+// weapons; 'guard' holds the guard), plus dip (a crouch into the impact, A.dip), shake (camera shake at the hit),
+// lw (left-hand grip weight keys) and wu (the key a charged swing holds while charging).
+const SWINGS:any={
+  pick:{rest:PICK_REST,grip:{at:0},hand2:{k:0.25},two:[0,1],pitchK:0.6,tracks:[{R:PICK_A},{R:PICK_B},{R:PICK_C,dip:0.15,shake:0.05}]},
+  slam:{rest:SL_REST,grip:{at:0},hand2:{k:0.28},two:[0,1],pitchK:0.55,tracks:[{R:SLAM_A,dip:0.35,shake:0.12,wu:2},{R:SLAM_B,dip:0.12}]},
+  greatsword:{rest:GS_REST,grip:{guard:1},hand2:{m:-0.095},two:[0,1],pitchK:0.6,tracks:[{R:GS_A,dip:0.12},{R:GS_B,dip:0.08},{R:GS_C,dip:0.3,shake:0.12}]},
+  katana:{rest:GS_REST,grip:{m:0.13},hand2:{m:-0.1},two:[0,1],pitchK:0.6,guard:PICK_GUARD,tracks:[{R:GS_A},{R:GS_B}]},
+  sabre:{rest:SL_REST,grip:{guard:1},dual:1,pitchK:0.6,guard:SB_GUARD,tracks:[{R:SB_A,L:'guard'},{R:'guard',L:SB_A},{R:SB_A,L:SB_A,dip:0.15,shake:0.05}]},
+  dagger:{rest:DG_REST,grip:{guard:1},dual:1,pitchK:0.9,guard:DG_GUARD,tracks:[{R:DG_STAB,L:'guard'},{R:'guard',L:DG_STAB},{R:DG_DOWN,L:DG_DOWN,dip:0.2}]},
+  spear:{rest:SP_REST,grip:{k:0.4},hand2:{k:0.3},two:[0,1],pitchK:0.9,tracks:[{R:SP_JAB,dip:0.1},{R:SP_JAB_HI},{R:SP_SWEEP,lw:[[0,1],[0.14,0],[0.62,0],[0.8,1]],dip:0.1}]},
+  reaper:{rest:RP_REST,grip:{k:0.03},hand2:{k:0.42},two:[0,1],pitchK:0.6,tracks:[{R:RP_REAP,dip:0.15},{R:RP_HOOK,dip:0.1}]},
+  bigaxe:{rest:SL_REST,grip:{k:0.45},hand2:{k:-0.42},two:[0,1],pitchK:0.6,tracks:[{R:AX_A,dip:0.25,shake:0.06,wu:2},{R:AX_B,dip:0.1}]},
+  kunai:{rest:KN_REST,grip:{m:0},pitchK:0.8,off:[-0.14,-0.18,-0.32],tracks:[{R:KN_A},{R:KN_B}],throw:[{R:KN_THROW},{R:KN_THROW}]},
+};
+const SWING_OF={greatsword:'greatsword',sabre:'sabre',dagger:'dagger',spear:'spear',halberd:'spear',trident:'spear',reaper:'reaper',scythe:'reaper',sickle:'reaper',
+  bigaxe:'bigaxe',axe:'bigaxe',double:'bigaxe',crescent:'bigaxe',hammer:'slam',mallet:'slam',mace:'slam',blocky:'slam',gem:'slam',crystal:'slam',star:'slam',
+  kunai:'kunai',nichirin:'katana'}; // everything else (classic, drill, pixel, bolt, claw, hook, saw, wing, bat, leaf, shovel, the fists and the book) swings like a pick
+// load the keys: each becomes {t,g,q,tw,ln}; a missing edge carries the previous key's roll along the arc
+const _pkM=new T.Matrix4(), _pkU=new V(), _pkS=new V(), _pkZ=new V(), _pkQ=new T.Quaternion(), _qFlip=new T.Quaternion().setFromAxisAngle(new V(0,1,0),Math.PI);
+function pkKey(k,prev?){ const o:any={t:k[0],g:new V(k[1],k[2],k[3]),q:new T.Quaternion(),tw:k[10],ln:k[11]}, h=_pkU.set(k[4],k[5],k[6]).normalize();
+  if(o.g.length()>0.54) o.g.setLength(0.54); // keep the wrist inside the arm's reach so the IK never locks straight
+  if(k[7]==null&&prev){ o.q.setFromUnitVectors(_pkS.set(0,1,0).applyQuaternion(prev.q),h).multiply(prev.q); return o; }
+  _pkS.set(k[7],k[8],k[9]); _pkS.addScaledVector(h,-_pkS.dot(h)); if(_pkS.lengthSq()<1e-6) _pkS.set(1,0,0).addScaledVector(h,-h.x); _pkS.normalize(); _pkZ.crossVectors(_pkS,h);
+  o.q.setFromRotationMatrix(_pkM.makeBasis(_pkS,h,_pkZ)); return o; }
+function pkKeys(K){ const out=[null]; for(let i=1;i<K.length;i++) out.push(pkKey(K[i],out[i-1])); return out; }
+for(const id in SWINGS){ const C=SWINGS[id]; C.id=id; C.restK=pkKey(C.rest); C.guardK=pkKey(C.guard||PICK_GUARD);
+  const side=s=>s==='guard'?[null,Object.assign(pkKey(C.guard||PICK_GUARD),{t:0.3}),Object.assign(pkKey(C.guard||PICK_GUARD),{t:1})]:s?pkKeys(s):null;
+  for(const set of ['tracks','throw']) if(C[set]) C[set]=C[set].map(tr=>Object.assign({},tr,{R:side(tr.R),L:side(tr.L)}));
+  // flurries (a burst of very short swings) drop the wind-up: the last cut's follow-through is the next one's wind-up
+  C.fl=C.tracks.map(tr=>Object.assign({},tr,{R:tr.R&&tr.R.filter((k,i)=>!i||k.t>=PICK_HIT),L:tr.L&&tr.L.filter((k,i)=>!i||k.t>=PICK_HIT)})); }
+const pkPose=()=>({g:new V(),q:new T.Quaternion(),tw:0,ln:0});
+const pkCopy=(o,a)=>{ o.g.copy(a.g); o.q.copy(a.q); o.tw=a.tw; o.ln=a.ln; return o; };
+const pkMix=(o,a,b,w)=>{ o.g.copy(a.g).lerp(b.g,w); o.q.copy(a.q).slerp(b.q,w); o.tw=a.tw+(b.tw-a.tw)*w; o.ln=a.ln+(b.ln-a.ln)*w; return o; };
+// a monotone cubic through the keys: no overshoot, so a key held twice (a hang at the top) really holds
+function pkSlope(p0,p1,p2,t0,t1,t2){ const d0=(p1-p0)/(t1-t0), d1=(p2-p1)/(t2-t1); if(d0*d1<=0) return 0; const m=(p2-p0)/(t2-t0), lim=3*Math.min(Math.abs(d0),Math.abs(d1)); return Math.abs(m)>lim?Math.sign(m)*lim:m; }
+function pkEval(K,k,from,o){
+  const n=K.length, key=j=>j===0?from:K[j], tt=j=>j===0?0:K[j].t; let i=0; while(i<n-2&&k>K[i+1].t) i++;
+  const a=Math.max(0,i-1), b=i, c=i+1, d=Math.min(n-1,i+2), Ka=key(a), Kb=key(b), Kc=key(c), Kd=key(d), ta=tt(a), tb=tt(b), tc=tt(c), td=tt(d), h=tc-tb||1e-3;
+  const u=clamp((k-tb)/h,0,1), u2=u*u, u3=u2*u, h00=2*u3-3*u2+1, h10=u3-2*u2+u, h01=-2*u3+3*u2, h11=u3-u2;
+  // eases out of the first key and into the last; in between the curve keeps its speed through each key
+  const H=(pa,pb,pc,pd)=>h00*pb+h01*pc+h10*(b===0?0:pkSlope(pa,pb,pc,ta,tb,tc)*h)+h11*(c===n-1?0:pkSlope(pb,pc,pd,tb,tc,td)*h);
+  o.g.set(H(Ka.g.x,Kb.g.x,Kc.g.x,Kd.g.x),H(Ka.g.y,Kb.g.y,Kc.g.y,Kd.g.y),H(Ka.g.z,Kb.g.z,Kc.g.z,Kd.g.z));
+  o.tw=H(Ka.tw,Kb.tw,Kc.tw,Kd.tw); o.ln=H(Ka.ln,Kb.ln,Kc.ln,Kd.ln);
+  // orientation: slerp along the arc, timed with the same curve over the angles turned
+  const ab=Ka.q.angleTo(Kb.q), bc=Kb.q.angleTo(Kc.q), cd=Kc.q.angleTo(Kd.q);
+  o.q.copy(Kb.q).slerp(Kc.q,bc>1e-4?clamp(H(-ab,0,bc,bc+cd)/bc,0,1):u); return o;
 }
+// piecewise-linear weight keys [[t,w],...]
+function pkW(W,k){ if(!W) return 1; let i=0; while(i<W.length-2&&k>W[i+1][0]) i++; const a=W[i], b=W[i+1]||a; return b===a?a[1]:a[1]+(b[1]-a[1])*clamp((k-a[0])/(b[0]-a[0]),0,1); }
+// Start a melee swing. Every caller goes through here, so a swing always plays its whole arc in its own time (dur), and
+// the next hit of the combo picks up from wherever the weapon is. side: the track (default: the next one of the combo
+// while it is running, else the first). o.hit sets the hit timer (gameplay, at dur*PICK_HIT); o.combo the combo window;
+// o.fl marks a flurry (no wind-up), o.th a throw.
+function startSwing(p,dur,side?,o?){
+  const S=p.ch&&p.ch.swing||SWINGS.pick, n=(o&&o.th&&S.throw||S.tracks).length;
+  p.swingSide=side!=null?side:(p.swingT>0||p.comboT>0?((p.swingSide||0)+1)%n:0);
+  p.swingT=p.swingDur=dur; p.pkNew=true; p.pkFl=!!(o&&o.fl); p.pkTh=!!(o&&o.th);
+  if(o&&o.combo!=null) p.comboT=o.combo;
+  if(o&&o.hit) p.hitT=dur*PICK_HIT;
+}
+// Once a frame, before pickPose: notice a new swing (remember the pose it starts from) and the end of one (hold the
+// follow-through, then ease home); the guard and charge weights. Swings set straight on swingT (old callers, the test
+// rig) still work: they start from the current pose and last SWING_T.
+function backOut(u){ const v=u-1; return 1+2.70158*v*v*v+1.70158*v*v; } // ease out with a little overshoot
+const PK_HOLD=0.12, PK_RET=0.34, pkD=(o,k,t,a)=>{ o[k]=(o[k]||0)+(t-(o[k]||0))*a; };
+function pkTick(e,X){ const A=X.A, dt=X.dt;
+  if(!A.pkCur){ A.pkCur={R:pkPose(),L:pkPose()}; A.pkFrom={R:pkPose(),L:pkPose()}; A.pkEndP={R:pkPose(),L:pkPose()}; const r=(e.ch.swing||SWINGS.pick).restK; pkCopy(A.pkCur.R,r); pkCopy(A.pkCur.L,r); A.pkDr=0; }
+  A.pkDr=Math.min(1,(A.pkDr==null?1:A.pkDr)+dt/0.3); // the draw: out from behind the shoulder
+  const T0=e.swingT||0;
+  if(e.pkNew||T0>(A.pkLT||0)+1e-4){ if(!e.pkNew){ e.swingDur=Math.max(SWING_T,T0); e.pkFl=false; e.pkTh=false; } e.pkNew=false;
+    pkCopy(A.pkFrom.R,A.pkCur.R); pkCopy(A.pkFrom.L,A.pkCur.L); A.pkEnd=false; A.pkK=0; }
+  if(T0<=0&&(A.pkLT||0)>0){ pkCopy(A.pkEndP.R,A.pkCur.R); pkCopy(A.pkEndP.L,A.pkCur.L); A.pkEnd=true; A.pkIdle=0; } // the swing just ended
+  if(T0<=0){ A.pkIdle=(A.pkIdle||0)+dt; if(A.pkIdle>PK_HOLD+PK_RET) A.pkEnd=false; }
+  A.pkLT=T0;
+  if(e.pkGuardT>0) e.pkGuardT-=dt; pkD(A,'pkGd',e.pkGuardT>0?1:0,1-Math.exp(-14*dt));
+  pkD(A,'pkCh',e===player&&e.pwOn&&POW&&POW.hold&&POW.hold.kind==='charge'&&!(T0>0)?1:0,1-Math.exp(-10*dt));
+  const act=T0>0||A.pkEnd||(e.guardK||0)>0.05||A.pkGd>0.05||A.pkCh>0.05?1:0; pkD(A,'pkAct',act,1-Math.exp(-(act?16:8)*dt));
+}
+// The weapon pose this frame (pure: it can be asked twice, and by the home-screen hero with a stand-in entity).
+// Returns {h: right wrist offset from the right shoulder, q: weapon orientation (both in the root group's frame), tw, ln,
+// hL/qL for a second blade, two: left-hand grip weight, act: 0 at rest .. 1 swinging, vR/vL: the raw poses}.
+// pickPose({swingT:0,guardK:0,swingSide:0,ch:c}) is c's rest pose.
+const _pkA=pkPose(), _pkB=pkPose(), _pkP=new T.Quaternion(), _pkX=new V(1,0,0);
 function pickPose(e){
-  const K=PICK_KEYS[e.swingSide||0], k=e.swingT>0?clamp(1-e.swingT/SWING_T,0,1):0;
-  let i=0; while(i<K.length-2&&k>K[i+1][0]) i++;
-  // Catmull-Rom through the keys so the arc never stops and restarts between them
-  const a=K[Math.max(0,i-1)], b=K[i], c=K[i+1], d=K[Math.min(K.length-1,i+2)], u=clamp((k-b[0])/(c[0]-b[0]),0,1), u2=u*u, u3=u2*u;
-  const gk=e.swingT>0?0:(e.guardK||0), br=gk*0.015*Math.sin(matchTime*2.4); // on guard: the sword up across the body, breathing a little
-  const m=j=>gk>0?PICK_REST[j]+(PICK_GUARD[j]-PICK_REST[j])*gk+(j===2?br:0):0.5*(2*b[j]+(c[j]-a[j])*u+(2*a[j]-5*b[j]+4*c[j]-d[j])*u2+(3*b[j]-a[j]-3*c[j]+d[j])*u3);
-  // orientation: handle along +y, spike along +x of the pickaxe model
-  _pd.set(m(4),m(5),m(6)).normalize(); _ps.set(m(7),m(8),m(9)); _ps.addScaledVector(_pd,-_ps.dot(_pd)).normalize(); _pz.crossVectors(_ps,_pd);
-  return {h:new V(m(1),m(2),m(3)),q:new T.Quaternion().setFromRotationMatrix(_pm.makeBasis(_ps,_pd,_pz)),tw:m(10),ln:m(11)};
+  const c=e.ch, S=c&&c.swing||SWINGS.pick, A=e.anim||{}, P=(c&&(c.pkP||(c.pkP={vR:pkPose(),vL:pkPose(),h:new V(),q:new T.Quaternion(),hL:new V(),qL:new T.Quaternion()})))||{vR:pkPose(),vL:pkPose(),h:new V(),q:new T.Quaternion(),hL:new V(),qL:new T.Quaternion()};
+  const swing=e.swingT>0, dur=e.swingDur||SWING_T, k=swing?clamp(1-e.swingT/dur,0,1):0, set=e.pkTh&&S.throw?S.throw:e.pkFl?S.fl:S.tracks, tr=set[(e.swingSide||0)%set.length];
+  const gk=swing?0:Math.max(e.guardK||0,A.pkGd||0), ch=swing?0:A.pkCh||0, br=gk*0.015*Math.sin(matchTime*2.4);
+  const ret=A.pkEnd?smooth(PK_HOLD,PK_HOLD+PK_RET,A.pkIdle||0):1;
+  for(const sd of S.dual?['R','L']:['R']){ const o=sd==='R'?P.vR:P.vL;
+    if(swing&&tr[sd]) pkEval(tr[sd],k,A.pkFrom?A.pkFrom[sd]:S.restK,o);
+    else { if(A.pkEnd&&ret<1) pkMix(o,A.pkEndP[sd],S.restK,ret*ret*(3-2*ret)); else pkCopy(o,S.restK);
+      if(gk>0){ pkMix(o,o,S.guardK,gk); o.g.y+=br; }
+      if(ch>0){ const W=S.tracks[0].R, wk=W[S.tracks[0].wu||1]; pkMix(o,o,wk,ch); o.g.y+=0.012*ch*Math.sin(matchTime*40); } } }
+  if(!S.dual) pkCopy(P.vL,P.vR);
+  const act=A.pkAct||0, pa=(e.isPlayer?e.pitch:e.aimPitch||0)*(S.pitchK||0.6)*act; _pkP.setFromAxisAngle(_pkX,pa);
+  P.h.copy(P.vR.g).applyQuaternion(_pkP); P.q.copy(P.vR.q).premultiply(_pkP);
+  if(S.dual){ const v=P.vL; P.hL.set(-v.g.x,v.g.y,v.g.z).applyQuaternion(_pkP); P.qL.set(v.q.x,-v.q.y,-v.q.z,v.q.w).multiply(_qFlip).premultiply(_pkP); P.tw=P.vR.tw-v.tw; P.ln=P.vR.ln+v.ln; }
+  else { P.hL.set(-P.h.x,P.h.y,P.h.z); P.qL.set(P.q.x,-P.q.y,-P.q.z,P.q.w).multiply(_qFlip); P.tw=P.vR.tw; P.ln=P.vR.ln; }
+  // drawn from behind the right shoulder, handle tipped back, with a little overshoot as it lands in place
+  const dd=A.pkDr==null||A.pkDr>=1?0:1-backOut(A.pkDr);
+  if(dd){ _pkP.setFromAxisAngle(_pkX,1.3*dd); P.h.x+=0.05*dd; P.h.y+=0.25*dd; P.h.z+=0.25*dd; P.q.premultiply(_pkP); P.hL.x-=0.05*dd; P.hL.y+=0.25*dd; P.hL.z+=0.25*dd; P.qL.premultiply(_pkP); }
+  // weapon fidget (player, long idle): a lift and a twirl of the weapon round its handle, then back onto the shoulder
+  const fk=A.rkFid&&A.rkFid.id==='pick'?A.rkFid.k:0;
+  if(fk>0&&!swing){ const b=Math.sin(Math.PI*fk); P.h.y+=0.07*b; P.h.z-=0.08*b; _pkP.setFromAxisAngle(_pkU.set(0,1,0),TAU*smooth(0.25,0.75,fk)); P.q.multiply(_pkP); P.qL.multiply(_pkP); }
+  const two=S.two?S.two[0]+(S.two[1]-S.two[0])*act:0; P.two=two*(swing&&tr.lw?pkW(tr.lw,k):1); P.act=act; P.k=k; P.swing=swing; P.tr=tr;
+  return P;
+}
+// put the weapon in the right fist: fingers round the handle, the handle through the palm (P2-7). The hand turns so the
+// fingers carry on from the forearm; the index finger is on the head side. obj is c.pick or c.pickL.
+const _pg1=new V(), _pg2=new V(), _pg3=new V(), _pg4=new V(), _pgq=new T.Quaternion();
+function pkGrip(c,sd,obj,curl){ const B=c.bones, g=c.g;
+  g.getWorldQuaternion(_pgq).multiply(obj.quaternion); const hd=_pg1.set(0,1,0).applyQuaternion(_pgq);
+  const Fv=B[sd+'Hand'].getWorldPosition(_pg2).sub(B[sd+'ForeArm'].getWorldPosition(_pg3)); Fv.addScaledVector(hd,-Fv.dot(hd));
+  if(Fv.lengthSq()<1e-4) Fv.set(1,0,0).applyQuaternion(_pgq); Fv.normalize();
+  const a=_pg3.copy(hd).negate(), N=sd==='Right'?_pg4.crossVectors(Fv,a):_pg4.crossVectors(a,Fv);
+  poseHand(B,sd,Fv,N,curl);
+  const hw=B[sd+'Hand'].getWorldPosition(_pg1).addScaledVector(Fv,0.07).addScaledVector(N,0.03); g.worldToLocal(hw); obj.position.copy(hw);
+}
+// dual blades: the left arm takes the left blade's pose (P.hL/P.qL: the right-hand track mirrored), the blade in its fist.
+// (rest is unused now: the fist always closes round the grip.)
+function dualLeft(c,B,g,P,rightB,upB,fwdB,rest){
+  const shL=B.LeftArm.getWorldPosition(_pg1), hL=P.hL||_pg2.copy(P.h).setX(-P.h.x);
+  const t=g.localToWorld(g.worldToLocal(_pg3.copy(shL)).add(hL)), pole=_pg4.copy(shL).addScaledVector(rightB,-0.5).addScaledVector(upB,-0.55).addScaledVector(fwdB,-0.1);
+  solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,t,pole);
+  if(P.qL) c.pickL.quaternion.copy(P.qL); else { const q=P.q; c.pickL.quaternion.set(q.x,-q.y,-q.z,q.w).multiply(_qFlip); }
+  c.pickL.visible=true; pkGrip(c,'Left',c.pickL,0.8);
+}
+// Hold the weapon in pose P (pickPose): right wrist to P.h by IK, the weapon in the fist, then the left hand: the second
+// blade, or onto the handle at hand2 (weight P.two), or (one-handed weapons) its guard spot while swinging. Used by
+// pickArms and by the home-screen hero. Returns the left hand's grip weight (0: the left arm is free).
+const _ph1=new V(), _ph2=new V(), _ph3=new V(), _ph4=new V(), _ph5=new V();
+function pickHold(c,e,P,rightB,upB,fwdB,rest){
+  const B=c.bones, g=c.g, S=c.swing||SWINGS.pick, natL=B.LeftHand.getWorldPosition(_ph5);
+  const sh=B.RightArm.getWorldPosition(_ph1), tgt=g.localToWorld(g.worldToLocal(_ph2.copy(sh)).add(P.h));
+  solveIK(B.RightArm,B.RightForeArm,B.RightHand,tgt,_ph3.copy(sh).addScaledVector(rightB,0.5).addScaledVector(upB,-0.55).addScaledVector(fwdB,-0.1));
+  c.pick.quaternion.copy(P.q); pkGrip(c,'Right',c.pick,0.8);
+  if(c.pickL){ dualLeft(c,B,g,P,rightB,upB,fwdB,rest); return 1; }
+  const lS=B.LeftArm.getWorldPosition(_ph1), pole=_ph3.copy(lS).addScaledVector(rightB,-0.6).addScaledVector(upB,-0.5);
+  const w=c.pkHand2!=null?P.two:0;
+  if(w>0.01){ c.pick.updateMatrixWorld(true); const hp=c.pick.localToWorld(_ph2.set(0,c.pkHand2,0));
+    // solve to the handle, see which way the forearm comes in, then put the palm (not the wrist) on the handle
+    const t=_ph4.copy(natL).lerp(hp,w); solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,t,pole);
+    g.getWorldQuaternion(_pgq).multiply(c.pick.quaternion); const hd=_pg1.set(0,1,0).applyQuaternion(_pgq);
+    const Fv=B.LeftHand.getWorldPosition(_pg2).sub(B.LeftForeArm.getWorldPosition(_pg3)); Fv.addScaledVector(hd,-Fv.dot(hd)); if(Fv.lengthSq()<1e-4) Fv.copy(rightB); Fv.normalize();
+    const N=_pg4.crossVectors(hd,Fv).negate(); // the left palm: (index to pinky) x fingers
+    t.copy(natL).lerp(hp.addScaledVector(Fv,-0.07).addScaledVector(N,-0.03),w); solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,t,pole);
+    poseHand(B,'Left',Fv,N,0.8*w); return w; }
+  if(S.off&&P.act>0.01){ const sL=B.LeftArm.getWorldPosition(_ph1), o=S.off, t=g.localToWorld(g.worldToLocal(_ph2.copy(sL)).add(_ph4.set(-o[0],o[1],o[2])));
+    solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,_ph4.copy(natL).lerp(t,P.act),pole); poseHand(B,'Left',fwdB.clone().addScaledVector(upB,0.6),rightB,1.1*P.act); return P.act; }
+  return 0;
 }
 function makeCharacterGLB(){
   const g=new T.Group(); g.rotation.order='YXZ';
@@ -991,10 +1240,17 @@ function spring(o,k,x,f,z,dt){ const w=TAU*f, kv=k+'V'; let p=o[k]||0, v=o[kv]||
 function motionState(e,dt){
   const A=e.anim, fx=-Math.sin(e.yaw), fz=-Math.cos(e.yaw), fwd=e.vel.x*fx+e.vel.z*fz, side=-e.vel.x*fz+e.vel.z*fx, speed=Math.hypot(e.vel.x,e.vel.z);
   const yr=wrapPi(e.yaw-(A.lastYaw==null?e.yaw:A.lastYaw))/Math.max(dt,1e-3); A.lastYaw=e.yaw;
-  e.bankT=e.onGround?clamp(yr*0.03,-0.22,0.22)*smooth(4,10,speed):0;
+  // lean into the turn. Upside down on the ceiling the roll adds the other way, so flip it there (body frame, not world)
+  e.bankT=e.onGround?clamp(yr*0.03,-0.22,0.22)*smooth(4,10,speed)*(e.zgRoll>1.5?-1:1):0;
   const aS=1-Math.exp(-7*dt);
   D(A,'sprint',e.onGround?smooth(8.6,10.6,speed):e.zgPropel?1:0,aS);
-  A.land=Math.max(0,(A.land||0)-dt*3.2); A.hit=Math.max(0,(A.hit||0)-dt*5); A.draw=Math.min(1,(A.draw==null?1:A.draw)+dt*3.5);
+  // landing: zgMove sets A.land (0.3..1) on touchdown. Its rising edge kicks a spring, A.landS: a quick compression
+  // (~60-80 ms), a recovery that overshoots ~12% and settles; heavier landings sink deeper and come back slower.
+  // A.landS (0..~0.6, crouch units) is the shared contract the camera reads
+  const ld=A.land||0; if(ld>(A.landP||0)+0.01){ A.landF=lerp(3.4,2.4,ld); A.landSV=(A.landSV||0)+0.6*ld*TAU*A.landF/0.522; } // peak = v0*0.522/w at zeta 0.55
+  spring(A,'landS',0,A.landF||3,0.55,dt);
+  A.land=Math.max(0,ld-dt*3.2); A.landP=A.land; A.hit=Math.max(0,(A.hit||0)-dt*5); A.draw=Math.min(1,(A.draw==null?1:A.draw)+dt*3.5);
+  A.lcYr=yr;
   return {fx,fz,fwd,side,speed};
 }
 // ---- deaths: each cause plays out differently, then the body shatters into glowing cubes
@@ -1013,7 +1269,7 @@ function deathKind(weapon,info){ return info&&info.explosive?'explosion':info&&i
 function startDeath(t,kind,info){
   const dir=(info&&info.dir?info.dir.clone():new V(rnd(-1,1),rnd(-0.3,0.3),rnd(-1,1))).normalize();
   const sp={shot:info&&info.head?11:7,pickaxe:24,block:Math.max(30,(info&&info.speed||0)*1.7),explosion:30,burn:3,ice:3}[kind];
-  const d=t.death={kind,t:0,c:new V(t.pos.x,t.pos.y+1,t.pos.z),vel:t.vel.clone().multiplyScalar(0.3).addScaledVector(dir,sp),
+  const d:any=t.death={kind,t:0,c:new V(t.pos.x,t.pos.y+1,t.pos.z),vel:t.vel.clone().multiplyScalar(0.3).addScaledVector(dir,sp),
     q:new T.Quaternion().setFromEuler(new T.Euler(t.zgRoll>1.5?0:0,t.yaw,t.zgRoll||0,'YXZ')),
     av:new V(rnd(-1,1),rnd(-1,1),rnd(-1,1)).normalize().multiplyScalar(kind==='shot'?(info&&info.head?7:2.5):kind==='burn'?1.5:kind==='pickaxe'?14:9),
     stuck:null,shatterAt:kind==='shot'?2.2:kind==='burn'?2.6:kind==='ice'?0.55:3,spread:0,fx:0};
@@ -1021,6 +1277,14 @@ function startDeath(t,kind,info){
   if(kind==='shot'&&info&&info.head) d.av.set(-dir.z,0,dir.x).multiplyScalar(9);
   if(kind==='explosion'||kind==='burn') t.ch.model.traverse(o=>{ if(o.isMesh&&o.material&&o.material.color){ o.material=o.material.clone(); o.material.color.multiplyScalar(0.25); } });
   if(t===player) camShake=Math.max(camShake,kind==='shot'?0.4:1);
+  // the body eases out of whatever it was doing, and what was in its hands stays in its hands
+  const c=t.ch; poseSnap(c,0.32); c.lcDead=true; d.props=[];
+  d.q.copy(c.g.quaternion); // start from the body as it was drawn (swim tilt, roll, bank), not an upright copy
+  c.model.getWorldQuaternion(_qm); d.hd=[dir.dot(_lv1.set(1,0,0).applyQuaternion(_qm)),dir.dot(_lv1.set(0,1,0).applyQuaternion(_qm)),dir.dot(_lv1.set(0,0,-1).applyQuaternion(_qm))]; // hit direction in the body frame
+  d.head=!!(info&&info.head); d.dj=0; d.djV=23*(d.head?1.5:1)*(kind==='shot'||kind==='burn'?1:0.6); // impact jolt (spring, peak ~1)
+  const fr=x=>{ const s=Math.sin(x)*43758.5453; return s-Math.floor(s); }; d.rk=[fr(d.av.x*91.3+1),fr(d.av.y*47.1+2),fr(d.av.z*13.7+3)]; // per-body variety, no extra Math.random
+  for(const [o,h] of [[c.gunMount,'RightHand'],[c.pick,'RightHand'],[c.pickL,'LeftHand'],[c.consG,'RightHand'],[c.handG,'RightHand']] as any[])
+    if(o&&o.visible&&(o!==c.gunMount||c.held)) d.props.push([o,c.bones[h],propRel(o,c.bones[h],new T.Matrix4())]);
 }
 // moves a dead body; returns the surface normal when it slams into something
 function deathMove(d,dt){
@@ -1071,13 +1335,40 @@ function deathPose(e,g,c,dt){
   // blown up or burned: the body smoulders until it breaks apart
   if((d.kind==='explosion'||d.kind==='burn')&&g.visible){ d.fx+=dt; if(d.fx>0.06){ d.fx=0; flame(_dv.copy(d.c).add(new V(rnd(-0.4,0.4),rnd(-0.7,0.7),rnd(-0.4,0.4))),rnd(0.5,0.9),rnd(0.35,0.6),new V(rnd(-0.5,0.5),rnd(1,2.5),rnd(-0.5,0.5))); } }
   const W=c.w; W.TPose=d.spread; W.Idle=(1-d.spread); W.Walk=W.Run=0; for(const k in c.act) c.act[k].setEffectiveWeight(W[k]);
-  c.mixer.update(d.kind==='ice'?0:d.t<0.3?dt*0.3:0); // frozen bodies keep the pose they froze in
-  // squash against the wall right after the hit
-  const s=d.stuck?Math.exp(-d.stuck.t*7)*Math.sin(Math.min(1,d.stuck.t*12)*Math.PI):0; c.spin.scale.set(1+0.3*s,1+0.15*s,1-0.55*s);
-  g.quaternion.copy(d.q); _pc.set(0,1,0).applyQuaternion(d.q); g.position.copy(d.c).sub(_pc);
+  if(d.kind!=='ice') c.mixer.update(d.t<0.3?dt*0.3:0); // frozen bodies keep exactly the pose they froze in (no mixer: the bones stay put)
+  // squash against the wall right after the hit, and a beat before the shatter: the body shivers and burns white
+  const s=d.stuck?Math.exp(-d.stuck.t*7)*Math.sin(Math.min(1,d.stuck.t*12)*Math.PI):0, bt=smooth(d.shatterAt-0.3,d.shatterAt,d.t), fl=1+bt*(0.045*Math.sin(d.t*TAU*15)-0.05);
+  c.spin.scale.set((1+0.3*s)*fl,(1+0.15*s)*fl,(1-0.55*s)*fl);
+  if(bt>0&&g.visible) deathGlow(c,d,bt);
+  // the splat slams flat against the surface in a few frames instead of one (d.q stays the logical orientation)
+  const vq=d.vq||(d.vq=d.q.clone()); if(d.stuck&&d.stuck.t<0.25) vq.slerp(d.q,1-Math.exp(-35*dt)); else vq.copy(d.q);
+  g.quaternion.copy(vq); _pc.set(0,1,0).applyQuaternion(vq); g.position.copy(d.c).sub(_pc);
   e.pos.copy(d.c).y-=1;
+  g.updateMatrixWorld(true);
+  if(d.kind!=='ice'&&(e===player||e.pos.distanceTo(camera.position)<40)) deathBody(e,c,d,dt);
+  poseBlend(c,dt); poseStore(c);
+  if(d.props) for(const [o,h,rel] of d.props) propPlace(o,h,rel);
   if(d.t>=d.shatterAt&&g.visible) shatter(e);
 }
+// [S1] the dead body is not a statue: the hit folds the chest along the bullet (a spring, harder for headshots), the
+// arms and legs trail the tumble and flop, and over ~0.8 s it goes limp (knees and spine curl). Near deaths only.
+const _lcdb={B:null,rightB:new V()}, _lcdw=new V(), _lcda=new V(), _lcdl=new V(), _lcdu=new V(), _lcdf=new V();
+function deathBody(e,c,d,dt){ const B=c.bones, sp=d.spread, lim=1-sp*0.8; spring(d,'dj',0,3.2,0.32,dt);
+  c.model.getWorldQuaternion(_qm); const r=_lcdb.rightB.set(1,0,0).applyQuaternion(_qm), u=_lcdu.set(0,1,0).applyQuaternion(_qm), f=_lcdf.set(0,0,-1).applyQuaternion(_qm); _lcdb.B=B;
+  _lcdw.set(0,0,0).addScaledVector(r,d.hd[0]).addScaledVector(u,d.hd[1]).addScaledVector(f,d.hd[2]); _lcda.crossVectors(u,_lcdw); if(_lcda.lengthSq()<1e-4) _lcda.copy(r); _lcda.normalize(); // fold axis: the chest goes with the bullet
+  const dj=d.dj, sl=smooth(0,0.8,d.t)*(d.stuck?0.3:1)*(1-sp), av=d.av.length(), lag=Math.min(0.6,0.12*av)*lim;
+  if(av>1e-3) _lcdl.copy(d.av).divideScalar(av); else _lcdl.copy(r);
+  rotateBoneWorld(B.Spine,r,-0.32*sl); // limp: curl forward
+  rotateBoneWorld(B.Spine1,_lcda,0.38*dj*lim); rotateBoneWorld(B.Spine2,_lcda,0.2*dj*lim);
+  rotateBoneWorld(B.Neck,_lcda,(d.head?0.9:0.35)*dj); rotateBoneWorld(B.Neck,r,-0.35*sl); // the head whips, then droops
+  for(const [sd,i,sx] of [['Left',0,-1],['Right',1,1]] as [string,number,number][]){ const ph=d.rk[i]*TAU, fl=0.32*Math.exp(-1.3*d.t)*Math.sin(d.t*(6+2*d.rk[i])+ph)*lim;
+    rotateBoneWorld(B[sd+'Arm'],_lcdl,-lag); rotateBoneWorld(B[sd+'Arm'],_lcda,-0.6*dj*lim); rotateBoneWorld(B[sd+'Arm'],f,sx*(fl+0.25*sl)); // trail the spin, fling back from the hit, flop and drift out
+    rotateBoneWorld(B[sd+'ForeArm'],r,-(0.25+0.45*d.rk[(i+1)%3])*sl); // elbows soften
+    bend(_lcdb,sd,(0.15+0.35*d.rk[(i+2)%3])*sl,-(0.3+0.4*d.rk[i])*sl); rotateBoneWorld(B[sd+'UpLeg'],_lcdl,-0.5*lag); }
+}
+// the last beat before the shatter: the body burns white (materials cloned once; skins share theirs)
+function deathGlow(c,d,k){ if(!d.glow){ d.glow=[]; c.model.traverse(o=>{ if(o.isMesh&&o.material&&o.material.emissive){ o.material=o.material.clone(); if(o.material.emissiveMap){ o.material.emissiveMap=null; o.material.needsUpdate=true; } d.glow.push(o.material); } }); }
+  for(const m of d.glow) m.emissive.setRGB(1.3*k,1.3*k,1.4*k); }
 const _qm=new T.Quaternion();
 // ---- potions in hand: chugged with the head thrown back, a gulp at a time, then an "ahh" shake (the big one
 // ends with a wipe of the mouth)
@@ -1098,7 +1389,8 @@ function consPose(e,c,id,k,rightB,fwdB,upB,dt){
   const ik=(sd,t,pole)=>solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],t,pole);
   const bell=(a,b)=>k<a||k>b?0:Math.sin((k-a)/(b-a)*Math.PI);
   // holding it ready: potions shown off at chest height, the kit and the roll at the belly
-  const idle=chest.clone().addScaledVector(rightB,0.17).addScaledVector(upB,-0.14).addScaledVector(fwdB,0.08).addScaledVector(upB,0.015*Math.sin(matchTime*2.4+e.walkT));
+  if(A.rkCId!==id){ A.rkCId=id; A.rkCT=0; } A.rkCT=(A.rkCT||0)+dt; const dd=A.rkCT<0.3?1-backOut(A.rkCT/0.3):0; // [S3] up from the belt
+  const idle=chest.clone().addScaledVector(rightB,0.17+0.05*dd).addScaledVector(upB,-0.14-0.32*dd).addScaledVector(fwdB,0.08-0.06*dd).addScaledVector(upB,0.015*Math.sin(matchTime*2.4+e.walkT));
   const tick=(key,period)=>{ const n=Math.floor(k*dur/period); if(A[key]!==n){ const first=A[key]==null||A[key]>n; A[key]=n; return !first; } return false; };
   {
     const big=id==='big', u=Math.max(0,k), ka=k<0?0:smooth(0,0.14,k), kl=smooth(0.82,0.94,u), dr=ka*(1-kl), prog=clamp((u-0.14)/0.68,0,1);
@@ -1139,17 +1431,62 @@ function cullChars(){ if(!combatants) return;
   for(const e of combatants){ const c=e.ch; if(!c||!c.glb) continue;
     _csph.center.set(e.pos.x,e.pos.y+1,e.pos.z); const d=_csph.center.distanceTo(camera.position);
     const see=e===player||_frus.intersectsSphere(_csph), far=d>GEAR_D&&e!==player;
-    c.inView=see; c.spin.visible=see&&!(e===player&&bv(e,'hide')); c.gunMount.visible=see&&!far;
+    c.inView=see; c.spin.visible=see&&!(e===player&&bv(e,'hide'))&&e.br!=='jet'; c.gunMount.visible=see&&!far;
     if(c.gear&&c.gearFar!==far){ c.gearFar=far; for(const w of c.gear) w.visible=!far; }
     charShadow(c,see&&(e===player||d<SHADOW_D)); }
 }
-// ---- [S1] inertial pose blend. Stubs until Stream 1 lands them; every stream may call them now.
-//   poseSnap(c,dur)  what drives the body just changed: fade from the last stored pose into the new one over dur s
-//   poseBlend(c,dt)  apply that fade to this frame's pose (animPost, after every layer)
+// ---- [S1] inertial pose blend (inertialization: what Unreal's Inertialization node does, after Bollo, GDC 2018).
+// When what drives the body changes, the jump between the last shown pose and the new one is kept as a per-joint
+// offset that dies away on a quintic curve which starts with the joints' own velocity, so nothing pops or hitches.
+// Every stream may call poseSnap.
+//   poseSnap(c,dur)  what drives the body just changed: fade from the last stored pose into the new one over dur s.
+//                    No-op until a pose has been stored; called again before the blend starts, the longer dur wins
+//   poseBlend(c,dt)  apply that fade to this frame's pose (animPost, after every layer); held props follow the hands
 //   poseStore(c)     remember this frame's final pose (animPost, last)
-function poseStore(c){}
-function poseSnap(c,dur){}
-function poseBlend(c,dt){}
+const _blq=new T.Quaternion(), _blq2=new T.Quaternion(), _blv=new V(), _blvS=new V(), _blmA=new T.Matrix4(), _blmB=new T.Matrix4();
+function blBones(c){ return c.blB||(c.blB=Object.values(c.bones)); } // every joint, fingers too, in a fixed order
+function poseStore(c){ const bs=blBones(c), n=bs.length;
+  if(!c.blLast){ c.blLast=new Float32Array(n*4); c.blPrev=new Float32Array(n*4); }
+  const P=c.blPrev; c.blPrev=c.blLast; c.blLast=P; // last becomes prev; this frame overwrites the old prev
+  for(let i=0;i<n;i++) bs[i].quaternion.toArray(P,i*4);
+  if(!c.blHave){ c.blPrev.set(P); c.blHave=true; }
+  c.blDtL=c.blFDt||0; c.blFDt=0; }
+function poseSnap(c,dur){ if(!c||!c.blHave) return;
+  if(c.blNew){ c.blD=Math.max(c.blD,dur); return; }
+  const n=c.blLast.length; if(!c.blSrc){ c.blSrc=new Float32Array(n); c.blSrcP=new Float32Array(n); }
+  c.blSrc.set(c.blLast); c.blSrcP.set(c.blPrev); c.blSrcDt=c.blDtL; c.blNew=true; c.blD=dur; c.blT=0; }
+// the offset left after t seconds: x0 at t=0 moving at v0 (<=0, toward the new pose), 0 with no velocity at t1
+function inertX(x0,v0,t,t1){ if(t>=t1) return 0; const t2=t1*t1, a0=Math.max(0,(-8*v0*t1-20*x0)/t2);
+  const A=-(a0*t2+6*v0*t1+12*x0)/(2*t2*t2*t1), B=(3*a0*t2+16*v0*t1+30*x0)/(2*t2*t2), C=-(3*a0*t2+12*v0*t1+20*x0)/(2*t2*t1);
+  return Math.max(0,((((A*t+B)*t+C)*t+a0*0.5)*t+v0)*t+x0); }
+// the axis-angle of q (shortest way round) into o[i*3..], returns the angle
+function qAxis(q,o,i){ if(q.w<0){ q.x=-q.x; q.y=-q.y; q.z=-q.z; q.w=-q.w; } const s=Math.sqrt(q.x*q.x+q.y*q.y+q.z*q.z); if(s<1e-7) return 0;
+  o[i]=q.x/s; o[i+1]=q.y/s; o[i+2]=q.z/s; return 2*Math.atan2(s,q.w); }
+function poseBlend(c,dt){ c.blFDt=dt; if(!c.blNew&&!(c.blT<c.blD)) return;
+  const bs=blBones(c), n=bs.length; c.model.updateMatrixWorld(true); blPropsGrab(c);
+  if(c.blNew){ c.blNew=false; if(!c.blAx){ c.blAx=new Float32Array(n*3); c.blX=new Float32Array(n*3); c.blW=new Float32Array(3); }
+    const S=c.blSrc, SP=c.blSrcP, sd=c.blSrcDt, okV=sd>1e-4&&sd<0.08, X=c.blX, W=c.blW;
+    for(let i=0;i<n;i++){ _blq.fromArray(S,i*4).multiply(_blq2.copy(bs[i].quaternion).invert()); // offset: new pose -> last shown pose
+      const x0=qAxis(_blq,c.blAx,i*3); X[i*3]=x0; if(!(x0>1e-4)){ X[i*3]=0; continue; }
+      let v0=0; if(okV){ _blq.fromArray(S,i*4).multiply(_blq2.fromArray(SP,i*4).invert()); const a=qAxis(_blq,W,0); // how the joint was turning
+        if(a>1e-5) v0=clamp(a/sd*(W[0]*c.blAx[i*3]+W[1]*c.blAx[i*3+1]+W[2]*c.blAx[i*3+2]),-25,0); } // only the part heading toward the new pose
+      X[i*3+1]=v0; X[i*3+2]=v0<0?Math.min(c.blD,-5*x0/v0):c.blD; } }
+  c.blT+=dt; const t=c.blT, X=c.blX;
+  for(let i=0;i<n;i++){ const x0=X[i*3]; if(!x0) continue; const x=inertX(x0,X[i*3+1],t,X[i*3+2]); if(x<1e-5) continue;
+    bs[i].quaternion.premultiply(_blq.setFromAxisAngle(_blv.fromArray(c.blAx,i*3),x)); }
+  c.model.updateMatrixWorld(true); blPropsFollow(c); }
+// props held in a hand ride along with it while the blend moves the hand: [prop, hand bone] pairs that are in a hand
+// this frame (the gun only when the arms were posed onto it; the Death Note book lives in the world)
+function blPropList(c){ const L=c.blPL||(c.blPL=[]); L.length=0; if(c.lcDead) return L;
+  if(c.lcGunIK&&c.held) L.push(c.gunMount,'RightHand'); if(c.pick.visible) L.push(c.pick,'RightHand'); if(c.pickL&&c.pickL.visible) L.push(c.pickL,'LeftHand');
+  if(c.consG.visible) L.push(c.consG,'RightHand'); if(c.handG&&c.handG.visible) L.push(c.handG,'RightHand'); if(c.lcBook&&c.lcBook.visible) L.push(c.lcBook,'LeftHand');
+  return L; }
+// world transform of a prop from its local one (its matrixWorld may be stale: the layers only set position/quaternion)
+function propWorld(o,m){ return m.compose(o.position,o.quaternion,o.scale).premultiply(o.parent.matrixWorld); }
+function propRel(o,hand,m){ return m.copy(hand.matrixWorld).invert().multiply(propWorld(o,_blmA)); }
+function propPlace(o,hand,rel){ _blmA.multiplyMatrices(hand.matrixWorld,rel); _blmB.copy(o.parent.matrixWorld).invert().multiply(_blmA); _blmB.decompose(o.position,o.quaternion,_blvS); }
+function blPropsGrab(c){ const L=blPropList(c), R=c.blRel||(c.blRel=[]); for(let i=0;i<L.length;i+=2) propRel(L[i],c.bones[L[i+1]],R[i>>1]||(R[i>>1]=new T.Matrix4())); }
+function blPropsFollow(c){ const L=c.blPL, R=c.blRel; for(let i=0;i<L.length;i+=2) propPlace(L[i],c.bones[L[i+1]],R[i>>1]); }
 // Per character, per frame. Each layer below is owned by one stream: [S0] shared scaffold, [S1] locomotion and body,
 // [S2] zero-g and the gravity flip, [S3] combat, [S4] emotes, hero and camera. They share one context object X (animCtx),
 // run in this order, and each stream edits only its own layers.
@@ -1157,8 +1494,10 @@ function animateGLB(e,dt){
   const c=e.ch, g=c.g; g.position.copy(e.pos); g.rotation.y=e.emote?e.emote.yaw:e.yaw; g.scale.setScalar((e.titanS||1)*(e.tinyT>0?0.45:1));
   const a=1-Math.exp(-14*dt), aS=1-Math.exp(-7*dt);
   if(!e.alive){ c.flash.visible=false; deathPose(e,g,c,dt); return; }
-  if(lockedUp(e)){ c.flash.visible=false; placeAboutMiddle(e,g);
+  c.lcDead=false;
+  if(lockedUp(e)){ c.flash.visible=false; placeAboutMiddle(e,g); c.lcLock=true;
     if(e.stun>0&&!(e.frozen>0)){ const j=0.045*Math.min(1,e.stun*2); g.position.x+=rnd(-j,j); g.position.y+=rnd(-j,j); g.position.z+=rnd(-j,j); } return; }
+  if(c.lcLock){ c.lcLock=false; if(c.blHave){ c.blPrev.set(c.blLast); c.blDtL=0; } poseSnap(c,0.3); } // thawed or shaken off the stun: ease out of the held pose (it was still)
   g.visible=!(e.isPlayer&&ads&&isScoped());
   if(!e.isPlayer){ const cd=e.pos.distanceTo(camera.position);
     if(cd>45||c.inView===false){ e.animAcc=(e.animAcc||0)+dt; if(e.animAcc<(c.inView===false?0.3:cd>140?0.2:cd>80?0.1:0.05)){ placeAboutMiddle(e,g); return; } /* keep the tilt/roll offset between poses, or the body jumps */ dt=e.animAcc; e.animAcc=0; } } // off screen or far away: pose less often
@@ -1204,20 +1543,50 @@ function animCtx(e,dt,a,aS){
 }
 // [S3] combat timers and the sprint carry: recoil settles, the muzzle flash and the pump run out, and a gun nobody is
 // aiming drops into the low sprint carry (A.sprPose)
+// (A.recoil stays the camera's scalar; the gun itself kicks on per-class springs rkZ/rkX/rkY). Bots that have not seen
+// anyone for a second relax into a low carry. ADS (A.ads) eases in over about 0.15 s.
 function animCombatState(e,X){ const {c,A,held,dt,aS}=X;
   A.recoil=Math.max(0,A.recoil-dt*8); A.flash-=dt; c.flash.visible=A.flash>0; A.pumpT+=dt;
   const aiming=X.aiming=e.isPlayer?(ads||mouse.l||!!e.reloading):(A.recoil>0.05||!!e.enemy);
-  D(A,'sprPose',held&&!aiming?A.sprint:0,aS);
+  if(!e.isPlayer) A.rkCalm=aiming?0:(A.rkCalm||0)+dt;
+  D(A,'sprPose',held&&!aiming?Math.max(A.sprint,!e.isPlayer&&A.rkCalm>1?0.6:0):0,aS);
+  pkD(A,'ads',e.isPlayer&&ads&&held?1:0,1-Math.exp(-16*dt));
+  if(held&&(A.rkZV||A.rkXV||A.rkYV||Math.abs(A.rkX||0)>1e-4)){ const R=RECOIL[held.id]||RECOIL.ar; spring(A,'rkZ',0,R.f,R.d,dt); spring(A,'rkX',0,R.f,R.d,dt); spring(A,'rkY',0,R.f,R.d,dt); spring(A,'rkM',0,R.f,R.d,dt);
+    if(Math.abs(A.rkZ)+Math.abs(A.rkX)+Math.abs(A.rkY)+Math.abs(A.rkM)+Math.abs(A.rkZV)+Math.abs(A.rkXV)+Math.abs(A.rkYV)+Math.abs(A.rkMV)<1e-4) A.rkZ=A.rkX=A.rkY=A.rkM=A.rkZV=A.rkXV=A.rkYV=A.rkMV=0; }
+  A.boltT=(A.boltT==null?9:A.boltT)+dt;
+  if(!X.cons) A.rkCId=null;
+  // weapon fidgets: after a long idle the player inspects the gun or twirls the pickaxe (A.fidget tells S1's body
+  // fidgets a weapon one is playing; one by S1 is left alone)
+  if(e.isPlayer){ const idle=!mouse.l&&!ads&&!(e.swingT>0)&&!e.reloading&&!e.consuming&&!e.throwA&&X.speed<0.4&&(held||X.pickaxe&&!e.fistSt&&!e.writing);
+    A.rkIdle=idle?(A.rkIdle||0)+dt:0; const F0=A.fidget;
+    if(A.rkFid){ A.rkFid.k+=dt/1.3; if(A.rkFid.k>=1||!idle){ A.rkFid=null; if(F0&&F0.id==='weapon') A.fidget=null; } else A.fidget={id:'weapon',k:A.rkFid.k}; }
+    else if(A.rkIdle>6&&!(F0&&F0.id!=='weapon')){ A.rkIdle=-2; A.rkFid={id:held?'gun':'pick',k:0}; } }
 }
+// Gait: Walk and Run share one phase A.ph (0..1, Walk's normalized time; Run runs RUN_PH ahead so the feet agree),
+// advanced by the distance travelled over the stride the blended legs actually sweep, so the planted foot keeps up
+// with the ground. Measured from the clips (FK at MODEL_SCALE 1.1): Walk sweeps 1.82 m a cycle, Run 3.23 m.
+// The sprint overlay (animLegPose) swings the thighs further, so a sprint stride is longer. Contacts at A.ph ~0.26 (left) and ~0.75 (right).
+const WALK_D=1.033, RUN_D=0.70, STR_W=1.82, STR_R=3.23, RUN_PH=0.11, STR_SPR=0.0, PH_STEP=[0.26,0.75];
+const _lv1=new V(), _lv2=new V(), _lv3=new V(), _lq1=new T.Quaternion(), _lq2=new T.Quaternion(), _lq3=new T.Quaternion();
+const B_wq=b=>b.getWorldQuaternion(_lq3);
 // [S1] clip blending (the soldier ships with Idle, Walk, Run and T-pose; everything else is layered on top)
 function animClips(e,X){ const {c,A,fwd,speed,aS,dt}=X;
-  const s=X.s=e.onGround?speed:0, back=X.back=fwd<-0.5?-1:1;
+  A.lcBack=fwd<-0.5?-1:fwd>0.2?1:(A.lcBack||1); // backpedalling, with hysteresis (the phase just runs backward: no pop)
+  const s=X.s=e.onGround?speed:0, back=X.back=A.lcBack;
   const wRun=smooth(3.5,6.5,s), wWalk=smooth(0.3,2,s)*(1-wRun), wT=0;
   const wIdle=Math.max(0,1-wRun-wWalk-wT), W=c.w;
   D(W,'Idle',wIdle,aS); D(W,'Walk',wWalk,aS); D(W,'Run',wRun,aS); D(W,'TPose',wT,aS);
   for(const n in c.act) c.act[n].setEffectiveWeight(W[n]);
-  c.act.Walk.setEffectiveTimeScale(back*clamp(s/1.8,0.7,1.6)); c.act.Run.setEffectiveTimeScale(back*clamp(s/(5.5+1.2*A.sprint),0.8,2.15)); // sprinting takes longer strides instead of faster steps
-  X.near=!player||e===player||e.pos.distanceTo(camera.position)<50;
+  // stride for the target blend (the weights lag a little; a full stride keeps the cadence natural while they catch up)
+  const sc=c.g.scale.y*c.model.scale.y/MODEL_SCALE, str=(wWalk*STR_W+wRun*STR_R*(1+STR_SPR*A.sprint))*sc;
+  const rate=str>1e-3?Math.min(lerp(1.6,3.6,wRun),s/str):0; A.lcStr=str;
+  A.ph=(((A.ph==null?(e.walkT||0)%1:A.ph)+back*rate*dt)%1+1)%1; // (seeded from walkT: no extra Math.random)
+  c.act.Walk.setEffectiveTimeScale(0); c.act.Run.setEffectiveTimeScale(0);
+  c.act.Walk.time=A.ph*WALK_D; c.act.Run.time=((A.ph+RUN_PH)%1)*RUN_D;
+  // near: every procedural layer runs. Hysteresis (in under 50 m, out past 56 m) so bots on the edge do not flicker,
+  // and a long blend across the switch
+  const nr=!player||e===player||e.pos.distanceTo(camera.position)<(c.lcNear?56:50);
+  if(c.lcNear!==undefined&&nr!==c.lcNear) poseSnap(c,0.4); c.lcNear=nr; X.near=nr;
   c.mixer.update(dt);
 }
 // [S0] body-relative axes (they follow the swim tilt and the roll onto the ceiling)
@@ -1230,12 +1599,17 @@ function animAxes(X){ const {c,g}=X;
 // [S0] swing a leg: th at the hip, kn at the knee, both about the body's right axis
 function bend(X,sd,th,kn){ rotateBoneWorld(X.B[sd+'UpLeg'],X.rightB,th); rotateBoneWorld(X.B[sd+'Leg'],X.rightB,kn); }
 // [S1] legs: crouch and the squash after a landing lower the body while IK keeps the feet planted (animFeet)
+// Compression crE (1 = full crouch, the hips 0.48 m lower): the crouch, the landing spring A.landS and A.dip (shared:
+// impacts, superhero landings, emotes write it and return it to 0). A.hipOff (shared, metres in the body frame:
+// x right, y up, z forward) shifts the hips with the feet left where they were; A.lcHip is S1's own idle weight shift.
 function animLegs(e,X){ const {c,A,B,near,upB}=X;
-  const cr=X.cr=A.crouch, crE=X.crE=Math.max(cr,e.onGround?A.land*0.75:0);
+  const cr=X.cr=A.crouch, crE=X.crE=Math.max(cr,A.landS||0,A.dip||0), ho=A.hipOff;
+  const hx=(ho?ho.x||0:0)+(A.lcHip||0), hy=ho?ho.y||0:0, hz=ho?ho.z||0:0, shift=Math.abs(hx)+Math.abs(hy)+Math.abs(hz)>2e-4;
   let feet=null;
-  if(near&&crE>0.01){ feet=[B.LeftFoot.getWorldPosition(new V()),B.RightFoot.getWorldPosition(new V())]; if(A.air>0.5){ feet[0].addScaledVector(upB,0.25*A.air); feet[1].addScaledVector(upB,0.4*A.air); } }
+  if(near&&(crE>0.01||shift)){ feet=[B.LeftFoot.getWorldPosition(new V()),B.RightFoot.getWorldPosition(new V())]; if(A.air>0.5){ feet[0].addScaledVector(upB,0.25*A.air); feet[1].addScaledVector(upB,0.4*A.air); } }
   X.feet=feet;
   c.model.position.y=-0.48*crE;
+  if(shift&&near){ const hp=B.Hips, gs=X.g.scale.x; hp.getWorldPosition(_lv1).addScaledVector(X.rightB,hx*gs).addScaledVector(upB,hy*gs).addScaledVector(X.fwdB,hz*gs); hp.position.copy(hp.parent.worldToLocal(_lv1)); } // (the mixer rewrites Hips.position every frame)
 }
 // [S2] zero-g: a lazy bob while drifting, and cartoon squash and stretch: long on the kick, squashed on the tuck
 function animZG(e,X){ const {c,A,B,g,dt,near}=X;
@@ -1327,38 +1701,85 @@ function animZGLegs(e,X){ const {A,B,rightB,upB,fwdB,dt}=X; const tI0=A.zgI||0;
 // [S1] jump and sprint legs (near only; animZGLegs goes first)
 function animLegPose(e,X){ const {A,B,rightB,fwdB,held,pickaxe,cr,dt}=X;
   if(A.air>0.02){
-    // jump: knees tuck on the way up, legs reach down for the landing, arms swing up then out for balance
-    const up=clamp(e.vel.y/10.5,-1,1), tk=smooth(-0.5,0.6,up)*A.air;
-    bend(X,'Left',0.35*A.air+0.95*tk,-(0.35*A.air+1.35*tk)); bend(X,'Right',0.12*A.air+0.5*tk,-(0.55*A.air+0.95*tk));
-    if(!held&&!(pickaxe&&e.swingT>0)){ const lift=tk*1.9+A.air*0.25, out=Math.max(0,A.air-tk)*0.85;
+    // jump: knees tuck on the way up, legs reach down for the landing, arms swing up then out for balance.
+    // "Up" is away from the surface: on the ceiling that is world -y (the jump is vel.y=-10.5)
+    const up=clamp((ZG.state==='ceil'?-1:1)*e.vel.y/10.5,-1,1), tk=smooth(-0.5,0.6,up)*A.air, rch=1-0.55*smooth(-0.3,-0.9,up); // falling fast: legs straighten to reach
+    if(!e.onGround){ bend(X,'Left',(0.35*A.air+0.95*tk)*rch,-(0.35*A.air+1.35*tk)*rch); bend(X,'Right',(0.12*A.air+0.5*tk)*rch,-(0.55*A.air+0.95*tk)*rch); } // touched down: the foot IK has the legs
+    if(!held&&!(pickaxe&&e.swingT>0)){ const lift=tk*1.9+A.air*0.25, out=Math.max(0,A.air-tk)*0.85; // the arms settle as A.air runs out
       rotateBoneWorld(B.LeftArm,rightB,lift); rotateBoneWorld(B.RightArm,rightB,lift); rotateBoneWorld(B.LeftArm,fwdB,out); rotateBoneWorld(B.RightArm,fwdB,-out); }
-  } else if(e.onGround&&A.sprint>0.02){
+  }
+  if(e.onGround&&A.sprint>0.02){
     // sprint: on top of the run clip, a longer stride and a high knee on whichever leg is swinging through
-    const sp=A.sprint*(1-cr), d=B.LeftFoot.getWorldPosition(new V()).sub(B.RightFoot.getWorldPosition(new V())).dot(fwdB), dn=clamp(d/0.5,-1,1);
+    const sp=A.sprint*(1-cr)*(1-A.air), d=B.LeftFoot.getWorldPosition(new V()).sub(B.RightFoot.getWorldPosition(new V())).dot(fwdB), dn=clamp(d/0.5,-1,1);
     const vd=(dn-(A.dn==null?dn:A.dn))/Math.max(dt,1e-3); A.dn=dn; D(A,'swingL',clamp(vd*0.35,-1,1),1-Math.exp(-18*dt));
     const lift=1-Math.abs(dn)*0.6;
     bend(X,'Left',0.32*dn*sp+0.25*sp*Math.max(0,A.swingL),-1.0*sp*Math.max(0,A.swingL)*lift); bend(X,'Right',-0.32*dn*sp+0.25*sp*Math.max(0,-A.swingL),-1.0*sp*Math.max(0,-A.swingL)*lift);
   }
 }
 // [S1] upper body: strafe twist, crouch and sprint lean, aim pitch (the flinch is animHit)
+// ---- [S1] far-bot pose caches (P0-6). Past the near edge no arm IK or zero-g leg layer runs, so far bots would hold
+// a floating gun with Idle-clip arms and float like standing statues. Near bots record their final upper body per
+// held gun (stance or sprint carry, zero-g or ceiling) and their zero-g legs per swim mode; far bots copy them in
+// before the gun mount is placed (~19 quaternion copies and one matrix update, no IK).
+const LC_UP=['Spine','Spine1','Spine2','Neck','Head','LeftShoulder','LeftArm','LeftForeArm','LeftHand','RightShoulder','RightArm','RightForeArm','RightHand'];
+const LC_LEG=['LeftUpLeg','LeftLeg','LeftFoot','RightUpLeg','RightLeg','RightFoot'];
+const HOLD_CACHE:any={}, LEG_CACHE:any={};
+const lcPB=X=>X.sp>0.5?0:clamp(Math.round(X.pE/0.3),-3,3); // aim-pitch bin (the spine and arms follow the pitch)
+const lcHoldKey=(e,X,id?,pb?)=>(id||X.held.id)+(e.zgFloat?'z':'c')+(X.sp>0.5?'s':'a')+(pb==null?lcPB(X):pb);
+const lcLegKey=A=>{ const P=A.zgP||0, Sw=(A.zgS||0)*(1-P); return P>0.5?'P':Sw>0.5?'S':'I'; };
+function lcBonesOf(c,names,k){ return c[k]||(c[k]=names.map(n=>c.bones[n])); }
+function lcCacheStore(e,X){ const {c,A}=X; if(!X.near||e.isPlayer||(c.blT<c.blD)) return;
+  if(X.branch===8&&c.held&&(Math.abs(X.pE-0.3*lcPB(X))<0.12||Math.abs(lcPB(X))===3)&&A.recoil<0.05&&A.draw>0.99&&(A.reload||0)<0.02&&A.hit<0.02&&Math.abs(A.look||0)<0.1&&!((A.hitS||0)>0.02)&&(X.sp<0.05&&A.stance>0.85||X.sp>0.95)){
+    const k=lcHoldKey(e,X); let en=HOLD_CACHE[k]; if(!en) en=HOLD_CACHE[k]={t:-9,q:new Float32Array(LC_UP.length*4)};
+    if(matchTime-en.t>0.5){ en.t=matchTime; lcBonesOf(c,LC_UP,'lcUpB').forEach((b,i)=>b.quaternion.toArray(en.q,i*4));
+      X.g.getWorldQuaternion(_lq1).invert().multiply(B_wq(c.bones.Spine)).toArray(en.q,0); } } // the Spine is kept relative to the root group, not the hips: no twist, no clip sway
+  if(e.zgFloat&&!(e.bounceT>0)){ const P=A.zgP||0, Sw=(A.zgS||0)*(1-P), I=(1-P)*(1-(A.zgS||0)); if(Math.max(P,Sw,I)>0.8){
+    const k=lcLegKey(A), ring=LEG_CACHE[k]||(LEG_CACHE[k]={t:-9,i:0,q:[]}); if(matchTime-ring.t>0.3){ ring.t=matchTime;
+      const q=ring.q[ring.i]||(ring.q[ring.i]=new Float32Array(LC_LEG.length*4)); lcBonesOf(c,LC_LEG,'lcLegB').forEach((b,i)=>b.quaternion.toArray(q,i*4)); ring.i=(ring.i+1)%4; } } }
+}
+function lcCacheApply(e,X){ const {c,A}=X; let any=false;
+  if(X.held){ const en=HOLD_CACHE[lcHoldKey(e,X)]||HOLD_CACHE[lcHoldKey(e,X,null,0)]||HOLD_CACHE[lcHoldKey(e,X,'ar')]||HOLD_CACHE[lcHoldKey(e,X,'ar',0)]; if(en){ any=true; lcBonesOf(c,LC_UP,'lcUpB').forEach((b,i)=>b.quaternion.fromArray(en.q,i*4));
+    const sp=c.bones.Spine; sp.parent.getWorldQuaternion(_lq2).invert().multiply(X.g.getWorldQuaternion(_lq1)).multiply(sp.quaternion); sp.quaternion.copy(_lq2); } }
+  if(e.zgFloat){ const ring=LEG_CACHE[lcLegKey(A)]; if(ring&&ring.q.length){ any=true; const q=ring.q[((e.walkT*7)|0)%ring.q.length]; lcBonesOf(c,LC_LEG,'lcLegB').forEach((b,i)=>b.quaternion.fromArray(q,i*4)); } }
+  if(any) c.model.updateMatrixWorld(true);
+}
 function animTorso(e,X){ const {A,B,near,upB,right,speed,side,fwd,back,aS,cr,held,s,pitch,pE}=X;
-  const twist=speed>1.2?clamp(Math.atan2(side,Math.abs(fwd))*back,-0.85,0.85):0; D(A,'twist',twist,aS);
+  if(!near) lcCacheApply(e,X);
+  // hips turn toward the way you travel (strafe right: hips right), legs keep running "forward" for the clip.
+  // side is along world-yaw right; in the body frame it flips on the ceiling (the body is rolled over)
+  const twist=speed>1.2?-clamp(Math.atan2(side*(e.zgRoll>1.5?-1:1),Math.abs(fwd))*back,-0.85,0.85):0; D(A,'twist',twist,aS);
   if(near){ rotateBoneWorld(B.Hips,upB,A.twist); rotateBoneWorld(B.Spine,upB,-A.twist*0.5); rotateBoneWorld(B.Spine1,upB,-A.twist*0.5); }
-  if(near){ const lean=-0.28*cr-(held?0.06:0)*Math.min(1,s/4)-0.34*A.sprint; rotateBoneWorld(B.Spine,right,lean); if(A.sprint>0.01) rotateBoneWorld(B.Neck,right,0.2*A.sprint); // lean into a sprint, eyes up
+  if(near){ const ls=A.landS||0; // landing: fold forward into the compression (and lift the chest on the rebound), shoulders sag with the weight
+    const lean=-0.28*cr-(held?0.06:0)*Math.min(1,s/4)-0.34*A.sprint-0.3*ls; rotateBoneWorld(B.Spine,right,lean); if(A.sprint>0.01||ls>0.01) rotateBoneWorld(B.Neck,right,0.2*A.sprint+0.18*Math.max(0,ls)); // lean into a sprint, eyes up
+    if(ls>0.01&&B.LeftShoulder){ rotateBoneWorld(B.LeftShoulder,X.fwdB,-0.2*ls); rotateBoneWorld(B.RightShoulder,X.fwdB,0.2*ls); }
     if(held){ for(const n of ['Spine','Spine1','Spine2']) rotateBoneWorld(B[n],right,pE/3); } else rotateBoneWorld(B.Neck,right,pitch*0.5); }
 }
 // [S3] rifle stance: the chest turns a little toward the gun side so the left hand can reach under the barrel, eyes stay on target
-function animCombatTorso(e,X){ const {A,B,near,upB,held,sp,aS}=X; if(!near) return;
+// The kick runs back through the chest (heavier guns more), and aiming down sights drops the cheek onto the stock.
+function animCombatTorso(e,X){ const {A,B,near,upB,held,sp,aS,right,fwdB}=X; if(!near) return;
   D(A,'stance',held?1-sp:0,aS); if(A.stance>0.01){ const st=A.stance*(held&&held.id==='pistol'?0.5:held&&held.id==='mf'?0.1:1);
     rotateBoneWorld(B.Spine1,upB,-0.24*st); rotateBoneWorld(B.Spine2,upB,-0.16*st); rotateBoneWorld(B.Neck,upB,0.4*st); if(B.LeftShoulder) rotateBoneWorld(B.LeftShoulder,upB,-0.25*st); }
+  if(!held) return; const R=RECOIL[held.id]||RECOIL.ar;
+  if(R.sp&&A.rkX) rotateBoneWorld(B.Spine2,right,A.rkX*R.sp/(R.x||1));
+  const fi=A.rkFid&&A.rkFid.id==='gun'?Math.sin(Math.PI*A.rkFid.k):0; if(fi>0.01){ rotateBoneWorld(B.Neck,upB,-0.3*fi); rotateBoneWorld(B.Neck,right,-0.25*fi); }
+  const ad=A.ads||0; if(ad>0.01){ const hand=held.id==='pistol'||held.id==='mf'||held.id==='tsr'; rotateBoneWorld(B.Neck,fwdB,(hand?0.04:0.13)*ad); rotateBoneWorld(B.Neck,right,-0.07*ad); rotateBoneWorld(B.Spine2,upB,(hand?0:-0.06)*ad); }
 }
 // [S1] flinch when hit
 function animHit(e,X){ const {A,B,near,right}=X; if(!near) return;
   if(A.hit>0.01){ rotateBoneWorld(B.Spine1,right,0.32*A.hit); rotateBoneWorld(B.Neck,right,0.25*A.hit); }
 }
-// [S3] the pickaxe swing twists and leans the chest
-function animSwingTorso(e,X){ const {B,near,upB,right,pickaxe}=X; if(!near) return;
-  if(pickaxe&&e.swingT>0){ const P=pickPose(e); rotateBoneWorld(B.Spine1,upB,P.tw); rotateBoneWorld(B.Spine2,upB,P.tw*0.5); rotateBoneWorld(B.Spine1,right,P.ln); }
+// [S3] the swing drives the chest: it twists into the wind-up and through the strike and leans into the hit, and pitches
+// with the aim while fighting. The weapon pose is worked out here once a frame (X.pkP) and reused by pickArms.
+function animSwingTorso(e,X){ const {A,B,near,upB,right,pickaxe}=X; if(!near) return;
+  if(!pickaxe){ if(A.pkCur){ A.pkCur=null; A.pkEnd=false; A.pkAct=0; A.pkLT=0; } if(A.pkDip){ A.dip=0; A.pkDip=0; } return; }
+  pkTick(e,X); const P=X.pkP=pickPose(e); pkCopy(A.pkCur.R,P.vR); pkCopy(A.pkCur.L,P.vL);
+  if(P.tw){ rotateBoneWorld(B.Spine1,upB,P.tw); rotateBoneWorld(B.Spine2,upB,P.tw*0.5); }
+  rotateBoneWorld(B.Spine1,right,P.ln+(X.pitch||0)*0.22*P.act);
+  // the legs give into a heavy hit (A.dip: S1's foot IK keeps the feet planted), and the camera kicks as it lands
+  const dip=P.swing&&P.tr.dip&&P.k>0.42&&P.k<0.9?P.tr.dip*Math.sin((P.k-0.42)/0.48*Math.PI):0;
+  if(dip>0||A.pkDip){ A.dip=dip; A.pkDip=dip; }
+  if(e===player&&P.swing&&P.tr.shake&&(A.pkK||0)<PICK_HIT&&P.k>=PICK_HIT) camShake=Math.max(camShake,P.tr.shake);
+  A.pkK=P.swing?P.k:0;
 }
 // [S0] the hands: exactly one arm layer runs each frame, the first that applies in this order. When the layer, near,
 // the held gun or the pickaxe changes, poseSnap lets S1's blend hide the switch.
@@ -1410,54 +1831,94 @@ function zgArms(e,X,sides){ const A=e.anim, {B,rightB,upB,fwdB}=X; const P=A.zgP
     const pole=sh.clone().addScaledVector(rightB,sx*0.6).addScaledVector(upB,0.05-0.05*P).addScaledVector(fwdB,-0.3-0.15*P);
     solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],t,pole);
     rotateBoneWorld(B[sd+'Hand'],fwdB,sx*(0.3*I*Math.sin(tI*1.6+ph)+0.4*Sw*Math.sin(TAU*u))); } }
-// [S3] a gun in hand: the mount is placed for everyone (far bots too), the arms reach for it only when near
+// [S3] a gun in hand: the mount is placed for everyone (far bots too), the arms reach for it only when near.
+// Aiming down sights raises the gun to the eye (A.ads eases in), each class kicks on its own springs (RECOIL), a new gun
+// is drawn from the low right, the hip or (RPG) over the shoulder with a little overshoot while the left hand arrives a
+// beat later, the pump hand rides the pump, the sniper's right hand works the bolt after a shot, and the MF pair reload
+// with a flourish (each gun stays in its own hand). Relaxed bots let go with the left hand and swim with it.
+const DRAW={rifle:[0.10,-0.35,0.10,-1.0,0.6],hand:[0.12,-0.45,0.05,-1.2,0],rpg:[0.05,0.25,0.35,0.8,0],drone:[0,-0.3,0,-0.6,0]};
+const _ga=new V(), _gb=new V(), _gc=new V(), _gd=new V(), _ge=new V(), _gq=new T.Quaternion();
+
 function gunArms(e,X){ const {c,A,B,g,near,held,a,sp,pE,right,upB,fwdV}=X;
-  const H=HOLD[held.id], S=c.gunMount.scale.x; D(A,'reload',(e.isPlayer?!!e.reloading:e.reloadT>0)?1:0,a);
-  const sh=B.RightArm.getWorldPosition(new V()); g.worldToLocal(sh);
-  const adsK=e.isPlayer&&ads?1:0, cp=Math.cos(pE), sn=Math.sin(pE), dk=Math.pow(1-A.draw,2);
-  // sprinting carries the gun low and canted; switching weapons raises the new one into place
-  const tp=e.isPlayer&&!adsK?1-sp:0; // third person: carry the gun out to the side so the camera can see it
-  const o=new V(H.g[0]-S*H.r[0]-0.08*adsK-0.06*sp+0.16*tp,H.g[1]-S*H.r[1]+0.04*adsK-0.12*sp-0.35*dk+0.03*tp,H.g[2]-S*H.r[2]+A.recoil*0.09+0.06*sp);
+  const id=held.id, H=HOLD[id], S=c.gunMount.scale.x, mf=id==='mf', hand=id==='pistol'||mf||id==='tsr', R=RECOIL[id]||RECOIL.ar;
+  D(A,'reload',(e.isPlayer?!!e.reloading:e.reloadT>0)?1:0,a);
+  const sh=B.RightArm.getWorldPosition(_ga); g.worldToLocal(sh);
+  const adsK=A.ads||0, cp=Math.cos(pE), sn=Math.sin(pE), dr=A.draw>=1?0:1-backOut(clamp(A.draw,0,1));
+  const Dc=id==='rpg'?DRAW.rpg:id==='drone'?DRAW.drone:hand?DRAW.hand:DRAW.rifle;
+  const tp=e.isPlayer?(1-adsK)*(1-sp):0; // third person: carry the gun out to the side so the camera can see it
+  // the MF reload, by fraction k of MF_RELOAD: muzzles tip up and out, the guns come together and tap, each spins once
+  // round the trigger finger, then back up to aim
+  let tip=0, tog=0, spR=0, spL=0;
+  if(mf&&e.isPlayer&&e.reloading){ const k=clamp(e.reloading.t/e.reloading.dur,0,1); tip=smooth(0,0.1,k)*(1-smooth(0.2,0.34,k)); tog=smooth(0.22,0.38,k)*(1-smooth(0.5,0.62,k)); spR=smooth(0.5,0.76,k); spL=smooth(0.54,0.8,k);
+    if(near&&(A.rkK||0)<0.42&&k>=0.42) sfx('clink'); A.rkK=k; } else A.rkK=0;
+  const o=_gb.set(H.g[0]-S*H.r[0]-0.08*adsK-0.06*sp+0.16*tp,H.g[1]-S*H.r[1]+(hand?0.1:0.13)*adsK-0.12*sp+0.03*tp-0.06*tog,H.g[2]-S*H.r[2]+0.03*adsK+(A.rkZ||0)+0.06*sp+0.1*tog);
   const oy=o.y*cp-o.z*sn, oz=o.y*sn+o.z*cp;
-  const dn=(A.dn||0)*A.sprint; c.gunMount.position.set(sh.x+o.x,sh.y+oy+0.035*sp*(Math.abs(A.dn||0)-0.5),sh.z+oz); // the gun bobs and sways with the sprint stride
-  c.gunMount.rotation.set(pE+A.recoil*0.22-0.45*A.reload-0.5*sp-1.0*dk,0.35*sp+0.1*dn,0.6*A.reload+0.45*sp+0.08*dn);
+  const dn=(A.dn||0)*A.sprint; c.gunMount.position.set(sh.x+o.x+Dc[0]*dr,sh.y+oy+0.035*sp*(Math.abs(A.dn||0)-0.5)+Dc[1]*dr,sh.z+oz+Dc[2]*dr); // the gun bobs and sways with the sprint stride
+  const rl=mf?0:A.reload, bz=R.buzz&&A.recoil>0.02?R.buzz*Math.sin(matchTime*88):0, bu=(A.boltT-0.25)/0.6, bolt=id==='sniper'&&bu>0&&bu<1?Math.sin(bu*Math.PI):0;
+  const fi=A.rkFid&&A.rkFid.id==='gun'?Math.sin(Math.PI*A.rkFid.k):0; // inspecting the gun
+  c.gunMount.rotation.set(pE+(A.rkX||0)-0.45*rl-0.5*sp+Dc[3]*dr+bz+0.55*tip+0.15*fi,0.35*sp+0.1*dn+(A.rkY||0)+0.7*bz-0.35*fi,0.6*rl+0.45*sp+0.08*dn+Dc[4]*dr+0.15*bolt+0.75*fi);
+  const U=c.held&&c.held.userData, gR=mf&&U&&U.gR, gL=mf&&U&&U.gL;
+  if(gR&&gL){ const kR=(A.rkSide||0)===0?A.rkM||0:0, kL=(A.rkSide||0)===1?A.rkM||0:0;
+    gR.position.set(H.r[0]-0.1*tog,H.r[1],H.r[2]); gL.position.set(H.l[0]+0.1*tog,H.l[1],H.l[2]);
+    gR.rotation.set(kR-TAU*spR,0,-0.5*tip+0.35*tog); gL.rotation.set(kL-TAU*spL,0,0.5*tip-0.35*tog); }
   if(near&&c.held){ c.gunMount.updateMatrixWorld(true);
-    const rt=c.gunMount.localToWorld(new V(...H.r)), lt=c.gunMount.localToWorld(new V(...H.l));
-    if(A.reload>0.05){ lt.lerp(c.gunMount.localToWorld(new V(0,-0.32,-0.05)),A.reload*(0.5+0.5*Math.sin(matchTime*8))); }
-    const rS=B.RightArm.getWorldPosition(new V()), lS=B.LeftArm.getWorldPosition(new V());
+    const natL=B.LeftHand.getWorldPosition(_gc);
+    let rt, lt;
+    if(gR&&gL){ rt=gR.localToWorld(_ga.set(0,0,0)); lt=gL.localToWorld(_gb.set(0,0,0)); }
+    else { rt=c.gunMount.localToWorld(_ga.set(H.r[0],H.r[1],H.r[2]));
+      const pk=U.pump&&A.pumpT>0&&A.pumpT<0.45?Math.sin(clamp(A.pumpT/0.45,0,1)*Math.PI)*0.14:0; // the left hand rides the pump
+      lt=c.gunMount.localToWorld(_gb.set(H.l[0],H.l[1],H.l[2]+pk));
+      if(bolt>0){ const lift=0.04*smooth(0.1,0.3,bu)*(1-smooth(0.7,0.9,bu)), pull=0.08*smooth(0.3,0.5,bu)*(1-smooth(0.55,0.75,bu)); // work the bolt
+        rt.lerp(c.gunMount.localToWorld(_gd.set(0.05,0.03+lift,0.12+pull)),smooth(0,0.2,bu)*(1-smooth(0.8,1,bu))); }
+      if(A.reload>0.05) lt.lerp(c.gunMount.localToWorld(_gd.set(0,-0.32,-0.05)),A.reload*(0.5+0.5*Math.sin(matchTime*8))); }
+    if(A.draw<1) lt.lerp(natL,1-smooth(0.35,0.85,A.draw)); // the left hand comes onto a new gun a beat after it is up
+    const rS=B.RightArm.getWorldPosition(_gd), lS=B.LeftArm.getWorldPosition(_ge);
     solveIK(B.RightArm,B.RightForeArm,B.RightHand,rt,rS.clone().addScaledVector(right,0.3).addScaledVector(upB,-0.8).addScaledVector(fwdV,-0.1));
-    solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,lt,lS.clone().addScaledVector(right,-0.5).addScaledVector(upB,-0.7));
-    // right hand wrapped round the grip, left hand palm up under the barrel
-    const gq=c.gunMount.getWorldQuaternion(new T.Quaternion()), dir=a=>new V(...a).applyQuaternion(gq);
-    poseHand(B,'Right',dir([-0.1,-0.1,-0.99]),dir([-1,0,0.1]),0.75);
-    if(A.reload<0.5) poseHand(B,'Left',dir(H.lf||[0.45,0.1,-0.9]),dir(H.ln||[0,1,0]),0.55);
+    const calm=!e.isPlayer&&e.zgFloat?smooth(1,1.5,A.rkCalm||0):0;
+    if(calm>0){ zgArms(e,X,['Left']); if(calm<1) lt.lerp(B.LeftHand.getWorldPosition(_gc),calm); else lt=null; }
+    if(lt) solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,lt,lS.addScaledVector(right,-0.5).addScaledVector(upB,-0.7));
+    // right hand wrapped round the grip, left hand palm up under the barrel (or round its own pistol)
+    (gR||c.gunMount).getWorldQuaternion(_gq); poseHand(B,'Right',_gd.set(-0.1,-0.1,-0.99).applyQuaternion(_gq),_ge.set(-1,0,0.1).applyQuaternion(_gq),0.75);
+    if(lt&&(gL||A.reload<0.5)){ if(gL) gL.getWorldQuaternion(_gq); else c.gunMount.getWorldQuaternion(_gq); const lf=H.lf||[0.45,0.1,-0.9], ln=H.ln||[0,1,0];
+      poseHand(B,'Left',_gd.set(lf[0],lf[1],lf[2]).applyQuaternion(_gq),_ge.set(ln[0],ln[1],ln[2]).applyQuaternion(_gq),0.55); }
   }
 }
-// [S3] the pickaxe: resting on the right shoulder, or swung with both hands (dual blades: one in each hand)
-function pickArms(e,X){ const {c,A,B,g,busy,cr,dt,rightB,upB,fwdB,right}=X;
-  const P=pickPose(e), sh=B.RightArm.getWorldPosition(new V());
-  const tgt=g.localToWorld(g.worldToLocal(sh.clone()).add(P.h));
+// [S3] the pickaxe: resting on the shoulder (each weapon form its own way), or swung (dual blades: one in each hand)
+function pickArms(e,X){ const {c,A,B,g,cr,dt,rightB,upB,fwdB}=X;
+  const P=X.pkP||pickPose(e), busy=X.busy||(A.pkAct||0)>0.05;
   // sprinting: the left arm pumps while the pickaxe stays on the shoulder, riding up and down a little with the stride
-  const pump=e.onGround&&!busy&&!c.pickL?A.sprint*(1-cr):0, dn=A.dn||0;
-  if(pump>0.01){ rotateBoneWorld(B.LeftArm,rightB,-0.8*dn*pump); rotateBoneWorld(B.LeftForeArm,rightB,0.55*pump); tgt.addScaledVector(upB,0.025*Math.abs(dn)*pump); }
-  if(!busy){ tgt.addScaledVector(upB,0.008*Math.sin(matchTime*1.7+(e.walkT||0))); } // breathing: the shoulder rises and falls a touch
-  const natL=B.LeftHand.getWorldPosition(new V());
-  solveIK(B.RightArm,B.RightForeArm,B.RightHand,tgt,sh.clone().addScaledVector(right,0.5).addScaledVector(upB,-0.55).addScaledVector(fwdB,-0.1));
-  c.pick.quaternion.copy(P.q);
-  // at rest the right fist closes round the handle (knuckles out) and the handle runs through the palm
-  D(A,'pk2',e.swingT>0||e.guardK>0.3?1:0,1-Math.exp(-20*dt)); const rest=1-A.pk2;
-  const hw=B.RightHand.getWorldPosition(new V());
-  if(rest>0.01){ g.updateMatrixWorld(true); const hd=new V(0,1,0).applyQuaternion(c.pick.getWorldQuaternion(new T.Quaternion()));
-    const pn=rightB.clone().negate(); pn.addScaledVector(hd,-pn.dot(hd)).normalize(); const pf=new V().crossVectors(hd.clone().negate(),pn);
-    poseHand(B,'Right',pf,pn,0.8*rest); hw.addScaledVector(pf,0.07*rest).addScaledVector(pn,0.03*rest); }
-  g.worldToLocal(hw); c.pick.position.copy(hw);
-  // swinging, the left hand joins just above the right; at rest it hangs free
-  const w2=A.pk2*(1-pump);
-  if(c.pickL) dualLeft(c,B,g,P,rightB,upB,fwdB,rest);
-  else if(w2>0.01){ c.pick.updateMatrixWorld(true); const lS=B.LeftArm.getWorldPosition(new V());
-    solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,natL.clone().lerp(c.pick.localToWorld(new V(0,0.15,0)),w2),lS.clone().addScaledVector(right,-0.6).addScaledVector(upB,-0.5)); }
-  else if(e.zgFloat) zgArms(e,X,['Left']);
+  const pump=e.onGround&&!busy&&!c.pickL&&P.two<0.05?A.sprint*(1-cr):0, dn=A.dn||0;
+  if(pump>0.01){ rotateBoneWorld(B.LeftArm,rightB,-0.8*dn*pump); rotateBoneWorld(B.LeftForeArm,rightB,0.55*pump); P.h.y+=0.025*Math.abs(dn)*pump; }
+  if(!busy) P.h.y+=0.008*Math.sin(matchTime*1.7+(e.walkT||0)); // breathing: the shoulder rises and falls a touch
+  const lw=pickHold(c,e,P,rightB,upB,fwdB,1-(A.pkAct||0));
+  if(lw<0.01&&e.zgFloat) zgArms(e,X,['Left']);
+  if(e===player) pkTrails(e,c,P,dt);
 }
+// [S3] the swing trail (player only): a ribbon behind the weapon's head, only while it moves fast (P2-8)
+const TRAIL_N=9, _tr1=new V(), _tr2=new V();
+function pkTrail(c,obj,P,dt,i){
+  let T0=c.pkTr&&c.pkTr[i];
+  if(!T0){ const geo=new T.BufferGeometry(), pos=new Float32Array(TRAIL_N*6), col=new Float32Array(TRAIL_N*8), idx=[];
+    for(let j=0;j<TRAIL_N-1;j++){ const a=j*2; idx.push(a,a+1,a+2,a+1,a+3,a+2); }
+    geo.setAttribute('position',new T.BufferAttribute(pos,3)); geo.setAttribute('color',new T.BufferAttribute(col,4)); geo.setIndex(idx);
+    const m=new T.Mesh(geo,new T.MeshBasicMaterial({vertexColors:true,transparent:true,depthWrite:false,side:T.DoubleSide,fog:false})); m.frustumCulled=false; m.visible=false; world.add(m);
+    T0={m,pos,col,n:0,age:new Float32Array(TRAIL_N),tip:[],base:[]}; for(let j=0;j<TRAIL_N;j++){ T0.tip.push(new V()); T0.base.push(new V()); }
+    (c.pkTr=c.pkTr||[])[i]=T0; T0.fr=0; T0.efr=0;
+    effects.push({t:0,dur:1e9,obj:m,upd:()=>{ if(T0.fr===T0.efr) m.visible=false; T0.efr=T0.fr; }}); } // hidden as soon as nothing draws it (weapon away, dead)
+  T0.fr++;
+  const on=obj.visible&&P.swing&&P.k>0.2&&P.k<0.85;
+  for(let j=0;j<TRAIL_N;j++) T0.age[j]+=dt;
+  if(on){ obj.updateMatrixWorld(true); const tip=obj.localToWorld(_tr1.set(0,c.pkTipY,0)), base=obj.localToWorld(_tr2.set(0,c.pkBaseY,0));
+    const sp=T0.n?tip.distanceTo(T0.tip[0])/Math.max(dt,1e-3):0;
+    for(let j=TRAIL_N-1;j>0;j--){ T0.tip[j].copy(T0.tip[j-1]); T0.base[j].copy(T0.base[j-1]); T0.age[j]=T0.age[j-1]; }
+    T0.tip[0].copy(tip); T0.base[0].copy(base); T0.age[0]=sp>3.5?0:0.2; T0.n=Math.min(TRAIL_N,T0.n+1); }
+  else if(!P.swing) T0.n=0;
+  let any=false; const col=c.pkTrCol||[1,1,1];
+  for(let j=0;j<TRAIL_N;j++){ const live=j<T0.n, a=live?clamp(1-T0.age[j]/0.13,0,1)*(1-j/TRAIL_N)*0.55:0, t=T0.tip[j], b=T0.base[j];
+    T0.pos.set([t.x,t.y,t.z,b.x,b.y,b.z],j*6); T0.col.set([col[0],col[1],col[2],a,col[0],col[1],col[2],0],j*8); if(a>0.01) any=true; }
+  T0.m.visible=any; if(any){ T0.m.geometry.attributes.position.needsUpdate=true; T0.m.geometry.attributes.color.needsUpdate=true; }
+}
+function pkTrails(e,c,P,dt){ if(!world||!c.pkTipY) return; pkTrail(c,c.pick,P,dt,0); if(c.pickL) pkTrail(c,c.pickL,P,dt,1); }
 // [S0] any layer can pull a hand toward a world target on top of the arm layer: X.armOv.Left={t,pole,w} re-solves the
 // left arm toward lerp(hand,t,w), w 0..1 (pole: optional world elbow hint). Nothing to do on most frames.
 const _ao1=new V(), _ao2=new V(), _ao3=new V(), ARM_SIDES=['Left','Right'];
@@ -1473,7 +1934,9 @@ function animProps(e,X){ const {c,A}=X;
   if(c.held&&c.held.userData.pump){ const k=clamp(A.pumpT/0.45,0,1); c.held.userData.pump.position.z=-0.38+(A.pumpT>0&&A.pumpT<0.45?Math.sin(k*Math.PI)*0.14:0); }
 }
 // [S1] after every layer: blend out a layer switch (poseSnap), then remember the final pose
-function animPost(e,X){ poseBlend(X.c,X.dt); poseStore(X.c); }
+function animPost(e,X){ const c=X.c;
+  c.lcGunIK=X.near&&X.branch===8&&!!c.held; c.lcBook=X.branch===6?e.dnBook:null; // what the hands are holding (props ride the blend)
+  poseBlend(c,X.dt); poseStore(c); lcCacheStore(e,X); }
 // [S0] hitboxes follow the skeleton
 function animHitboxes(e,X){ const {c,B,g}=X;
   const hd=B.Head.getWorldPosition(new V()); g.worldToLocal(hd); c.hb.head.position.set(hd.x,hd.y+0.1,hd.z);
@@ -1579,18 +2042,18 @@ function emotePose(e,X){ const em=e.emote, E=em&&em.E; if(!E) return;
     _eS.set(0,c.spin.scale.y,0).applyQuaternion(c.spin.quaternion); c.spin.position.set(0,1,0).sub(_eS); X.g.updateMatrixWorld(true);
     c.model.getWorldQuaternion(_qm); r.set(1,0,0).applyQuaternion(_qm); fw.set(0,0,-1).applyQuaternion(_qm); up.set(0,1,0).applyQuaternion(_qm); }
   else if(c.emSpin){ c.spin.quaternion.identity(); c.emSpin=false; }
-  const S=emScale(B);
+  const S=emScale(B), mv=smooth(0.6,2.5,e.zgFloat?e.vel.length():Math.hypot(e.vel.x,e.vel.z)), Wl=W*(1-mv);
   // hips: slide and turn the pelvis, then the spine and head take the net pose (each bone adds a share of what is left to do)
   const hp=emCh(E.hips,uq,loop,_eH,5), ch=emCh(E.chest,uq,loop,_eK,3), hd=emCh(E.head,uq,loop,_eG,3);
-  c.model.position.x=hp[0]*W; c.model.position.y+=hp[1]*W; c.model.updateMatrixWorld(true);
-  const hy=hp[2]*W, hr=hp[3]*W, hpi=hp[4]*W;
+  c.model.position.x=hp[0]*Wl; c.model.position.y+=hp[1]*Wl; c.model.updateMatrixWorld(true);
+  const hy=hp[2]*Wl, hr=hp[3]*Wl, hpi=hp[4]*Wl;
   rotateBoneWorld(B.Hips,up,hy); rotateBoneWorld(B.Hips,fw,hr); rotateBoneWorld(B.Hips,r,hpi);
   const cp=ch[0]*W, cr=ch[1]*W, cy=ch[2]*W;
   for(const n of ['Spine','Spine1','Spine2']){ rotateBoneWorld(B[n],r,(cp-hpi)/3); rotateBoneWorld(B[n],fw,(cr-hr)/3); rotateBoneWorld(B[n],up,(cy-hy)/3); }
   rotateBoneWorld(B.Neck,r,(hd[0]*W-cp)*0.6-(X.pitch||0)*0.5*W); rotateBoneWorld(B.Head,r,(hd[0]*W-cp)*0.4);
   rotateBoneWorld(B.Neck,fw,(hd[1]*W-cr)*0.6); rotateBoneWorld(B.Head,fw,(hd[1]*W-cr)*0.4);
   rotateBoneWorld(B.Neck,up,(hd[2]*W-cy)*0.6); rotateBoneWorld(B.Head,up,(hd[2]*W-cy)*0.4);
-  if(ground) emPlant(B,_eFw.copy(fw).applyAxisAngle(up,hy),up,-hy);
+  if(ground&&mv<0.99) emPlant(B,_eFw.copy(fw).applyAxisAngle(up,hy),up,-hy);
   // the somersault: tuck, roll, open out into a star
   let tk=0, star=0;
   if(E.flip){ tk=smooth(0,0.2,u)*(1-smooth(0.76,0.88,u)); star=smooth(0.8,0.9,u)*(1-smooth(0.95,1,u));
@@ -1619,7 +2082,7 @@ function emotePose(e,X){ const em=e.emote, E=em&&em.E; if(!E) return;
 function emoteOk(e,E){
   if(!e.alive||lockedUp(e)||e.bounceT>0) return false;
   if(E.zg&&(!e.zgFloat||ZG.state==='ceil')) return false;
-  if(e.zgFloat){ if(e.zgPropel||Math.hypot(e.vel.x,e.vel.y,e.vel.z)>4) return false; } else if(!e.onGround) return false;
+  if(!e.isPlayer){ if(e.zgFloat){ if(e.zgPropel||Math.hypot(e.vel.x,e.vel.y,e.vel.z)>4) return false; } else if(!e.onGround) return false; } // you can dance on the move
   if(e.isPlayer&&(ads||e.consuming||e.throwA||e.reloading||e.swingT>0||mouse.l||mouse.r||e.writing)) return false;
   return true; }
 // begin an emote on anyone (no checks): the hero on the home screen uses this directly
@@ -1639,16 +2102,17 @@ function playerEmote(key){ const p=player; if(!p||!p.alive||state!=='play'||shop
 // anything that needs the camera aimed (a shot, a swing, the ball) ends the emote this instant and snaps the camera back behind you
 function emStopNow(p){ if(!p||!p.emote||p.emote.out) return; stopEmote(p,true); EM.camK=0; EM.camKV=0; updateCamera(0); }
 function emCancel(e,em,dt){
-  if(e.isPlayer){ if(keys.KeyW||keys.KeyA||keys.KeyS||keys.KeyD||keys.Space||keys.KeyC||keys.ControlLeft||keys.ShiftLeft||keys.ShiftRight||mouse.l||mouse.r) return true;
-    if(e.sel!==em.sel||e.consuming||e.throwA||e.reloading||e.swingT>0||Math.hypot(e.vel.x,e.vel.y,e.vel.z)>6) return true; }
+  if(e.isPlayer){ if(mouse.l||mouse.r) return true; // moving, jumping and boosting keep the dance going (the upper body dances while the legs move)
+    if(e.sel!==em.sel||e.consuming||e.throwA||e.reloading||e.swingT>0) return true; }
   else { if(e.fireCd>em.fc+0.01||e.knockT>0) return true; em.fc=e.fireCd; e.vel.multiplyScalar(Math.exp(-5*dt)); e.zgTx=0; /* upright, not in the swim tilt */ }
   if(e.hp+e.shield<em.hp-0.01||e.bounceT>0||lockedUp(e)) return true;
-  if((ZG.state==='ceil')!==em.ceil||!!e.onGround!==em.ground) return true;
+  if((ZG.state==='ceil')!==em.ceil||!e.isPlayer&&!!e.onGround!==em.ground) return true;
   return false; }
 // advance one emote: fade in, fade out when it ends or is cancelled (free: nothing cancels it). false once it is gone
 function emTick(e,dt,free?){ const em=e.emote; if(!em) return false; em.t+=dt;
   if(em.out){ em.w-=dt/0.2; em.yaw+=wrapPi(e.yaw-em.yaw)*(1-Math.exp(-18*dt)); if(em.w<=0){ emEnd(e); return false; } return true; }
   em.w=Math.min(1,em.w+dt/0.22);
+  if(e.isPlayer) em.yaw+=wrapPi(e.yaw-em.yaw)*(1-Math.exp(-14*dt));
   if((!free&&emCancel(e,em,dt))||(!em.E.loop&&em.t>=em.E.dur)||(em.max&&em.t>=em.max)) em.out=true;
   return true; }
 function updateEmote(dt){
@@ -1728,8 +2192,15 @@ function setHeld(e,it){
 }
 function muzzlePos(e,out){ const c=e.ch; if(c.held) return (c.held.userData.muzzles?c.held.userData.muzzles[e.anim.mfSide||0]:c.held.userData.muzzle).getWorldPosition(out); return out.set(e.pos.x,e.pos.y+1.5,e.pos.z); }
 const KICK={ar:0.55,smg:0.35,pump:1,pistol:0.6,sniper:1,rpg:1.3,mf:0.3,frz:0.1,tsr:0.8,flm:0.06,pb:0.12,drone:0.15};
+// [S3] how each gun class kicks: z back (m), x muzzle climb (rad), y random yaw, sp share of the climb taken by the
+// chest, f/d spring frequency (Hz) and damping; buzz: a steady shake while it streams (flamethrower, freeze ray)
+const RECOIL={ar:{z:.05,x:.10,y:.03,sp:.04,f:9,d:.45},smg:{z:.03,x:.06,y:.04,sp:.02,f:12,d:.5},pump:{z:.13,x:.32,y:.04,sp:.14,f:5,d:.4},
+  pistol:{z:.04,x:.38,y:.02,sp:.03,f:8,d:.45},sniper:{z:.15,x:.36,y:.03,sp:.16,f:4.5,d:.45},rpg:{z:.2,x:.22,y:.02,sp:.22,f:3.5,d:.5},
+  mf:{z:.04,x:.28,y:.02,sp:.02,f:9,d:.45},tsr:{z:.06,x:.22,sp:.03,f:7,d:.5},pb:{z:.02,x:.04,y:.03,f:12,d:.6},frz:{buzz:.006,f:12,d:.6},flm:{buzz:.01,f:12,d:.6},drone:{z:.01,f:9,d:.6}};
 function fireFx(e,w,id){
-  const A=e.anim; A.recoil=Math.min(1.2,A.recoil+KICK[id]); A.flash=0.05; e.ch.flash.scale.setScalar(rnd(0.6,1.1)*(id==='pump'||id==='sniper'?1.5:1)); e.ch.flash.material.rotation=Math.random()*6;
+  const A=e.anim; A.recoil=Math.min(1.2,A.recoil+KICK[id]);
+  { const R=RECOIL[id]||RECOIL.ar, v=TAU*R.f*1.3; if(id==='mf'){ A.rkMV=(A.rkMV||0)+(R.x||0)*v; A.rkSide=A.mfSide||0; } else A.rkXV=(A.rkXV||0)+(R.x||0)*v;
+    A.rkZV=(A.rkZV||0)+(R.z||0)*v; A.rkYV=(A.rkYV||0)+(Math.random()*2-1)*(R.y||0)*v; if(id==='sniper') A.boltT=0; } A.flash=0.05; e.ch.flash.scale.setScalar(rnd(0.6,1.1)*(id==='pump'||id==='sniper'?1.5:1)); e.ch.flash.material.rotation=Math.random()*6;
   if(id==='pump') A.pumpT=-0.15;
   if(id==='rpg'){ rpgBackblast(e); return; }
   if(WEAP[id].sp){ A.flash=0; return; } // the special guns make their own light: no muzzle flash, no brass
@@ -1779,10 +2250,12 @@ function boxRay(o,d,far){
   if(d.x>0) t=Math.min(t,(L-o.x)/d.x); else if(d.x<0) t=Math.min(t,(-L-o.x)/d.x);
   if(d.z>0) t=Math.min(t,(L-o.z)/d.z); else if(d.z<0) t=Math.min(t,(-L-o.z)/d.z);
   if(d.y>0) t=Math.min(t,(ZG.H-o.y)/d.y); else if(d.y<0) t=Math.min(t,-o.y/d.y);
+  if(MODE==='br'&&BR.h) t=Math.min(t,brRayT(o,d,t)); // the island's hills stop bullets
   return Math.max(0,t);
 }
 function hasLOS(a,b){
   tv3.subVectors(b,a); const dist=tv3.length(); if(dist<0.01) return true; tv3.divideScalar(dist); ray.set(a,tv3); ray.near=0.5; ray.far=dist-0.5;
+  if(MODE==='br'&&BR.h&&brRayT(a,tv3,dist)<dist-0.5) return false;
   return ray.intersectObjects(meshesAlong(a,tv3,dist,false),false).length===0;
 }
 
@@ -1846,7 +2319,7 @@ function playerFire(){
   if(!it){
     if(animeSt){ animeTap(p); return; }
     if(POW){ pwSwing(p); return; }
-    if(p.fireCd>0) return; p.fireCd=0.42; p.swingSide=p.swingT>0||p.comboT>0?1-(p.swingSide||0):0; p.swingT=SWING_T; p.comboT=SWING_T+0.3; p.hitT=SWING_T*PICK_HIT; sfx('swing');
+    if(p.fireCd>0) return; p.fireCd=0.42; startSwing(p,SWING_T,null,{hit:1,combo:SWING_T+0.3}); sfx('swing');
     return;
   }
   if(it.kind==='cons') return startConsume(it);
@@ -1997,7 +2470,7 @@ function hudTick(){
   $('hpNum').textContent=Math.max(0,Math.ceil(p.hp)); $('hpFill').style.width=clamp(p.hp,0,100)+'%';
   $('shNum').textContent=Math.ceil(p.shield); $('shFill').style.width=clamp(p.shield,0,100)+'%';
   $('aliveN').textContent=aliveCount; $('killN').textContent=p.kills;
-  const st=$('gravTxt'); st.textContent=ZG.state==='warn'?'Gravity flip!':ZG.state==='ceil'?'Ceiling · '+Math.ceil(ZG.t)+'s':'Zero-G'; st.className=ZG.state==='warn'?'flip':ZG.state==='ceil'?'ceil':'';
+  if(MODE==='br') brHud(); else { const st=$('gravTxt'); st.textContent=ZG.state==='warn'?'Gravity flip!':ZG.state==='ceil'?'Ceiling · '+Math.ceil(ZG.t)+'s':'Zero-G'; st.className=ZG.state==='warn'?'flip':ZG.state==='ceil'?'ceil':''; }
   const it=curItem();
   $('bankN').textContent=p.bank;
   if(slotEls[0]) slotEls[0].children[3].textContent=POW&&p.pwCd>0?Math.ceil(p.pwCd)+'s':''; // the pickaxe's hold move recharging
@@ -2033,13 +2506,17 @@ function hudFrame(dt){
 const mapC=$('map'), mctx=mapC.getContext('2d'), MAPS=180; let mapBase=null;
 function renderMapBase(){
   mapBase=document.createElement('canvas'); mapBase.width=mapBase.height=MAPS; const g=mapBase.getContext('2d');
+  if(MODE==='br'){ brMapBase(g,MAPS); return; }
   g.fillStyle='#eef0f3'; g.fillRect(0,0,MAPS,MAPS); g.strokeStyle='#c4c8ce'; g.lineWidth=1;
   for(let i=0;i<=8;i++){ g.beginPath(); g.moveTo(i*MAPS/8,0); g.lineTo(i*MAPS/8,MAPS); g.moveTo(0,i*MAPS/8); g.lineTo(MAPS,i*MAPS/8); g.stroke(); }
   const k=MAPS/(2*ZG.L);
   for(const b of [...ZG.blocks].sort((a,c)=>a.y-c.y)){ const l=Math.round(235-b.y/ZG.H*90); g.fillStyle=`rgb(${l-12},${l-8},${l})`; g.fillRect((b.x-b.sx/2+ZG.L)*k,(b.z-b.sz/2+ZG.L)*k,b.sx*k,b.sz*k); g.strokeStyle='rgba(90,96,106,.6)'; g.strokeRect((b.x-b.sx/2+ZG.L)*k,(b.z-b.sz/2+ZG.L)*k,b.sx*k,b.sz*k); }
 }
 function drawMap(){
-  const g=mctx, k=MAPS/(2*ZG.L), p=player; g.drawImage(mapBase,0,0);
+  const p=player;
+  if(MODE==='br'){ const g=mctx, k=MAPS/BR.W; g.drawImage(mapBase,0,0); brMapDraw(g,MAPS); g.save(); g.translate((p.pos.x+BR.W/2)*k,(p.pos.z+BR.W/2)*k); g.rotate(Math.atan2(-Math.cos(p.yaw),-Math.sin(p.yaw)));
+    g.beginPath(); g.moveTo(7,0); g.lineTo(-5,4.5); g.lineTo(-2.5,0); g.lineTo(-5,-4.5); g.closePath(); g.fillStyle='#ffd23f'; g.strokeStyle='#1b2440'; g.lineWidth=1.5; g.fill(); g.stroke(); g.restore(); return; }
+  const g=mctx, k=MAPS/(2*ZG.L); g.drawImage(mapBase,0,0);
   g.fillStyle='#ff3347'; for(const f of ZG.flyers||[]) g.fillRect((f.pos.x-f.h.x+ZG.L)*k,(f.pos.z-f.h.z+ZG.L)*k,Math.max(3,f.h.x*2*k),Math.max(3,f.h.z*2*k));
   g.fillStyle='#ffd23f'; g.strokeStyle='#1b2440'; g.lineWidth=1; for(const v of ZG.vend||[]){ g.fillRect((v.pos.x+ZG.L)*k-3.5,(v.pos.z+ZG.L)*k-3.5,7,7); g.strokeRect((v.pos.x+ZG.L)*k-3.5,(v.pos.z+ZG.L)*k-3.5,7,7); }
   g.fillStyle='#5cf0ff'; for(const pd of ZG.pads||[]){ g.beginPath(); g.arc((pd.pos.x+ZG.L)*k,(pd.pos.z+ZG.L)*k,2.2,0,TAU); g.fill(); }
@@ -2064,12 +2541,12 @@ function updateCamera(dt){
   if(camOverride){ if(camera.view&&camera.view.enabled) camera.clearViewOffset(); camera.position.copy(camOverride.pos); camera.lookAt(camOverride.look); return; }
   camera.up.set(0,1,0);
   // home screen: a slow orbit round the inside of the box
+  if((state==='menu'||!player)&&MODE==='br'){ const t=performance.now()/1000*0.03; camera.position.set(Math.cos(t)*230,95,Math.sin(t)*230); camera.lookAt(0,10,0); camera.fov=60; CAM.have=CAM.lagOn=CAM.dead=false; camShift(0,0); return; }
   if(state==='menu'||!player){ const t=performance.now()/1000*0.04; camera.position.set(Math.cos(t)*60,ZG.H*0.55,Math.sin(t)*60); camera.lookAt(0,ZG.H*0.4,0); camera.fov=60; CAM.have=CAM.lagOn=CAM.dead=false; camShift(0,0); return; }
   const p=player, A=p.anim;
   if(!p.alive){ camDead(p,dt); return; }
   CAM.dead=false;
-  // emoting: the camera swings round in front of you (the mouse still orbits it) and eases back when the emote ends
-  spring(EM,'camK',p.emote&&!p.emote.out?1:0,1.8,1,dt); const ek=clamp(EM.camK,0,1);
+  const ek=0; // emoting keeps the usual camera behind you
   const cyaw=p.yaw+Math.PI*ek, cp=Math.cos(p.pitch); camFwd.set(-Math.sin(cyaw)*cp,Math.sin(p.pitch),-Math.cos(cyaw)*cp); camRight.set(Math.cos(cyaw),0,-Math.sin(cyaw));
   const pivot=tv1.set(p.pos.x,p.pos.y+1.7-0.5*A.crouch,p.pos.z);
   const gun=!!curItem()&&curItem().kind==='gun', dist=lerp(p.bounceT>0?7.5:ads?2.0:gun?3.4:4.6,3.6,ek), side=(ads?0.8:gun?1.1:0.85)*(1-ek); pivot.y+=lerp(ads?0.05:gun?0.3:0.45,-0.45,ek);
@@ -2487,12 +2964,21 @@ function applyPickSkin(e){
   if(e===player){ animeSt=eq.anime||null; e.punches=[]; pwEquip(eq); } e.fistSt=['rubber','saitama','goku','titan'].includes(eq.anime); if(e===player){ endTitan(e,true); kiStop(e); stopWriting(e); e.guard=false; e.guardK=0; }
   dressPick(e.ch,eq);
 }
-// put a pickaxe's model in a character's hand (and the second blade of a dual pair in the other)
+// put a pickaxe's model in a character's hand (and the second blade of a dual pair in the other) [S3]. c.swing is the
+// form's swing class; the model sits in the fist at the class's grip (swords at the hilt under the guard, spears part way
+// up the shaft) instead of by the butt. c.form: the weapon form (null for a plain pickaxe).
 function dressPick(c,eq){
   for(const o of [...c.pick.children]){ c.pick.remove(o); if(o.userData.skin) disposeObj(o); }
-  const w=new T.Group(); w.userData.skin=true; w.add(makePickaxe3D(eq,true)); c.pick.add(w);
+  const S=c.swing=SWINGS[SWING_OF[eq.anime||eq.shape]]||SWINGS.pick, F=c.form=PX.formOf(eq);
+  const L=PX.pickLen(eq), Lm=Math.max(0.1,(L-16)*0.0054), G=S.grip||{}, H2=S.hand2;
+  const grip=eq.anime?(G.m||0):G.guard&&F&&F.guard?Math.max(0,(L-14-10*PX.headScale(eq))*0.0054-0.055):G.k!=null?G.k*Lm:G.m||0;
+  const hold=()=>{ const w=new T.Group(), m=makePickaxe3D(eq,true); w.userData.skin=true; w.add(m); w.position.y=-grip; return [w,m]; };
+  const [w,m]=hold(); c.pick.add(w);
+  c.pkGrip=grip; c.pkHand2=H2?(H2.k!=null?H2.k*Lm:H2.m):null;
+  m.updateMatrixWorld(true); const bb=new T.Box3().setFromObject(m); c.pkTipY=isFinite(bb.max.y)&&bb.max.y>0.05?bb.max.y-grip:0; c.pkBaseY=c.pkTipY*0.55; // the swing trail runs along the head
+  const tc=new T.Color(eq.h1||'#ffffff').lerp(new T.Color(0xffffff),0.35); c.pkTrCol=[tc.r,tc.g,tc.b];
   if(c.pickL){ c.g.remove(c.pickL); disposeObj(c.pickL); c.pickL=null; }
-  const F=c.form=PX.formOf(eq); if(F&&F.dual){ c.pickL=new T.Group(); const w2=new T.Group(); w2.userData.skin=true; w2.add(makePickaxe3D(eq,true)); c.pickL.add(w2); c.pickL.visible=false; c.g.add(c.pickL); } // c.form: the weapon form (null for a plain pickaxe) for the swing classes [S3]
+  if(F&&F.dual){ c.pickL=new T.Group(); c.pickL.add(hold()[0]); c.pickL.visible=false; c.g.add(c.pickL); }
 }
 function equipCurrent(){
   setRandom(false);
@@ -2984,7 +3470,9 @@ function throwPose(e,c,rightB,fwdB,upB){
   const R=[[0,natR],[0.12,rel(grab,0,-0.04,0.06)],[0.24,grab],[0.34,rel(gp,0,0.0,0.2)],[0.47,rel(chest,0.06,-0.04,0)],[0.58,rel(rS,0.14,0.3,-0.3)],[THROW_REL,rel(rS,0.02,0.32,0.3)],[0.74,rel(rS,-0.12,0.05,0.55)],[0.86,rel(rS,-0.3,-0.25,0.35)],[1,natR]];
   const L=[[0,natL],[0.3,natL],[0.44,rel(chest,-0.02,-0.02,0.02)],[0.53,rel(chest,-0.28,-0.04,-0.02)],[0.64,rel(lS,-0.08,0.12,0.5)],[0.8,rel(lS,-0.1,0.0,0.45)],[1,natL]];
   const elbowUp=bell(0.45,0.75), poleR=rS.clone().addScaledVector(rightB,0.5).addScaledVector(upB,-0.6+0.9*elbowUp).addScaledVector(fwdB,-0.15);
-  solveIK(B.RightArm,B.RightForeArm,B.RightHand,pathAt(R,k),poleR);
+  const pa=(e.isPlayer?e.pitch||0:0)*0.6*smooth(0.45,0.6,k)*(1-smooth(0.86,1,k)), rt=pathAt(R,k);
+  if(pa) rt.sub(rS).applyAxisAngle(rightB,pa).add(rS);
+  solveIK(B.RightArm,B.RightForeArm,B.RightHand,rt,poleR);
   solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,pathAt(L,k),lS.clone().addScaledVector(rightB,-0.5).addScaledVector(upB,-0.6).addScaledVector(fwdB,-0.1));
   // fingers close round the grenade while it is held
   const hold=A.grabbed&&!A.released, h=w(B.RightHand), f0=w(B.RightHandMiddle1).sub(h).normalize(), a0=w(B.RightHandPinky1).sub(w(B.RightHandIndex1)); a0.addScaledVector(f0,-a0.dot(f0)).normalize();
@@ -3659,7 +4147,7 @@ function pwEquip(eq){
 }
 function pwSwing(p){ // a tap: the ordinary swing, sped up or slowed down by the pickaxe
   if(p.fireCd>0) return; const T0=POW.tap; p.fireCd=0.42/((T0.spd||1)*bv(p,'swing',1));
-  p.swingSide=p.swingT>0||p.comboT>0?1-(p.swingSide||0):0; p.swingT=SWING_T/Math.max(1,(T0.spd||1)*0.8); p.comboT=p.swingT+0.3; p.hitT=p.swingT*PICK_HIT; sfx('swing');
+  const dur=SWING_T/Math.max(1,(T0.spd||1)*0.8); startSwing(p,dur,null,{hit:1,combo:dur+0.3}); sfx('swing');
   if(p.pwAmbush&&bv(p,'hide')){ p.pb.hide.t=0; }
 }
 function pwHit(p){ // where the swing lands
@@ -3684,11 +4172,11 @@ function pwInput(p,dt){
     if(p.pwOn){ p.pwT+=dt; if(H.kind==='chan'){ H.tick(p,dt,p.pwT); if(p.pwT>=H.max) pwHoldEnd(p); } else if(H.kind==='charge'){ const k=Math.min(1,p.pwT/H.max); if(Math.random()<0.6) mote(pwMats(PC).soft,chest(p).add(rv(1).normalize().multiplyScalar(2.2-1.4*k)),rnd(0.3,0.6)*(0.6+k),0.25,new V()); p.anim.hit=Math.max(p.anim.hit||0,0.15*k); } return; }
     if(p.pwFired) return; p.pwFired=true;
     if(p.pwCd>0){ sfx('deny'); return; }
-    if(!H.kind||H.kind==='once'){ const ok=H.go(p); if(ok!==false){ p.pwCd=H.cd; p.swingT=SWING_T; p.swingSide=0; } else p.pwCd=0.5; }
+    if(!H.kind||H.kind==='once'){ const ok=H.go(p); if(ok!==false){ p.pwCd=H.cd; startSwing(p,SWING_T,0); } else p.pwCd=0.5; }
     else { p.pwOn=true; p.pwT=0; if(H.start) H.start(p); if(H.kind==='charge') sfx('useStart',null,{id:'big'}); }
   } else { if(p.pwOn) pwHoldEnd(p); p.aHold=0; p.pwFired=false; }
 }
-function pwHoldEnd(p){ const H=POW.hold; if(!p.pwOn) return; p.pwOn=false; if(H.kind==='charge'){ H.go(p,Math.min(1,p.pwT/H.max)); p.swingT=SWING_T; } else if(H.end) H.end(p); p.pwCd=H.cd; }
+function pwHoldEnd(p){ const H=POW.hold; if(!p.pwOn) return; p.pwOn=false; if(H.kind==='charge'){ H.go(p,Math.min(1,p.pwT/H.max)); startSwing(p,SWING_T,0); } else if(H.end) H.end(p); p.pwCd=H.cd; }
 function pwOnKill(t){ if(POW&&POW.tap.kill) POW.tap.kill(player,t); }
 function pwUpdate(dt){
   const p=player; if(!p) return;
@@ -3803,7 +4291,7 @@ const POWERS={
 "Laser Edge":{tap:{thru:true},
   hold:{kind:'chan',cd:8,max:2,tick:(p,dt)=>{ pwBeam(p,{col:0xff2a4a,dps:60,w:0.16},dt); if(Math.random()<0.3) sfx('zapB'); }}},
 "Joystick":{tap:{spd:1.25},
-  hold:{kind:'chan',cd:6,max:1,tick:(p,dt)=>{ p.flT=(p.flT||0)-dt; if(p.flT<=0){ p.flT=0.1; p.swingSide=1-(p.swingSide||0); p.swingT=SWING_T*0.4; pwMelee(p,8); sfx('swing'); } }}},
+  hold:{kind:'chan',cd:6,max:1,tick:(p,dt)=>{ p.flT=(p.flT||0)-dt; if(p.flT<=0){ p.flT=0.1; startSwing(p,SWING_T*0.4,((p.swingSide||0)+1)%2,{fl:1}); pwMelee(p,8); sfx('swing'); } }}},
 "Hologram":{tap:{hit:p=>{ buff(p,'hide',0.6); for(let i=0;i<8;i++) mote(pwMats(0x19e3ff).soft,chest(p).add(rv(0.6)),rnd(0.5,0.8),0.8,new V()); }},
   hold:{cd:14,go:p=>{ const [h]=fan(p,{look:'holo',col:0x19e3ff,dir:lookDir().negate(),from:p.pos.clone(),speed:12,life:6,size:1}); buff(p,'hide',3);
     for(const b of bots){ if(b.alive&&b.enemy===player){ b.enemy=null; b.goal=h.pos; b.think=3; } } sfx('zapB'); }}},
@@ -3913,9 +4401,9 @@ const POWERS={
 "Raptor Claw":{tap:{dmg:1.25,hit:(p,e,at)=>{ cutFx(at.clone().add(new V(0,0.3,0))); cutFx(at.clone().add(new V(0,-0.3,0))); }},
   hold:{cd:10,go:p=>fan(p,{look:'raptor',col:0x53d16b,n:2,spread:0.3,speed:28,home:4,homeR:80,life:5,every:0.8,dmg:20,trail:0x53d16b,size:1.3})}},
 "Bamboo Breaker":{tap:{dmg:1.1,knock:10},
-  hold:{kind:'chan',cd:8,max:3,tick:p=>{ buff(p,'guard',0.15,2); p.swingT=Math.max(p.swingT,0.1); }}},
+  hold:{kind:'chan',cd:8,max:3,tick:p=>{ buff(p,'guard',0.15,2); p.pkGuardT=0.15; }}},
 "Toucan":{tap:{spd:2,dmg:0.65},
-  hold:{kind:'chan',cd:6,max:1.2,tick:(p,dt)=>{ p.flT=(p.flT||0)-dt; if(p.flT<=0){ p.flT=0.07; p.swingSide=1-(p.swingSide||0); p.swingT=SWING_T*0.3; pwMelee(p,6); sfx('swing',null,{gain:0.5}); } }}},
+  hold:{kind:'chan',cd:6,max:1.2,tick:(p,dt)=>{ p.flT=(p.flT||0)-dt; if(p.flT<=0){ p.flT=0.07; startSwing(p,SWING_T*0.3,((p.swingSide||0)+1)%2,{fl:1}); pwMelee(p,6); sfx('swing',null,{gain:0.5}); } }}},
 "Venom":{tap:{hit:(p,e)=>pwPoison(e,p,3,5)},
   hold:{cd:9,go:p=>fan(p,{look:'orb',col:0x7be04a,speed:40,life:2,boomOnWall:true,end:at=>pwZone({at,r:6,dur:5,col:0x7be04a,each:e=>pwPoison(e,player,6,1.5)})})}},
 "Temple Idol":{tap:{hit:(p,e)=>{ e.curse=p; }},
@@ -3927,7 +4415,7 @@ const POWERS={
   hold:{kind:'chan',cd:9,max:3,start:p=>{ p.leaf=pwZone({follow:p,r:6,dur:3,col:0x53d16b,op:0.08,swirl:9,fxRate:0.02,every:0.25,each:e=>{ hurt(e,6,player,{weapon:POW.name,soft:true}); pwKnock(e,chest(e).sub(chest(player)).normalize(),6); }}); },tick:()=>{},end:p=>{ if(p.leaf) p.leaf.t=p.leaf.o.dur; }}},
 // ---------- Inverted
 "Standard Issue":{tap:{},
-  hold:{kind:'charge',cd:3,max:1.2,go:(p,k)=>{ p.swingT=SWING_T; pwMelee(p,PW_BASE*(1+2*k)); if(k>0.9) camShake=Math.max(camShake,0.25); }}},
+  hold:{kind:'charge',cd:3,max:1.2,go:(p,k)=>{ startSwing(p,SWING_T,0); pwMelee(p,PW_BASE*(1+2*k)); if(k>0.9) camShake=Math.max(camShake,0.25); }}},
 "Storm Chaser":{tap:{hit:(p,e)=>{ const o=pwNearest(chest(e),p,12,new Set([e])); if(o){ zapArc(chest(e),chest(o),0.2,0.03,pwMats(0xffffff).flat,pwMats(0x9b5cff).flat); hurt(o,10,p,{weapon:POW.name}); } }},
   hold:{cd:12,go:p=>{ pwZone({follow:p,r:18,dur:4,col:0x5a1ab0,op:0.05,every:0.5,each:()=>{} }); let k=0; const bolt=()=>{ if(!p.alive||k++>=8) return; const e=pwNearest(chest(p),p,18); if(e){ zapArc(chest(e).add(new V(rnd(-2,2),12,rnd(-2,2))),chest(e),0.25,0.06,pwMats(0xffffff).flat,pwMats(0x9b5cff).flat); hurt(e,20,p,{weapon:POW.name}); pwStun(e,0.4); sfx('tsr',e.pos.clone()); } later(0.5,bolt); }; bolt(); }}},
 "Supply Drop":{tap:{dmg:1.2},
@@ -4049,9 +4537,9 @@ function makeAnime3D(it,held){
 // ---- input
 function animeTap(p){
   if(p.fireCd>0||lockedUp(p)) return;
-  if(animeSt==='kunai'){ p.fireCd=0.34; p.swingSide=p.swingT>0||p.comboT>0?1-(p.swingSide||0):0; p.swingT=SWING_T*0.75; p.comboT=SWING_T+0.3; p.hitT=SWING_T*0.75*PICK_HIT; sfx('slash'); }
+  if(animeSt==='kunai'){ p.fireCd=0.34; startSwing(p,SWING_T*0.75,null,{hit:1,combo:SWING_T+0.3}); sfx('slash'); }
   else if(animeSt==='rubber'){ p.fireCd=0.5; punch(p,'Right',{dur:0.5,reach:16,dmg:32,kb:30,name:'Gum-Gum Pistol',stretch:true}); sfx('stretch'); }
-  else if(animeSt==='nichirin'){ p.fireCd=0.38; p.swingSide=p.swingT>0||p.comboT>0?1-(p.swingSide||0):0; p.swingT=SWING_T*0.8; p.comboT=SWING_T+0.3; p.hitT=SWING_T*0.8*PICK_HIT; sfx('katana'); }
+  else if(animeSt==='nichirin'){ p.fireCd=0.38; startSwing(p,SWING_T*0.8,null,{hit:1,combo:SWING_T+0.3}); sfx('katana'); }
   else if(animeSt==='deathnote'){ if(!p.writing){ p.fireCd=0.6; startWriting(p); } }
   else if(animeSt==='goku'){ p.fireCd=0.55; punch(p,'Right',{dur:0.3,reach:0,dmg:36,kb:44,name:'Super Saiyan Strike',shock:0.8,gold:true}); kiFlash(p,0.6); sfx('ssjHit'); }
   else if(animeSt==='titan'){ if(p.titan&&p.titanS>2){ p.fireCd=0.45; titanPunch(p,'Right'); } else if(!p.titan&&!(p.titanCd>0)){ p.fireCd=0.6; titanStart(p); } else { p.fireCd=0.35; punch(p,'Right',{dur:0.28,reach:0,dmg:12,kb:8,name:'Punch',shock:0.25}); } }
@@ -4064,7 +4552,7 @@ function animeHold(p,dt){
   if(animeSt==='deathnote'){ if(p.writing) p.writing.hold=true; return; }
   p.aGap=(p.aGap||0)-dt; if(p.aGap>0) return;
   const sd=(p.aSide=(p.aSide||0)^1)?'Right':'Left';
-  if(animeSt==='kunai'){ p.aGap=0.3; p.swingSide=1-(p.swingSide||0); p.swingT=SWING_T*0.55; p.comboT=SWING_T; throwKunai(p); }
+  if(animeSt==='kunai'){ p.aGap=0.3; startSwing(p,SWING_T*0.55,((p.swingSide||0)+1)%2,{combo:SWING_T,th:1}); throwKunai(p); }
   else if(animeSt==='rubber'){ p.aGap=0.055; punch(p,sd,{dur:0.24,reach:rnd(8,11),dmg:7,kb:1.5,name:'Gum-Gum Gatling',stretch:true,spread:0.1,soft:true}); sfx('stretch',null,{gain:0.45}); }
   else if(animeSt==='titan'){ if(p.titan&&p.titanS>2){ p.aGap=0.26; titanPunch(p,sd,true); } else if(!p.titan&&!(p.titanCd>0)) titanStart(p); else { p.aGap=0.2; punch(p,sd,{dur:0.2,reach:0,dmg:8,kb:4,name:'Punch',shock:0.2,soft:true}); } }
   else { p.aGap=0.085; punch(p,sd,{dur:0.17,reach:0,dmg:10,kb:3,name:'Consecutive Normal Punches',shock:0.5,spread:0.05,soft:true}); }
@@ -4169,6 +4657,9 @@ function punchFx(p,s){ for(let i=0;i<(s>=1?8:3);i++) mote(mistMat,p.clone(),rnd(
 const _fa=new V();
 function fistArms(e,B,rightB,upB,fwdB){
   const aim=e.isPlayer?camera.getWorldDirection(_fa):fwdB, ext=e.punchExt||{Right:0,Left:0}, S=e.titanS||1, ch=e.aCharge>0?Math.min(1,e.aCharge*3):0;
+  const tw=0.35*(ext.Right-ext.Left), lean=Math.max(ext.Right,ext.Left); // [S3] the hips and chest throw the punch
+  if(Math.abs(tw)>1e-3){ rotateBoneWorld(B.Spine1,upB,tw*0.6); rotateBoneWorld(B.Spine2,upB,tw*0.4); }
+  if(lean>1e-3) rotateBoneWorld(B.Spine1,rightB,-0.12*lean);
   for(const [sd,sx] of [['Right',1],['Left',-1]] as [string,number][]){
     const sh=B[sd+'Arm'].getWorldPosition(new V()), x=ext[sd];
     let t=sh.clone().addScaledVector(fwdB,0.3*S).addScaledVector(upB,-0.1*S).addScaledVector(rightB,-sx*0.13*S);
@@ -4356,7 +4847,8 @@ const _nX=new V(), _nY=new V(), _nZ=new V(), _nm=new T.Matrix4();
 function noteArms(e,B,rightB,upB,fwdB){
   const bk=openBook(e), u=bk.userData, ch=B.Spine2.getWorldPosition(new V()), t=matchTime;
   // held up out in front and a little to the right, tipped back toward the over-the-shoulder camera so you can read it
-  const c=ch.addScaledVector(fwdB,0.44).addScaledVector(upB,0.06).addScaledVector(rightB,0.14);
+  const op=e.writing?smooth(0,0.2,e.writing.t):1, c=ch.addScaledVector(fwdB,0.44-0.2*(1-op)).addScaledVector(upB,0.06-0.2*(1-op)).addScaledVector(rightB,0.14+0.08*(1-op)); // [S3] opens out of the hand
+  bk.scale.setScalar(1.3*(0.55+0.45*op)); bk.children[0].rotation.y=0.12+1.45*(1-op); bk.children[1].rotation.y=-0.12-1.45*(1-op);
   _nZ.copy(upB).multiplyScalar(0.55).addScaledVector(fwdB,-0.75).addScaledVector(rightB,0.3).normalize(); _nX.copy(rightB).addScaledVector(_nZ,-rightB.dot(_nZ)).normalize(); _nY.crossVectors(_nZ,_nX);
   bk.position.copy(c); bk.quaternion.setFromRotationMatrix(_nm.makeBasis(_nX,_nY,_nZ)); bk.updateMatrixWorld(true);
   const w=e.writing, k=w?Math.min(1,w.t/(w.hold?NOTE_MAX:NOTE_TAP)):0;
@@ -4471,21 +4963,304 @@ function buyItem(i){
   sfx('buy'); selectSlot(slot); renderShop(); refreshHotbar(); hudTick();
 }
 $('shopList').addEventListener('click',ev=>{ const b=(ev.target as Element).closest('button'); if(b) buyItem(+(b as HTMLElement).dataset.i); });
+// ================= battle royale =================
+// Storm Island is back as a second mode: drop out of a private jet, skydive, open your glider, loot chests, outrun the
+// storm, last one standing wins. Everyone uses the same characters, weapons, animation and AI tricks as the box; only the
+// world (a heightfield island with sea, sky and trees), the drop and the storm are new. MODE picks which one newMatch builds.
+const _brv0=new V(), _brv1=new V();
+let MODE='zg'; try{ if(localStorage.getItem('invertedMode')==='br') MODE='br'; }catch(e){}
+const BR:any={W:760,N:152,R:330,h:null,storm:null,jet:null,chests:[],trees:[],wall:null,water:null,sky:null,clouds:[],houses:[],t:0};
+const BR_SEA=-0.8, BR_G=26, BR_JET_Y=160;
+// value noise and fbm, seeded per match
+let brSeed=1;
+function brHash(x,z){ let h=(x*374761393+z*668265263+brSeed*144269)|0; h=Math.imul(h^h>>>13,1274126177); return ((h^h>>>16)>>>0)/4294967296; }
+function brNoise(x,z){ const ix=Math.floor(x), iz=Math.floor(z), fx=x-ix, fz=z-iz, u=fx*fx*(3-2*fx), v=fz*fz*(3-2*fz);
+  return lerp(lerp(brHash(ix,iz),brHash(ix+1,iz),u),lerp(brHash(ix,iz+1),brHash(ix+1,iz+1),u),v); }
+function brFbm(x,z){ let s=0,a=0.5; for(let i=0;i<4;i++){ s+=a*brNoise(x,z); x*=2.03; z*=2.03; a*=0.5; } return s; }
+function brRaw(x,z){
+  const wob=(brFbm(x/140+9,z/140+3)-0.5)*90, d=Math.hypot(x,z)/(BR.R+wob); // a wobbly coastline
+  let h=3+(brFbm(x/90+31,z/90+17)-0.5)*14;
+  const ridge=1-Math.abs(2*brFbm(x/60+3,z/60+71)-1), mtn=smooth(0.55,0.75,brFbm(x/200+50,z/200+8));
+  h+=mtn*ridge*ridge*42;
+  const f=smooth(0.78,1.02,d); return h*(1-f)-9*f;
+}
+function brHeight(x,z){ const H=BR.h; if(!H) return 0; const C=BR.W/BR.N, fx=(x+BR.W/2)/C, fz=(z+BR.W/2)/C; if(fx<0||fz<0||fx>=BR.N||fz>=BR.N) return -9;
+  const ix=Math.floor(fx), iz=Math.floor(fz), u=fx-ix, v=fz-iz, W=BR.N+1, A=H[iz*W+ix], B=H[iz*W+ix+1], Cc=H[(iz+1)*W+ix], D=H[(iz+1)*W+ix+1];
+  return lerp(lerp(A,B,u),lerp(Cc,D,u),v); }
+// where a person stands: the ground, or the shallow seabed you wade in
+function brFloor(x,z){ return Math.max(brHeight(x,z),BR_SEA-0.9); }
+// terrain along a ray: the distance to the first hill it hits (bullets, line of sight)
+function brRayT(o,d,far){ const step=2.5; for(let t=step;t<far;t+=step){ const y=o.y+d.y*t; if(y<brHeight(o.x+d.x*t,o.z+d.z*t)) return Math.max(0,t-step*0.5); if(y>90&&d.y>=0) break; } return far; }
+const _brc=new T.Color(), _brc2=new T.Color();
+// the Glitched palette: violet sand, neon meadows, teal woods, chrome-blue rock with light streaks
+function brColor(x,z,h,slope,out){
+  const n=brNoise(x*0.05,z*0.05), n2=brNoise(x*0.21+7,z*0.21+3);
+  if(h<BR_SEA+0.4) return out.setRGB(0.32,0.28,0.62);
+  if(h<1.6) return out.setRGB(0.78,0.62,0.9).lerp(_brc2.setRGB(0.66,0.5,0.88),n);
+  out.setRGB(0.24+n*0.16,0.6+n*0.18,0.3+n2*0.1);
+  out.lerp(_brc2.setRGB(0.1+n*0.05,0.36+n*0.08,0.32),smooth(0.45,0.7,brNoise(x/80,z/80))*0.7);
+  const rock=Math.max(smooth(0.65,1.0,slope),smooth(20,26,h));
+  if(rock>0){ const st=Math.pow(Math.sin(h*0.9+n*5+x*0.02)*0.5+0.5,10); _brc2.setRGB(0.3+n2*0.08,0.28+n2*0.06,0.6+n2*0.1); if(st>0.05) _brc2.lerp(_brc.setRGB(0.6,0.75,1),st*0.9); out.lerp(_brc2,rock); }
+  const snow=smooth(30,36,h+n*3); if(snow>0) out.lerp(_brc2.setRGB(0.9,0.92,1),snow);
+  return out;
+}
+// shared clock for the shader touches (water, storm wall, trees swaying)
+const BRU={time:{value:0}};
+function brWave(m,amp){ m.onBeforeCompile=sh=>{ sh.uniforms.uT=BRU.time; sh.vertexShader='uniform float uT;\n'+sh.vertexShader.replace('#include <begin_vertex>',
+  `#include <begin_vertex>
+  #ifdef USE_INSTANCING
+  vec3 ip=vec3(instanceMatrix[3][0],instanceMatrix[3][1],instanceMatrix[3][2]);
+  #else
+  vec3 ip=vec3(0.0);
+  #endif
+  float sw=sin(uT*1.6+ip.x*0.11+ip.z*0.07)+0.4*sin(uT*3.1+ip.z*0.2); transformed.x+=sw*${amp.toFixed(3)}*max(0.0,position.y); transformed.z+=cos(uT*1.3+ip.x*0.09)*${(amp*0.6).toFixed(3)}*max(0.0,position.y);`); }; return m; }
+function buildIsland(){
+  brSeed=(Math.random()*1e6)|0; const N=BR.N, C=BR.W/N, W=N+1, H=new Float32Array(W*W); BR.h=H;
+  for(let iz=0;iz<=N;iz++) for(let ix=0;ix<=N;ix++) H[iz*W+ix]=brRaw(-BR.W/2+ix*C,-BR.W/2+iz*C);
+  // the ground: one mesh, vertex colours from the palette
+  const geo=new T.PlaneGeometry(BR.W,BR.W,N,N); geo.rotateX(-Math.PI/2); const pos=geo.attributes.position, cols=new Float32Array(pos.count*3), c=new T.Color();
+  for(let i=0;i<pos.count;i++){ const ix=i%W, iz=Math.floor(i/W), h=H[iz*W+ix]; pos.setY(i,h);
+    const hx=H[iz*W+Math.min(N,ix+1)]-H[iz*W+Math.max(0,ix-1)], hz=H[Math.min(N,iz+1)*W+ix]-H[Math.max(0,iz-1)*W+ix];
+    brColor(-BR.W/2+ix*C,-BR.W/2+iz*C,h,Math.hypot(hx,hz)/(2*C),c); cols[i*3]=c.r; cols[i*3+1]=c.g; cols[i*3+2]=c.b; }
+  geo.setAttribute('color',new T.BufferAttribute(cols,3)); geo.computeVertexNormals();
+  const ground=new T.Mesh(geo,Lam({vertexColors:true})); ground.receiveShadow=true; world.add(ground);
+  // sea: a ripple texture that drifts, glossy, see-through near the shore; foam where it meets the sand
+  const rip=canvasTex(128,128,(g,w)=>{ g.fillStyle='#fff'; g.fillRect(0,0,w,w); for(let i=0;i<70;i++){ g.strokeStyle=`rgba(120,90,200,${0.15+Math.random()*0.2})`; g.lineWidth=1+Math.random()*2; const x=Math.random()*w, y=Math.random()*w; g.beginPath(); g.ellipse(x,y,8+Math.random()*18,2+Math.random()*3,0,0,TAU); g.stroke(); } });
+  rip.wrapS=rip.wrapT=T.RepeatWrapping; rip.repeat.set(60,60);
+  BR.water=new T.Mesh(new T.PlaneGeometry(BR.W*3,BR.W*3).rotateX(-Math.PI/2),new T.MeshPhongMaterial({color:0x6a5cf0,map:rip,shininess:110,specular:0xbfe6ff,transparent:true,opacity:0.86,emissive:0x1a1050}));
+  BR.water.position.y=BR_SEA; world.add(BR.water);
+  const foam=new T.Mesh(new T.RingGeometry(BR.R*0.86,BR.R*1.06,160,1).rotateX(-Math.PI/2),new T.MeshBasicMaterial({map:glowTex,color:0xffffff,transparent:true,opacity:0.18,depthWrite:false}));
+  foam.position.y=BR_SEA+0.06; world.add(foam); BR.foam=foam;
+  // sky: a gradient dome with a soft sun, and slow clouds
+  BR.sky=new T.Mesh(new T.SphereGeometry(1400,32,16),new T.ShaderMaterial({side:T.BackSide,depthWrite:false,fog:false,uniforms:{sun:{value:new V(0.4,0.35,-0.85).normalize()}},
+    vertexShader:'varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+    fragmentShader:'uniform vec3 sun; varying vec3 vD; void main(){ float h=clamp(vD.y,-0.2,1.0); vec3 top=vec3(0.27,0.36,0.9), mid=vec3(0.66,0.62,1.0), hor=vec3(1.0,0.72,0.86);'+
+      'vec3 c=mix(hor,mid,smoothstep(0.0,0.25,h)); c=mix(c,top,smoothstep(0.25,0.85,h)); float s=max(dot(vD,sun),0.0); c+=vec3(1.0,0.85,0.6)*(pow(s,600.0)*2.0+pow(s,12.0)*0.35); gl_FragColor=vec4(c,1.0); }'}));
+  BR.sky.renderOrder=-10; world.add(BR.sky);
+  BR.clouds=[]; const cm=Lam({color:0xffffff,emissive:0x4a3c7a,transparent:true,opacity:0.92}), cg=new T.IcosahedronGeometry(1,1);
+  for(let i=0;i<26;i++){ const cl=new T.Group(); for(let k=0;k<5;k++){ const m=new T.Mesh(cg,cm); m.position.set(rnd(-14,14),rnd(-2,3),rnd(-6,6)); m.scale.set(rnd(9,15),rnd(5,8),rnd(7,11)); cl.add(m); }
+    cl.position.set(rnd(-600,600),rnd(190,240),rnd(-600,600)); world.add(cl); BR.clouds.push(cl); }
+  // trees: instanced trunks and canopies that sway in the wind
+  const spots=[]; for(let k=0;k<4000&&spots.length<420;k++){ const x=rnd(-BR.R,BR.R), z=rnd(-BR.R,BR.R), h=brHeight(x,z); if(h<2.2||h>24) continue;
+    if(brNoise(x/60+5,z/60+9)<0.42) continue; spots.push([x,h,z,rnd(0.8,1.4)]); }
+  const trunk=new T.InstancedMesh(new T.CylinderGeometry(0.28,0.42,4,6).translate(0,2,0),brWave(Lam({color:0x5a3a6a}),0.015),spots.length);
+  const crown=new T.InstancedMesh(new T.IcosahedronGeometry(2.6,0).translate(0,5.6,0),brWave(Lam({color:0xffffff,flatShading:true}),0.045),spots.length);
+  const m4=new T.Matrix4(), q=new T.Quaternion(), s=new V(), pc=[0x4fe08a,0x2ec9a8,0x8a5cff,0x3bd16a,0xff7ad1];
+  spots.forEach(([x,h,z,k],i)=>{ q.setFromAxisAngle(_brv0.set(0,1,0),Math.random()*TAU); m4.compose(_brv1.set(x,h-0.3,z),q,s.set(k,k,k)); trunk.setMatrixAt(i,m4); crown.setMatrixAt(i,m4); crown.setColorAt(i,c.setHex(pick(pc)).multiplyScalar(rnd(0.8,1.1))); });
+  trunk.castShadow=crown.castShadow=true; world.add(trunk,crown); BR.trees=spots;
+  // ruins: little glitched houses with open doorways, solid for movement and bullets; a chest inside most of them
+  BR.chests=[]; BR.houses=[]; const wall=GPh(0xe9e4ff,20), roof=GPh(0x7a4cff,40), trim=new T.LineBasicMaterial({color:0x5cf0ff});
+  const box=(x,y,z,sx,sy,sz,mat)=>{ const m=new T.Mesh(new T.BoxGeometry(sx,sy,sz),mat); m.position.set(x,y,z); m.castShadow=m.receiveShadow=true; world.add(m); m.add(new T.LineSegments(new T.EdgesGeometry(m.geometry),trim)); zgSolid(m,boxOf(x,y,z,sx,sy,sz)); };
+  for(let k=0;k<3000&&BR.houses.length<34;k++){ const x=rnd(-BR.R*0.85,BR.R*0.85), z=rnd(-BR.R*0.85,BR.R*0.85), h=brHeight(x,z);
+    if(h<2||h>20||BR.houses.some(o=>Math.hypot(o.x-x,o.z-z)<34)) continue;
+    let flat=true; for(const [dx,dz] of [[5,5],[-5,5],[5,-5],[-5,-5]]) if(Math.abs(brHeight(x+dx,z+dz)-h)>2.2) flat=false; if(!flat) continue;
+    const y=h-0.4, S=10, T2=0.6, Hh=4.2;
+    box(x,y+Hh/2,z-S/2,S,Hh,T2,wall); box(x-S/2,y+Hh/2,z,T2,Hh,S,wall); box(x+S/2,y+Hh/2,z,T2,Hh,S,wall);
+    box(x-S/2+1.9,y+Hh/2,z+S/2,3.8,Hh,T2,wall); box(x+S/2-1.9,y+Hh/2,z+S/2,3.8,Hh,T2,wall); box(x,y+Hh+0.3,z,S+1,0.6,S+1,roof);
+    BR.houses.push({x,z}); brChest(x+rnd(-2,2),y,z+rnd(-2,0)); }
+  for(let k=0;k<4000&&BR.chests.length<70;k++){ const x=rnd(-BR.R*0.9,BR.R*0.9), z=rnd(-BR.R*0.9,BR.R*0.9), h=brHeight(x,z); if(h<1.5||h>26) continue; if(BR.chests.some(o=>Math.hypot(o.x-x,o.z-z)<22)) continue; brChest(x,h,z); }
+  // the walls of the box are pushed out past the sea so bullets, the camera and the old box code stay happy
+  ZG.L=BR.W*1.5; ZG.H=600; ZG.blocks=[]; ZG.flyers=[]; ZG.pads=[]; ZG.vend=[]; ZG.state='land'; ZG.t=0; ZG.camRoll=0; ZG.flash=0;
+  brStorm(); brJet();
+}
+// ---- chests: a gold box with a beam of light; E opens it for a weapon and a potion
+const brChestMat=GPh(0xffc94a,90,0xfff2b0), brChestLid=GPh(0xffe07a,90,0xffffff);
+function brChest(x,y,z){ const g=new T.Group(); g.position.set(x,y,z); g.rotation.y=Math.random()*TAU;
+  const b=new T.Mesh(new T.BoxGeometry(1.3,0.7,0.85),brChestMat); b.position.y=0.35; const lid=new T.Mesh(new T.BoxGeometry(1.32,0.3,0.87),brChestLid); lid.position.set(0,0.85,0);
+  const beam=new T.Mesh(new T.CylinderGeometry(0.35,0.6,9,10,1,true),new T.MeshBasicMaterial({color:0xffd23f,transparent:true,opacity:0.22,depthWrite:false,blending:T.AdditiveBlending,side:T.DoubleSide})); beam.position.y=5;
+  const glow=new T.Sprite(auraMats(0xffd23f).halo); glow.scale.setScalar(3); glow.position.y=0.8;
+  g.add(b,lid,beam,glow); world.add(g); BR.chests.push({x,y,z,g,lid,beam,glow,open:false}); }
+const BR_LOOT:[string,number][]=[['ar',25],['smg',20],['pump',20],['pistol',14],['sniper',8],['pb',5],['frz',3],['flm',3],['tsr',3],['rpg',3]];
+function brLoot(){ let r=Math.random()*BR_LOOT.reduce((a,x)=>a+x[1],0 as number); for(const [id,w] of BR_LOOT){ r-=w as number; if(r<=0) return id; } return 'ar'; }
+function brGive(it){ const p=player; let slot=-1; for(let k=1;k<p.slots.length;k++) if(!p.slots[k]){ slot=k; break; }
+  if(slot<0){ slot=p.sel>0?p.sel:1; } p.slots[slot]=it; return slot; }
+function brOpenChest(){ const p=player; let best=null, bd=3.2;
+  for(const ch of BR.chests){ if(ch.open) continue; const d=Math.hypot(ch.x-p.pos.x,ch.y+0.5-p.pos.y,ch.z-p.pos.z); if(d<bd){ bd=d; best=ch; } }
+  if(!best) return false; best.open=true; best.beam.visible=false; best.glow.visible=false;
+  effects.push({t:0,dur:0.35,obj:null,upd:(e,k)=>{ best.lid.rotation.x=-1.9*k; best.lid.position.set(0,0.85+0.25*k,-0.3*k); }});
+  for(let i=0;i<14;i++) mote(auraMats(0xffd23f).spark,new V(best.x,best.y+1,best.z),rnd(0.15,0.35),rnd(0.5,0.9),rv(3).add(new V(0,3,0)),6);
+  const id=brLoot(), w=WEAP[id], shop=!!SHOP_GUN(id), r=shop?4:rollRarity(0.6), gun=id==='mf'?{kind:'gun',id,r:4,ammo:MF_CLIP}:shop?{kind:'gun',id,r:4,ammo:1,cd:0}:{kind:'gun',id,r,ammo:w.mag};
+  const s=brGive(gun); if(Math.random()<0.6) brGive(Math.random()<0.5?{kind:'cons',id:'mini',count:2}:{kind:'cons',id:'big',count:1});
+  p.sel=s; refreshHotbar(); sfx('pickup',null,{item:{kind:'gun',r:gun.r}}); toast(w.name+' · '+RAR[gun.r].n); return true; }
+// ---- the storm: a glowing wall that waits, then closes in on a new circle, again and again until nothing is left
+const BR_STAGES=[[40,40,190,1],[30,30,120,2],[25,25,70,5],[20,20,35,8],[15,15,12,10],[10,20,0,12]];
+function brStorm(){ const S={stage:-1,phase:'wait',t:30,cur:{x:0,z:0,r:BR.R*1.25},from:null,next:null,dps:1};
+  BR.storm=S; brNextCircle();
+  const mat=new T.ShaderMaterial({transparent:true,depthWrite:false,side:T.DoubleSide,uniforms:{uT:BRU.time},
+    vertexShader:'varying vec2 vU; varying float vY; varying float vD; void main(){ vU=uv; vY=position.y; vec4 w=modelMatrix*vec4(position,1.0); vD=distance(w.xz,cameraPosition.xz); gl_Position=projectionMatrix*viewMatrix*w; }',
+    fragmentShader:'uniform float uT; varying vec2 vU; varying float vY; varying float vD; float h(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5); } float n(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y); }'+
+      'void main(){ vec2 q=vec2(vU.x*120.0,vU.y*6.0); float s=n(q+vec2(uT*0.6,-uT*0.9))*0.6+n(q*2.3+vec2(-uT*1.4,uT*0.5))*0.4; float bands=0.5+0.5*sin(vU.y*80.0-uT*3.0+s*6.0);'+
+      'float a=(0.3+0.35*s)*(0.75+0.25*bands)*smoothstep(1.0,0.55,vU.y)*mix(1.0,0.14,smoothstep(40.0,260.0,vD)); /* faint far away, a wall of storm up close */ vec3 c=mix(vec3(0.42,0.1,0.85),vec3(1.0,0.3,0.85),s); c+=vec3(0.6,0.9,1.0)*pow(bands,14.0)*0.5; gl_FragColor=vec4(c,a); }'});
+  BR.wall=new T.Mesh(new T.CylinderGeometry(1,1,320,96,1,true),mat); BR.wall.position.y=120; BR.wall.renderOrder=5; world.add(BR.wall); brPlaceWall(); }
+function brNextCircle(){ const S=BR.storm; S.stage++; const st=BR_STAGES[Math.min(S.stage,BR_STAGES.length-1)], r=st[2];
+  const a=Math.random()*TAU, off=Math.max(0,S.cur.r-r)*Math.random()*0.8; let x=S.cur.x+Math.cos(a)*off, z=S.cur.z+Math.sin(a)*off;
+  if(Math.hypot(x,z)>BR.R*0.8-r){ const k=(BR.R*0.8-r)/Math.max(1,Math.hypot(x,z)); x*=Math.max(0,k); z*=Math.max(0,k); }
+  S.next={x,z,r}; S.phase='wait'; S.t=st[0]; S.dur=st[1]; S.dps=st[3]; }
+function brPlaceWall(){ const c=BR.storm.cur; BR.wall.position.x=c.x; BR.wall.position.z=c.z; BR.wall.scale.set(Math.max(0.5,c.r),1,Math.max(0.5,c.r)); }
+function brStormUpdate(dt){ const S=BR.storm; S.t-=dt;
+  if(S.phase==='wait'&&S.t<=0){ S.phase='shrink'; S.from={...S.cur}; S.t=S.dur; banner('The storm is closing in','Get to the safe zone',2.5); sfx('stormWarn'); }
+  else if(S.phase==='shrink'){ const k=1-Math.max(0,S.t)/S.dur, e=k*k*(3-2*k); S.cur.x=lerp(S.from.x,S.next.x,e); S.cur.z=lerp(S.from.z,S.next.z,e); S.cur.r=lerp(S.from.r,S.next.r,e);
+    if(S.t<=0){ S.cur={...S.next}; if(S.stage<BR_STAGES.length-1) brNextCircle(); else S.phase='done'; } }
+  brPlaceWall();
+  // outside the circle you take damage once a second, more each stage; your screen goes violet
+  for(const e of combatants){ if(!e.alive||e.br==='jet') continue; const out=Math.hypot(e.pos.x-S.cur.x,e.pos.z-S.cur.z)>S.cur.r;
+    if(out){ e.stormT=(e.stormT||0)+dt; if(e.stormT>=1){ e.stormT-=1; hurt(e,S.dps,null,{soft:true,storm:true,weapon:'Storm',point:e.pos.clone().add(new V(0,1.3,0))}); } } else e.stormT=0; }
+  const p=player, pout=p&&p.alive&&p.br!=='jet'&&Math.hypot(p.pos.x-S.cur.x,p.pos.z-S.cur.z)>S.cur.r; BR.tint=lerp(BR.tint||0,pout?1:0,1-Math.exp(-4*dt)); $('stormTint').style.opacity=String(BR.tint*0.55);
+}
+// ---- the jet: flies straight over the island; everyone starts on board and jumps (Space) before the end, where it blows up
+function brJet(){ const a=Math.random()*TAU, from=new V(Math.cos(a)*BR.R*1.5,BR_JET_Y,Math.sin(a)*BR.R*1.5), to=from.clone().multiplyScalar(-1); to.y=BR_JET_Y;
+  const g=new T.Group(), white=GPh(0xf4f2ff,80,0xffffff), neon=new T.MeshBasicMaterial({color:0xff3fd4}), dark=GPh(0x1a1440,60);
+  const body=new T.Mesh(new T.CylinderGeometry(1.6,1.6,22,16).rotateX(Math.PI/2),white); const nose=new T.Mesh(new T.SphereGeometry(1.6,16,10).scale(1,1,2.2),white); nose.position.z=-11;
+  const wing=new T.Mesh(new T.BoxGeometry(26,0.35,4.5),white); wing.position.set(0,-0.4,1); const fin=new T.Mesh(new T.BoxGeometry(0.35,5,3.5),white); fin.position.set(0,3,9.5);
+  const tail=new T.Mesh(new T.BoxGeometry(9,0.3,2.5),white); tail.position.set(0,0.6,10); const stripe=new T.Mesh(new T.BoxGeometry(3.3,0.25,22.2),neon); stripe.position.y=0.9;
+  const win=new T.Mesh(new T.BoxGeometry(3.25,0.6,12),dark); win.position.set(0,0.6,-1); g.add(body,nose,wing,fin,tail,stripe,win);
+  g.userData.eng=[-5,5].map(x=>{ const s=new T.Sprite(auraMats(0x5cf0ff).halo); s.scale.setScalar(4); s.position.set(x,-0.6,3.5); g.add(s); return s; });
+  g.position.copy(from); g.lookAt(to); world.add(g);
+  BR.jet={g,from,to,t:0,dur:34,done:false,trail:0}; }
+function brJetPos(k,out){ return out.lerpVectors(BR.jet.from,BR.jet.to,k); }
+function brJetUpdate(dt){ const J=BR.jet; if(!J||J.done) return; J.t+=dt; const k=J.t/J.dur; brJetPos(k,J.g.position); J.g.rotation.z=Math.sin(J.t*0.6)*0.05;
+  J.trail-=dt; if(J.trail<=0){ J.trail=0.08; for(const x of [-5,5]){ const p=J.g.localToWorld(_brv0.set(x,-0.6,6)); mote(smokeMat,p.clone(),rnd(1.4,2),2.4,new V(rnd(-0.3,0.3),rnd(-0.2,0.2),rnd(-0.3,0.3))); } }
+  for(const s of J.g.userData.eng) s.scale.setScalar(rnd(3.5,4.5));
+  if(k>=1){ J.done=true; const at=J.g.position.clone(); world.remove(J.g); for(let i=0;i<24;i++) flame(at.clone().add(rv(5)),rnd(3,6),rnd(0.6,1.2),rv(14)); for(let i=0;i<14;i++) smoke(at.clone().add(rv(6)),rnd(4,7),rnd(1.5,2.5),rv(6),true);
+    sfx('boom',at,{gain:1.2}); for(const e of combatants) if(e.br==='jet') brDrop(e); } }
+// leaving the jet: a skydive from its position
+function brDrop(e){ const J=BR.jet; e.br='fall'; e.pos.copy(J.g.position); e.pos.y-=3; e.pos.x+=rnd(-3,3); e.pos.z+=rnd(-3,3); e.vel.set(0,-4,0); e.zgFloat=true; e.onGround=false;
+  if(e.ch) e.ch.g.visible=true; if(e===player){ sfx('whoosh',null,{}); banner('Skydive!','Space opens your glider',2); } }
+// ---- the glider: a neon delta wing over your head while you glide
+const brGlTex=canvasTex(128,128,(g,w)=>{ const gr=g.createLinearGradient(0,0,w,0); gr.addColorStop(0,'#ff3fd4'); gr.addColorStop(0.5,'#7a4cff'); gr.addColorStop(1,'#5cf0ff'); g.fillStyle=gr; g.fillRect(0,0,w,w);
+  g.strokeStyle='rgba(255,255,255,.55)'; g.lineWidth=3; for(let i=0;i<6;i++){ g.beginPath(); g.moveTo(w/2,0); g.lineTo(i*w/5,w); g.stroke(); } });
+function brGlider(){ const g=new T.Group(), sh=new T.Shape(); sh.moveTo(0,1.6); sh.lineTo(2.4,-0.9); sh.quadraticCurveTo(0,-0.4,-2.4,-0.9); sh.lineTo(0,1.6);
+  const sail=new T.Mesh(new T.ShapeGeometry(sh).rotateX(-Math.PI/2),new T.MeshLambertMaterial({map:brGlTex,side:T.DoubleSide,emissive:0x40206a})); sail.rotation.x=0.38;
+  const edge=new T.Mesh(new T.CylinderGeometry(0.05,0.05,5.2,6).rotateZ(Math.PI/2),new T.MeshBasicMaterial({color:0x5cf0ff})); edge.position.set(0,0,-0.8);
+  const bar=new T.Mesh(new T.CylinderGeometry(0.03,0.03,1.4,6).rotateZ(Math.PI/2),GPh(0x222233,40)); bar.position.set(0,-1.15,0.2);
+  for(const x of [-0.7,0.7]){ const r=new T.Mesh(new T.CylinderGeometry(0.025,0.025,1.2,5),GPh(0x222233,40)); r.position.set(x,-0.6,0.15); r.rotation.z=x>0?0.25:-0.25; g.add(r); }
+  g.add(sail,edge,bar); g.position.set(0,3.25,0.1); g.visible=false; return g; }
+// ---- movement on the island: gravity, the ground under you, the ruins' walls, a shallow sea
+function brMove(e,dt){
+  const p=e.pos, r=e.radius, h=2.0;
+  if(e.br==='fall'){ e.vel.y=Math.max(-46,e.vel.y-BR_G*dt); } else if(e.br==='glide'){ e.vel.y=lerp(e.vel.y,-8.5,1-Math.exp(-3*dt)); } else e.vel.y-=BR_G*dt;
+  for(const ax of ['x','z','y']){ const d=e.vel[ax]*dt; if(!d) continue; p[ax]+=d;
+    for(const b of colliders.near(p.x,p.z,r+1)){
+      if(p.x+r<=b.min.x||p.x-r>=b.max.x||p.z+r<=b.min.z||p.z-r>=b.max.z||p.y+h<=b.min.y||p.y>=b.max.y) continue;
+      if(ax==='y'){ if(d<0){ p.y=b.max.y; e.vel.y=0; e.brStand=true; } else { p.y=b.min.y-h; e.vel.y=0; } }
+      else { p[ax]=d>0?b.min[ax]-r:b.max[ax]+r; e.vel[ax]*=-0.1; } } }
+  const L=BR.W/2-2; p.x=clamp(p.x,-L,L); p.z=clamp(p.z,-L,L);
+  const fl=brFloor(p.x,p.z), was=e.onGround; let on=e.brStand&&e.vel.y<=0; e.brStand=false;
+  if(p.y<=fl+0.02){ p.y=fl; if(e.vel.y<0) e.vel.y=0; on=true; }
+  else if(was&&e.br==='ground'&&p.y-fl<0.5&&e.vel.y<=0){ p.y=fl; on=true; } // walking downhill keeps your feet on the slope
+  e.onGround=on;
+  if(on&&e.br!=='ground'){ const fall=-Math.min(e.vel.y,0); e.br='ground'; e.zgFloat=false; e.zgTx=0; if(e.ch&&e.ch.glider) e.ch.glider.visible=false;
+    e.anim.land=clamp(Math.max(fall,8)/20,0.3,1); if(e===player){ sfx('land',null,{v:12,surf:'rock'}); camShake=Math.max(camShake,0.3); } }
+  if(e.onGround&&!was&&e.br==='ground'&&(e.brFall||0)>9){ e.anim.land=clamp(e.brFall/20,0.3,1); if(e===player) sfx('land',null,{v:e.brFall,surf:'rock'}); }
+  e.brFall=e.onGround?0:Math.max(0,-e.vel.y);
+}
+// skydive and glide steering, shared by the player and bots: dir is a world wish (x,z), dive pushes the nose down
+function brAir(e,wx,wz,dt){
+  const auto=e.pos.y-brFloor(e.pos.x,e.pos.z)<48;
+  if(e.br==='fall'){ const sp=16; e.vel.x=lerp(e.vel.x,wx*sp,1-Math.exp(-1.5*dt)); e.vel.z=lerp(e.vel.z,wz*sp,1-Math.exp(-1.5*dt)); e.zgTx=-1.35;
+    if(auto||e.brOpen){ e.br='glide'; e.brOpen=false; if(e.ch&&e.ch.glider) e.ch.glider.visible=true; if(e===player) sfx('whoosh',null,{}); } }
+  else if(e.br==='glide'){ const sp=17; e.vel.x=lerp(e.vel.x,wx*sp,1-Math.exp(-2*dt)); e.vel.z=lerp(e.vel.z,wz*sp,1-Math.exp(-2*dt)); e.zgTx=-0.25;
+    // a trail of light off the wingtips
+    if(e===player||e.pos.distanceTo(camera.position)<60){ e.brTr=(e.brTr||0)-dt; if(e.brTr<=0&&e.ch&&e.ch.glider){ e.brTr=0.05; for(const x of [-2.4,2.4]) mote(auraMats(0xff3fd4).spark,e.ch.glider.localToWorld(_brv0.set(x,0,-0.9)).clone(),0.5,0.7,new V()); } } }
+}
+function updatePlayerBR(dt){
+  const p=player; if(!p.alive){ p.wantJump=false; return; }
+  if(p.br==='jet'){ if(p.wantJump&&BR.jet.t>0.4) brDrop(p); else { p.pos.copy(BR.jet.g.position); p.vel.set(0,0,0); } p.wantJump=false; return; }
+  if(p.bounceT>0){ p.wantJump=false; updateBounce(p,dt); return; }
+  let mx=(keys.KeyD?1:0)-(keys.KeyA?1:0), mz=(keys.KeyW?1:0)-(keys.KeyS?1:0);
+  const fx=-Math.sin(p.yaw), fz=-Math.cos(p.yaw), rx=Math.cos(p.yaw), rz=-Math.sin(p.yaw);
+  let wx=fx*mz+rx*mx, wz=fz*mz+rz*mx; const wl=Math.hypot(wx,wz); if(wl>1){ wx/=wl; wz/=wl; }
+  if(p.br==='fall'||p.br==='glide'){ if(p.wantJump&&p.br==='fall') p.brOpen=true; brAir(p,wx,wz,dt); p.wantJump=false; brMove(p,dt); return; }
+  if(lockedUp(p)){ p.wantJump=false; p.vel.x*=Math.exp(-6*dt); p.vel.z*=Math.exp(-6*dt); brMove(p,dt); return; }
+  const sprint=(keys.ShiftLeft||keys.ShiftRight)&&mz>0&&!ads; p.sprinting=sprint&&p.onGround; p.crouch=!!(keys.KeyC||keys.ControlLeft)&&p.onGround;
+  const sp=(ads?4.5:p.crouch?3.5:sprint?10:7)*slowK(p)*bv(p,'spd',1), k=1-Math.exp(-(p.onGround?14:2.5)*dt);
+  p.vel.x=lerp(p.vel.x,wx*sp,k); p.vel.z=lerp(p.vel.z,wz*sp,k);
+  if(p.onGround&&p.wantJump){ p.vel.y=9.5; p.onGround=false; sfx('jump'); }
+  p.wantJump=false; p.zgTx=0; brMove(p,dt);
+}
+// bots: ride the jet to a random point, skydive and glide toward a landing spot, then fight on foot and keep inside the storm
+function updateBotBR(b,dt){
+  if(!b.alive) return;
+  if(b.br==='jet'){ b.pos.copy(BR.jet.g.position); if(BR.jet.t>=b.dropAt) brDrop(b); return; }
+  if(b.br!=='ground'){ const L=b.land, dx=L.x-b.pos.x, dz=L.z-b.pos.z, d=Math.hypot(dx,dz)||1; botTurn(b,Math.atan2(-dx,-dz),4,dt);
+    if(b.br==='fall'&&b.pos.y-brFloor(b.pos.x,b.pos.z)<b.openAt) b.brOpen=true; brAir(b,dx/d*Math.min(1,d/20),dz/d*Math.min(1,d/20),dt); brMove(b,dt); return; }
+  if(b.knockT>0){ b.knockT-=dt; b.vel.x*=Math.exp(-1*dt); b.vel.z*=Math.exp(-1*dt); brMove(b,dt); return; }
+  if(lockedUp(b)){ b.vel.x*=Math.exp(-6*dt); b.vel.z*=Math.exp(-6*dt); brMove(b,dt); return; }
+  b.think-=dt; b.fireCd-=dt; b.reloadT-=dt; b.swapT-=dt; b.strafeT-=dt;
+  if(b.enemy&&(!b.enemy.alive||b.enemy.br==='jet'||bv(b.enemy,'hide')||b.blindT>0)) b.enemy=null;
+  const c=tv1.set(b.pos.x,b.pos.y+1.5,b.pos.z), S=BR.storm;
+  if(b.think<=0){ b.think=rnd(0.2,0.35); let best=null, bd=1e9;
+    for(const o of combatants){ if(o===b||!o.alive||o.br==='jet'||bv(o,'hide')) continue; const d=Math.hypot(o.pos.x-b.pos.x,o.pos.y-b.pos.y,o.pos.z-b.pos.z); if(d<130&&d<bd&&hasLOS(c,tv2.set(o.pos.x,o.pos.y+1.5,o.pos.z))){ bd=d; best=o; } }
+    if(best){ if(best!==b.enemy) b.seenAt=matchTime; b.enemy=best; b.lastSeenT=matchTime; } else if(b.enemy&&matchTime-b.lastSeenT>1) b.enemy=null;
+    // keep inside the next circle: head for a point in it once the storm is coming
+    const tgt=S.next||S.cur, out=Math.hypot(b.pos.x-tgt.x,b.pos.z-tgt.z)>tgt.r*0.85;
+    if(!b.enemy&&(!b.goal||out&&!b.goalSafe||Math.random()<0.02)){ const a=Math.random()*TAU, rr=Math.sqrt(Math.random())*tgt.r*(out?0.6:0.9); b.goal=new V(tgt.x+Math.cos(a)*rr,0,tgt.z+Math.sin(a)*rr); b.goalSafe=out; } }
+  let wx=0, wz=0;
+  if(b.enemy){ const e=b.enemy, dx=e.pos.x-b.pos.x, dy=e.pos.y-b.pos.y, dz=e.pos.z-b.pos.z, d=Math.hypot(dx,dy,dz)||1, dh=Math.hypot(dx,dz)||1;
+    const want=d<12&&b.inv[1]?b.inv[1]:b.inv[0]; if(want!==b.gun&&b.swapT<=0){ b.gun=want; b.mag=WEAP[want.id].mag; b.fireCd=Math.max(b.fireCd,0.3); b.swapT=1.2; }
+    botTurn(b,Math.atan2(-dx,-dz),12,dt); b.aimPitch=lerp(b.aimPitch||0,Math.atan2(dy,dh),1-Math.exp(-10*dt));
+    if(b.strafeT<=0){ b.strafe=Math.random()<0.5?-1:1; b.strafeT=rnd(0.4,1.1); }
+    const pref=WEAP[b.gun.id].pref, fwd=d>pref+5?1:d<pref-4?-0.7:0; wx=dx/dh*fwd+(-dz/dh)*b.strafe*0.8; wz=dz/dh*fwd+(dx/dh)*b.strafe*0.8;
+    if(matchTime>(b.wake||0)&&matchTime-b.seenAt>b.react&&b.fireCd<=0&&b.reloadT<=0&&!(b.jamT>0)) botShoot(b,e,d);
+  } else if(b.goal){ const dx=b.goal.x-b.pos.x, dz=b.goal.z-b.pos.z, d=Math.hypot(dx,dz); if(d<4) b.goal=null; else { wx=dx/d; wz=dz/d; botTurn(b,Math.atan2(-dx,-dz),5,dt); } b.aimPitch=lerp(b.aimPitch||0,0,1-Math.exp(-6*dt)); }
+  const wl=Math.hypot(wx,wz); if(wl>1){ wx/=wl; wz/=wl; }
+  const sp=(b.enemy?6.5:8)*slowK(b), k=1-Math.exp(-(b.onGround?12:2.5)*dt); b.vel.x=lerp(b.vel.x,wx*sp,k); b.vel.z=lerp(b.vel.z,wz*sp,k); b.zgTx=0;
+  b.stuckT=(b.stuckT||0)+dt; if(b.stuckT>0.8){ if(b.lastPos&&Math.hypot(b.pos.x-b.lastPos.x,b.pos.z-b.lastPos.z)<0.8&&wl>0.1&&b.onGround){ b.vel.y=9.5; b.onGround=false; if(Math.random()<0.5) b.goal=null; } (b.lastPos||(b.lastPos=new V())).copy(b.pos); b.stuckT=0; }
+  brMove(b,dt);
+}
+function brSpawn(e,i){ e.br='jet'; e.pos.copy(BR.jet.from); e.vel.set(0,0,0); e.onGround=false; e.zgFloat=true; e.zgRoll=0; e.stam=100; e.yaw=Math.atan2(BR.jet.from.x-BR.jet.to.x,BR.jet.from.z-BR.jet.to.z);
+  if(e.ch){ e.ch.g.visible=false; if(!e.ch.glider){ e.ch.glider=brGlider(); e.ch.g.add(e.ch.glider); } }
+  if(!e.isPlayer){ e.dropAt=rnd(3,BR.jet.dur-2); const k=e.dropAt/BR.jet.dur, j=brJetPos(k,new V()); let x=j.x+rnd(-90,90), z=j.z+rnd(-90,90); const rr=Math.hypot(x,z); if(rr>BR.R*0.8){ x*=BR.R*0.8/rr; z*=BR.R*0.8/rr; }
+    e.land=new V(x,0,z); e.openAt=rnd(42,60); e.wake=1e9; } }
+// fog, clear colour and sunlight for whichever world is built
+function brScene(){ const f=scene.fog as any;
+  if(MODE==='br'){ f.color.setHex(0xc9b8f2); f.near=120; f.far=820; renderer.setClearColor(0xc9b8f2); }
+  else { f.color.setHex(0xe6e8ec); f.near=70; f.far=330; renderer.setClearColor(0xe6e8ec); } }
+function updateBR(dt){
+  BRU.time.value+=dt; BR.t+=dt;
+  if(BR.water) BR.water.material.map.offset.set(BR.t*0.004,BR.t*0.006);
+  if(BR.foam) BR.foam.material.opacity=0.14+0.06*Math.sin(BR.t*1.3);
+  for(const cl of BR.clouds){ cl.position.x+=dt*2.5; if(cl.position.x>700) cl.position.x=-700; }
+  for(const ch of BR.chests) if(!ch.open){ ch.beam.material.opacity=0.16+0.08*Math.sin(BR.t*2+ch.x); ch.glow.scale.setScalar(2.6+0.4*Math.sin(BR.t*3+ch.z)); }
+  brJetUpdate(dt); brStormUpdate(dt);
+  for(const b of bots) if(b.alive&&b.br==='ground'&&b.wake===1e9) b.wake=matchTime+rnd(2,6); // landed: start fighting a moment later
+  if(BR.sky) BR.sky.position.copy(camera.position);
+}
+// the HUD chip and the minimap for the island
+function brHud(){ const S=BR.storm, st=$('gravTxt'); if(!S) return;
+  const p=player; st.textContent=p.br==='jet'?'Space to jump':S.phase==='wait'?'Storm in '+fmtTime(Math.max(0,S.t)):S.phase==='shrink'?'Storm closing':'Final circle'; st.className=S.phase==='shrink'?'flip':''; }
+function brMapBase(g,M){ const k=M/BR.W, img=g.createImageData(M,M), c=new T.Color();
+  for(let y=0;y<M;y++) for(let x=0;x<M;x++){ const wx=x/k-BR.W/2, wz=y/k-BR.W/2, h=brHeight(wx,wz); if(h<BR_SEA) c.setRGB(0.36,0.3,0.78); else brColor(wx,wz,h,0,c); const i=(y*M+x)*4; img.data[i]=c.r*255; img.data[i+1]=c.g*255; img.data[i+2]=c.b*255; img.data[i+3]=255; }
+  g.putImageData(img,0,0); g.fillStyle='#e9e4ff'; for(const o of BR.houses) g.fillRect((o.x+BR.W/2)*k-2,(o.z+BR.W/2)*k-2,4,4); }
+function brMapDraw(g,M){ const k=M/BR.W, S=BR.storm, P=x=>(x+BR.W/2)*k;
+  g.save(); g.fillStyle='rgba(120,40,220,.35)'; g.beginPath(); g.rect(0,0,M,M); g.arc(P(S.cur.x),P(S.cur.z),S.cur.r*k,0,TAU,true); g.fill('evenodd');
+  g.strokeStyle='#d04cff'; g.lineWidth=2; g.beginPath(); g.arc(P(S.cur.x),P(S.cur.z),S.cur.r*k,0,TAU); g.stroke();
+  if(S.next){ g.strokeStyle='#fff'; g.setLineDash([4,3]); g.lineWidth=1.5; g.beginPath(); g.arc(P(S.next.x),P(S.next.z),S.next.r*k,0,TAU); g.stroke(); g.setLineDash([]); }
+  const J=BR.jet; if(J&&!J.done){ g.strokeStyle='rgba(255,255,255,.7)'; g.lineWidth=1; g.beginPath(); g.moveTo(P(J.from.x),P(J.from.z)); g.lineTo(P(J.to.x),P(J.to.z)); g.stroke(); g.fillStyle='#fff'; g.fillRect(P(J.g.position.x)-3,P(J.g.position.z)-3,6,6); }
+  g.fillStyle='#ffd23f'; for(const ch of BR.chests) if(!ch.open) g.fillRect(P(ch.x)-1.5,P(ch.z)-1.5,3,3); g.restore(); }
 // ================= match flow =================
+// the home screen's mode picker: Zero-G Box or Storm Island; switching rebuilds the world behind the menu
+function showMode(){ const br=MODE==='br'; $('modeZg').setAttribute('aria-checked',String(!br)); $('modeBr').setAttribute('aria-checked',String(br));
+  $('modeName').textContent=br?'Storm Island':'Zero-G Box'; $('modeArt').className='modeart '+(br?'br':'zg'); if(!$('playBtn').disabled) $('playBtn').textContent=br?'Drop in':'Enter the box'; }
+function setMode(m){ if(m===MODE||state!=='menu') return; MODE=m; try{ localStorage.setItem('invertedMode',m); }catch(e){} sfx('ui'); if(SOLDIER){ newMatch(); matchUsed=false; } showMode(); }
+$('modeZg').addEventListener('click',()=>setMode('zg')); $('modeBr').addEventListener('click',()=>setMode('br'));
 function newMatch(){
   if(world) scene.remove(world);
   world=new T.Group(); scene.add(world);
   colliders=new BoxGrid(8); structMeshes=[]; charMeshes=[]; combatants=[]; bots=[]; effects=[];
   matchTime=0; targetsDirty=true; hurtFlash=0;
-  buildZeroG(); buildVending(); projs=[]; splats=[]; bolts=[]; fires=[]; drones=[]; kunais=[]; pwShots=[]; pwZones=[]; pwWalls=[]; pwLaters=[]; shopOpen=false; $('shop').hidden=true;
-  ZG.state='float'; ZG.t=rnd(20,26); ZG.camRoll=0; ZG.flash=0;
+  if(MODE==='br') buildIsland(); else { ZG.L=125; ZG.H=90; buildZeroG(); buildVending(); } projs=[]; splats=[]; bolts=[]; fires=[]; drones=[]; kunais=[]; pwShots=[]; pwZones=[]; pwWalls=[]; pwLaters=[]; shopOpen=false; $('shop').hidden=true;
+  if(MODE!=='br'){ ZG.state='float'; ZG.t=rnd(20,26); ZG.camRoll=0; ZG.flash=0; }
+  brScene();
   rollLoadout(); player=makeCombatant('You',true);
   Object.assign(player,{slots:[null,{kind:'gun',id:'ar',r:3,ammo:WEAP.ar.mag},{kind:'gun',id:'pump',r:3,ammo:WEAP.pump.mag},{kind:'gun',id:'smg',r:2,ammo:WEAP.smg.mag},{kind:'cons',id:'big',count:2},{kind:'cons',id:'mini',count:3},{kind:'gun',id:'mf',r:4,ammo:MF_CLIP},null,null],
     sel:1,bank:0,throwA:null,bouncer:{cd:0},bounceT:0,ball:null,ammo:{light:150,medium:240,heavy:12,shells:48},fireCd:0,bloom:0,reloading:null,consuming:null,dmgDealt:0,wantJump:false,shield:50});
-  zgSpawn(player,0,ZG.BOTS+1); player.pitch=0; applyPickSkin(player);
-  for(let i=0;i<ZG.BOTS;i++){ const b=makeBot(i); bots.push(b); zgSpawn(b,i+1,ZG.BOTS+1); armBot(b); b.react=rnd(0.14,0.3); b.wake=SPAWN_GRACE+rnd(0,6); b.skill=rnd(0.5,0.8); b.lastPos=b.pos.clone(); }
+  if(MODE==='br'){ player.slots=[null,null,null,null,null,null,null,null,null]; player.sel=0; player.shield=0; brSpawn(player,0); } else zgSpawn(player,0,ZG.BOTS+1);
+  player.pitch=0; applyPickSkin(player);
+  for(let i=0;i<ZG.BOTS;i++){ const b=makeBot(i); bots.push(b); if(MODE==='br') brSpawn(b,i+1); else zgSpawn(b,i+1,ZG.BOTS+1); armBot(b); b.react=rnd(0.14,0.3); b.wake=SPAWN_GRACE+rnd(0,6); b.skill=rnd(0.5,0.8); b.lastPos=b.pos.clone(); }
+  if(MODE==='br') for(const b of bots){ b.wake=1e9; }
   aliveCount=combatants.length;
-  buildFlyers(); buildPads();
+  if(MODE!=='br'){ buildFlyers(); buildPads(); }
   renderMapBase();
 }
 function startMatch(){
@@ -4494,7 +5269,7 @@ function startMatch(){
   $('menu').hidden=true; $('over').hidden=true; $('pause').hidden=true; $('hud').hidden=false; $('feed').innerHTML='';
   state='play'; refreshHotbar(); hudTick();
   try{ renderer.compile(scene,camera); }catch(e){} // build every skin's shaders now, not in the middle of the first fight
-  banner('Inverted','',2.5);
+  banner(MODE==='br'?'Storm Island':'Inverted',MODE==='br'?'Press Space to jump out of the jet':'',2.5);
   requestLock();
 }
 function endMatch(win,killer?,cause?){
@@ -4559,6 +5334,7 @@ document.addEventListener('keydown',ev=>{
   if(c==='Escape'&&fallbackLook){ pauseGame(); return; }
 
   if(shopOpen){ if(c.startsWith('Digit')){ const n=+c.slice(5); if(n>=1&&n<=SHOP.length) buyItem(n-1); } else if(c==='KeyE'||c==='Escape') closeShop(); return; }
+  if(c==='KeyE'&&p.alive&&MODE==='br'&&p.br==='ground'){ brOpenChest(); return; }
   if(c==='KeyE'&&p.alive&&nearMachine()) openShop();
   else if(c==='KeyQ') startBounce(p);
   else if(c==='KeyR'&&p.alive) startReload(curItem());
@@ -4584,17 +5360,15 @@ addEventListener('wheel',ev=>{ if(state!=='play'||!player||shopOpen) return; con
 function update(dt){
   if(player&&!player.alive&&player.death&&player.death.t<1.6) dt*=0.4; // slow motion while you go down
   matchTime+=dt;
-  updateZG(dt);
-  updateFlyers(dt);
-  updatePads(dt);
-  updatePlayerZG(dt);
+  if(MODE==='br'){ updateBR(dt); updatePlayerBR(dt); }
+  else { updateZG(dt); updateFlyers(dt); updatePads(dt); updatePlayerZG(dt); }
   updateActions(dt); pwUpdate(dt);
   updateProjs(dt); updateSplats(dt); updateBolts(dt); updateFires(dt); updateBouncerCd(dt); updateDrones(dt); if(player.flmT>0) player.flmT-=dt;
   for(const e of combatants){ updateStatus(e,dt); pwStatus(e,dt); }
   updatePunches(player,dt); updateKunais(dt); updateTitan(player,dt); updateKi(player,dt); updateGuard(player,dt); updateWriting(player,dt); updateBW(dt);
-  for(const b of bots) updateBotZG(b,dt);
+  for(const b of bots) if(MODE==='br') updateBotBR(b,dt); else updateBotZG(b,dt);
   updateEmote(dt);                                    // [S4] emote timers, cancels, the wheel and bots gloating
-  for(const e of combatants) animateGLB(e,dt);
+  for(const e of combatants) if(e.br!=='jet') animateGLB(e,dt); // nobody to pose inside the jet
   drawPunches(player);
   updateEffects(dt);
 }
@@ -4652,15 +5426,9 @@ function heroFrame(dt){
   const hx:any={e,c,B,g,pitch:0,rightB,fwdB,upB}; emTick(e,dt,true);
   if(e.emote){ emotePose(e,hx); c.pick.visible=false; if(c.pickL) c.pickL.visible=false; }
   else emIdle(hx,t,heroLook(hx,dt,W,H,t));
-  if(!e.emote&&(eq&&!eq.anime||eq&&eq.anime==='nichirin'||eq&&eq.anime==='kunai')){ // [S4] INTEGRATOR: Stream 3's pickHold(c,e,P,rightB,upB,fwdB,rest) replaces the pickPose/IK/hand block below
-    const P=pickPose({swingT:0,guardK:0,swingSide:0}), sh=B.RightArm.getWorldPosition(new V());
-    const tgt=g.localToWorld(g.worldToLocal(sh.clone()).add(P.h)).addScaledVector(upB,0.008*Math.sin(t*1.7));
-    solveIK(B.RightArm,B.RightForeArm,B.RightHand,tgt,sh.clone().addScaledVector(rightB,0.5).addScaledVector(upB,-0.55).addScaledVector(fwdB,-0.1));
-    c.pick.quaternion.copy(P.q); g.updateMatrixWorld(true);
-    const hw=B.RightHand.getWorldPosition(new V()), hd=new V(0,1,0).applyQuaternion(c.pick.getWorldQuaternion(new T.Quaternion()));
-    const pn=rightB.clone().negate(); pn.addScaledVector(hd,-pn.dot(hd)).normalize(); const pf=new V().crossVectors(hd.clone().negate(),pn);
-    poseHand(B,'Right',pf,pn,0.8); hw.addScaledVector(pf,0.07).addScaledVector(pn,0.03); g.worldToLocal(hw); c.pick.position.copy(hw);
-    if(c.pickL) dualLeft(c,B,g,P,rightB,upB,fwdB,1);
+  if(!e.emote&&(eq&&!eq.anime||eq&&eq.anime==='nichirin'||eq&&eq.anime==='kunai')){ // [S3] the form's rest pose through pickHold
+    const P=pickPose({swingT:0,guardK:0,swingSide:0,ch:c}); P.h.y+=0.008*Math.sin(t*1.7); // [S3] each form's own rest pose and grip, breathing
+    c.pick.visible=true; pickHold(c,e,P,rightB,upB,fwdB,1);
   } else if(!e.emote) c.pick.visible=false; // the fists and the Death Note have nothing to rest on a shoulder
   poseBlend(c,dt); poseStore(c); // [S4] so Stream 1's inertial blend works on the hero too
   HERO.ring.material.opacity=0.45+0.12*Math.sin(t*2);
@@ -4690,7 +5458,7 @@ function loop(now){
 $('playBtn').disabled=true; $('playBtn').textContent='Loading…';
 loadSoldier(ok=>{
   if(!ok){ $('err').textContent='The character model did not load. Reload the page to try again.'; return; }
-  newMatch(); $('playBtn').disabled=false; $('playBtn').textContent='Enter the box'; showPickNote(); });
+  newMatch(); $('playBtn').disabled=false; showMode(); showPickNote(); });
 requestAnimationFrame(loop);
 // hooks for automated tests and screenshots
 window.__game={keys,camera,sfx:(k,o)=>sfx(k,null,o),get audioOk(){return !!(AC&&bus&&AMB);},setCam:(p,l)=>{ camOverride=p?{pos:new V(...p),look:new V(...l)}:null; },
@@ -4699,4 +5467,5 @@ window.__game={keys,camera,sfx:(k,o)=>sfx(k,null,o),get audioOk(){return !!(AC&&
   equipPick:n=>{ equippedName=n; applyPickSkin(player); refreshHotbar(); }, get POW(){return POW;}, get pw(){return {shots:pwShots.length,zones:pwZones.length,zd:pwZones.map(z=>{ const e=combatants.find(c=>c!==player&&c.alive); return e?+z.pos.distanceTo(e.pos).toFixed(1):-1; }),pd:+chest(player).distanceTo(camera.position).toFixed(1),walls:pwWalls.map(w=>[w.m.position.toArray().map(Math.round),w.m.scale.x,w.m.visible])};},
   renderer,scene,mouse,shop:()=>openShop(),fire:()=>playerFire(),kill:(e,weapon,info)=>eliminate(e,null,weapon,info),colliderCount:()=>colliders.size,get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},get ZG(){return ZG;},get splats(){return splats.length;},get heartT(){return heartT;},startMatch,update,setState:s=>state=s};
 Object.assign(window.__game,{emote:(k,o)=>startEmote(player,k,o),emoteOn:(e,k,o)=>startEmote(e,k,o),stopEmote:()=>stopEmote(player,true),EM,EMOTES,get HERO(){return HERO;},heroEmote:k=>heroEmote(k)}); // [S4] test hooks
+Object.assign((window as any).__game,{BR,brOpenChest,get MODE(){ return MODE; }});
 })();

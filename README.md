@@ -4,6 +4,8 @@ A 3D zero-gravity shooter that runs in the browser. You and 100 bots float insid
 
 **Play online:** https://ketchupsauce86.github.io/RandomProject/ (updates automatically about a minute after `main` changes; hard refresh with Ctrl+Shift+R to get the newest version).
 
+**Storm Island**, the original battle royale, is back as a second mode (pick it on the home screen). Drop out of a neon private jet over a Glitched island, skydive, open your glider, loot chests for weapons and potions, and stay ahead of the storm as it closes in. 100 bots, last one standing wins.
+
 Needs a keyboard and mouse. The **Armory** button shows every gun design, and its **Pickaxes** tab shows 100 pickaxes in 3D across ten themed sets. Most of them have been reforged into real weapons (dual blades, greatswords, reaper scythes, spears, battle axes and twin daggers) that keep their set's look; the Christmas set is next. Open the **Locker** to equip a pickaxe or one of 56 original skins in nine themes, each with repainted armor and 3D gear like capes, hats, hair, wings and halos. The bots wear them too. Turn on **Random each match** in the Locker to get a surprise pickaxe or skin (or both) every match.
 
 ## Controls
@@ -12,12 +14,12 @@ Needs a keyboard and mouse. The **Armory** button shows every gun design, and it
 | --- | --- |
 | WASD | Swim toward where you look |
 | Mouse | Look |
-| Space / C | Swim up / down (Space jumps off the ceiling) |
+| Space / C | Swim up / down (Space jumps off the ceiling); on Storm Island: jump, leave the jet, open your glider / crouch |
 | Shift | Propel forward fast (uses the stamina bar); sprint on the ceiling |
 | Left click | Shoot, swing pickaxe, drink a potion |
 | Right click | Aim down sights |
 | 1–9 / wheel | Switch slots |
-| E | Use a vending machine |
+| E | Use a vending machine; open a chest on Storm Island |
 | Q | Bouncer Ball |
 | R | Reload MF Guns |
 | B | Emote (tap: the last one; hold: the emote wheel, move the mouse and let go) |
