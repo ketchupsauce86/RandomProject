@@ -6,7 +6,7 @@ A 3D zero-gravity shooter that runs in the browser. You and 100 bots float insid
 
 **Storm Island**, the original battle royale, is back as a second mode (pick it on the home screen). Drop out of a neon private jet over a Glitched island, skydive, open your glider, loot chests for weapons and potions, and stay ahead of the storm as it closes in. 100 bots, last one standing wins.
 
-Needs a keyboard and mouse. The **Armory** button shows every gun design, and its **Pickaxes** tab shows 100 pickaxes in 3D across ten themed sets. Most of them have been reforged into real weapons (dual blades, greatswords, reaper scythes, spears, battle axes and twin daggers) that keep their set's look; the Christmas set is next. Open the **Locker** to equip a pickaxe or one of 56 original skins in nine themes, each with repainted armor and 3D gear like capes, hats, hair, wings and halos. The bots wear them too. Turn on **Random each match** in the Locker to get a surprise pickaxe or skin (or both) every match.
+Needs a keyboard and mouse. The **Armory** button shows every gun design, and its **Pickaxes** tab shows 100 pickaxes in 3D across ten themed sets. Most of them have been reforged into real weapons (dual blades, greatswords, reaper scythes, spears, battle axes and twin daggers) that keep their set's look, Christmas set included. Open the **Locker** to equip a pickaxe or one of 56 original skins in nine themes, each with repainted armor and 3D gear like capes, hats, hair, wings and halos. The bots wear them too. Turn on **Random each match** in the Locker to get a surprise pickaxe or skin (or both) every match.
 
 ## Controls
 
