@@ -8,7 +8,7 @@
 const THEMES=[
   {id:'heroes',n:'Heroes & Villains'},{id:'anime',n:'Anime'},{id:'west',n:'Wild West'},{id:'cyber',n:'Cyber Neon'},
   {id:'myth',n:'Myth & Fantasy'},{id:'space',n:'Space'},{id:'ops',n:'Special Ops'},{id:'street',n:'Street & Sports'},
-  {id:'spooky',n:'Spooky'}
+  {id:'spooky',n:'Spooky'},{id:'xmas',n:'Christmas'}
 ];
 
 // p plate · c cloth · s undersuit · k straps · m metal · x stripes · v visor · g which parts glow
@@ -159,6 +159,27 @@ const ITEMS=[
   S('Grave Walker','spooky',2,{p:'#7a8a6a',c:'#3a3a40',s:'#141418',k:'#4a3a2a',m:'#9aa08a',x:'#9cff5a',v:'#9cff5a',g:'v',pat:['p','worn','#5a6a4a'],acc:[['emblem','skull','#141418','#d8d8c8']]}),
   S('Vampire Count','spooky',4,{p:'#1a1a1f',c:'#8a0f1f',s:'#0a0a0c',k:'#c9a227',m:'#c9a227',x:'#ff2b3a',v:'#ff2b3a',g:'xv',fin:[0.3,0.4],acc:[['cape','#0a0a0c','#8a0f1f'],['emblem','fang','#ff2b3a','#1a1a1f'],['hair','#0a0a0c','slick']]}),
   S('Specter','spooky',3,{p:'#dfe8f0',c:'#9fb2c4',s:'#3a4a5a',k:'#9fb2c4',m:'#ffffff',x:'#9fffff',v:'#9fffff',g:'xvp',acc:[['halo','#9fffff'],['scarf','#dfe8f0']]}),
+  // ---------- Christmas
+  S('Santa Claus','xmas',4,{p:'#c8161f',c:'#e8222c',s:'#8a0f16',k:'#141414',m:'#f2c230',x:'#ffffff',v:'#ffe8cf',fin:[0.1,0.7],pat:['c','snow','#ffffff'],
+    acc:[['santaHat','#d4121c','#ffffff'],['beard','#ffffff'],['belt','#141414'],['giftSack','#a52a1f','#2fae5b']]}),
+  S('Mrs. Claus','xmas',3,{p:'#f1ead9',c:'#b8202e',s:'#6a1018',k:'#2a6a3a',m:'#e8d28a',x:'#2fae5b',v:'#ffe8cf',fin:[0.1,0.6],pat:['p','check','#e8dcc4'],
+    acc:[['hair','#e4e0d8','long'],['scarf','#2fae5b'],['holly'],['emblem','heart','#b8202e','#f1ead9']]}),
+  S('Elf on the Shelf','xmas',2,{p:'#1f9a46',c:'#d8212e',s:'#0e4a22',k:'#d4a43a',m:'#f2c230',x:'#d8212e',v:'#ffe0b8',fin:[0.1,0.6],pat:['p','stripes','#c8202c'],
+    acc:[['elfHat','#1f9a46','#d8212e'],['ears','#f2c49e','#f0a090'],['bowtie','#d8212e'],['belt','#d4a43a']]}),
+  S('Rudolph','xmas',3,{p:'#8a5a30',c:'#5e3a1c',s:'#2e1c0e',k:'#c8202c',m:'#f2c230',x:'#e8d9b8',v:'#e8d9b8',fin:[0.05,0.85],
+    acc:[['horns','#c9a77a','antler'],['nose'],['scarf','#c8202c'],['choker','#f2c230','#f2c230']]}),
+  S('Frosty','xmas',3,{p:'#f4f8ff',c:'#dfeaf8',s:'#9fb8d6',k:'#141414',m:'#c8d6e8',x:'#c8202c',v:'#141414',fin:[0.05,0.7],pat:['p','snow','#cfe0f4'],
+    acc:[['topHat','#141414','#c8202c'],['carrot'],['buttons','#141414'],['scarf','#c8202c']]}),
+  S('Gingerbread Man','xmas',2,{p:'#b8733a',c:'#9a5a28',s:'#6a3a14',k:'#ffffff',m:'#ffffff',x:'#ffffff',v:'#ffffff',g:'x',pat:['c','stripes','#c98a50'],
+    acc:[['bowtie','#e3243b'],['buttons',['#e3243b','#2fae5b','#ffd23f']],['emblem','heart','#ffffff','#9a5a28']]}),
+  S('Nutcracker','xmas',4,{p:'#b3121f',c:'#1c2a6a',s:'#0e1640',k:'#d4a43a',m:'#f2c230',x:'#f2c230',v:'#ffe0b8',fin:[0.8,0.3],
+    acc:[['nutHat','#141414','#d4a43a','#c8202c'],['pauldrons','#d4a43a'],['belt','#d4a43a'],['emblem','crown','#f2c230','#1c2a6a']]}),
+  S('Jack Frost','xmas',4,{p:'#bfe8ff',c:'#5aa8e0',s:'#1f4a7a',k:'#e8f6ff',m:'#e8f6ff',x:'#9fefff',v:'#9fefff',g:'xvp',fin:[0.7,0.2],pat:['p','ice','#ffffff'],
+    acc:[['crown','#9fefff',1],['cape','#7fc4f0','#e8f6ff'],['wings','#bfe8ff','#7fb8e6'],['emblem','snow','#ffffff','#1f4a7a',1]]}),
+  S('Krampus','xmas',4,{p:'#2a1a14',c:'#4a2a1e',s:'#120a08',k:'#5a2a1a',m:'#8a8a8a',x:'#ff3b2f',v:'#ff3b2f',g:'xv',fin:[0.2,0.6],pat:['p','worn','#3a2a22'],big:[1.18,1.08],
+    acc:[['horns','#e8e0d0'],['hair','#120a08','wild'],['tail','#2a1a14'],['cape','#2a0a0a','#8a1a14'],['emblem','skull','#e8e0d0','#2a1a14']]}),
+  S('Christmas Tree','xmas',3,{p:'#1f8a3a',c:'#0f5a26',s:'#073a18',k:'#d4a43a',m:'#f2c230',x:'#ffd23f',v:'#ffd23f',g:'xv',pat:['p','worn','#2fae5b'],
+    acc:[['starTop','#ffd23f'],['lights',['#ff3b3b','#ffd23f','#3fa0ff','#ff7ad1','#5cf0a0']],['emblem','star','#ffd23f','#0f5a26',1]]}),
 ];
 ITEMS.forEach((it,i)=>{ it.i=i; it.theme=THEMES.find(t=>t.id===it.t); });
 
@@ -766,6 +787,47 @@ function gear(T,kind,a,mats,opt){
         const dent=M(new T.SphereGeometry(0.1,12,6,0,Math.PI*2,0,Math.PI/2),L(a[0],{roughness:0.85}),0,0.13,0); dent.scale.set(1.1,0.35,1.3); g.add(dent); }
       const band=M(new T.CylinderGeometry(0.162,0.162,0.035,18,1,true),L(a[1]),0,0.03,0); band.scale.z=1.15; g.add(band);
       g.position.set(0,witch?0.22:0.255,0.0); g.rotation.x=-0.08; out.push(['Head',g]); break; }
+    case 'santaHat': { const g=G(), c=L(a[0],{roughness:0.9}), fur=L(a[1],{roughness:1}), cone=G();
+      const body=M(new T.ConeGeometry(0.17,0.42,18,1,true).translate(0,0.21,0),L(a[0],{roughness:0.9,side:T.DoubleSide})); body.scale.z=1.1; cone.add(body); cone.rotation.x=-0.6; g.add(cone);
+      const band=M(new T.TorusGeometry(0.165,0.05,10,26),fur,0,0,0); band.rotation.x=Math.PI/2; band.scale.set(1,1.1,1.1); g.add(band);
+      const tip=0.42; g.add(M(new T.SphereGeometry(0.055,12,10),fur,0,tip*Math.cos(0.6),-tip*Math.sin(0.6)));
+      g.position.set(0,0.2,0.0); out.push(['Head',g]); break; }
+    case 'elfHat': { const g=G(), cone=G(); cone.add(M(new T.ConeGeometry(0.15,0.55,16,1,true).translate(0,0.275,0),L(a[0],{roughness:0.9,side:T.DoubleSide}))); cone.rotation.set(-0.5,0,0.35); g.add(cone);
+      const band=M(new T.TorusGeometry(0.15,0.035,8,24),L(a[1],{roughness:0.8}),0,0,0); band.rotation.x=Math.PI/2; g.add(band);
+      const tip=0.55; g.add(M(new T.SphereGeometry(0.04,12,10),L('#f2c230',{metalness:0.9,roughness:0.25}),Math.sin(0.35)*tip*0.9,tip*Math.cos(0.5)*0.9,-tip*Math.sin(0.5)*0.9));
+      g.position.set(0,0.2,0.0); out.push(['Head',g]); break; }
+    case 'beard': { const g=G(), m=L(a[0],{roughness:1});
+      for(const [x,y,z,sx,sy,sz] of [[0,-0.06,0.12,1.5,1.7,0.9],[-0.07,-0.03,0.13,1,1.4,0.8],[0.07,-0.03,0.13,1,1.4,0.8],[0,-0.17,0.1,1.1,1.5,0.8]]) g.add(M(new T.SphereGeometry(0.075,12,10).scale(sx,sy,sz),m,x,y,z));
+      for(const s2 of [-1,1]){ const st=M(new T.SphereGeometry(0.04,10,8).scale(1.6,0.7,0.8),m,s2*0.045,0.045,0.17); st.rotation.z=-s2*0.35; g.add(st); }
+      out.push(['Head',g]); break; }
+    case 'holly': { const g=G(), lf=L('#1f8a3a',{roughness:0.6,side:T.DoubleSide});
+      for(const r of [-0.7,0.7]){ const l=M(new T.SphereGeometry(0.05,10,8).scale(2,0.25,0.9),lf,0.1+r*0.05,0.2,0.07); l.rotation.z=r; g.add(l); }
+      for(const [x,y,z] of [[0.095,0.215,0.09],[0.12,0.2,0.085],[0.105,0.19,0.1]]) g.add(M(new T.SphereGeometry(0.018,8,6),L('#e3243b',{roughness:0.3}),x,y,z));
+      out.push(['Head',g]); break; }
+    case 'nose': { const m=M(new T.SphereGeometry(0.05,14,10),glowM('#ff2b2b'),0,0.07,0.2); m.userData.bob=false; out.push(['Head',m]); break; }
+    case 'carrot': { const c=M(new T.ConeGeometry(0.032,0.22,10).translate(0,0.11,0),L('#ff8a1a',{roughness:0.6}),0,0.07,0.17); c.rotation.x=Math.PI/2; out.push(['Head',c]); break; }
+    case 'buttons': { const g=G(), cols=Array.isArray(a[0])?a[0]:[a[0],a[0],a[0]];
+      cols.forEach((c,i)=>g.add(M(new T.SphereGeometry(0.026,10,8),L(c,{roughness:0.35}),0,0.13-i*0.085,0.18+(i===1?0.004:0))));
+      out.push(['Spine2',g]); break; }
+    case 'giftSack': { const g=G(); g.add(M(new T.SphereGeometry(0.21,16,12).scale(1,1.1,0.8),L(a[0],{roughness:0.9}),0,-0.02,-0.3));
+      const tie=M(new T.TorusGeometry(0.1,0.022,8,16),L(a[1],{roughness:0.5}),0,0.2,-0.3); tie.rotation.x=Math.PI/2; g.add(tie);
+      const b1=M(new T.BoxGeometry(0.1,0.1,0.1),L('#3fa0ff',{roughness:0.4}),0.05,0.3,-0.3); b1.rotation.set(0.3,0.5,0.2); g.add(b1);
+      const b2=M(new T.BoxGeometry(0.08,0.08,0.08),L('#ffd23f',{roughness:0.4}),-0.06,0.28,-0.32); b2.rotation.set(-0.2,0.2,-0.3); g.add(b2);
+      out.push(['Spine2',g]); break; }
+    case 'lights': { const g=G(), cols=a[0], wire=L('#1a3a22',{roughness:0.7});
+      for(const [y,r] of [[0.14,0.0],[0.0,0.5]]){ const w=M(new T.TorusGeometry(0.2,0.007,6,40),wire,0,y,0); w.rotation.x=Math.PI/2; w.scale.set(1,0.86,1); g.add(w);
+        for(let i=0;i<14;i++){ const t=i/14*Math.PI*2+r, c=cols[(i+(y>0.1?0:2))%cols.length]; g.add(M(new T.SphereGeometry(0.02,8,6),glowM(c),Math.sin(t)*0.205,y-0.012*Math.abs(Math.sin(t*2)),Math.cos(t)*0.175)); } }
+      out.push(['Spine2',g]); break; }
+    case 'nutHat': { const g=G(); g.add(M(new T.CylinderGeometry(0.135,0.155,0.3,18),L(a[0],{roughness:1}),0,0.15,0));
+      const band=M(new T.TorusGeometry(0.155,0.02,8,24),L(a[1],{metalness:0.8,roughness:0.3}),0,0.02,0); band.rotation.x=Math.PI/2; g.add(band);
+      g.add(M(new T.CylinderGeometry(0.018,0.026,0.16,8),L(a[2],{roughness:0.6}),0.05,0.38,0)); g.add(M(new T.SphereGeometry(0.035,10,8).scale(1,1.4,1),L(a[2],{roughness:0.6}),0.05,0.47,0));
+      const bd=M(new T.CylinderGeometry(0.035,0.035,0.01,16),L(a[1],{metalness:0.9,roughness:0.25}),0,0.12,0.15); bd.rotation.x=Math.PI/2; g.add(bd);
+      g.position.set(0,0.2,0.0); out.push(['Head',g]); break; }
+    case 'starTop': { const sh=new T.Shape(); for(let i=0;i<10;i++){ const an=Math.PI/2+i*Math.PI/5, r=i%2?0.04:0.1; sh.lineTo(Math.cos(an)*r,Math.sin(an)*r); }
+      const g=G(), st=M(new T.ExtrudeGeometry(sh,{depth:0.03,bevelEnabled:true,bevelThickness:0.006,bevelSize:0.006,bevelSegments:1}),glowM(a[0]),0,0.3,-0.015); g.add(st);
+      g.add(M(new T.CylinderGeometry(0.012,0.02,0.1,8),L('#d4a43a',{metalness:0.8,roughness:0.3}),0,0.22,0)); out.push(['Head',g]); break; }
+    case 'topHat': { const g=G(); g.add(M(new T.CylinderGeometry(0.2,0.2,0.02,24),L(a[0],{roughness:0.5}),0,0,0)); g.add(M(new T.CylinderGeometry(0.12,0.13,0.24,20),L(a[0],{roughness:0.5}),0,0.13,0));
+      g.add(M(new T.CylinderGeometry(0.133,0.133,0.045,20,1,true),L(a[1],{roughness:0.6,side:T.DoubleSide}),0,0.04,0)); g.position.set(0,0.24,0.0); g.rotation.x=-0.08; out.push(['Head',g]); break; }
     case 'hat2': { const g=G(); const cap=M(new T.SphereGeometry(0.16,16,10,0,Math.PI*2,0,Math.PI/2),L(a[0]),0,0,0); cap.scale.set(1,0.75,1.1); g.add(cap);
       const bill=M(new T.CylinderGeometry(0.13,0.13,0.012,16,1,false,-Math.PI/2,Math.PI),L(a[0]),0,0,-0.12); bill.scale.z=0.9; g.add(bill); g.position.set(0,0.2,0); out.push(['Head',g]); break; }
     case 'bandana': { const m=M(new T.SphereGeometry(0.15,16,10,-Math.PI*0.4,Math.PI*0.8,Math.PI*0.5,Math.PI*0.35),L(a[0],{side:T.DoubleSide,roughness:0.85}),0,0.12,0.03); m.scale.set(1.02,1,1.05); out.push(['Head',m]);
