@@ -358,7 +358,7 @@ SETS.forEach(s=>(RAW[s.id]||[]).forEach(r=>{
   ITEMS.push({i:ITEMS.length,set:s,n,rar,shape:shp||shape,h1,h2,edge,hs,ha,hb,pat,pc,x:x||{},flav,sz,pw,tap:mv[0],hold:mv[1],pwd:'Tap: '+mv[0]+' Hold: '+mv[1]});
 }));
 // Most pickaxes aren't pickaxes any more: each one is reforged into a weapon form below that keeps its colours,
-// artwork and moves. The Christmas set is next in line for its own rework, so it stays as it is for now.
+// artwork and moves, and so is the Christmas set (candy canes, a nutcracker spear, an ice greatsword and more).
 const FORM_OF={
  'Jack-o-Lantern':'greatsword','Spooky Shadow':'sabre','Grim Reaper':'reaper','Candy Corn':'dagger','Witch\'s Wart':'spear','Bone Pick':'sabre','Spider Silk':'dagger','Glossy Ghost':'bigaxe',
  'Fresh Tag':'sabre','Drip Lord':'greatsword','Wildstyle':'spear','Wet Paint':'reaper','Throw-Up':'bigaxe','Burner':'dagger','Stencil':'sabre','Rooftop King':'greatsword',
@@ -368,11 +368,13 @@ const FORM_OF={
  'Lollipop Swirl':'spear','Gummy Bear':'dagger','Bubblegum Pop':'sabre','Chocolate Bar':'greatsword','Sour Blast':'bigaxe','Rock Candy':'greatsword','Cotton Candy':'reaper','Sugar Rush':'sabre',
  'Supernova':'greatsword','Moonbeam':'reaper','Black Hole':'sabre','Nebula':'greatsword','Comet Tail':'spear','Saturn Ring':'bigaxe','Stardust':'dagger','Event Horizon':'sabre',
  'Vine Whip':'spear','Tiger Stripe':'bigaxe','Jaguar':'sabre','Raptor Claw':'dagger','Venom':'reaper','Temple Idol':'bigaxe','Parrot Plume':'spear','Canopy King':'greatsword',
+ 'Candy Cane Classic':'cane','Holly Jolly':'dagger','Gingerbread Smash':'bigaxe','Nutcracker Guard':'spear','Frostbite':'greatsword','Sleigh Bell':'dagger','Ugly Sweater':'greatsword','Ornament Breaker':'sabre','North Star':'spear','Krampus Claw':'reaper',
  'Storm Chaser':'spear','Private Jet':'sabre','Last One Standing':'greatsword','Golden Chest':'bigaxe','Shield Potion':'dagger','Eye of the Storm':'reaper',
 };
 // sy stretches the blade along the handle, Lk scales the handle, guard swaps the collar for a crossguard, dual puts one in each hand
 const FORMS={
  greatsword:{n:'Greatsword',sy:3.3,Lk:.5,guard:1},
+ cane:{n:'Candy canes',sy:2,Lk:.5,dual:1},
  sabre:{n:'Dual blades',sy:2.2,Lk:.42,guard:1,dual:1},
  dagger:{n:'Twin daggers',sy:1.25,Lk:.34,guard:1,dual:1},
  spear:{n:'Spear',sy:1.4,Lk:1.7},
@@ -423,6 +425,7 @@ const SHAPES={
  shovel:'M66 54 L66 20 C66 6 84 -4 100 -8 C116 -4 134 6 134 20 L134 54 L112 58 L88 58Z',
  gem:'M100 4 L150 28 L178 48 L100 74 L22 48 L50 28Z',
  greatsword:'M82 57 L82 4 L100 -10 L118 4 L118 57Z',
+ cane:'M108 57 L108 6 C108 -14 72 -14 68 8 L83 10 C85 0 94 0 94 8 L94 57Z',
  sabre:'M90 57 L90 8 C92 -1 101 -7 114 -10 C107 0 110 9 110 57Z',
  dagger:'M86 57 L86 22 L100 -10 L114 22 L114 57Z',
  spear:'M100 -10 C116 8 120 32 107 57 L93 57 C80 32 84 8 100 -10Z',
@@ -430,7 +433,7 @@ const SHAPES={
  bigaxe:'M108 34 L72 38 C56 34 38 20 24 -6 C2 28 2 70 24 104 C38 80 56 66 72 62 L108 66 L126 50Z',
  pixel:mirror([[100,28],[60,28],[60,32],[44,32],[44,36],[32,36],[32,42],[24,42],[24,50],[18,50],[18,66],[28,66],[28,58],[36,58],[36,52],[50,52],[50,50],[100,50]]),
 };
-const SHAPE_NAMES={greatsword:'Greatsword',sabre:'Dual blades',dagger:'Twin daggers',spear:'Spear',reaper:'Reaper scythe',bigaxe:'Battle axe',double:'Double axe',halberd:'Halberd',trident:'Trident',mace:'Spiked mace',drill:'Drill',mallet:'Giant mallet',sickle:'Sickle',shovel:'Shovel',gem:'Gem',classic:'Classic pick',axe:'Axe and spike',hammer:'Hammer and spike',crescent:'Crescent',scythe:'Scythe',crystal:'Crystal shards',star:'Star',claw:'Triple claw',saw:'Serrated',hook:'Hook',wing:'Wings',bat:'Bat wings',bolt:'Lightning',leaf:'Leaf',blocky:'Block',pixel:'Pixel'};
+const SHAPE_NAMES={cane:'Candy canes',greatsword:'Greatsword',sabre:'Dual blades',dagger:'Twin daggers',spear:'Spear',reaper:'Reaper scythe',bigaxe:'Battle axe',double:'Double axe',halberd:'Halberd',trident:'Trident',mace:'Spiked mace',drill:'Drill',mallet:'Giant mallet',sickle:'Sickle',shovel:'Shovel',gem:'Gem',classic:'Classic pick',axe:'Axe and spike',hammer:'Hammer and spike',crescent:'Crescent',scythe:'Scythe',crystal:'Crystal shards',star:'Star',claw:'Triple claw',saw:'Serrated',hook:'Hook',wing:'Wings',bat:'Bat wings',bolt:'Lightning',leaf:'Leaf',blocky:'Block',pixel:'Pixel'};
 const HANDLE_NAMES={plain:'Smooth',wrap:'Wrapped grip',twist:'Twisted',bone:'Bone',bamboo:'Bamboo',rope:'Rope bound',pixel:'Pixel'};
 
 function patternSVG(it,id,R){
@@ -558,7 +561,7 @@ ANIME_ART.titan=id=>`<circle cx="100" cy="104" r="64" fill="#c4553f" opacity=".1
 function pickSVG(it,suffix){
   if(it.anime) return `<svg viewBox="0 0 200 200" role="img" aria-label="${it.n}" xmlns="http://www.w3.org/2000/svg"><ellipse cx="100" cy="182" rx="52" ry="7" fill="#000" opacity=".28"/>${ANIME_ART[it.anime]('a'+it.i+(suffix||''))}</svg>`;
   const id='p'+it.i+suffix, R=rng(it.i*9973+7), x=it.x, alpha=x.alpha||1, F=formOf(it), L=pickLen(it), HS=headScale(it), SY=F?F.sy:1;
-  const top=48-58*HS*SY, bot=50+L+18, cy=(top+bot)/2, SC=F?Math.min(1.4,230/(bot-top)):.7;
+  const top=48-58*HS*SY, bot=50+L+18, cy=(top+bot)/2, SC=F?Math.min(1.4,208/(bot-top)):.7;
   const d=SHAPES[it.shape];
   let defs=`<linearGradient id="${id}h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${it.h1}"/><stop offset="1" stop-color="${it.h2}"/></linearGradient><clipPath id="${id}c"><path d="${d}"/></clipPath><linearGradient id="${id}gl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/></linearGradient>`;
   if(x.glow) defs+=`<filter id="${id}f" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur in="SourceAlpha" stdDeviation="4" result="b"/><feFlood flood-color="${x.glow}" flood-opacity=".9"/><feComposite in2="b" operator="in" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
