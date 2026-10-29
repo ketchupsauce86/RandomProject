@@ -3,6 +3,7 @@
 window.GAME_NEWS={
  // newest first; soon marks something that hasn't shipped yet
  announcements:[
+  {tag:'Out now',emoji:'💥',title:'Power-ups, remastered',body:'Every pickaxe power got a visual overhaul: light-ribbon trails, glowing energy orbs, spinning sawblades, carved pumpkins, layered explosions with smoke and debris, rune circles, light pillars, slash waves, laser beams and a charge-up orb in your hand.',c1:'#ff3fa4',c2:'#ffb02a'},
   {tag:'Out now',emoji:'✨',title:'Smoother moves, flashier powers',body:'Weapons are held in a natural ready stance (two-handers with both hands), emotes no longer bend wrists the wrong way, and every pickaxe power got glowing trails, force fields, energy walls and bigger blasts.',c1:'#19e3ff',c2:'#9b5cff'},
   {tag:'Out now',emoji:'🎅',title:'Ten Christmas skins',body:'A whole new Christmas theme in the Locker: Santa Claus, Mrs. Claus, an Elf, Rudolph, Frosty, a Gingerbread Man, a golden Nutcracker, Jack Frost, Krampus and a glowing Christmas Tree.',c1:'#c8161f',c2:'#1f9a46'},
   {tag:'Out now',emoji:'🎄',title:'Christmas pickaxes reforged',body:'All 10 Christmas pickaxes are now festive weapons: crossed Candy Canes, a Nutcracker spear, an ice-blue Frostbite greatsword, an Ornament Breaker pair, and Krampus\'s claw scythe.',c1:'#ff4d5e',c2:'#2fd67a'},

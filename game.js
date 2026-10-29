@@ -9544,6 +9544,38 @@
       sphere: new T.SphereGeometry(1, 24, 16),
       cone: new T.ConeGeometry(0.12, 0.6, 5)
     };
+    const fxGeo = (() => {
+      const pk = new T.SphereGeometry(0.25, 24, 16), a = pk.attributes.position;
+      for (let i = 0; i < a.count; i++) {
+        const x = a.getX(i), y = a.getY(i), z = a.getZ(i), k = 1 - 0.09 * Math.abs(Math.sin(4 * Math.atan2(z, x)));
+        a.setXYZ(i, x * k * 1.15, y * 0.88, z * k * 1.15);
+      }
+      pk.computeVertexNormals();
+      const saw = new T.Shape();
+      for (let i = 0; i < 32; i++) {
+        const r = i % 2 ? 0.26 : 0.36, t = i * TAU / 32;
+        i ? saw.lineTo(Math.cos(t) * r, Math.sin(t) * r) : saw.moveTo(Math.cos(t) * r, Math.sin(t) * r);
+      }
+      const st = new T.Shape();
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 ? 0.13 : 0.34, t = i * TAU / 10 + Math.PI / 2;
+        i ? st.lineTo(Math.cos(t) * r, Math.sin(t) * r) : st.moveTo(Math.cos(t) * r, Math.sin(t) * r);
+      }
+      const fin = new T.Shape();
+      fin.moveTo(0, 0);
+      fin.lineTo(0.12, -0.02);
+      fin.lineTo(0, 0.16);
+      return {
+        pumpkin: pk,
+        saw: new T.ExtrudeGeometry(saw, { depth: 0.05, bevelEnabled: false }).center(),
+        star: new T.ExtrudeGeometry(st, { depth: 0.1, bevelEnabled: true, bevelSize: 0.03, bevelThickness: 0.03, bevelSegments: 1 }).center(),
+        bolt: new T.ConeGeometry(0.075, 0.62, 8).rotateX(Math.PI / 2),
+        fin: new T.ShapeGeometry(fin).rotateX(Math.PI / 2),
+        eye: new T.CircleGeometry(0.055, 3),
+        mouth: new T.RingGeometry(0.05, 0.1, 8, 1, Math.PI * 1.15, Math.PI * 0.7)
+      };
+    })();
+    const fxLit = new T.MeshBasicMaterial({ color: 16773792, side: T.DoubleSide });
     function pwLook(look, col, size) {
       const g = new T.Group(), M = pwMats(col), add = (geo, mat, x, y, z, s) => {
         const m = new T.Mesh(geo, mat);
@@ -9553,26 +9585,51 @@
         return m;
       };
       if (look === "pumpkin") {
-        add(pwGeo.orb, pwMats(16747039).solid).scale.set(1.15, 0.9, 1.15);
+        add(fxGeo.pumpkin, pwMats(16747039).solid);
         add(pwGeo.stem, pwMats(4028970).solid, 0, 0.26, 0);
-      } else if (look === "dart") add(pwGeo.dart, M.solid);
-      else if (look === "disc") add(pwGeo.disc, M.solid).rotation.x = Math.PI / 2;
-      else if (look === "crescent") {
-        const m = add(pwGeo.crescent, M.solid);
+        for (const x of [-0.09, 0.09]) add(fxGeo.eye, fxLit, x, 0.06, 0.255);
+        add(fxGeo.mouth, fxLit, 0, -0.07, 0.25);
+        const gl = new T.Sprite(pwMats(16756778).glow);
+        gl.scale.setScalar(0.5);
+        gl.position.z = 0.2;
+        g.add(gl);
+      } else if (look === "dart") {
+        add(fxGeo.bolt, M.solid);
+        for (let i = 0; i < 3; i++) {
+          const f = add(fxGeo.fin, M.solid, 0, 0, -0.18);
+          f.rotation.z = i * TAU / 3;
+        }
+      } else if (look === "disc") {
+        const m = add(fxGeo.saw, M.solid);
+        m.rotation.x = Math.PI / 2;
+        m.userData.spinZ = 22;
+        add(pwGeo.knob, pwMats(16777215).solid);
+      } else if (look === "crescent") {
+        const m = add(pwGeo.crescent, fxOrbMat(col));
         m.rotation.set(Math.PI / 2, 0, Math.PI);
-      } else if (look === "star") add(pwGeo.star, M.solid);
-      else if (look === "box" || look === "gift" || look === "crate") {
+        m.scale.set(1, 1, 2.2);
+      } else if (look === "star") {
+        const m = add(fxGeo.star, M.solid);
+        m.userData.spinZ = 10;
+      } else if (look === "box" || look === "gift" || look === "crate") {
         add(pwGeo.box, M.solid).scale.setScalar(look === "crate" ? 4 : look === "gift" ? 1.3 : 1);
         if (look === "gift") {
           add(pwGeo.box, pwMats(16765503).solid).scale.set(1.4, 0.3, 1.4);
           add(pwGeo.box, pwMats(16765503).solid).scale.set(0.3, 1.4, 1.4);
         }
-      } else if (look === "shard") add(pwGeo.shard, M.solid);
-      else if (look === "bone") {
+      } else if (look === "shard") {
+        add(fxShard, M.solid, 0, 0, 0, 1.4).rotation.x = Math.PI / 2;
+        for (const a of [0, 2.1, 4.2]) {
+          const c = add(fxShard, M.solid, Math.cos(a) * 0.08, Math.sin(a) * 0.08, -0.05, 0.8);
+          c.rotation.set(Math.PI / 2 + 0.5 * Math.cos(a), 0.5 * Math.sin(a), 0);
+        }
+      } else if (look === "bone") {
         add(pwGeo.bone, M.solid);
         for (const x of [-0.3, 0.3]) for (const y of [-0.06, 0.06]) add(pwGeo.knob, M.solid, x, y, 0);
-      } else if (look === "bubble") add(pwGeo.orb, M.glass);
-      else if (look === "bat" || look === "parrot") {
+      } else if (look === "bubble") {
+        add(pwGeo.orb, M.glass);
+        add(pwGeo.knob, pwMats(16777215).flat, 0.09, 0.1, 0.12, 0.6);
+      } else if (look === "bat" || look === "parrot") {
         add(pwGeo.knob, M.solid, 0, 0, 0, 1.4);
         for (const sx of [1, -1]) {
           const w = add(pwGeo.wing, M.flat);
@@ -9600,7 +9657,8 @@
         const m = add(pwGeo.box, M.glass);
         m.scale.set(1.8, 5.2, 1.2);
         m.position.y = 1;
-      } else add(pwGeo.orb, M.solid);
+      } else add(pwGeo.orb, fxOrbMat(col));
+      if (look !== "holo") fxRim(g, col);
       if (look !== "holo" && look !== "crate") {
         const h = new T.Sprite(M.glow);
         h.scale.setScalar(1.5);
@@ -9620,6 +9678,336 @@
       }
       g.scale.setScalar(size || 1);
       return g;
+    }
+    const FXT = [];
+    const _ft1 = new V(), _ft2 = new V(), _ft3 = new V();
+    function fxTrail(col, width, n, src) {
+      const N = n || 16, pos = new Float32Array(N * 2 * 3), a = new Float32Array(N * 2), s = new Float32Array(N * 2), idx = [];
+      for (let i = 0; i < N; i++) {
+        a[i * 2] = a[i * 2 + 1] = 1 - i / (N - 1);
+        s[i * 2] = 0;
+        s[i * 2 + 1] = 1;
+        if (i < N - 1) {
+          const k = i * 2;
+          idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2);
+        }
+      }
+      const geo = new T.BufferGeometry();
+      geo.setAttribute("position", new T.BufferAttribute(pos, 3));
+      geo.setAttribute("fa", new T.BufferAttribute(a, 1));
+      geo.setAttribute("fs", new T.BufferAttribute(s, 1));
+      geo.setIndex(idx);
+      const mat = new T.ShaderMaterial({
+        uniforms: { c: { value: new T.Color(col) }, op: { value: 1 } },
+        transparent: true,
+        depthWrite: false,
+        side: T.DoubleSide,
+        vertexShader: "attribute float fa; attribute float fs; varying float vA; varying float vS; void main(){ vA=fa; vS=fs; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
+        fragmentShader: "uniform vec3 c; uniform float op; varying float vA; varying float vS; void main(){ float e=1.0-abs(vS*2.0-1.0); float core=smoothstep(0.55,1.0,e); vec3 col=mix(c*0.55,c,smoothstep(0.0,0.4,e)); col=mix(col,vec3(1.0),core*vA*0.8); gl_FragColor=vec4(col,op*vA*vA*smoothstep(0.0,0.35,e)); }"
+      });
+      const m = new T.Mesh(geo, mat);
+      m.frustumCulled = false;
+      world.add(m);
+      const T0 = { m, pts: [], N, width, src, dying: 0 };
+      FXT.push(T0);
+      return T0;
+    }
+    function updateTrails(dt) {
+      const cam = camera.position;
+      for (let i = FXT.length - 1; i >= 0; i--) {
+        const R = FXT[i], h = R.src ? R.src() : null;
+        if (h) {
+          if (!R.pts.length || R.pts[0].distanceToSquared(h) > 25e-4) {
+            R.pts.unshift(h.clone());
+            if (R.pts.length > R.N) R.pts.pop();
+          } else R.pts[0].copy(h);
+        } else {
+          R.dying += dt;
+          if (R.pts.length) R.pts.pop();
+          if (R.dying > 0.5 || !R.pts.length) {
+            world.remove(R.m);
+            R.m.geometry.dispose();
+            R.m.material.dispose();
+            FXT.splice(i, 1);
+            continue;
+          }
+        }
+        const P = R.pts, pos = R.m.geometry.attributes.position.array, n = P.length;
+        for (let j = 0; j < R.N; j++) {
+          const p = P[Math.min(j, n - 1)] || _ft1.set(0, 0, 0);
+          const a = P[Math.max(0, Math.min(j - 1, n - 1))], b = P[Math.min(j + 1, n - 1)];
+          _ft1.subVectors(a, b);
+          if (_ft1.lengthSq() < 1e-6) _ft1.set(0, 1, 0);
+          _ft2.subVectors(cam, p);
+          _ft3.crossVectors(_ft1, _ft2).normalize().multiplyScalar(R.width * 0.5 * Math.pow(1 - j / R.N, 0.7) * (j < n ? 1 : 0));
+          pos[j * 6] = p.x - _ft3.x;
+          pos[j * 6 + 1] = p.y - _ft3.y;
+          pos[j * 6 + 2] = p.z - _ft3.z;
+          pos[j * 6 + 3] = p.x + _ft3.x;
+          pos[j * 6 + 4] = p.y + _ft3.y;
+          pos[j * 6 + 5] = p.z + _ft3.z;
+        }
+        R.m.geometry.attributes.position.needsUpdate = true;
+      }
+    }
+    const FXO = /* @__PURE__ */ new Map();
+    function fxOrbMat(col) {
+      let m = FXO.get(col);
+      if (m) return m;
+      m = new T.ShaderMaterial({
+        uniforms: { t: PW_U.t, c: { value: new T.Color(col) } },
+        vertexShader: PW_VS,
+        transparent: true,
+        fragmentShader: "uniform float t; uniform vec3 c; varying vec3 vN; varying vec3 vV; varying vec3 vP; void main(){ float f=1.0-abs(dot(normalize(vN),normalize(vV))); float sw=0.5+0.5*sin(atan(vP.z,vP.x)*5.0+vP.y*9.0-t*9.0); vec3 col=mix(vec3(1.0),c,smoothstep(0.05,0.55,f)); col=mix(col,c*0.3,smoothstep(0.78,0.98,f)); col+=c*sw*0.35*(1.0-f); gl_FragColor=vec4(col,0.95); }"
+      });
+      FXO.set(col, m);
+      return m;
+    }
+    const FXB = /* @__PURE__ */ new Map(), beamGeo2 = new T.CylinderGeometry(1, 1, 1, 14, 1, true);
+    function fxBeamMat(col) {
+      let m = FXB.get(col);
+      if (m) return m;
+      m = new T.ShaderMaterial({
+        uniforms: { t: PW_U.t, c: { value: new T.Color(col) } },
+        vertexShader: PW_VS,
+        transparent: true,
+        depthWrite: false,
+        side: T.DoubleSide,
+        fragmentShader: "uniform float t; uniform vec3 c; varying vec3 vN; varying vec3 vV; varying vec2 vUv; void main(){ float f=abs(dot(normalize(vN),normalize(vV))); float flow=0.5+0.5*sin(vUv.y*60.0-t*40.0+sin(vUv.x*12.566)*2.0); vec3 col=mix(c,vec3(1.0),pow(f,4.0)); float a=pow(f,1.3)*(0.7+0.3*flow); gl_FragColor=vec4(col,a); }"
+      });
+      FXB.set(col, m);
+      return m;
+    }
+    const FXD = /* @__PURE__ */ new Map();
+    function fxDark(col) {
+      let d = FXD.get(col);
+      if (!d) {
+        d = new T.MeshBasicMaterial({ color: new T.Color(col).multiplyScalar(0.28), side: T.BackSide });
+        FXD.set(col, d);
+      }
+      return d;
+    }
+    function fxRim(g, col) {
+      const d = fxDark(col);
+      for (const m of g.children.slice()) if (m.isMesh && !m.material.transparent) {
+        const o = new T.Mesh(m.geometry, d);
+        o.position.copy(m.position);
+        o.quaternion.copy(m.quaternion);
+        o.scale.copy(m.scale).multiplyScalar(1.14);
+        g.add(o);
+      }
+    }
+    const runeTex = canvasTex(256, 256, (g) => {
+      g.translate(128, 128);
+      g.strokeStyle = "#fff";
+      g.fillStyle = "#fff";
+      for (const [r, w] of [[124, 5], [112, 2], [78, 3], [70, 1.5]]) {
+        g.lineWidth = w;
+        g.beginPath();
+        g.arc(0, 0, r, 0, TAU);
+        g.stroke();
+      }
+      for (let i = 0; i < 48; i++) {
+        const a = i * TAU / 48;
+        g.lineWidth = i % 4 ? 1.5 : 3;
+        g.beginPath();
+        g.moveTo(Math.cos(a) * 112, Math.sin(a) * 112);
+        g.lineTo(Math.cos(a) * (i % 4 ? 104 : 96), Math.sin(a) * (i % 4 ? 104 : 96));
+        g.stroke();
+      }
+      for (let i = 0; i < 8; i++) {
+        g.save();
+        g.rotate(i * TAU / 8);
+        g.translate(0, -91);
+        g.lineWidth = 2.5;
+        g.beginPath();
+        g.moveTo(-7, 6);
+        g.lineTo(0, -8);
+        g.lineTo(7, 6);
+        g.closePath();
+        g.stroke();
+        g.beginPath();
+        g.arc(0, 1, 2.5, 0, TAU);
+        g.fill();
+        g.restore();
+      }
+      g.lineWidth = 2;
+      g.beginPath();
+      for (let i = 0; i <= 6; i++) {
+        const a = i * TAU / 6 * 2;
+        i ? g.lineTo(Math.cos(a) * 68, Math.sin(a) * 68) : g.moveTo(Math.cos(a) * 68, Math.sin(a) * 68);
+      }
+      g.stroke();
+    });
+    const runeGeo = new T.PlaneGeometry(2, 2);
+    function fxRune(at, n, r, col, dur, spin) {
+      const m = new T.Mesh(runeGeo, new T.MeshBasicMaterial({ map: runeTex, color: col, transparent: true, depthWrite: false, side: T.DoubleSide }));
+      m.position.copy(at).addScaledVector(n, 0.06);
+      m.lookAt(_ft1.copy(m.position).add(n));
+      world.add(m);
+      const sp = spin == null ? 1.2 : spin;
+      effects.push({ t: 0, dur, obj: m, upd: (e, k, dt) => {
+        m.rotateZ(sp * dt);
+        const g = Math.min(1, k * dur * 5);
+        m.scale.setScalar(r * (0.6 + 0.4 * backOut(Math.min(1, g))));
+        m.material.opacity = Math.min(1, (1 - k) * dur * 3) * (0.75 + 0.25 * Math.sin(e.t * 12));
+      }, done: () => m.material.dispose() });
+      return m;
+    }
+    const pillarGeo = new T.CylinderGeometry(1, 1, 1, 20, 1, true);
+    function fxPillar(bot, h, r, col, dur) {
+      const m = new T.Mesh(pillarGeo, new T.ShaderMaterial({
+        uniforms: { t: PW_U.t, c: { value: new T.Color(col) }, k: { value: 0 } },
+        vertexShader: PW_VS,
+        transparent: true,
+        depthWrite: false,
+        side: T.DoubleSide,
+        fragmentShader: "uniform float t; uniform vec3 c; uniform float k; varying vec3 vN; varying vec3 vV; varying vec2 vUv; void main(){ float f=abs(dot(normalize(vN),normalize(vV))); float bands=0.6+0.4*sin(vUv.y*30.0-t*25.0); vec3 col=mix(c,vec3(1.0),pow(f,3.0)*0.9); float a=pow(f,1.5)*bands*(1.0-k)*smoothstep(1.0,0.6,vUv.y); gl_FragColor=vec4(col,a); }"
+      }));
+      m.position.copy(bot).add(_ft1.set(0, h / 2, 0));
+      world.add(m);
+      effects.push({ t: 0, dur, obj: m, upd: (e, k) => {
+        m.material.uniforms.k.value = k;
+        m.scale.set(r * (1 - 0.6 * k), h, r * (1 - 0.6 * k));
+      }, done: () => m.material.dispose() });
+    }
+    function fxSmoke(at, col, n, r) {
+      const c = new T.Color(col).multiplyScalar(0.35);
+      for (let i = 0; i < n; i++) {
+        const m = new T.SpriteMaterial({ map: glowTex, color: c, transparent: true, depthWrite: false, opacity: 0.55 }), s = new T.Sprite(m), v = rv(1).normalize().multiplyScalar(rnd(1, 3) * r).add(_ft1.set(0, rnd(0.5, 1.5), 0)), sz = rnd(1.2, 2.2) * r;
+        s.position.copy(at).add(rv(r * 0.4));
+        world.add(s);
+        effects.push({ t: 0, dur: rnd(0.8, 1.4), obj: s, upd: (e, k, dt) => {
+          s.position.addScaledVector(v, dt);
+          v.multiplyScalar(Math.exp(-2.5 * dt));
+          s.scale.setScalar(sz * (0.5 + k));
+          m.opacity = 0.55 * (1 - k);
+        }, done: () => m.dispose() });
+      }
+    }
+    function fxHit(at, col, size) {
+      const s = size || 1, M = pwMats(col);
+      const fl = new T.Sprite(M.hot.clone());
+      fl.position.copy(at);
+      world.add(fl);
+      effects.push({ t: 0, dur: 0.16, obj: fl, upd: (e, k) => {
+        fl.scale.setScalar(s * (1.2 + 2 * k));
+        fl.material.opacity = 1 - k;
+      }, done: () => fl.material.dispose() });
+      const st = new T.Sprite(M.zap.clone());
+      st.position.copy(at);
+      world.add(st);
+      effects.push({ t: 0, dur: 0.28, obj: st, upd: (e, k) => {
+        st.scale.setScalar(s * 2.4 * Math.sin(Math.PI * Math.min(1, k * 1.3)));
+        st.material.rotation += 0.15;
+        st.material.opacity = 1 - k;
+      }, done: () => st.material.dispose() });
+      const rg = new T.Mesh(shockRing, M.flat.clone());
+      rg.position.copy(at);
+      rg.lookAt(camera.position);
+      world.add(rg);
+      effects.push({ t: 0, dur: 0.3, obj: rg, upd: (e, k) => {
+        rg.scale.setScalar(s * (0.3 + 1.6 * k));
+        rg.material.opacity = 0.9 * (1 - k);
+      }, done: () => rg.material.dispose() });
+      for (let i = 0; i < 7; i++) mote(M.zap, at.clone(), rnd(0.25, 0.45) * s, rnd(0.25, 0.4), rv(1).normalize().multiplyScalar(rnd(5, 11) * s), rnd(-10, 10));
+    }
+    const boomGeo = new T.SphereGeometry(1, 28, 20), fxShard = new T.OctahedronGeometry(0.16).scale(0.7, 1.6, 0.7);
+    function fxBoom(at, col, r) {
+      const M = pwMats(col);
+      const fl = new T.Sprite(M.hot.clone());
+      fl.position.copy(at);
+      world.add(fl);
+      effects.push({ t: 0, dur: 0.22, obj: fl, upd: (e, k) => {
+        fl.scale.setScalar(r * (1 + 2.2 * k));
+        fl.material.opacity = 1 - k;
+      }, done: () => fl.material.dispose() });
+      const ball = new T.Mesh(boomGeo, new T.ShaderMaterial({
+        uniforms: { t: PW_U.t, c: { value: new T.Color(col) }, k: { value: 0 } },
+        vertexShader: PW_VS,
+        transparent: true,
+        depthWrite: false,
+        fragmentShader: "uniform float t; uniform vec3 c; uniform float k; varying vec3 vN; varying vec3 vV; varying vec3 vP; float nz(vec3 p){ return sin(p.x*5.1+t*3.0)*sin(p.y*6.3-t*2.0)*sin(p.z*5.7+t*2.5)*0.5+0.5; } void main(){ float f=1.0-abs(dot(normalize(vN),normalize(vV))); float n=nz(vP*1.7)*0.6+nz(vP*4.1)*0.4; if(n<k*1.15-0.1) discard; vec3 col=mix(vec3(1.0),c,smoothstep(0.0,0.5,k+f*0.6)); col=mix(col,c*0.35,smoothstep(0.75,1.0,f)+k*0.4); gl_FragColor=vec4(col,(1.0-k*k)*0.95); }"
+      }));
+      ball.position.copy(at);
+      world.add(ball);
+      effects.push({ t: 0, dur: 0.55, obj: ball, upd: (e, k) => {
+        ball.material.uniforms.k.value = k;
+        ball.scale.setScalar(0.3 + r * 0.7 * Math.sqrt(k));
+      }, done: () => ball.material.dispose() });
+      const sh = new T.Mesh(boomGeo, pwField(col, 0.3));
+      sh.position.copy(at);
+      world.add(sh);
+      effects.push({ t: 0, dur: 0.35, obj: sh, upd: (e, k) => {
+        sh.scale.setScalar(0.5 + r * 1.35 * k);
+        sh.material.uniforms.op.value = 0.3 * (1 - k);
+      }, done: () => sh.material.dispose() });
+      for (const tilt of [0, 1]) {
+        const rg = new T.Mesh(shockRing, M.flat.clone());
+        rg.position.copy(at);
+        if (tilt) rg.lookAt(camera.position);
+        else rg.lookAt(_ft1.copy(at).add(UP));
+        world.add(rg);
+        effects.push({ t: 0, dur: 0.5, obj: rg, upd: (e, k) => {
+          rg.scale.setScalar(0.4 + r * (tilt ? 1.2 : 1.7) * Math.sqrt(k));
+          rg.material.opacity = 1 - k;
+        }, done: () => rg.material.dispose() });
+      }
+      for (let i = 0; i < Math.min(14, 5 + r * 1.2); i++) {
+        const m = new T.Mesh(fxShard, M.solid), v = rv(1).normalize().multiplyScalar(rnd(8, 16) * Math.min(1.6, r / 5)), w = rv(12);
+        m.position.copy(at);
+        world.add(m);
+        effects.push({ t: 0, dur: rnd(0.6, 1), obj: m, upd: (e, k, dt) => {
+          m.position.addScaledVector(v, dt);
+          v.multiplyScalar(Math.exp(-2 * dt));
+          m.rotation.x += w.x * dt;
+          m.rotation.y += w.y * dt;
+          m.scale.setScalar(Math.max(0.01, 1 - k));
+        } });
+      }
+      for (let i = 0; i < Math.min(22, 8 + r * 2); i++) mote(M.zap, at.clone(), rnd(0.35, 0.7), rnd(0.35, 0.65), rv(1).normalize().multiplyScalar(rnd(7, 15) * r / 5), rnd(-9, 9));
+      fxSmoke(at, col, Math.min(8, 3 + r * 0.6), Math.max(0.6, r * 0.22));
+    }
+    function fxWave(a, b, col) {
+      const g = new T.Group(), m = new T.Mesh(pwGeo.crescent, fxOrbMat(col)), h = new T.Sprite(pwMats(col).glow.clone());
+      m.scale.set(2.2, 2.2, 3);
+      h.scale.setScalar(3.2);
+      const rim = new T.Mesh(pwGeo.crescent, fxDark(col));
+      rim.scale.set(2.35, 2.35, 3.6);
+      g.add(h, rim, m);
+      g.position.copy(a);
+      world.add(g);
+      fxTrail(col, 1.6, 10, () => g.parent ? g.position : null);
+      effects.push({ t: 0, dur: 0.32, obj: g, upd: (e, k) => {
+        g.position.lerpVectors(a, b, 1 - (1 - k) * (1 - k));
+        g.lookAt(camera.position);
+        m.rotation.z = rim.rotation.z = -0.4;
+        const f = 1 - k * k;
+        g.scale.setScalar(0.6 + 0.6 * k);
+        h.material.opacity = f;
+      }, done: () => h.material.dispose() });
+    }
+    const fxSlashGeo = new T.PlaneGeometry(1, 1);
+    function fxSlash(a, b, col, w) {
+      const L = a.distanceTo(b), m = new T.Mesh(fxSlashGeo, new T.ShaderMaterial({
+        uniforms: { c: { value: new T.Color(col) }, k: { value: 0 } },
+        transparent: true,
+        depthWrite: false,
+        side: T.DoubleSide,
+        vertexShader: "varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
+        fragmentShader: "uniform vec3 c; uniform float k; varying vec2 vUv; void main(){ float head=min(1.0,k*3.0); if(vUv.x>head) discard; float tail=smoothstep(head-0.9,head,vUv.x); float e=1.0-abs(vUv.y*2.0-1.0); float core=smoothstep(0.7,1.0,e); vec3 col=mix(c,vec3(1.0),core); gl_FragColor=vec4(col,smoothstep(0.0,0.5,e)*tail*(1.0-k)); }"
+      }));
+      m.position.copy(a).lerp(b, 0.5);
+      _ft1.subVectors(b, a).normalize();
+      _ft3.subVectors(camera.position, m.position);
+      _ft3.addScaledVector(_ft1, -_ft3.dot(_ft1)).normalize();
+      _ft2.crossVectors(_ft3, _ft1);
+      m.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(_ft1, _ft2, _ft3));
+      m.scale.set(L, w || 1.1, 1);
+      world.add(m);
+      effects.push({ t: 0, dur: 0.35, obj: m, upd: (e, k) => {
+        m.material.uniforms.k.value = k;
+      }, done: () => m.material.dispose() });
     }
     function pwSlow(e, a) {
       if (!e.alive || e.frozen > 0 || e.bounceT > 0) return;
@@ -9724,39 +10112,7 @@
       const src = o.src || player, r = o.r, col = o.col || PC;
       if (o.fire) explode(at, { r, dmg: 0, src, weapon: o.name || POW && POW.name });
       else {
-        const s = new T.Mesh(pwGeo.sphere, pwMats(col).flat.clone());
-        s.position.copy(at);
-        world.add(s);
-        effects.push({ t: 0, dur: 0.35, obj: s, upd: (e, k) => {
-          s.scale.setScalar(0.4 + r * Math.sqrt(k));
-          s.material.opacity = 0.5 * (1 - k);
-        }, done: () => s.material.dispose() });
-        const ring = new T.Mesh(shockRing, pwMats(col).flat.clone());
-        ring.position.copy(at);
-        ring.lookAt(camera.position);
-        world.add(ring);
-        effects.push({ t: 0, dur: 0.4, obj: ring, upd: (e, k) => {
-          ring.scale.setScalar(0.5 + r * 1.2 * k);
-          ring.material.opacity = 0.9 * (1 - k);
-        }, done: () => ring.material.dispose() });
-        const fl = new T.Sprite(pwMats(col).hot.clone());
-        fl.position.copy(at);
-        world.add(fl);
-        effects.push({ t: 0, dur: 0.25, obj: fl, upd: (e, k) => {
-          fl.scale.setScalar(r * (0.8 + 1.6 * k));
-          fl.material.opacity = 1 - k;
-        }, done: () => fl.material.dispose() });
-        const gr = new T.Mesh(shockRing, pwMats(col).flat.clone());
-        gr.material.blending = PW_ADD;
-        gr.position.copy(at);
-        gr.lookAt(at.clone().add(UP));
-        world.add(gr);
-        effects.push({ t: 0, dur: 0.55, obj: gr, upd: (e, k) => {
-          gr.scale.setScalar(0.3 + r * 1.5 * Math.sqrt(k));
-          gr.material.opacity = 1 - k;
-        }, done: () => gr.material.dispose() });
-        for (let i = 0; i < Math.min(16, 4 + r * 1.5); i++) mote(pwMats(col).zap, at.clone(), rnd(0.4, 0.8), rnd(0.4, 0.7), rv(1).normalize().multiplyScalar(rnd(6, 14) * r / 5), rnd(-9, 9));
-        for (let i = 0; i < Math.min(24, 6 + r * 2); i++) mote(pwMats(col).spark, at.clone(), rnd(0.3, 0.6), rnd(0.3, 0.6), rv(1).normalize().multiplyScalar(rnd(4, 10) * r / 5), rnd(-6, 6));
+        fxBoom(at, col, r);
         sfx(r > 6 ? "boom" : "shockS", at.clone(), { gain: 0.7 });
         camShake = Math.max(camShake, clamp(1.2 - at.distanceTo(player.pos) / 40, 0, 0.6) * Math.min(1, r / 6));
       }
@@ -9788,7 +10144,8 @@
         const m = pwLook(o.look || "orb", o.col || PC, o.size || 1);
         m.position.copy(origin);
         world.add(m);
-        const P = { o, src: p, m, pos: origin.clone(), vel: d.multiplyScalar(o.speed == null ? 60 : o.speed), t: 0, hit: /* @__PURE__ */ new Map(), bounces: o.bounce || 0, tgt: null, think: 0, back: false, latch: null, stuck: false, trail: 0 };
+        const P = { o, src: p, m, pos: origin.clone(), vel: d.multiplyScalar(o.speed == null ? 60 : o.speed), t: 0, hit: /* @__PURE__ */ new Map(), bounces: o.bounce || 0, tgt: null, think: 0, back: false, latch: null, stuck: false, trail: 0, dead: false };
+        if (o.look !== "holo") fxTrail(o.trail || o.col || PC, 0.5 * (o.size || 1), 16, () => P.dead ? null : P.pos);
         pwShots.push(P);
         out.push(P);
       }
@@ -9798,6 +10155,8 @@
       const P = pwShots[i];
       pwShots.splice(i, 1);
       world.remove(P.m);
+      P.dead = true;
+      if (P.o.look !== "holo") fxHit(at || P.pos.clone(), P.o.col || PC, 0.8 * Math.min(2, P.o.size || 1));
       if (P.o.end) P.o.end(at || P.pos.clone(), P);
     }
     function pwNearest(pos, src, r, exclude) {
@@ -9821,6 +10180,7 @@
         for (const c of P.m.children) {
           if (c.userData.flap) c.rotation.y = c.userData.flap * 0.6 * Math.sin(P.t * 24);
           if (c.userData.orbit) c.rotation.z += dt * 9;
+          if (c.userData.spinZ) c.rotation.z += dt * c.userData.spinZ;
         }
         if (P.latch) {
           const e = P.latch;
@@ -9944,10 +10304,8 @@
         else P.m.lookAt(_pws.copy(P.pos).add(P.vel));
         P.trail -= dt;
         if (P.trail <= 0) {
-          P.trail = 0.03;
-          const M = pwMats(o.trail || o.col || PC);
-          mote(M.glow, P.pos.clone(), rnd(0.35, 0.6) * (o.size || 1), 0.4, new V());
-          if (Math.random() < 0.5) mote(M.zap, P.pos.clone().add(rv(0.25)), rnd(0.15, 0.3) * (o.size || 1), rnd(0.3, 0.5), rv(1.5), rnd(-8, 8));
+          P.trail = 0.05;
+          mote(pwMats(o.trail || o.col || PC).zap, P.pos.clone().add(rv(0.2)), rnd(0.15, 0.3) * (o.size || 1), rnd(0.3, 0.5), rv(1.5), rnd(-8, 8));
         }
       }
     }
@@ -10066,15 +10424,9 @@
       }
     }
     function pwStrike(at, o) {
-      const col = o.col || PC, ring = new T.Mesh(shockRing, pwMats(col).flat.clone());
-      ring.position.copy(at);
-      ring.lookAt(at.clone().add(UP));
-      world.add(ring);
-      const d = o.delay || 0.8;
-      effects.push({ t: 0, dur: d, obj: ring, upd: (e, k) => {
-        ring.scale.setScalar((o.r || 5) * (1.2 - 0.2 * k));
-        ring.material.opacity = 0.35 + 0.4 * Math.abs(Math.sin(k * 20));
-      }, done: () => ring.material.dispose() });
+      const col = o.col || PC, d = o.delay || 0.8;
+      fxRune(at, UP, (o.r || 5) * 1.1, col, d + 0.15, 2.5);
+      fxPillar(at, 1.2, (o.r || 5) * 0.9, col, d);
       if (o.fall) {
         const m = pwLook(o.fall, col, o.fallSize || 2), top = new V(at.x + rnd(-6, 6), Math.min(ZG.H - 1, at.y + 40), at.z + rnd(-6, 6));
         m.position.copy(top);
@@ -10085,14 +10437,7 @@
         } });
       }
       later(d, () => {
-        if (!o.fall) {
-          const top = new V(at.x, Math.min(ZG.H, at.y + 60), at.z), b = new T.Mesh(beamGeo, pwMats(col).flat.clone());
-          world.add(b);
-          effects.push({ t: 0, dur: 0.4, obj: b, upd: (e, k) => {
-            placeSeg(b, top, at, (o.r || 5) * 0.35 * (1 - k) + 0.05);
-            b.material.opacity = 0.7 * (1 - k);
-          }, done: () => b.material.dispose() });
-        }
+        if (!o.fall) fxPillar(at, Math.min(60, ZG.H - at.y), (o.r || 5) * 0.45, col, 0.5);
         pwBlast(at, Object.assign({}, o, { r: o.r || 5 }));
         if (o.after) o.after(at);
       });
@@ -10119,12 +10464,17 @@
         hurt(h.e, dmg, p, { point: h.at, weapon: POW ? POW.name : "Pickaxe", dir, melee: true });
         if (o.each && h.e.alive) o.each(h.e, h.at);
         cutFx(h.at);
+        fxHit(h.at, PC, 1);
       }
       return hits;
     }
     function pwDash(p, o) {
-      p.dash = { o, t: 0, dir: (o.dir || lookDir()).clone(), hit: /* @__PURE__ */ new Set() };
+      const D2 = { o, t: 0, dir: (o.dir || lookDir()).clone(), hit: /* @__PURE__ */ new Set() };
+      p.dash = D2;
       sfx("propel");
+      const col = o.col || PC;
+      fxHit(chest(p), col, 1.4);
+      for (const y of [0.5, 1.2, 1.7]) fxTrail(col, y === 1.2 ? 1.1 : 0.45, 18, () => p.dash === D2 && p.alive ? _ft2.set(p.pos.x, p.pos.y + y, p.pos.z) : null);
     }
     function pwCone(p, o, dt) {
       const m = chest(p).addScaledVector(lookDir(), 0.8), at = aimPoint(p, lookDir(), (o.range || 12) + camDistNow + 4), dir = at.sub(m).normalize();
@@ -10167,18 +10517,30 @@
         if (o.dmg) hurt(e, o.dmg, p, { weapon: POW.name, point: tv2.clone(), dir: dir.clone() });
         if (o.each && e.alive) o.each(e);
       }
+      fxHit(c.clone().addScaledVector(dir, 1.4), o.col || PC, 1.6);
       sfx(o.sfx || "shockS", c.clone());
     }
     function pwBeam(p, o, dt) {
       const dir = lookDir(), hand = p.ch.bones.RightHand.getWorldPosition(new V()), h = nearMiss(p, dir, aimHit(p, dir, (o.range || 70) + camDistNow), hand, 1);
-      const g = new T.Group(), core = new T.Mesh(beamGeo, pwMats(16777215).flat), glw = new T.Mesh(beamGeo, pwMats(o.col || PC).flat);
-      g.add(glw);
-      g.add(core);
-      world.add(g);
-      effects.push({ t: 0, dur: 0.05, obj: g, upd: (e, k) => {
-        placeSeg(core, hand, h.p, 0.05);
-        placeSeg(glw, hand, h.p, (o.w || 0.2) * (1 + 0.2 * Math.sin(matchTime * 50)));
-      } });
+      const col = o.col || PC;
+      let B = p.fxBeam;
+      if (!B || B.col !== col) {
+        if (B) world.remove(B.g);
+        const g = new T.Group(), m = new T.Mesh(beamGeo2, fxBeamMat(col)), a = new T.Sprite(pwMats(col).hot), b = new T.Sprite(pwMats(col).zap);
+        g.add(m, a, b);
+        world.add(g);
+        B = p.fxBeam = { g, m, a, b, col, last: 0 };
+      }
+      B.g.visible = true;
+      B.last = matchTime;
+      placeSeg(B.m, hand, h.p, (o.w || 0.2) * 1.6 * (1 + 0.15 * Math.sin(matchTime * 50)));
+      B.a.position.copy(hand);
+      B.a.scale.setScalar(0.9 + 0.2 * Math.sin(matchTime * 40));
+      B.b.position.copy(h.p);
+      B.b.scale.setScalar(1.6 + 0.6 * Math.random());
+      B.b.material.rotation += 0.3;
+      if (Math.random() < 0.35) fxHit(h.p.clone(), col, 0.9);
+      B.b.scale.setScalar(2.6 + Math.random());
       if (Math.random() < 0.5) mote(pwMats(o.col || PC).spark, h.p.clone(), rnd(0.4, 0.7), 0.2, rv(4), 8);
       if (h.ent) {
         p.beamTick = (p.beamTick || 0) - dt;
@@ -10197,7 +10559,9 @@
         world.add(m);
         ms.push(m);
       }
-      p.orbit = { o, t: 0, ms, cd: /* @__PURE__ */ new Map() };
+      const O = { o, t: 0, ms, cd: /* @__PURE__ */ new Map() };
+      for (const m of ms) fxTrail(o.col || PC, 0.35 * (o.size || 1), 12, () => p.orbit === O && O.ms.includes(m) ? m.position : null);
+      p.orbit = O;
       if (o.absorb) p.absorb = (p.absorb || 0) + o.absorb * o.n;
     }
     function updateOrbit(p, dt) {
@@ -10234,8 +10598,9 @@
     }
     function pwGrapple(p, o) {
       const dir = lookDir(), h = aimHit(p, dir, (o.range || 70) + camDistNow), hand = p.ch.bones.RightHand.getWorldPosition(new V());
-      const line = new T.Mesh(beamGeo, pwMats(o.col || PC).flat);
+      const line = new T.Mesh(beamGeo2, fxBeamMat(o.col || PC));
       world.add(line);
+      fxHit(hand, o.col || PC, 0.8);
       if (h.ent && o.pullEnemy) {
         const e = h.ent;
         pwKnock(e, chest(p).sub(chest(e)).normalize(), Math.min(40, chest(p).distanceTo(chest(e)) * 2.2));
@@ -10259,6 +10624,14 @@
         mote(pwMats(PC).spark, c.clone().add(rv(0.7)), rnd(0.3, 0.6), 0.4, rv(3), 9);
         mote(pwMats(PC).spark, to.clone().add(rv(0.7)), rnd(0.3, 0.6), 0.4, rv(3), 9);
       }
+      for (const q of [c, to]) {
+        fxPillar(q.clone().add(_ft1.set(0, -1.4, 0)), 3.4, 0.9, PC, 0.45);
+        fxHit(q, PC, 1.3);
+      }
+      fxTrail(PC, 0.8, 8, /* @__PURE__ */ (() => {
+        let k = 0;
+        return () => ++k < 6 ? _ft2.lerpVectors(c, to, k / 5) : null;
+      })());
       p.pos.set(clamp(to.x, -ZG.L + 1, ZG.L - 1), clamp(to.y - 1.2, 0.2, ZG.H - 2.2), clamp(to.z, -ZG.L + 1, ZG.L - 1));
       p.vel.multiplyScalar(0.3);
       sfx("zapB", to.clone());
@@ -10414,6 +10787,30 @@
       updatePwWalls(dt);
       updateLaters(dt);
       updateOrbit(p, dt);
+      updateTrails(dt);
+      if (p.fxBeam && matchTime - p.fxBeam.last > 0.08) p.fxBeam.g.visible = false;
+      const chg = p.alive && p.pwOn && POW && POW.hold.kind === "charge" ? Math.min(1, p.pwT / POW.hold.max) : -1;
+      if (chg >= 0) {
+        if (!p.fxChg) {
+          const g2 = new T.Group(), o = new T.Mesh(pwGeo.orb, fxOrbMat(PC)), h = new T.Sprite(pwMats(PC).glow);
+          h.scale.setScalar(2);
+          g2.add(o, h);
+          world.add(g2);
+          p.fxChg = g2;
+        }
+        const g = p.fxChg;
+        p.ch.bones.RightHand.getWorldPosition(g.position);
+        g.scale.setScalar(0.4 + 1.4 * chg + 0.08 * Math.sin(matchTime * 30) * chg);
+        g.rotation.y += dt * 6;
+        if (Math.random() < 0.5 + chg) {
+          const a = rv(1).normalize().multiplyScalar(1.5 + chg);
+          mote(pwMats(PC).zap, g.position.clone().add(a), rnd(0.2, 0.35), 0.3, a.multiplyScalar(-3));
+        }
+      } else if (p.fxChg) {
+        world.remove(p.fxChg);
+        fxHit(p.fxChg.position.clone(), PC, 1.6);
+        p.fxChg = null;
+      }
       if (p.pwCd > 0) p.pwCd = Math.max(0, p.pwCd - dt);
       if (p.pwComboT > 0) p.pwComboT -= dt;
       if (!p.alive) {
@@ -10460,7 +10857,7 @@
         const G = p.grap;
         G.t += dt;
         const hand = p.ch.bones.RightHand.getWorldPosition(new V());
-        placeSeg(G.line, hand, G.to, 0.035);
+        placeSeg(G.line, hand, G.to, 0.07);
         _pws.copy(G.to).sub(chest(p));
         const d = _pws.length();
         if (d < 2.4 || G.t > 1.8 || mouse.r) {
@@ -10479,6 +10876,8 @@
     const cutLine = (p, len, col, dmg, each) => {
       const dir = lookDir(), a = chest(p), b = a.clone().addScaledVector(dir, len), m = new T.Mesh(beamGeo, pwMats(col).flat.clone());
       world.add(m);
+      fxSlash(a, b, col, 1.4);
+      fxWave(a, b, col);
       effects.push({ t: 0, dur: 0.3, obj: m, upd: (e, k) => {
         placeSeg(m, a, b, 0.09 * (1 - k) + 0.01);
         m.material.opacity = 1 - k;
