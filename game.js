@@ -54,7 +54,22 @@
       mini: { name: "Small Shield", short: "MINI", time: 2, shield: 25, cap: 50, stack: 6, give: 3, color: "#7cc8ff" },
       big: { name: "Shield Potion", short: "BIG POT", time: 4, shield: 50, cap: 100, stack: 3, give: 1, color: "#3d7bff" }
     };
-    const NAMES = ["Pixel_Pete", "OrbitOllie", "JoltJess", "NovaNate", "FlipFiona", "HoverHugo", "LoopLarry", "SpinSally", "ZipZane", "BounceBea", "DashDev", "GlideGwen", "TwirlTom", "VoidVic", "SkySkye", "PogoPaul", "RicoRay", "TumbleTess", "QuasarQuin", "DizzyDee", "WobbleWes", "ComboCleo", "StaticStan", "FuzzFelix", "RocketRue", "PingPia", "BlinkBo", "SlingSid", "KiteKira", "MothMilo", "DriftDot", "NoScopeNora", "LlamaDrama", "FloatBot9000", "SweatyTaco", "CrankKing", "DriftRat", "ShieldSipper", "GravGus", "CeilingChaser", "TiltedTina", "ZeroGoblin", "BoxFighter", "DustyDan", "BananaBro", "CornerCarl", "BlockBrenda", "HeadshotHank", "WarpWendy"];
+    const NAMES = (() => {
+      const A = ["Vortex", "Nova", "Ghost", "Blaze", "Frost", "Echo", "Venom", "Rogue", "Pulse", "Shadow", "Zephyr", "Kairo", "Lumen", "Drift", "Hex", "Onyx", "Rift", "Sable", "Talon", "Vapor", "Nyx", "Jolt", "Cinder", "Quill", "Raze", "Mako", "Orbit", "Lyric", "Static", "Tidal", "Ember", "Comet", "Wraith", "Saber", "Glitch", "Halo", "Zenith", "Pixel", "Blitz", "Flux"];
+      const F2 = [(a) => a + "z", (a) => a + "_TTV", (a) => "x" + a + "x", (a) => a + "FN", (a) => "NoScope" + a, (a) => a + "Plays", (a) => "its" + a, (a) => a + ".exe", (a) => a.toLowerCase() + "_", (a) => "Mr" + a, (a) => a + "Ace", (a) => a + "Szn", (a) => "Lil" + a, (a) => a + "YT", (a) => a + "Gg", (a) => a.toUpperCase()];
+      const out = [];
+      let s = 7;
+      const r = () => (s = s * 16807 % 2147483647) / 2147483647;
+      for (const a of A) for (let k = 0; k < 4; k++) {
+        const n = F2[Math.floor(r() * F2.length)](a) + (r() < 0.35 ? String(Math.floor(r() * 99) + 1) : "");
+        if (!out.includes(n)) out.push(n);
+      }
+      for (let i = out.length - 1; i > 0; i--) {
+        const j = Math.floor(r() * (i + 1));
+        [out[i], out[j]] = [out[j], out[i]];
+      }
+      return out;
+    })();
     const canvas = $("c");
     const renderer = new T.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
@@ -13347,7 +13362,7 @@
       if (localStorage.getItem("invertedMode") === "br") MODE = "br";
     } catch (e) {
     }
-    const BR = { W: 760, N: 152, R: 330, h: null, storm: null, jet: null, chests: [], trees: [], wall: null, water: null, sky: null, clouds: [], houses: [], t: 0 };
+    const BR = { W: 1200, N: 224, R: 520, h: null, storm: null, jet: null, chests: [], trees: [], wall: null, water: null, sky: null, clouds: [], houses: [], t: 0 };
     const BR_SEA = -0.8, BR_G = 26, BR_JET_Y = 160;
     let brSeed = 1;
     function brHash(x, z) {
@@ -13375,7 +13390,7 @@
       const ridge = 1 - Math.abs(2 * brFbm(x / 60 + 3, z / 60 + 71) - 1), mtn = smooth(0.55, 0.75, brFbm(x / 200 + 50, z / 200 + 8));
       h += mtn * ridge * ridge * 42;
       const f = smooth(0.78, 1.02, d);
-      return h * (1 - f) - 9 * f;
+      return brPad(x, z, h * (1 - f) - 9 * f);
     }
     function brHeight(x, z) {
       const H = BR.h;
@@ -13411,8 +13426,9 @@
         if (st > 0.05) _brc2.lerp(_brc.setRGB(0.6, 0.75, 1), st * 0.9);
         out.lerp(_brc2, rock);
       }
-      const snow = smooth(30, 36, h + n * 3);
-      if (snow > 0) out.lerp(_brc2.setRGB(0.9, 0.92, 1), snow);
+      const fk = (BR.K || []).find((k) => k.id === "frost"), fs = fk ? smooth(fk.r * 1.7, fk.r * 1.1, Math.hypot(x - fk.x, z - fk.z)) : 0;
+      const snow = Math.max(smooth(30, 36, h + n * 3), fs * (0.85 + 0.15 * n));
+      if (snow > 0) out.lerp(_brc2.setRGB(0.9, 0.93, 1), snow);
       return out;
     }
     const BRU = { time: { value: 0 } };
@@ -13434,6 +13450,7 @@
     }
     function buildIsland() {
       brSeed = Math.random() * 1e6 | 0;
+      brPlan();
       const N = BR.N, C = BR.W / N, W = N + 1, H = new Float32Array(W * W);
       BR.h = H;
       for (let iz = 0; iz <= N; iz++) for (let ix = 0; ix <= N; ix++) H[iz * W + ix] = brRaw(-BR.W / 2 + ix * C, -BR.W / 2 + iz * C);
@@ -13475,7 +13492,7 @@
       foam.position.y = BR_SEA + 0.06;
       world.add(foam);
       BR.foam = foam;
-      BR.sky = new T.Mesh(new T.SphereGeometry(1400, 32, 16), new T.ShaderMaterial({
+      BR.sky = new T.Mesh(new T.SphereGeometry(2200, 32, 16), new T.ShaderMaterial({
         side: T.BackSide,
         depthWrite: false,
         fog: false,
@@ -13500,10 +13517,10 @@
         BR.clouds.push(cl);
       }
       const spots = [];
-      for (let k = 0; k < 4e3 && spots.length < 420; k++) {
+      for (let k = 0; k < 9e3 && spots.length < 950; k++) {
         const x = rnd(-BR.R, BR.R), z = rnd(-BR.R, BR.R), h = brHeight(x, z);
         if (h < 2.2 || h > 24) continue;
-        if (brNoise(x / 60 + 5, z / 60 + 9) < 0.42) continue;
+        if (brNoise(x / 60 + 5, z / 60 + 9) < 0.42 || (BR.K || []).some((o) => Math.hypot(o.x - x, o.z - z) < o.r)) continue;
         spots.push([x, h, z, rnd(0.8, 1.4)]);
       }
       const trunk = new T.InstancedMesh(new T.CylinderGeometry(0.28, 0.42, 4, 6).translate(0, 2, 0), brWave(Lam({ color: 5913194 }), 0.015), spots.length);
@@ -13530,9 +13547,9 @@
         m.add(new T.LineSegments(new T.EdgesGeometry(m.geometry), trim));
         zgSolid(m, boxOf(x, y, z, sx, sy, sz));
       };
-      for (let k = 0; k < 3e3 && BR.houses.length < 34; k++) {
+      for (let k = 0; k < 6e3 && BR.houses.length < 56; k++) {
         const x = rnd(-BR.R * 0.85, BR.R * 0.85), z = rnd(-BR.R * 0.85, BR.R * 0.85), h = brHeight(x, z);
-        if (h < 2 || h > 20 || BR.houses.some((o) => Math.hypot(o.x - x, o.z - z) < 34)) continue;
+        if (h < 2 || h > 20 || BR.houses.some((o) => Math.hypot(o.x - x, o.z - z) < 34) || BR.K.some((o) => Math.hypot(o.x - x, o.z - z) < o.r + 14)) continue;
         let flat = true;
         for (const [dx, dz] of [[5, 5], [-5, 5], [5, -5], [-5, -5]]) if (Math.abs(brHeight(x + dx, z + dz) - h) > 2.2) flat = false;
         if (!flat) continue;
@@ -13546,12 +13563,14 @@
         BR.houses.push({ x, z });
         brChest(x + rnd(-2, 2), y, z + rnd(-2, 0));
       }
-      for (let k = 0; k < 4e3 && BR.chests.length < 70; k++) {
+      for (let k = 0; k < 8e3 && BR.chests.length < 120; k++) {
         const x = rnd(-BR.R * 0.9, BR.R * 0.9), z = rnd(-BR.R * 0.9, BR.R * 0.9), h = brHeight(x, z);
         if (h < 1.5 || h > 26) continue;
         if (BR.chests.some((o) => Math.hypot(o.x - x, o.z - z) < 22)) continue;
         brChest(x, h, z);
       }
+      brKingdoms();
+      brDetail();
       ZG.L = BR.W * 1.5;
       ZG.H = 600;
       ZG.blocks = [];
@@ -13564,6 +13583,386 @@
       ZG.flash = 0;
       brStorm();
       brJet();
+    }
+    const BR_KD = [
+      { id: "citadel", n: "Crystal Citadel", r: 62, h: 7, col: "#9fd8ff" },
+      { id: "harbor", n: "Neon Harbor", r: 52, h: 1.4, col: "#5cf0ff", coast: 1 },
+      { id: "temple", n: "Sunspire Temple", r: 50, h: 6, col: "#ffc94a" },
+      { id: "frost", n: "Frostpeak Village", r: 54, h: 24, col: "#e8f4ff" },
+      { id: "shroom", n: "Mushroom Hollow", r: 50, h: 4.5, col: "#ff7ad1" },
+      { id: "mills", n: "Windmill Fields", r: 56, h: 5, col: "#b6f07a" },
+      { id: "plaza", n: "Skyline Plaza", r: 58, h: 6.5, col: "#c9a6ff", mid: 1 }
+    ];
+    function brPlan() {
+      const a0 = Math.random() * TAU, ring = BR_KD.filter((k) => !k.mid);
+      ring.forEach((k, i) => {
+        const a = a0 + i * TAU / ring.length + rnd(-0.15, 0.15), d = BR.R * (k.coast ? 0.84 : rnd(0.5, 0.62));
+        k.x = Math.cos(a) * d;
+        k.z = Math.sin(a) * d;
+      });
+      const m = BR_KD.find((k) => k.mid);
+      m.x = rnd(-30, 30);
+      m.z = rnd(-30, 30);
+      BR.K = BR_KD;
+    }
+    function brPad(x, z, h) {
+      for (const k of BR.K || []) {
+        const d = Math.hypot(x - k.x, z - k.z);
+        if (d > k.r * 1.6) continue;
+        const f = smooth(k.r * 1.6, k.r * 0.85, d);
+        h = lerp(h, k.coast ? Math.max(k.h, Math.min(h, k.h)) : k.h, f);
+      }
+      return h;
+    }
+    const KM = {};
+    function kMat(c, o) {
+      const k = c + (o ? JSON.stringify(o) : "");
+      return KM[k] || (KM[k] = new T.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.75, metalness: 0.05 }, o || {})));
+    }
+    function kBox(x, y, z, sx, sy, sz, mat, solid = true, ry = 0) {
+      const m = new T.Mesh(new T.BoxGeometry(sx, sy, sz), mat);
+      m.position.set(x, y, z);
+      m.rotation.y = ry;
+      m.castShadow = m.receiveShadow = true;
+      world.add(m);
+      if (solid) {
+        const c = Math.abs(Math.cos(ry)), s = Math.abs(Math.sin(ry));
+        zgSolid(m, boxOf(x, y, z, sx * c + sz * s, sy, sx * s + sz * c));
+      }
+      return m;
+    }
+    function kCyl(x, y, z, r0, r1, h, mat, seg = 16, solid = true) {
+      const m = new T.Mesh(new T.CylinderGeometry(r0, r1, h, seg), mat);
+      m.position.set(x, y, z);
+      m.castShadow = m.receiveShadow = true;
+      world.add(m);
+      if (solid) {
+        const r = Math.max(r0, r1) * 0.8;
+        zgSolid(m, boxOf(x, y, z, r * 2, h, r * 2));
+      }
+      return m;
+    }
+    function kGlow(x, y, z, col, s) {
+      const sp = new T.Sprite(new T.SpriteMaterial({ map: glowTex, color: col, transparent: true, depthWrite: false, blending: T.AdditiveBlending }));
+      sp.position.set(x, y, z);
+      sp.scale.setScalar(s);
+      world.add(sp);
+      return sp;
+    }
+    function brKingdoms() {
+      BR.spin = [];
+      BR.kLights = [];
+      for (const K of BR.K) {
+        const x0 = K.x, z0 = K.z, y0 = brHeight(x0, z0) - 0.2, P = (dx, dz) => [x0 + dx, brHeight(x0 + dx, z0 + dz) - 0.2, z0 + dz];
+        if (K.id === "citadel") {
+          const st = kMat("#e8ecf6", { roughness: 0.6 }), dk = kMat("#8a94b8"), cr = kMat("#7fd4ff", { emissive: "#2a8cff", emissiveIntensity: 0.6, roughness: 0.15, metalness: 0.3, transparent: true, opacity: 0.9 }), R = 26, H = 8;
+          for (const [dx, dz, sx, sz] of [[0, -R, 2 * R, 2.2], [-R, 0, 2.2, 2 * R], [R, 0, 2.2, 2 * R]]) {
+            kBox(x0 + dx, y0 + H / 2, z0 + dz, sx, H, sz, st);
+            for (let i = -R + 2; i < R; i += 4) kBox(x0 + dx + (sx > sz ? i : 0), y0 + H + 0.7, z0 + dz + (sz > sx ? i : 0), sx > sz ? 1.8 : 2.4, 1.4, sz > sx ? 1.8 : 2.4, st, false);
+          }
+          for (const s of [-1, 1]) kBox(x0 + s * (R / 2 + 4), y0 + H / 2, z0 + R, R - 8, H, 2.2, st);
+          kBox(x0, y0 + H + 1.5, z0 + R, 8, 3, 2.2, st);
+          for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+            const tx = x0 + sx * R, tz = z0 + sz * R;
+            kCyl(tx, y0 + 7, tz, 4, 4.6, 14, st);
+            kCyl(tx, y0 + 16.5, tz, 4.8, 4.8, 1.2, dk, 16, false);
+            const sp = kCyl(tx, y0 + 21, tz, 0, 4.6, 8, kMat("#5a6ad8"), 16, false);
+            kGlow(tx, y0 + 25.5, tz, 8377599, 4);
+          }
+          kBox(x0, y0 + 6, z0 - 6, 16, 12, 14, st);
+          kBox(x0, y0 + 12.6, z0 - 6, 17, 1.2, 15, dk, false);
+          const cy = new T.Mesh(new T.OctahedronGeometry(3.2, 0).scale(1, 1.8, 1), cr);
+          cy.position.set(x0, y0 + 19, z0 - 6);
+          world.add(cy);
+          BR.spin.push({ o: cy, ry: 0.6, bob: 0.6, y: y0 + 19 });
+          kGlow(x0, y0 + 19, z0 - 6, 8377599, 14);
+          brChest(x0, y0 + 12, z0 - 6);
+          brChest(x0 + 10, y0, z0 + 8);
+          brChest(x0 - 12, y0, z0 + 10);
+          for (const s of [-1, 1]) {
+            const f = kCyl(x0 + s * 6, y0 + 4, z0 + R + 3, 0.15, 0.15, 8, dk, 6, false);
+            const fl = new T.Mesh(new T.PlaneGeometry(3, 2), kMat("#5cf0ff", { side: T.DoubleSide, emissive: "#1a6cff", emissiveIntensity: 0.4 }));
+            fl.position.set(x0 + s * 6 + 1.5, y0 + 7, z0 + R + 3);
+            world.add(fl);
+            BR.spin.push({ o: fl, flag: 1 });
+          }
+        } else if (K.id === "harbor") {
+          const wd = kMat("#6a4a3a", { roughness: 0.9 }), neon = kMat("#5cf0ff", { emissive: "#5cf0ff", emissiveIntensity: 1 }), pink = kMat("#ff3fd4", { emissive: "#ff3fd4", emissiveIntensity: 0.9 }), a = Math.atan2(z0, x0);
+          const ox = Math.cos(a), oz = Math.sin(a), sx = -oz, sz = ox;
+          for (const off of [-16, 0, 16]) {
+            for (let t = 0; t < 36; t += 4) kBox(x0 + ox * t + sx * off, BR_SEA + 1.4, z0 + oz * t + sz * off, 4.2, 0.4, 4.2, wd, true, Math.atan2(ox, oz));
+            for (let t = 0; t < 36; t += 6) for (const s of [-1.8, 1.8]) kCyl(x0 + ox * t + sx * (off + s), BR_SEA - 1, z0 + oz * t + sz * (off + s), 0.25, 0.25, 5, wd, 6, false);
+            const L = new T.Mesh(new T.BoxGeometry(0.15, 0.15, 36), neon);
+            L.position.set(x0 + ox * 18 + sx * (off + 2.1), BR_SEA + 1.7, z0 + oz * 18 + sz * (off + 2.1));
+            L.rotation.y = Math.atan2(ox, oz);
+            world.add(L);
+          }
+          for (let i = 0; i < 10; i++) {
+            const c = kBox(x0 + ox * rnd(2, 30) + sx * rnd(-18, 18), BR_SEA + 2.6, z0 + oz * rnd(2, 30) + sz * rnd(-18, 18), 2.2, 2.2, 2.2, kMat(pick(["#3a6ad8", "#d83a6a", "#e8a43a"])), true, rnd(0, 3));
+          }
+          const lx = x0 + ox * 44, lz = z0 + oz * 44;
+          kCyl(lx, BR_SEA + 4, lz, 6, 7, 6, kMat("#3a3a4a"));
+          for (let i = 0; i < 4; i++) kCyl(lx, BR_SEA + 10 + i * 5, lz, 3.4 - i * 0.3, 3.6 - i * 0.3, 5, kMat(i % 2 ? "#ffffff" : "#e83a4a"));
+          kCyl(lx, BR_SEA + 31, lz, 2.6, 2.6, 2.4, kMat("#fff6c8", { emissive: "#ffd23f", emissiveIntensity: 1 }), 12, false);
+          kCyl(lx, BR_SEA + 33.5, lz, 0, 3, 2.6, kMat("#3a3a4a"), 12, false);
+          const beam = new T.Mesh(new T.ConeGeometry(4, 60, 16, 1, true).translate(0, -30, 0).rotateZ(Math.PI / 2), new T.MeshBasicMaterial({ color: 16773792, transparent: true, opacity: 0.18, depthWrite: false, side: T.DoubleSide, blending: T.AdditiveBlending }));
+          beam.position.set(lx, BR_SEA + 31, lz);
+          world.add(beam);
+          BR.spin.push({ o: beam, ry: 0.8 });
+          kGlow(lx, BR_SEA + 31, lz, 16769146, 10);
+          for (const s of [-1, 1]) {
+            const bt = new T.Group();
+            const hull = new T.Mesh(new T.CylinderGeometry(1.6, 0.6, 9, 8, 1).rotateX(Math.PI / 2).scale(1.3, 0.6, 1), kMat("#f4f4f8"));
+            hull.castShadow = true;
+            bt.add(hull);
+            const cab = new T.Mesh(new T.BoxGeometry(2, 1.6, 3), kMat("#3a6ad8"));
+            cab.position.set(0, 1.2, -0.5);
+            bt.add(cab);
+            const st = new T.Mesh(new T.BoxGeometry(3, 0.12, 0.12), pink);
+            st.position.set(0, 0.4, 0);
+            bt.add(st);
+            bt.position.set(x0 + ox * 26 + sx * (s * 8), BR_SEA + 0.5, z0 + oz * 26 + sz * (s * 8));
+            bt.rotation.y = Math.atan2(ox, oz) + s * 0.3;
+            world.add(bt);
+            BR.spin.push({ o: bt, rock: 1, y: BR_SEA + 0.5 });
+          }
+          brChest(x0 + ox * 20, BR_SEA + 1.6, z0 + oz * 20);
+          brChest(x0 + sx * 14, brHeight(x0 + sx * 14, z0 + sz * 14), z0 + sz * 14);
+        } else if (K.id === "temple") {
+          const sd = kMat("#e8c27a", { roughness: 0.85 }), gd = kMat("#ffcf4a", { metalness: 0.6, roughness: 0.3, emissive: "#6a4a00", emissiveIntensity: 0.3 });
+          for (let i = 0; i < 5; i++) {
+            const s = 34 - i * 6.5;
+            kBox(x0, y0 + 1.6 + i * 3.2, z0, s, 3.2, s, sd);
+            kBox(x0, y0 + 3.25 + i * 3.2, z0, s + 0.6, 0.3, s + 0.6, gd, false);
+          }
+          for (let i = 0; i < 10; i++) kBox(x0, y0 + 0.8 + i * 1.6, z0 + 17 - i * 1.62, 6, 1.6, 1.62, sd);
+          kBox(x0, y0 + 19, z0, 6, 3, 6, gd);
+          const sun2 = new T.Mesh(new T.IcosahedronGeometry(3, 1), kMat("#ffd23f", { emissive: "#ffb000", emissiveIntensity: 1.2 }));
+          sun2.position.set(x0, y0 + 27, z0);
+          world.add(sun2);
+          BR.spin.push({ o: sun2, ry: 0.5, bob: 1, y: y0 + 27 });
+          kGlow(x0, y0 + 27, z0, 16763210, 22);
+          for (const [dx, dz] of [[-24, -24], [24, -24], [-24, 24], [24, 24]]) {
+            const [x, y, z] = P(dx, dz);
+            kBox(x, y + 5, z, 2.4, 10, 2.4, sd);
+            kCyl(x, y + 11, z, 0, 1.7, 2.4, gd, 4, false);
+          }
+          brChest(x0, y0 + 20.5, z0 + 2.5);
+          brChest(x0 + 20, y0, z0);
+          brChest(x0 - 20, y0, z0);
+        } else if (K.id === "frost") {
+          const lg = kMat("#7a4a2a", { roughness: 0.95 }), sn = kMat("#f8fbff", { roughness: 0.9 }), win = kMat("#ffd88a", { emissive: "#ffb040", emissiveIntensity: 0.9 }), ice = kMat("#bfe6ff", { roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.85 });
+          const pond = new T.Mesh(new T.CircleGeometry(9, 32).rotateX(-Math.PI / 2), ice);
+          pond.position.set(x0, y0 + 0.25, z0);
+          world.add(pond);
+          for (let i = 0; i < 6; i++) {
+            const a = i * TAU / 6 + 0.3, [x, y, z] = P(Math.cos(a) * 26, Math.sin(a) * 26), ry = -a + Math.PI / 2;
+            kBox(x, y + 2.4, z, 8, 4.8, 6.5, lg, true, ry);
+            const roof = new T.Mesh(new T.CylinderGeometry(0.01, 5.4, 3.4, 4, 1).rotateY(Math.PI / 4).scale(1.25, 1, 1), sn);
+            roof.position.set(x, y + 6.4, z);
+            roof.rotation.y = ry;
+            roof.castShadow = true;
+            world.add(roof);
+            const w = new T.Mesh(new T.PlaneGeometry(1.6, 1.3), win);
+            w.position.set(x + Math.cos(a) * -3.3, y + 2.6, z + Math.sin(a) * -3.3);
+            w.lookAt(x0, y + 2.6, z0);
+            world.add(w);
+            kCyl(x + Math.cos(ry) * 2, y + 7, z - Math.sin(ry) * 2, 0.5, 0.5, 2.4, kMat("#5a5a6a"), 8, false);
+            if (i % 2 === 0) brChest(x, y, z);
+          }
+          for (let i = 0; i < 22; i++) {
+            const a = rnd(0, TAU), d = rnd(36, 52), [x, y, z] = P(Math.cos(a) * d, Math.sin(a) * d);
+            const tr = new T.Group();
+            for (let k = 0; k < 3; k++) {
+              const c = new T.Mesh(new T.ConeGeometry(2.6 - k * 0.7, 3, 8), kMat(k === 2 ? "#f8fbff" : "#1f5a3a"));
+              c.position.y = 2.6 + k * 1.8;
+              c.castShadow = true;
+              tr.add(c);
+            }
+            const tk = new T.Mesh(new T.CylinderGeometry(0.3, 0.4, 1.6, 6), lg);
+            tk.position.y = 0.8;
+            tr.add(tk);
+            tr.position.set(x, y, z);
+            tr.scale.setScalar(rnd(0.9, 1.5));
+            world.add(tr);
+          }
+          BR.snowAt = { x: x0, z: z0, r: K.r * 1.4 };
+        } else if (K.id === "shroom") {
+          for (let i = 0; i < 9; i++) {
+            const a = i * TAU / 9 + rnd(-0.2, 0.2), d = i ? rnd(14, 34) : 0, [x, y, z] = P(Math.cos(a) * d, Math.sin(a) * d), s = i ? rnd(0.7, 1.2) : 1.7, col = pick(["#ff7ad1", "#9a5cff", "#5cf0ff", "#ffb04a"]);
+            kCyl(x, y + 5 * s, z, 1.3 * s, 1.9 * s, 10 * s, kMat("#f4ecdc"), 12);
+            const cap = new T.Mesh(new T.SphereGeometry(7 * s, 24, 12, 0, TAU, 0, Math.PI / 2).scale(1, 0.55, 1), kMat(col, { emissive: col, emissiveIntensity: 0.35, roughness: 0.5 }));
+            cap.position.set(x, y + 10 * s, z);
+            cap.castShadow = true;
+            world.add(cap);
+            zgSolid(cap, boxOf(x, y + 10 * s + 1.2 * s, z, 10 * s, 2.6 * s, 10 * s));
+            for (let k = 0; k < 7; k++) {
+              const t = rnd(0, TAU), ph = rnd(0.3, 1.2), dot = new T.Mesh(new T.CircleGeometry(0.7 * s, 12), kMat("#ffffff", { emissive: "#ffffff", emissiveIntensity: 0.3 }));
+              const nx = Math.cos(t) * Math.sin(ph), ny = Math.cos(ph) * 0.55, nz2 = Math.sin(t) * Math.sin(ph);
+              dot.position.set(x + nx * 7.05 * s, y + 10 * s + ny * 7.05 * s, z + nz2 * 7.05 * s);
+              dot.lookAt(x + nx * 20, y + 10 * s + ny * 20, z + nz2 * 20);
+              world.add(dot);
+            }
+            kGlow(x, y + 9 * s, z, new T.Color(col).getHex(), 9 * s);
+            if (i < 3) brChest(x + 3, y, z + 3);
+          }
+          BR.sporesAt = { x: x0, z: z0, r: K.r };
+        } else if (K.id === "mills") {
+          const wh = kMat("#f4efe4"), rf = kMat("#c83a2a"), wd = kMat("#8a6a4a", { roughness: 0.9 });
+          for (let i = 0; i < 3; i++) {
+            const a = i * TAU / 3 + 0.5, [x, y, z] = P(Math.cos(a) * 24, Math.sin(a) * 24);
+            kCyl(x, y + 8, z, 2.6, 4, 16, wh, 12);
+            kCyl(x, y + 17.6, z, 0, 3.4, 3.2, rf, 12, false);
+            const hub = new T.Group();
+            hub.position.set(x, y + 14.5, z);
+            hub.lookAt(x0, y + 14.5, z0);
+            hub.translateZ(3.2);
+            world.add(hub);
+            const spin = new T.Group();
+            hub.add(spin);
+            for (let k = 0; k < 4; k++) {
+              const arm = new T.Group();
+              arm.rotation.z = k * Math.PI / 2;
+              const bl = new T.Mesh(new T.BoxGeometry(1.8, 9, 0.15), wd);
+              bl.position.y = 5;
+              bl.castShadow = true;
+              arm.add(bl);
+              spin.add(arm);
+            }
+            BR.spin.push({ o: spin, rz: 1.2 });
+          }
+          const [bx, by, bz] = P(0, 0);
+          kBox(bx, by + 4, bz, 14, 8, 10, rf);
+          const br2 = new T.Mesh(new T.CylinderGeometry(5.6, 5.6, 14.2, 3, 1).rotateZ(Math.PI / 2).rotateX(Math.PI / 2 * 0), kMat("#6a2a20"));
+          br2.rotation.set(0, 0, Math.PI / 2);
+          br2.rotation.y = 0;
+          br2.position.set(bx, by + 9.3, bz);
+          world.add(br2);
+          kBox(bx, by + 3, bz + 5.1, 4, 6, 0.3, wh, false);
+          brChest(bx, by, bz);
+          for (let i = 0; i < 14; i++) {
+            const [x, y, z] = P(rnd(-40, 40), rnd(-40, 40));
+            if (Math.hypot(x - x0, z - z0) < 14) continue;
+            const hb = kCyl(x, y + 0.9, z, 1.1, 1.1, 1.8, kMat("#e8c45a", { roughness: 1 }), 12, true);
+            hb.rotation.z = Math.PI / 2;
+          }
+          for (let r = -3; r <= 3; r++) {
+            const row = new T.Mesh(new T.BoxGeometry(1.2, 0.7, 30), kMat(r % 2 ? "#7ac83a" : "#e8b83a"));
+            row.position.set(x0 + r * 3.2 + 36, brHeight(x0 + 36, z0) + 0.2, z0);
+            world.add(row);
+          }
+        } else if (K.id === "plaza") {
+          const gl = kMat("#8ab4ff", { metalness: 0.6, roughness: 0.15, emissive: "#1a2a5a", emissiveIntensity: 0.4 }), cn = kMat("#d8d4e8"), lit = kMat("#fff2c8", { emissive: "#ffd88a", emissiveIntensity: 1 });
+          const pav = new T.Mesh(new T.CircleGeometry(36, 48).rotateX(-Math.PI / 2), kMat("#b8b4c8", { roughness: 0.95 }));
+          pav.position.set(x0, y0 + 0.25, z0);
+          pav.receiveShadow = true;
+          world.add(pav);
+          kCyl(x0, y0 + 0.8, z0, 7, 7.5, 1.6, cn, 24);
+          kCyl(x0, y0 + 2.6, z0, 1, 1.4, 3.4, cn, 12);
+          const water = new T.Mesh(new T.CircleGeometry(6.4, 32).rotateX(-Math.PI / 2), kMat("#5cb8ff", { roughness: 0.05, metalness: 0.3, emissive: "#1a4aa0", emissiveIntensity: 0.4 }));
+          water.position.set(x0, y0 + 1.55, z0);
+          world.add(water);
+          BR.fountain = { x: x0, y: y0 + 4.6, z: z0 };
+          for (let i = 0; i < 6; i++) {
+            const a = i * TAU / 6, d = rnd(26, 32), [x, y, z] = P(Math.cos(a) * d, Math.sin(a) * d), h = rnd(18, 34), w = rnd(8, 11);
+            kBox(x, y + h / 2, z, w, h, w, gl, true, a);
+            for (let f = 3; f < h - 1; f += 3.2) if (Math.random() < 0.7) {
+              const s = new T.Mesh(new T.BoxGeometry(w + 0.05, 0.5, w + 0.05), lit);
+              s.position.set(x, y + f, z);
+              s.rotation.y = a;
+              world.add(s);
+            }
+            kBox(x, y + h + 0.6, z, w * 0.6, 1.2, w * 0.6, cn, false, a);
+            if (i % 2 === 0) brChest(x + Math.cos(a) * -8, y, z + Math.sin(a) * -8);
+          }
+          for (let i = 0; i < 10; i++) {
+            const a = i * TAU / 10 + 0.3, [x, y, z] = P(Math.cos(a) * 16, Math.sin(a) * 16);
+            kCyl(x, y + 2.4, z, 0.12, 0.15, 4.8, kMat("#2a2a3a"), 6, false);
+            kGlow(x, y + 5, z, 16769184, 3);
+            const lm = new T.Mesh(new T.SphereGeometry(0.35, 10, 8), lit);
+            lm.position.set(x, y + 4.9, z);
+            world.add(lm);
+          }
+        }
+      }
+    }
+    function brKingdomsUpdate(dt) {
+      const t = BR.t;
+      for (const s of BR.spin || []) {
+        if (s.ry) s.o.rotation.y += s.ry * dt;
+        if (s.rz) s.o.rotation.z += s.rz * dt;
+        if (s.bob) s.o.position.y = s.y + Math.sin(t * 1.4) * s.bob;
+        if (s.rock) {
+          s.o.rotation.z = Math.sin(t * 1.1 + s.o.position.x) * 0.08;
+          s.o.position.y = s.y + Math.sin(t * 0.9 + s.o.position.z) * 0.25;
+        }
+        if (s.flag) s.o.rotation.y = Math.sin(t * 2.5 + s.o.position.x) * 0.5;
+      }
+      const p = player;
+      if (!p) return;
+      const K = (BR.K || []).find((k) => Math.hypot(p.pos.x - k.x, p.pos.z - k.z) < k.r);
+      if (K && K !== BR.kIn && p.br === "ground") banner(K.n, "", 2.2);
+      if (p.br === "ground" || !K) BR.kIn = K || null;
+      const near = (o) => o && Math.hypot(camera.position.x - o.x, camera.position.z - o.z) < o.r + 40;
+      if (near(BR.snowAt) && Math.random() < 0.8) for (let i = 0; i < 3; i++) mote(auraMats(16777215).soft, camera.position.clone().add(new V(rnd(-25, 25), rnd(4, 16), rnd(-25, 25))), rnd(0.2, 0.35), 2.5, new V(rnd(-0.6, 0.6), -3, rnd(-0.6, 0.6)));
+      if (near(BR.sporesAt) && Math.random() < 0.5) mote(auraMats(pick([16743121, 6091007, 10116351])).spark, new V(BR.sporesAt.x + rnd(-40, 40), brHeight(BR.sporesAt.x, BR.sporesAt.z) + rnd(1, 12), BR.sporesAt.z + rnd(-40, 40)), rnd(0.3, 0.6), 3, new V(rnd(-0.4, 0.4), rnd(0.3, 0.9), rnd(-0.4, 0.4)));
+      const F2 = BR.fountain;
+      if (F2 && camera.position.distanceTo(_brv0.set(F2.x, F2.y, F2.z)) < 90 && Math.random() < 0.9) for (let i = 0; i < 2; i++) {
+        const a = rnd(0, TAU);
+        mote(auraMats(12576511).soft, new V(F2.x, F2.y, F2.z), rnd(0.3, 0.5), 1, new V(Math.cos(a) * 2, rnd(5, 7), Math.sin(a) * 2));
+      }
+    }
+    function brMapNames(g, M) {
+      const k = M / BR.W;
+      g.save();
+      g.font = "bold 9px system-ui";
+      g.textAlign = "center";
+      for (const K of BR.K || []) {
+        const x = (K.x + BR.W / 2) * k, y = (K.z + BR.W / 2) * k;
+        g.lineWidth = 3;
+        g.strokeStyle = "rgba(20,10,40,.8)";
+        g.strokeText(K.n, x, y);
+        g.fillStyle = K.col;
+        g.fillText(K.n, x, y);
+      }
+      g.restore();
+    }
+    function brDetail() {
+      const gs = [], rs = [];
+      for (let k = 0; k < 14e3 && gs.length < 2600; k++) {
+        const x = rnd(-BR.R, BR.R), z = rnd(-BR.R, BR.R), h = brHeight(x, z);
+        if (h < 1.8 || h > 26) continue;
+        if ((BR.K || []).some((o) => Math.hypot(o.x - x, o.z - z) < o.r * 0.7)) continue;
+        gs.push([x, h, z]);
+        if (rs.length < 260 && Math.random() < 0.1) rs.push([x + rnd(-3, 3), h, z + rnd(-3, 3)]);
+      }
+      const tuft = new T.ConeGeometry(0.22, 1.1, 4).translate(0, 0.5, 0), tg = new T.BufferGeometry();
+      const parts = [];
+      for (let i = 0; i < 5; i++) {
+        const g = tuft.clone().rotateZ(rnd(-0.4, 0.4)).rotateY(i * 1.26).translate(rnd(-0.3, 0.3), 0, rnd(-0.3, 0.3));
+        parts.push(g);
+      }
+      const G = T.BufferGeometryUtils ? T.BufferGeometryUtils.mergeBufferGeometries(parts) : tuft;
+      const gm = new T.InstancedMesh(G, brWave(Lam({ color: 16777215 }), 0.08), gs.length), m4 = new T.Matrix4(), q = new T.Quaternion(), sc = new V(), c = new T.Color();
+      gs.forEach(([x, h, z], i) => {
+        q.setFromAxisAngle(_brv0.set(0, 1, 0), rnd(0, TAU));
+        const k = rnd(0.7, 1.4);
+        m4.compose(_brv1.set(x, h - 0.1, z), q, sc.set(k, k * rnd(0.8, 1.3), k));
+        gm.setMatrixAt(i, m4);
+        brColor(x, z, h, 0, c);
+        gm.setColorAt(i, c.multiplyScalar(rnd(1.05, 1.35)));
+      });
+      world.add(gm);
+      const rk = new T.InstancedMesh(new T.DodecahedronGeometry(1, 0), new T.MeshStandardMaterial({ color: 16777215, roughness: 0.9, flatShading: true }), rs.length);
+      rs.forEach(([x, h, z], i) => {
+        q.setFromEuler(new T.Euler(rnd(0, 3), rnd(0, 3), rnd(0, 3)));
+        const k = rnd(0.6, 2.2);
+        m4.compose(_brv1.set(x, h, z), q, sc.set(k * rnd(1, 1.6), k, k * rnd(1, 1.4)));
+        rk.setMatrixAt(i, m4);
+        rk.setColorAt(i, c.setRGB(0.42, 0.4, 0.6).multiplyScalar(rnd(0.8, 1.15)));
+      });
+      rk.castShadow = rk.receiveShadow = true;
+      world.add(rk);
     }
     const brChestMat = GPh(16763210, 90, 16773808), brChestLid = GPh(16769146, 90, 16777215);
     function brChest(x, y, z) {
@@ -13634,7 +14033,7 @@
       toast(w.name + " \xB7 " + RAR[gun.r].n);
       return true;
     }
-    const BR_STAGES = [[40, 40, 190, 1], [30, 30, 120, 2], [25, 25, 70, 5], [20, 20, 35, 8], [15, 15, 12, 10], [10, 20, 0, 12]];
+    const BR_STAGES = [[45, 45, 300, 1], [35, 35, 190, 2], [28, 28, 110, 5], [22, 22, 55, 8], [15, 15, 18, 10], [10, 20, 0, 12]];
     function brStorm() {
       const S = { stage: -1, phase: "wait", t: 30, cur: { x: 0, z: 0, r: BR.R * 1.25 }, from: null, next: null, dps: 1 };
       BR.storm = S;
@@ -13740,7 +14139,7 @@
       g.position.copy(from);
       g.lookAt(to);
       world.add(g);
-      BR.jet = { g, from, to, t: 0, dur: 34, done: false, trail: 0 };
+      BR.jet = { g, from, to, t: 0, dur: 46, done: false, trail: 0 };
     }
     function brJetPos(k, out) {
       return out.lerpVectors(BR.jet.from, BR.jet.to, k);
@@ -14199,8 +14598,8 @@
       const f = scene.fog;
       if (MODE === "br") {
         f.color.setHex(13220082);
-        f.near = 120;
-        f.far = 820;
+        f.near = 160;
+        f.far = 1300;
         renderer.setClearColor(13220082);
       } else {
         f.color.setHex(15132908);
@@ -14224,6 +14623,7 @@
       }
       brJetUpdate(dt);
       brStormUpdate(dt);
+      brKingdomsUpdate(dt);
       for (const b of bots) if (b.alive && b.br === "ground" && b.wake === 1e9) b.wake = matchTime + rnd(2, 6);
       if (BR.sky) BR.sky.position.copy(camera.position);
     }
@@ -14249,6 +14649,7 @@
       g.putImageData(img, 0, 0);
       g.fillStyle = "#e9e4ff";
       for (const o of BR.houses) g.fillRect((o.x + BR.W / 2) * k - 2, (o.z + BR.W / 2) * k - 2, 4, 4);
+      brMapNames(g, M);
     }
     function brMapDraw(g, M) {
       const k = M / BR.W, S = BR.storm, P = (x) => (x + BR.W / 2) * k;
