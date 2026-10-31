@@ -170,8 +170,9 @@ const ITEMS=[
     acc:[['horns','#c9a77a','antler'],['nose'],['scarf','#c8202c'],['choker','#f2c230','#f2c230']]}),
   S('Frosty','xmas',3,{p:'#f4f8ff',c:'#dfeaf8',s:'#9fb8d6',k:'#141414',m:'#c8d6e8',x:'#c8202c',v:'#141414',fin:[0.05,0.7],pat:['p','snow','#cfe0f4'],
     acc:[['topHat','#141414','#c8202c'],['carrot'],['buttons','#141414'],['scarf','#c8202c']]}),
-  S('Gingerbread Man','xmas',2,{p:'#b8733a',c:'#9a5a28',s:'#6a3a14',k:'#ffffff',m:'#ffffff',x:'#ffffff',v:'#ffffff',g:'x',pat:['c','stripes','#c98a50'],
-    acc:[['bowtie','#e3243b'],['buttons',['#e3243b','#2fae5b','#ffd23f']],['emblem','heart','#ffffff','#9a5a28']]}),
+  S('Gingerbread Man','xmas',2,{body:{build:'cookie',cookie:1,skin:'#b8733a',top:'#b8733a',pants:'#b8733a',shoes:'#b8733a',collar:'#b8733a'},big:[1.04,1],
+    p:'#b8733a',c:'#9a5a28',s:'#6a3a14',k:'#ffffff',m:'#ffffff',x:'#ffffff',v:'#ffffff',noVisor:1,cel:1,
+    acc:[['gingerHead','#b8733a'],['bowtie','#e3243b'],['gumdrops',['#e3243b','#2fae5b','#ffd23f']]]}),
   S('Nutcracker','xmas',4,{p:'#b3121f',c:'#1c2a6a',s:'#0e1640',k:'#d4a43a',m:'#f2c230',x:'#f2c230',v:'#ffe0b8',fin:[0.8,0.3],
     acc:[['nutHat','#141414','#d4a43a','#c8202c'],['pauldrons','#d4a43a'],['belt','#d4a43a'],['emblem','crown','#f2c230','#1c2a6a']]}),
   S('Jack Frost','xmas',4,{p:'#bfe8ff',c:'#5aa8e0',s:'#1f4a7a',k:'#e8f6ff',m:'#e8f6ff',x:'#9fefff',v:'#9fefff',g:'xvp',fin:[0.7,0.2],pat:['p','ice','#ffffff'],
@@ -415,6 +416,7 @@ const CM=0.011; // gear is modelled in metres at the character's scale: one bind
 const BUILDS={
   avg:{torso:[[14,10],[17.5,12.2],[17,12.8],[17.4,12.6],[18.4,12.4],[18.6,10.6],[6.8,6.6],[6,5.8]],arm:1,leg:1},
   fit:{torso:[[13.6,9.8],[15.8,11.4],[15,11.4],[16.8,12.6],[19.6,13.2],[20.4,11.2],[7.4,7.2],[6.4,6.2]],arm:1.13,leg:1.03},
+  cookie:{torso:[[16.5,11.5],[19.5,13.4],[19.6,13.8],[20,13.8],[20.4,13.2],[19.8,11.4],[8,7.6],[7,6.8]],arm:1.32,leg:1.22}, // the Gingerbread Man: puffy and round
   slim:{torso:[[13,9.4],[15.4,11],[14.4,10.6],[15,10.8],[16.6,11],[17.4,9.8],[6.2,6],[5.6,5.4]],arm:0.9,leg:0.92}};
 const TORSO=[['Hips',97,0.5],['Hips',103,0.5],['Spine',115.6,1.2],['Spine1',126.7,1.6],['Spine2',139.3,1.4],['Spine2',148,-0.5],['Neck',153.6,0],['Head',163,0]];
 let BIND=null; // bone positions in the bind pose, filled in by the first body built
@@ -515,9 +517,13 @@ function bodyGeometry(T,skel,b){
       if(flip) I.push(a,a+1,b2, a+1,b2+1,b2); else I.push(a,b2,a+1, a+1,b2,b2+1);
       // clothes are painted per quad, from its middle, so every hem and cuff is a crisp cel-shaded edge
       const m=V(0,0,0), n=V(0,0,0); for(const i of [a,a+1,b2,b2+1]){ m.add(v(i)); n.add(nv(i)); } m.multiplyScalar(0.25);
-      c.set(paint(m,n.normalize(),a0+(a1-a0)*(s+0.5)/seg)); F.push(c.r,c.g,c.b,c.r,c.g,c.b); }
+      const an=a0+(a1-a0)*(s+0.5)/seg; c.set(paint(m,n.normalize(),an)); if(b.cookie) cookieTint(c,m,an); F.push(c.r,c.g,c.b,c.r,c.g,c.b); }
     return rings;
   }
+  // baked dough: every quad a touch lighter or darker, and white icing zigzags round the wrists, ankles and neck
+  function cookieTint(c,m,an){ const h=Math.sin(m.x*12.9898+m.y*78.233+m.z*37.719)*43758.5453, j=(h-Math.floor(h))*0.02-0.01; c.offsetHSL(0,0,j);
+    const ax=Math.abs(m.x), zig=Math.sin(an*6)*0.6, ice=(ax>24&&m.z>135&&Math.abs(ax-(57+zig))<1.4)||(m.z<100&&Math.abs(m.z-(22+zig))<1.4)||(ax<12&&m.z>148&&Math.abs(m.z-(151.5+zig*0.5))<1.1);
+    if(ice) c.set('#fbf6ee'); }
   const sk=b.skin, top=b.top, FRONT=V(0,1,0), UPV=V(0,0,1), y=n=>at[n]?at[n].y:0;
   const ck=b.check, chkAt=(an,z,cell=7)=>ck[chk(Math.floor(an/(Math.PI/8)),Math.floor(z/cell))];
   // torso and neck
@@ -928,6 +934,23 @@ function gear(T,kind,a,mats,opt){
       for(const s of [-1,1]){ const p=headAt(s*Math.PI/2,-0.14), e=INKED(M(GEO('ear',()=>new T.SphereGeometry(0.018,12,10).scale(0.42,1.15,0.72)),TN(a[0])),0.003);
         e.position.set(HCN[0]+p[0]*0.97,HCN[1]+p[1],HCN[2]+p[2]-0.006); e.rotation.y=s*0.3; g.add(e); } // small ears, tucked close
       out.push(['Head',g]); break; }
+    case 'gingerHead': { // [dough] a round cookie head: speckled dough, icing eyes, a piped smile, rosy cheeks
+      const tex=TX('dough'+a[0],()=>{ const cv=document.createElement('canvas'); cv.width=cv.height=256; const x=cv.getContext('2d'); x.fillStyle=a[0]; x.fillRect(0,0,256,256);
+        for(let i=0;i<900;i++){ x.fillStyle=Math.random()<0.5?'rgba(70,30,8,.22)':'rgba(255,220,170,.18)'; x.beginPath(); x.arc(Math.random()*256,Math.random()*256,Math.random()*2.2+0.4,0,7); x.fill(); } return cv; });
+      const g=G(), dough=mats.doughT||(mats.doughT=new T.MeshToonMaterial({map:tex,gradientMap:ramp(T)})), ice=TN('#fbf6ee'), dark=TN('#2a1608');
+      const h=INKED(M(GEO('ghead',()=>new T.SphereGeometry(0.135,32,24).scale(1,0.96,0.86)),dough),0.0045); h.position.set(HCN[0],HCN[1]-0.012,HCN[2]); g.add(h);
+      const F=(x,y,z)=>[HCN[0]+x,HCN[1]-0.012+y,HCN[2]+z];
+      for(const sx of [-1,1]){ const e=M(GEO('geye',()=>new T.SphereGeometry(0.022,14,10).scale(1,1.15,0.45)),ice,...F(sx*0.048,0.03,0.108)); e.rotation.y=sx*0.35; g.add(e);
+        const pu=M(GEO('gpup',()=>new T.SphereGeometry(0.011,10,8).scale(1,1.2,0.5)),dark,...F(sx*0.05,0.028,0.118)); pu.rotation.y=sx*0.35; g.add(pu);
+        g.add(M(GEO('gglint',()=>new T.SphereGeometry(0.004,6,4)),ice,...F(sx*0.053,0.035,0.123)));
+        const ck=M(GEO('gcheek',()=>new T.CircleGeometry(0.02,16)),TN('#ff8fa0',{transparent:true,opacity:0.8}),...F(sx*0.083,-0.022,0.093)); ck.rotation.y=sx*0.62; g.add(ck);
+        const br=M(GEO('gbrow',()=>new T.TorusGeometry(0.02,0.0045,6,12,Math.PI*0.8)),ice,...F(sx*0.048,0.068,0.103)); br.rotation.z=Math.PI*0.1; br.rotation.y=sx*0.3; g.add(br); }
+      const sm=M(GEO('gsmile',()=>new T.TorusGeometry(0.045,0.0065,8,20,Math.PI*0.85)),ice,...F(0,-0.012,0.11)); sm.rotation.z=Math.PI+Math.PI*0.075; sm.rotation.x=-0.25; g.add(sm);
+      out.push(['Head',g]); break; }
+    case 'gumdrops': { // [colours] sugared gumdrop buttons down the chest
+      const g=G(); a[0].forEach((c,i)=>{ const d=INKED(M(GEO('gdrop',()=>new T.SphereGeometry(0.034,16,10,0,Math.PI*2,0,Math.PI*0.62).scale(1,1.05,1)),TN(c,{emissive:c,emissiveIntensity:0.15}),0,0.15-i*0.1,0.19),0.003);
+        d.rotation.x=Math.PI/2; g.add(d); const sp=M(GEO('gsug',()=>new T.SphereGeometry(0.008,6,4)),TN('#ffffff'),0.012,0.162-i*0.1,0.215); g.add(sp); });
+      out.push(['Spine2',g]); break; }
     case 'animeHair': { // [style, colour, tip colour]
       const h=INKED(M(GEO('hair'+a.join(),()=>hairGeo(T,a[0],a[1],a[2])),mats.hairToon||(mats.hairToon=new T.MeshToonMaterial({vertexColors:true,gradientMap:ramp(T)}))),0.0035);
       h.position.set(...HCN); out.push(['Head',h]); break; }
@@ -975,5 +998,5 @@ function gear(T,kind,a,mats,opt){
   return out;
 }
 
-window.SKINS={THEMES,ITEMS,paint,gear,emblemCanvas,bodyGeometry,bodyMaterial,bodyOutline,RAR_N:['Common','Uncommon','Rare','Epic','Legendary']};
+window.SKINS={THEMES,ITEMS,paint,gear,emblemCanvas,bodyGeometry,bodyMaterial,bodyOutline,inkMat,RAR_N:['Common','Uncommon','Rare','Epic','Legendary']};
 })();

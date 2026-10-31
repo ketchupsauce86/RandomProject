@@ -2612,6 +2612,7 @@
       }
       return 0;
     }
+    let INK = null;
     function makeCharacterGLB() {
       const g = new T.Group();
       g.rotation.order = "YXZ";
@@ -2650,6 +2651,19 @@
       pickG.add(handle, ph);
       pickG.visible = false;
       g.add(pickG);
+      let line = null;
+      model.traverse((o) => {
+        if (o.name === "vanguard_Mesh" && o.isSkinnedMesh && SK && SK.inkMat && !line) {
+          line = new T.SkinnedMesh(o.geometry, INK || (INK = SK.inkMat(T, 1.6, true)));
+          line.frustumCulled = false;
+          line.name = "inkLine";
+          o.parent.add(line);
+          line.bind(o.skeleton, o.bindMatrix);
+          line.position.copy(o.position);
+          line.quaternion.copy(o.quaternion);
+          line.scale.copy(o.scale);
+        }
+      });
       const consG = new T.Group();
       consG.visible = false;
       g.add(consG);
@@ -2658,7 +2672,7 @@
       flash.visible = false;
       const hb = { head: new T.Mesh(HIT_GEO.head, hitMat), chest: new T.Mesh(HIT_GEO.chest, hitMat), legs: new T.Mesh(HIT_GEO.legs, hitMat) };
       g.add(hb.head, hb.chest, hb.legs);
-      return { glb: true, g, spin, model, bones, mixer, act, gunMount, pick: pickG, consG, consId: "", flash, hb, parts: [hb.head, hb.chest, hb.legs], head: hb.head, heldKey: "", held: null, w: { Idle: 1, Walk: 0, Run: 0, TPose: 0 } };
+      return { glb: true, line, g, spin, model, bones, mixer, act, gunMount, pick: pickG, consG, consId: "", flash, hb, parts: [hb.head, hb.chest, hb.legs], head: hb.head, heldKey: "", held: null, w: { Idle: 1, Walk: 0, Run: 0, TPose: 0 } };
     }
     const SK = window.SKINS || null, skinMats = /* @__PURE__ */ new Map(), gearMats = {};
     function skinMaterials(skin, body, visor, geo) {
@@ -2731,6 +2745,8 @@
         if (o.name === "vanguard_visor") o.visible = !skin.noVisor && !skin.body;
         if (o.name === "vanguard_Mesh") o.visible = !skin.body;
       });
+      if (c.line) c.line.userData.off = !!skin.body;
+      if (c.line) c.line.visible = !skin.body;
       if (skin.body) {
         let sm = null;
         c.model.traverse((o) => {
@@ -3455,6 +3471,7 @@
         c.inView = see;
         c.spin.visible = see && !(e === player && bv(e, "hide")) && e.br !== "jet";
         c.gunMount.visible = see && !far;
+        if (c.line) c.line.visible = !far && !c.line.userData.off;
         if (c.gear && c.gearFar !== far) {
           c.gearFar = far;
           for (const w of c.gear) w.visible = !far;
