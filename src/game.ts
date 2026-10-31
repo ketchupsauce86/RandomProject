@@ -1522,9 +1522,51 @@ function animateGLB(e,dt){
   animSwingTorso(e,X);          // [S3] pickaxe swing twist and lean
   animArms(e,X);                // [S0] the hands: one arm layer per frame
   applyArmOverrides(e,X);       // [S0] X.armOv pulls a hand toward a target on top of that layer
+  animBR(e,X);                  // [v1.50] Storm Island: skydive arch, hanging off the glider, crash tumble
   animProps(e,X);               // [S3] moving parts of the held gun
   animPost(e,X);                // [S1] pose blend, then store the final pose
   animHitboxes(e,X);            // [S0] hitboxes follow the skeleton
+}
+// ---- [v1.50] Storm Island's own air moves (zero-g keeps its swimming): a belly-down skydive arch that tucks into a
+// dive at speed, hanging off the glider's bar with dangling legs, and the crash: a tumble, a face-plant and a push-up.
+const _ba=new V(), _bb=new V(), _brP=new V(), _brq=new T.Quaternion(), _brm=new V();
+function animBR(e,X){ if(MODE!=='br'||!X.near) return; const c=e.ch, B=c.bones, A=e.anim, t=matchTime+(e.walkT||0);
+  const CR=e.brCrash;
+  if(CR){ // the whole body flips forward once, lands flat on its front, then rises back up
+    const k=CR.t, fl=1-smooth(0.95,1.4,k), ang=k<0.5?-TAU*easeIO(k/0.5)-Math.PI/2*smooth(0.3,0.5,k):-Math.PI/2*fl, ph=lerp(0.9,0.55,smooth(0.3,0.55,k)*fl);
+    const g=c.g, ax=_brm.set(1,0,0).applyQuaternion(g.quaternion); _brq.setFromAxisAngle(ax,ang); const mid=_ba.copy(g.position).addScaledVector(_bb.set(0,1,0),ph);
+    g.position.sub(mid).applyQuaternion(_brq).add(mid); if(k<0.5) g.position.y+=0.8*Math.sin(Math.PI*k/0.5); g.quaternion.premultiply(_brq); g.updateMatrixWorld(true);
+    c.model.getWorldQuaternion(_brq); X.rightB.set(1,0,0).applyQuaternion(_brq); X.fwdB.set(0,0,-1).applyQuaternion(_brq); X.upB.set(0,1,0).applyQuaternion(_brq); }
+  const r=X.rightB, up=X.upB, fw=X.fwdB;
+  if(e.br==='fall'||e.br==='glide'){ c.pick.visible=false; if(c.pickL) c.pickL.visible=false; c.gunMount.visible=false; } // hands free in the air
+  const limb=(sd,kind,ox,oy,oz,po)=>{ const sx=sd==='Right'?1:-1, root=B[sd+(kind==='arm'?'Arm':'UpLeg')].getWorldPosition(_ba);
+    const tg=_bb.copy(root).addScaledVector(r,sx*ox).addScaledVector(up,oy).addScaledVector(fw,oz), pole=_brP.copy(root).addScaledVector(r,sx*po[0]).addScaledVector(up,po[1]).addScaledVector(fw,po[2]);
+    if(kind==='arm') solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],tg,pole); else solveIK(B[sd+'UpLeg'],B[sd+'Leg'],B[sd+'Foot'],tg,pole); };
+  if(CR){ const k=CR.t; // tuck while tumbling, sprawl flat, then push up onto the knees and stand
+    const tuck=k<0.5?Math.sin(Math.PI*k/0.5):0, flat=smooth(0.4,0.55,k)*(1-smooth(0.95,1.35,k)), push=smooth(0.85,1.2,k)*(1-smooth(1.25,1.5,k));
+    for(const sd of ['Left','Right']){ const s2=sd==='Right'?1:-1;
+      if(tuck>0.01){ limb(sd,'arm',0.2,-0.25,0.35,[0.6,-0.4,-0.2]); limb(sd,'leg',0.12,-0.45,0.35,[0.2,0,1]); }
+      else if(flat>0.01){ limb(sd,'arm',0.55+0.04*Math.sin(t*9+s2),0.3,0.05+0.25*push,[0.6,-0.3,0.5]); limb(sd,'leg',0.28,-0.78,-0.05,[0.2,0,1]); } }
+    rotateBoneWorld(B.Head,r,-0.4*flat); return; }
+  if(e.br==='fall'){ // the arch: arms out and bent up, knees bent with the feet up behind; speed tucks it into a dive
+    const hs=Math.hypot(e.vel.x,e.vel.z), dv=clamp((hs-9)/7,0,1), w=Math.sin(t*13)*0.04, w2=Math.sin(t*11+1)*0.04;
+    A.brDv=lerp(A.brDv||0,dv,1-Math.exp(-4*X.dt));
+    for(const sd of ['Left','Right']){ const s2=sd==='Right'?1:-1, d=A.brDv;
+      limb(sd,'arm',lerp(0.55,0.22,d),lerp(0.18,-0.5,d)+w*s2,lerp(-0.12,-0.2,d),[0.4,-0.2,0.8]);
+      limb(sd,'leg',lerp(0.3,0.1,d),lerp(-0.62,-0.85,d)+w2*s2,lerp(-0.42,-0.08,d),[0.15,0,1]); }
+    for(const n of ['Spine','Spine1','Spine2']) rotateBoneWorld(B[n],r,-0.12*(1-A.brDv)); rotateBoneWorld(B.Neck,r,-0.5); // chest up, look ahead
+    const bk=clamp(-(A.brTurn||0)*0.35,-0.6,0.6); for(const n of ['Spine1','Spine2']) rotateBoneWorld(B[n],fw,bk*0.5);
+    for(const sd of ['Left','Right']) poseHand(B,sd,B[sd+'Hand'].getWorldPosition(_ba).sub(B[sd+'ForeArm'].getWorldPosition(_bb)),up.clone().negate().addScaledVector(fw,1),0.15); return; }
+  if(e.br==='glide'&&c.glider){ const G=c.glider; // both hands on the bar, legs dangling and swinging with the turns
+    A.brGl=Math.min(1,(A.brGl||0)+X.dt*3); G.scale.setScalar(Math.max(0.01,backOut(A.brGl)));
+    const turn=A.brTurn||0; G.rotation.z=lerp(G.rotation.z,clamp(-turn*0.45,-0.5,0.5),1-Math.exp(-5*X.dt)); G.rotation.x=0.05*Math.sin(t*2.3); G.updateMatrixWorld(true);
+    for(const sd of ['Left','Right']){ const s2=sd==='Right'?1:-1, hand=G.localToWorld(_bb.set(-s2*0.36,-1.12,0.22)), sh=B[sd+'Arm'].getWorldPosition(_ba);
+      solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],hand.clone(),_brP.copy(sh).addScaledVector(r,s2*0.6).addScaledVector(fw,-0.2));
+      poseHand(B,sd,up.clone().addScaledVector(fw,0.2),fw.clone().negate(),1.1);
+      const sw=Math.sin(t*2.1+s2*0.6)*0.08, kick=Math.sin(t*3.4+s2*1.7)*0.06;
+      limb(sd,'leg',0.13+0.04*s2*turn,-0.82-kick*0.3,-0.08+sw+kick,[0.15,0,1]); }
+    for(const n of ['Spine1','Spine2']) rotateBoneWorld(B[n],fw,-turn*0.12);
+    rotateBoneWorld(B.Head,up,clamp(-turn*0.3,-0.4,0.4)); }
 }
 // [S0] the frame's shared context X: motion, what is in hand, smoothing rates, aim pitch. Later layers add to it
 // (near, s, back, body axes, cr, crE, feet, busy, branch); writes to anim fields stay in e.anim, not X
@@ -5275,22 +5317,39 @@ function brMove(e,dt){
     for(const b of colliders.near(p.x,p.z,r+1)){
       if(p.x+r<=b.min.x||p.x-r>=b.max.x||p.z+r<=b.min.z||p.z-r>=b.max.z||p.y+h<=b.min.y||p.y>=b.max.y) continue;
       if(ax==='y'){ if(d<0){ p.y=b.max.y; e.vel.y=0; e.brStand=true; } else { p.y=b.min.y-h; e.vel.y=0; } }
-      else { p[ax]=d>0?b.min[ax]-r:b.max[ax]+r; e.vel[ax]*=-0.1; } } }
+      else { if(e.br==='glide'&&Math.hypot(e.vel.x,e.vel.z)>11&&!e.brNoGlide) brGliderBreak(e); p[ax]=d>0?b.min[ax]-r:b.max[ax]+r; e.vel[ax]*=-0.1; } } }
   const L=BR.W/2-2; p.x=clamp(p.x,-L,L); p.z=clamp(p.z,-L,L);
   const fl=brFloor(p.x,p.z), was=e.onGround; let on=e.brStand&&e.vel.y<=0; e.brStand=false;
   if(p.y<=fl+0.02){ p.y=fl; if(e.vel.y<0) e.vel.y=0; on=true; }
   else if(was&&e.br==='ground'&&p.y-fl<0.5&&e.vel.y<=0){ p.y=fl; on=true; } // walking downhill keeps your feet on the slope
   e.onGround=on;
-  if(on&&e.br!=='ground'){ const fall=-Math.min(e.vel.y,0); e.br='ground'; e.zgFloat=false; e.zgTx=0; if(e.ch&&e.ch.glider) e.ch.glider.visible=false;
+  if(on&&e.br!=='ground'){ const fall=-Math.min(e.vel.y,0); if(e.br==='fall') brCrash(e,fall); else brDust(e.pos,0.8); e.brNoGlide=false; e.br='ground'; e.zgFloat=false; e.zgTx=0; if(e.ch&&e.ch.glider) e.ch.glider.visible=false;
     e.anim.land=clamp(Math.max(fall,8)/20,0.3,1); if(e===player){ sfx('land',null,{v:12,surf:'rock'}); camShake=Math.max(camShake,0.3); } }
   if(e.onGround&&!was&&e.br==='ground'&&(e.brFall||0)>9){ e.anim.land=clamp(e.brFall/20,0.3,1); if(e===player) sfx('land',null,{v:e.brFall,surf:'rock'}); }
   e.brFall=e.onGround?0:Math.max(0,-e.vel.y);
 }
+// the glider snaps on a wall: the pieces fly off and you drop, no second glider, toward a crash landing
+function brGliderBreak(e){ const G=e.ch&&e.ch.glider; e.br='fall'; e.brNoGlide=true; e.vel.multiplyScalar(0.3); e.vel.y=Math.max(e.vel.y,4);
+  if(G){ G.visible=false; G.updateMatrixWorld(true); const at=G.getWorldPosition(new V());
+    for(let i=0;i<10;i++){ const m=new T.Mesh(fxShard,new T.MeshBasicMaterial({color:pick([0xff3fd4,0x7a4cff,0x5cf0ff])})), v=rv(1).normalize().multiplyScalar(rnd(6,12)), w=rv(10); m.scale.setScalar(rnd(1.5,3)); m.position.copy(at).add(rv(1.5)); world.add(m);
+      effects.push({t:0,dur:1.2,obj:m,upd:(ef,k,dt)=>{ v.y-=20*dt; m.position.addScaledVector(v,dt); m.rotation.x+=w.x*dt; m.rotation.z+=w.z*dt; },done:()=>m.material.dispose()}); }
+    fxHit(at,0xff3fd4,2); }
+  if(e===player){ sfx('chop',null,{mat:'metal'}); camShake=Math.max(camShake,0.6); banner('Glider broke!','Brace for impact',1.5); } }
+// dust kicked up where someone lands
+function brDust(at,s){ for(let i=0;i<Math.round(8*s);i++){ const a=i/(8*s)*TAU; smoke(at.clone().add(new V(Math.cos(a)*0.6,0.2,Math.sin(a)*0.6)),rnd(1.2,2)*s,rnd(0.6,1.1),new V(Math.cos(a)*rnd(3,6)*s,rnd(0.5,1.5),Math.sin(a)*rnd(3,6)*s),false); } }
+// hitting the ground still skydiving: tumble, face-plant, get up (about 1.5 s); hurts a little if it was fast
+function brCrash(e,fall){ e.brCrash={t:0}; e.vel.x*=0.5; e.vel.z*=0.5; brDust(e.pos,1.8); if(e.ch) poseSnap(e.ch,0.15);
+  for(let i=0;i<10;i++){ const m=new T.Mesh(shardGeo,colorMat(pick([0x8a7a5a,0x6a5a3a,0x9a9080]))), v=new V(rnd(-6,6),rnd(5,11),rnd(-6,6)); m.position.copy(e.pos); world.add(m);
+    effects.push({t:0,dur:1,obj:m,upd:(ef,k,dt)=>{ v.y-=24*dt; m.position.addScaledVector(v,dt); m.rotation.x+=8*dt; m.scale.setScalar(1-k); }}); }
+  if(fall>25) hurt(e,Math.min(30,(fall-25)*1.5),null,{weapon:'the ground',soft:true});
+  if(e===player){ sfx('boom',e.pos.clone(),{gain:0.6}); camShake=Math.max(camShake,1); } }
+function brCrashTick(e,dt){ const C=e.brCrash; if(!C) return false; C.t+=dt; e.vel.x*=Math.exp(-5*dt); e.vel.z*=Math.exp(-5*dt); brMove(e,dt); if(C.t>1.5){ e.brCrash=null; if(e.ch) poseSnap(e.ch,0.25); } return true; }
 // skydive and glide steering, shared by the player and bots: dir is a world wish (x,z), dive pushes the nose down
 function brAir(e,wx,wz,dt){
+  const yr=wrapPi((e.yaw||0)-(e.brYaw==null?e.yaw||0:e.brYaw))/Math.max(dt,1e-3); e.brYaw=e.yaw; e.anim.brTurn=lerp(e.anim.brTurn||0,clamp(yr+(wx*Math.cos(e.yaw)-wz*Math.sin(e.yaw))*1.2,-2,2),1-Math.exp(-4*dt));
   const auto=e.pos.y-brFloor(e.pos.x,e.pos.z)<48;
   if(e.br==='fall'){ const sp=16; e.vel.x=lerp(e.vel.x,wx*sp,1-Math.exp(-1.5*dt)); e.vel.z=lerp(e.vel.z,wz*sp,1-Math.exp(-1.5*dt)); e.zgTx=-1.35;
-    if(auto||e.brOpen){ e.br='glide'; e.brOpen=false; if(e.ch&&e.ch.glider) e.ch.glider.visible=true; if(e===player) sfx('whoosh',null,{}); } }
+    if((auto||e.brOpen)&&!e.brNoGlide){ e.br='glide'; e.brOpen=false; e.anim.brGl=0; if(e.ch&&e.ch.glider) e.ch.glider.visible=true; if(e===player) sfx('whoosh',null,{}); } }
   else if(e.br==='glide'){ const sp=17; e.vel.x=lerp(e.vel.x,wx*sp,1-Math.exp(-2*dt)); e.vel.z=lerp(e.vel.z,wz*sp,1-Math.exp(-2*dt)); e.zgTx=-0.25;
     // a trail of light off the wingtips
     if(e===player||e.pos.distanceTo(camera.position)<60){ e.brTr=(e.brTr||0)-dt; if(e.brTr<=0&&e.ch&&e.ch.glider){ e.brTr=0.05; for(const x of [-2.4,2.4]) mote(auraMats(0xff3fd4).spark,e.ch.glider.localToWorld(_brv0.set(x,0,-0.9)).clone(),0.5,0.7,new V()); } } }
@@ -5299,6 +5358,7 @@ function updatePlayerBR(dt){
   const p=player; if(!p.alive){ p.wantJump=false; return; }
   if(p.br==='jet'){ if(p.wantJump&&BR.jet.t>0.4) brDrop(p); else { p.pos.copy(BR.jet.g.position); p.vel.set(0,0,0); } p.wantJump=false; return; }
   if(p.bounceT>0){ p.wantJump=false; updateBounce(p,dt); return; }
+  if(brCrashTick(p,dt)){ p.wantJump=false; return; }
   let mx=(keys.KeyD?1:0)-(keys.KeyA?1:0), mz=(keys.KeyW?1:0)-(keys.KeyS?1:0);
   const fx=-Math.sin(p.yaw), fz=-Math.cos(p.yaw), rx=Math.cos(p.yaw), rz=-Math.sin(p.yaw);
   let wx=fx*mz+rx*mx, wz=fz*mz+rz*mx; const wl=Math.hypot(wx,wz); if(wl>1){ wx/=wl; wz/=wl; }
@@ -5316,6 +5376,7 @@ function updateBotBR(b,dt){
   if(b.br==='jet'){ b.pos.copy(BR.jet.g.position); if(BR.jet.t>=b.dropAt) brDrop(b); return; }
   if(b.br!=='ground'){ const L=b.land, dx=L.x-b.pos.x, dz=L.z-b.pos.z, d=Math.hypot(dx,dz)||1; botTurn(b,Math.atan2(-dx,-dz),4,dt);
     if(b.br==='fall'&&b.pos.y-brFloor(b.pos.x,b.pos.z)<b.openAt) b.brOpen=true; brAir(b,dx/d*Math.min(1,d/20),dz/d*Math.min(1,d/20),dt); brMove(b,dt); return; }
+  if(brCrashTick(b,dt)) return;
   if(b.knockT>0){ b.knockT-=dt; b.vel.x*=Math.exp(-1*dt); b.vel.z*=Math.exp(-1*dt); brMove(b,dt); return; }
   if(lockedUp(b)){ b.vel.x*=Math.exp(-6*dt); b.vel.z*=Math.exp(-6*dt); brMove(b,dt); return; }
   b.think-=dt; b.fireCd-=dt; b.reloadT-=dt; b.swapT-=dt; b.strafeT-=dt;

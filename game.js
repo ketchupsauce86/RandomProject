@@ -3674,9 +3674,91 @@
       animSwingTorso(e, X);
       animArms(e, X);
       applyArmOverrides(e, X);
+      animBR(e, X);
       animProps(e, X);
       animPost(e, X);
       animHitboxes(e, X);
+    }
+    const _ba = new V(), _bb = new V(), _brP = new V(), _brq = new T.Quaternion(), _brm = new V();
+    function animBR(e, X) {
+      if (MODE !== "br" || !X.near) return;
+      const c = e.ch, B = c.bones, A = e.anim, t = matchTime + (e.walkT || 0);
+      const CR = e.brCrash;
+      if (CR) {
+        const k = CR.t, fl = 1 - smooth(0.95, 1.4, k), ang = k < 0.5 ? -TAU * easeIO(k / 0.5) - Math.PI / 2 * smooth(0.3, 0.5, k) : -Math.PI / 2 * fl, ph = lerp(0.9, 0.55, smooth(0.3, 0.55, k) * fl);
+        const g = c.g, ax = _brm.set(1, 0, 0).applyQuaternion(g.quaternion);
+        _brq.setFromAxisAngle(ax, ang);
+        const mid = _ba.copy(g.position).addScaledVector(_bb.set(0, 1, 0), ph);
+        g.position.sub(mid).applyQuaternion(_brq).add(mid);
+        if (k < 0.5) g.position.y += 0.8 * Math.sin(Math.PI * k / 0.5);
+        g.quaternion.premultiply(_brq);
+        g.updateMatrixWorld(true);
+        c.model.getWorldQuaternion(_brq);
+        X.rightB.set(1, 0, 0).applyQuaternion(_brq);
+        X.fwdB.set(0, 0, -1).applyQuaternion(_brq);
+        X.upB.set(0, 1, 0).applyQuaternion(_brq);
+      }
+      const r = X.rightB, up = X.upB, fw = X.fwdB;
+      if (e.br === "fall" || e.br === "glide") {
+        c.pick.visible = false;
+        if (c.pickL) c.pickL.visible = false;
+        c.gunMount.visible = false;
+      }
+      const limb = (sd, kind, ox, oy, oz, po) => {
+        const sx = sd === "Right" ? 1 : -1, root = B[sd + (kind === "arm" ? "Arm" : "UpLeg")].getWorldPosition(_ba);
+        const tg = _bb.copy(root).addScaledVector(r, sx * ox).addScaledVector(up, oy).addScaledVector(fw, oz), pole = _brP.copy(root).addScaledVector(r, sx * po[0]).addScaledVector(up, po[1]).addScaledVector(fw, po[2]);
+        if (kind === "arm") solveIK(B[sd + "Arm"], B[sd + "ForeArm"], B[sd + "Hand"], tg, pole);
+        else solveIK(B[sd + "UpLeg"], B[sd + "Leg"], B[sd + "Foot"], tg, pole);
+      };
+      if (CR) {
+        const k = CR.t;
+        const tuck = k < 0.5 ? Math.sin(Math.PI * k / 0.5) : 0, flat = smooth(0.4, 0.55, k) * (1 - smooth(0.95, 1.35, k)), push = smooth(0.85, 1.2, k) * (1 - smooth(1.25, 1.5, k));
+        for (const sd of ["Left", "Right"]) {
+          const s2 = sd === "Right" ? 1 : -1;
+          if (tuck > 0.01) {
+            limb(sd, "arm", 0.2, -0.25, 0.35, [0.6, -0.4, -0.2]);
+            limb(sd, "leg", 0.12, -0.45, 0.35, [0.2, 0, 1]);
+          } else if (flat > 0.01) {
+            limb(sd, "arm", 0.55 + 0.04 * Math.sin(t * 9 + s2), 0.3, 0.05 + 0.25 * push, [0.6, -0.3, 0.5]);
+            limb(sd, "leg", 0.28, -0.78, -0.05, [0.2, 0, 1]);
+          }
+        }
+        rotateBoneWorld(B.Head, r, -0.4 * flat);
+        return;
+      }
+      if (e.br === "fall") {
+        const hs = Math.hypot(e.vel.x, e.vel.z), dv = clamp((hs - 9) / 7, 0, 1), w = Math.sin(t * 13) * 0.04, w2 = Math.sin(t * 11 + 1) * 0.04;
+        A.brDv = lerp(A.brDv || 0, dv, 1 - Math.exp(-4 * X.dt));
+        for (const sd of ["Left", "Right"]) {
+          const s2 = sd === "Right" ? 1 : -1, d = A.brDv;
+          limb(sd, "arm", lerp(0.55, 0.22, d), lerp(0.18, -0.5, d) + w * s2, lerp(-0.12, -0.2, d), [0.4, -0.2, 0.8]);
+          limb(sd, "leg", lerp(0.3, 0.1, d), lerp(-0.62, -0.85, d) + w2 * s2, lerp(-0.42, -0.08, d), [0.15, 0, 1]);
+        }
+        for (const n of ["Spine", "Spine1", "Spine2"]) rotateBoneWorld(B[n], r, -0.12 * (1 - A.brDv));
+        rotateBoneWorld(B.Neck, r, -0.5);
+        const bk = clamp(-(A.brTurn || 0) * 0.35, -0.6, 0.6);
+        for (const n of ["Spine1", "Spine2"]) rotateBoneWorld(B[n], fw, bk * 0.5);
+        for (const sd of ["Left", "Right"]) poseHand(B, sd, B[sd + "Hand"].getWorldPosition(_ba).sub(B[sd + "ForeArm"].getWorldPosition(_bb)), up.clone().negate().addScaledVector(fw, 1), 0.15);
+        return;
+      }
+      if (e.br === "glide" && c.glider) {
+        const G = c.glider;
+        A.brGl = Math.min(1, (A.brGl || 0) + X.dt * 3);
+        G.scale.setScalar(Math.max(0.01, backOut(A.brGl)));
+        const turn = A.brTurn || 0;
+        G.rotation.z = lerp(G.rotation.z, clamp(-turn * 0.45, -0.5, 0.5), 1 - Math.exp(-5 * X.dt));
+        G.rotation.x = 0.05 * Math.sin(t * 2.3);
+        G.updateMatrixWorld(true);
+        for (const sd of ["Left", "Right"]) {
+          const s2 = sd === "Right" ? 1 : -1, hand = G.localToWorld(_bb.set(-s2 * 0.36, -1.12, 0.22)), sh = B[sd + "Arm"].getWorldPosition(_ba);
+          solveIK(B[sd + "Arm"], B[sd + "ForeArm"], B[sd + "Hand"], hand.clone(), _brP.copy(sh).addScaledVector(r, s2 * 0.6).addScaledVector(fw, -0.2));
+          poseHand(B, sd, up.clone().addScaledVector(fw, 0.2), fw.clone().negate(), 1.1);
+          const sw = Math.sin(t * 2.1 + s2 * 0.6) * 0.08, kick = Math.sin(t * 3.4 + s2 * 1.7) * 0.06;
+          limb(sd, "leg", 0.13 + 0.04 * s2 * turn, -0.82 - kick * 0.3, -0.08 + sw + kick, [0.15, 0, 1]);
+        }
+        for (const n of ["Spine1", "Spine2"]) rotateBoneWorld(B[n], fw, -turn * 0.12);
+        rotateBoneWorld(B.Head, up, clamp(-turn * 0.3, -0.4, 0.4));
+      }
     }
     function animCtx(e, dt, a, aS) {
       const c = e.ch, A = e.anim, B = c.bones, g = c.g;
@@ -13767,6 +13849,7 @@
               e.vel.y = 0;
             }
           } else {
+            if (e.br === "glide" && Math.hypot(e.vel.x, e.vel.z) > 11 && !e.brNoGlide) brGliderBreak(e);
             p[ax] = d > 0 ? b.min[ax] - r : b.max[ax] + r;
             e.vel[ax] *= -0.1;
           }
@@ -13789,6 +13872,9 @@
       e.onGround = on;
       if (on && e.br !== "ground") {
         const fall = -Math.min(e.vel.y, 0);
+        if (e.br === "fall") brCrash(e, fall);
+        else brDust(e.pos, 0.8);
+        e.brNoGlide = false;
         e.br = "ground";
         e.zgFloat = false;
         e.zgTx = 0;
@@ -13805,16 +13891,92 @@
       }
       e.brFall = e.onGround ? 0 : Math.max(0, -e.vel.y);
     }
+    function brGliderBreak(e) {
+      const G = e.ch && e.ch.glider;
+      e.br = "fall";
+      e.brNoGlide = true;
+      e.vel.multiplyScalar(0.3);
+      e.vel.y = Math.max(e.vel.y, 4);
+      if (G) {
+        G.visible = false;
+        G.updateMatrixWorld(true);
+        const at = G.getWorldPosition(new V());
+        for (let i = 0; i < 10; i++) {
+          const m = new T.Mesh(fxShard, new T.MeshBasicMaterial({ color: pick([16728020, 8015103, 6091007]) })), v = rv(1).normalize().multiplyScalar(rnd(6, 12)), w = rv(10);
+          m.scale.setScalar(rnd(1.5, 3));
+          m.position.copy(at).add(rv(1.5));
+          world.add(m);
+          effects.push({ t: 0, dur: 1.2, obj: m, upd: (ef, k, dt) => {
+            v.y -= 20 * dt;
+            m.position.addScaledVector(v, dt);
+            m.rotation.x += w.x * dt;
+            m.rotation.z += w.z * dt;
+          }, done: () => m.material.dispose() });
+        }
+        fxHit(at, 16728020, 2);
+      }
+      if (e === player) {
+        sfx("chop", null, { mat: "metal" });
+        camShake = Math.max(camShake, 0.6);
+        banner("Glider broke!", "Brace for impact", 1.5);
+      }
+    }
+    function brDust(at, s) {
+      for (let i = 0; i < Math.round(8 * s); i++) {
+        const a = i / (8 * s) * TAU;
+        smoke(at.clone().add(new V(Math.cos(a) * 0.6, 0.2, Math.sin(a) * 0.6)), rnd(1.2, 2) * s, rnd(0.6, 1.1), new V(Math.cos(a) * rnd(3, 6) * s, rnd(0.5, 1.5), Math.sin(a) * rnd(3, 6) * s), false);
+      }
+    }
+    function brCrash(e, fall) {
+      e.brCrash = { t: 0 };
+      e.vel.x *= 0.5;
+      e.vel.z *= 0.5;
+      brDust(e.pos, 1.8);
+      if (e.ch) poseSnap(e.ch, 0.15);
+      for (let i = 0; i < 10; i++) {
+        const m = new T.Mesh(shardGeo, colorMat(pick([9075290, 6969914, 10129536]))), v = new V(rnd(-6, 6), rnd(5, 11), rnd(-6, 6));
+        m.position.copy(e.pos);
+        world.add(m);
+        effects.push({ t: 0, dur: 1, obj: m, upd: (ef, k, dt) => {
+          v.y -= 24 * dt;
+          m.position.addScaledVector(v, dt);
+          m.rotation.x += 8 * dt;
+          m.scale.setScalar(1 - k);
+        } });
+      }
+      if (fall > 25) hurt(e, Math.min(30, (fall - 25) * 1.5), null, { weapon: "the ground", soft: true });
+      if (e === player) {
+        sfx("boom", e.pos.clone(), { gain: 0.6 });
+        camShake = Math.max(camShake, 1);
+      }
+    }
+    function brCrashTick(e, dt) {
+      const C = e.brCrash;
+      if (!C) return false;
+      C.t += dt;
+      e.vel.x *= Math.exp(-5 * dt);
+      e.vel.z *= Math.exp(-5 * dt);
+      brMove(e, dt);
+      if (C.t > 1.5) {
+        e.brCrash = null;
+        if (e.ch) poseSnap(e.ch, 0.25);
+      }
+      return true;
+    }
     function brAir(e, wx, wz, dt) {
+      const yr = wrapPi((e.yaw || 0) - (e.brYaw == null ? e.yaw || 0 : e.brYaw)) / Math.max(dt, 1e-3);
+      e.brYaw = e.yaw;
+      e.anim.brTurn = lerp(e.anim.brTurn || 0, clamp(yr + (wx * Math.cos(e.yaw) - wz * Math.sin(e.yaw)) * 1.2, -2, 2), 1 - Math.exp(-4 * dt));
       const auto = e.pos.y - brFloor(e.pos.x, e.pos.z) < 48;
       if (e.br === "fall") {
         const sp = 16;
         e.vel.x = lerp(e.vel.x, wx * sp, 1 - Math.exp(-1.5 * dt));
         e.vel.z = lerp(e.vel.z, wz * sp, 1 - Math.exp(-1.5 * dt));
         e.zgTx = -1.35;
-        if (auto || e.brOpen) {
+        if ((auto || e.brOpen) && !e.brNoGlide) {
           e.br = "glide";
           e.brOpen = false;
+          e.anim.brGl = 0;
           if (e.ch && e.ch.glider) e.ch.glider.visible = true;
           if (e === player) sfx("whoosh", null, {});
         }
@@ -13850,6 +14012,10 @@
       if (p.bounceT > 0) {
         p.wantJump = false;
         updateBounce(p, dt);
+        return;
+      }
+      if (brCrashTick(p, dt)) {
+        p.wantJump = false;
         return;
       }
       let mx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0), mz = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0);
@@ -13904,6 +14070,7 @@
         brMove(b, dt);
         return;
       }
+      if (brCrashTick(b, dt)) return;
       if (b.knockT > 0) {
         b.knockT -= dt;
         b.vel.x *= Math.exp(-1 * dt);
