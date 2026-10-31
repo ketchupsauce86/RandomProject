@@ -3,6 +3,7 @@
 window.GAME_NEWS={
  // newest first; soon marks something that hasn't shipped yet
  announcements:[
+  {tag:'Out now',emoji:'🏰',title:'Storm Island, supersized',body:'The island is far bigger, with seven kingdoms to drop into: Crystal Citadel, Neon Harbor, Sunspire Temple, Frostpeak Village, Mushroom Hollow, Windmill Fields and Skyline Plaza. Plus grass, boulders, more trees, houses and chests, names on the minimap, and new player tags.',c1:'#9fd8ff',c2:'#ffc94a'},
   {tag:'Out now',emoji:'🪂',title:'Storm Island moves',body:'Storm Island has its own animations now: a belly-down skydive that tucks into a dive, hanging off your glider with legs swinging into the turns, and crashes. Fly your glider into a wall and it snaps, hit the ground still skydiving and you tumble, face-plant and push yourself back up.',c1:'#7a4cff',c2:'#5cf0ff'},
   {tag:'Out now',emoji:'🍪',title:'A real Gingerbread Man',body:'The Gingerbread Man is now a puffy baked cookie: a round speckled head with icing eyes, rosy cheeks and a piped smile, icing cuffs, sugared gumdrop buttons and a red bowtie. Every armoured skin also got a cartoon ink outline.',c1:'#b8733a',c2:'#e3243b'},
   {tag:'Out now',emoji:'💥',title:'Power-ups, remastered',body:'Every pickaxe power got a visual overhaul: light-ribbon trails, glowing energy orbs, spinning sawblades, carved pumpkins, layered explosions with smoke and debris, rune circles, light pillars, slash waves, laser beams and a charge-up orb in your hand.',c1:'#ff3fa4',c2:'#ffb02a'},
