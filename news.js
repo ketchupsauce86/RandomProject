@@ -3,6 +3,7 @@
 window.GAME_NEWS={
  // newest first; soon marks something that hasn't shipped yet
  announcements:[
+  {tag:'Out now',emoji:'🍪',title:'A real Gingerbread Man',body:'The Gingerbread Man is now a puffy baked cookie: a round speckled head with icing eyes, rosy cheeks and a piped smile, icing cuffs, sugared gumdrop buttons and a red bowtie. Every armoured skin also got a cartoon ink outline.',c1:'#b8733a',c2:'#e3243b'},
   {tag:'Out now',emoji:'💥',title:'Power-ups, remastered',body:'Every pickaxe power got a visual overhaul: light-ribbon trails, glowing energy orbs, spinning sawblades, carved pumpkins, layered explosions with smoke and debris, rune circles, light pillars, slash waves, laser beams and a charge-up orb in your hand.',c1:'#ff3fa4',c2:'#ffb02a'},
   {tag:'Out now',emoji:'✨',title:'Smoother moves, flashier powers',body:'Weapons are held in a natural ready stance (two-handers with both hands), emotes no longer bend wrists the wrong way, and every pickaxe power got glowing trails, force fields, energy walls and bigger blasts.',c1:'#19e3ff',c2:'#9b5cff'},
   {tag:'Out now',emoji:'🎅',title:'Ten Christmas skins',body:'A whole new Christmas theme in the Locker: Santa Claus, Mrs. Claus, an Elf, Rudolph, Frosty, a Gingerbread Man, a golden Nutcracker, Jack Frost, Krampus and a glowing Christmas Tree.',c1:'#c8161f',c2:'#1f9a46'},

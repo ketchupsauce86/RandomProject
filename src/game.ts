@@ -1054,6 +1054,7 @@ function pickHold(c,e,P,rightB,upB,fwdB,rest){
     solveIK(B.LeftArm,B.LeftForeArm,B.LeftHand,_ph4.copy(natL).lerp(t,P.act),pole); poseHand(B,'Left',fwdB.clone().addScaledVector(upB,0.6),rightB,1.1*P.act); return P.act; }
   return 0;
 }
+let INK=null;
 function makeCharacterGLB(){
   const g=new T.Group(); g.rotation.order='YXZ';
   const spin=new T.Group(); g.add(spin);
@@ -1064,10 +1065,12 @@ function makeCharacterGLB(){
   for(const n of ['Idle','Walk','Run','TPose']){ const a=mixer.clipAction(SOLDIER.clips[n]); a.play(); a.setEffectiveWeight(n==='Idle'?1:0); a.time=Math.random()*a.getClip().duration; act[n]=a; }
   const gunMount=new T.Group(); gunMount.scale.setScalar(GUN_S); g.add(gunMount);
   const pickG=new T.Group(); const handle=new T.Mesh(GEO.handle,colorMat(0x6b4a2a)); handle.position.y=0.35; const ph=new T.Mesh(GEO.pickHead,colorMat(0xb8c4d6)); ph.position.set(0,0.78,0); pickG.add(handle,ph); pickG.visible=false; g.add(pickG);
+  // [v1.49] a cartoon ink line round the armour: the body again, inside out and pushed out along its normals
+  let line=null; model.traverse(o=>{ if(o.name==='vanguard_Mesh'&&o.isSkinnedMesh&&SK&&SK.inkMat&&!line){ line=new T.SkinnedMesh(o.geometry,INK||(INK=SK.inkMat(T,1.6,true))); line.frustumCulled=false; line.name='inkLine'; o.parent.add(line); line.bind(o.skeleton,o.bindMatrix); line.position.copy(o.position); line.quaternion.copy(o.quaternion); line.scale.copy(o.scale); } });
   const consG=new T.Group(); consG.visible=false; g.add(consG);
   const flash=new T.Sprite(flashMat); flash.scale.setScalar(0.8); flash.visible=false;
   const hb={head:new T.Mesh(HIT_GEO.head,hitMat),chest:new T.Mesh(HIT_GEO.chest,hitMat),legs:new T.Mesh(HIT_GEO.legs,hitMat)}; g.add(hb.head,hb.chest,hb.legs);
-  return {glb:true,g,spin,model,bones,mixer,act,gunMount,pick:pickG,consG,consId:'',flash,hb,parts:[hb.head,hb.chest,hb.legs],head:hb.head,heldKey:'',held:null,w:{Idle:1,Walk:0,Run:0,TPose:0}};
+  return {glb:true,line,g,spin,model,bones,mixer,act,gunMount,pick:pickG,consG,consId:'',flash,hb,parts:[hb.head,hb.chest,hb.legs],head:hb.head,heldKey:'',held:null,w:{Idle:1,Walk:0,Run:0,TPose:0}};
 }
 // ---- outfits: repaint the soldier's armor and hang themed gear on its bones (see skins.js)
 const SK=window.SKINS||null, skinMats=new Map(), gearMats={};
@@ -1089,7 +1092,7 @@ function applySkin(c,skin){
   if(c.animeBody){ c.animeBody.parent&&c.animeBody.parent.remove(c.animeBody); c.animeBody=null; }
   let geo=null; c.model.traverse(o=>{ if(o.name==='vanguard_Mesh') geo=o.geometry; });
   const mats=skin.def||skin.body?null:skinMaterials(skin,c.baseMats.vanguard_Mesh,c.baseMats.vanguard_visor,geo);
-  c.model.traverse(o=>{ if(o.isMesh) o.material=mats?(o.name==='vanguard_visor'?mats.visor:mats.body):c.baseMats[o.name]; if(o.name==='vanguard_visor') o.visible=!skin.noVisor&&!skin.body; if(o.name==='vanguard_Mesh') o.visible=!skin.body; }); // masks like the Joker's replace the visor
+  c.model.traverse(o=>{ if(o.isMesh) o.material=mats?(o.name==='vanguard_visor'?mats.visor:mats.body):c.baseMats[o.name]; if(o.name==='vanguard_visor') o.visible=!skin.noVisor&&!skin.body; if(o.name==='vanguard_Mesh') o.visible=!skin.body; }); if(c.line) c.line.userData.off=!!skin.body; if(c.line) c.line.visible=!skin.body; // masks like the Joker's replace the visor
   if(skin.body){ // anime skins swap the armored soldier for a smooth body on the same skeleton (see skins.js)
     let sm=null; c.model.traverse(o=>{ if(o.name==='vanguard_Mesh') sm=o; });
     let bm=skinMats.get('body'+skin.i); if(!bm){ const geo=SK.bodyGeometry(T,sm.skeleton,skin.body); bm={geo,mat:SK.bodyMaterial(T,geo),line:SK.bodyOutline(T,geo)}; skinMats.set('body'+skin.i,bm); }
@@ -1433,6 +1436,7 @@ function cullChars(){ if(!combatants) return;
     _csph.center.set(e.pos.x,e.pos.y+1,e.pos.z); const d=_csph.center.distanceTo(camera.position);
     const see=e===player||_frus.intersectsSphere(_csph), far=d>GEAR_D&&e!==player;
     c.inView=see; c.spin.visible=see&&!(e===player&&bv(e,'hide'))&&e.br!=='jet'; c.gunMount.visible=see&&!far;
+    if(c.line) c.line.visible=!far&&!c.line.userData.off;
     if(c.gear&&c.gearFar!==far){ c.gearFar=far; for(const w of c.gear) w.visible=!far; }
     charShadow(c,see&&(e===player||d<SHADOW_D)); }
 }
