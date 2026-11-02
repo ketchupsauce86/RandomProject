@@ -5137,7 +5137,7 @@
       return e;
     }
     function setHeld(e, it) {
-      const c = e.ch, key = it ? it.id + ":" + it.r : "";
+      const c = e.ch, key = it ? it.id + ":" + it.r + ":" + (it.v || "") : "";
       if (c.heldKey === key) return;
       c.heldKey = key;
       if (c.held) {
@@ -5145,7 +5145,7 @@
         c.held = null;
       }
       if (it) {
-        const m = makeGunModel(it.id, it.r);
+        const m = it.v ? gunDress(makeGunModel(it.id, it.r), it.v) : makeGunModel(it.id, it.r);
         c.gunMount.add(m);
         c.held = m;
         m.userData.muzzle.add(c.flash);
@@ -5215,7 +5215,7 @@
     }
     function isScoped() {
       const it = curItem();
-      return !!(it && it.kind === "gun" && WEAP[it.id].zoom);
+      return !!(it && it.kind === "gun" && WI(it).zoom);
     }
     function D(o, k, t, a) {
       o[k] += (t - o[k]) * a;
@@ -5550,7 +5550,7 @@
     }
     function gunFire(it) {
       const p = player;
-      const w = WEAP[it.id];
+      const w = WI(it);
       if (p.reloading || p.fireCd > 0) return;
       p.fireCd = w.rate / bv(p, "swing", 1);
       if (w.sp) {
@@ -5668,14 +5668,18 @@
     }
     function armBot(b) {
       const main = { kind: "gun", id: pick(["ar", "ar", "ar", "smg", "smg", "sniper", "pistol"]), r: rollRarity(0.55) };
+      if (Math.random() < 0.4) {
+        const v = gunVariant(main.id);
+        Object.assign(main, { v: v.v, r: v.r });
+      }
       b.inv = [main];
       if (Math.random() < 0.7) b.inv.push({ kind: "gun", id: "pump", r: rollRarity(0.5) });
       b.gun = main;
-      b.mag = WEAP[main.id].mag;
+      b.mag = WI(main).mag;
       b.shield = pick([25, 50, 50, 75, 100]);
     }
     function botShoot(b, e, d) {
-      const w = WEAP[b.gun.id];
+      const w = WI(b.gun);
       const Df = DIFF[diff];
       b.fireCd = w.rate * (w.auto ? Df.cad : Df.cad * 0.7) + rnd(0, 0.15);
       b.burst = (b.burst || 0) + 1;
@@ -5737,7 +5741,7 @@
           p.aHold = 0;
           p.aGap = 0;
         }
-      } else if (mouse.l && (!it && !POW || it && it.kind === "gun" && WEAP[it.id].auto)) playerFire();
+      } else if (mouse.l && (!it && !POW || it && it.kind === "gun" && WI(it).auto)) playerFire();
     }
     function onPrimaryDown() {
       const p = player;
@@ -5835,8 +5839,8 @@
           col = eq ? RAR[eq.rar].c : "#c9d2de";
           ic = eq ? "px" + eq.i : "pick";
         } else if (it && it.kind === "gun") {
-          nm = WEAP[it.id].short;
-          col = WEAP[it.id].col || RAR[it.r].c;
+          nm = WI(it).short;
+          col = WI(it).col || RAR[it.r].c;
           sb = it.id === "drone" ? p.drone ? "LIVE" : it.cd > 0 ? Math.ceil(it.cd) + "s" : "" : "\u221E";
           ic = it.id;
         } else if (it && it.kind === "vest") {
@@ -5981,7 +5985,7 @@
       const bl = 1 + p.bloom * 1.5 + (ads ? -0.4 : 0);
       $("xhair").style.transform = `translate(-50%,-50%) scale(${bl})`;
       $("xhair").hidden = !p.alive;
-      $("scope").hidden = !(ads && it && WEAP[it.id] && WEAP[it.id].zoom);
+      $("scope").hidden = !(ads && it && WI(it) && WI(it).zoom);
       const busy = p.consuming || p.reloading;
       if (p.consuming) {
         $("usebar").hidden = false;
@@ -5998,7 +6002,7 @@
         $("prompt").dataset.k = "shop";
         $("prompt").innerHTML = "<kbd>E</kbd>Shop";
       }
-      if (shopOpen && (!p.alive || !nearMachine(7))) closeShop();
+      if (shopOpen && (!p.alive || !arsOpen && !nearMachine(7))) closeShop();
       updateDmg(dt);
     }
     const mapC = $("map"), mctx = mapC.getContext("2d"), MAPS = 180;
@@ -6200,7 +6204,7 @@
       tv3.z += lz * lk;
       clampToBox(camera.position);
       camera.lookAt(tv3);
-      const it = curItem(), tf = ads ? it && WEAP[it.id].zoom ? 20 : 52 : 72 + 7 * sp, ft = 1 / Math.tan(fov * Math.PI / 360);
+      const it = curItem(), tf = ads ? it && WI(it).zoom ? 20 : 52 : 72 + 7 * sp, ft = 1 / Math.tan(fov * Math.PI / 360);
       let ox = 0, oy = 0;
       if (camShake > 0) {
         camShake = Math.max(0, camShake - dt * (camShake > 0.3 ? 1.1 : 0.5));
@@ -7740,7 +7744,7 @@
         const want = d < 12 && b.inv[1] ? b.inv[1] : b.inv[0];
         if (want !== b.gun && b.swapT <= 0) {
           b.gun = want;
-          b.mag = WEAP[want.id].mag;
+          b.mag = WI(want).mag;
           b.fireCd = Math.max(b.fireCd, 0.3);
           b.swapT = 1.2;
         }
@@ -7751,7 +7755,7 @@
           b.vstrafe = rnd(-1, 1);
           b.strafeT = rnd(0.4, 1.1);
         }
-        const pref = WEAP[b.gun.id].pref, fwd = d > pref + 5 ? 1 : d < pref - 4 ? -0.7 : 0;
+        const pref = WI(b.gun).pref, fwd = d > pref + 5 ? 1 : d < pref - 4 ? -0.7 : 0;
         wish.set(dx / d * fwd + -dz / dh * b.strafe * 0.9, ceil ? 0 : dy / d * fwd + b.vstrafe * 0.7, dz / d * fwd + dx / dh * b.strafe * 0.9);
         if (!ceil && d > pref + 25) prop = zgStamina(b, true, dt);
         if (matchTime > (b.wake || SPAWN_GRACE) && matchTime - b.seenAt > b.react && b.fireCd <= 0 && b.reloadT <= 0 && !(b.jamT > 0)) botShoot(b, e, d);
@@ -13216,7 +13220,180 @@
       { id: "bounce", name: "Bouncer Ball", price: 20, col: "#5cc8ff" },
       { id: "drone", name: "Robot Drone", price: 25, col: "#ff5a3c" }
     ];
-    let shopOpen = false;
+    let shopOpen = false, arsOpen = false;
+    const GV_RAW = [
+      // key, name, base, rarity, finish, stats, attachments
+      // assault rifles
+      ["viper", "Viper Carbine", "ar", 1, "#3a7a4a", { dmg: 27, rate: 0.13, spread: 0.014 }, ["stock"]],
+      ["thunder", "Thunder AR", "ar", 2, "#3a5ad8", { dmg: 33, rate: 0.17, recoil: 8e-3 }, ["scope"]],
+      ["ion", "Ion Rifle", "ar", 3, "#5cf0ff", { dmg: 31, rate: 0.15, bloom: 0.025 }, ["glow", "scope"]],
+      ["falcon", "Falcon Burst AR", "ar", 2, "#c8c0a8", { dmg: 29, rate: 0.11, mag: 24 }, ["laser"]],
+      ["warden", "Heavy Warden", "ar", 3, "#4a4a52", { dmg: 40, rate: 0.24, mag: 25, recoil: 0.012 }, ["supp"]],
+      ["scout", "Scout Marksman", "ar", 3, "#8a6a4a", { dmg: 48, rate: 0.32, auto: false, mag: 12, spread: 4e-3, zoom: true, range: 450 }, ["scope", "stock"]],
+      ["neonstrike", "Neon Striker", "ar", 2, "#ff3fd4", { dmg: 28, rate: 0.135 }, ["glow"]],
+      ["dragon", "Dragon AR", "ar", 4, "#ff6a1a", { dmg: 36, rate: 0.15, mag: 32, head: 1.7 }, ["glow", "laser"]],
+      ["titan", "Titan LMG", "ar", 4, "#2a2a30", { dmg: 26, rate: 0.09, mag: 80, reload: 4.6, spread: 0.02, bloom: 0.045 }, ["drum"]],
+      ["phantom", "Phantom Silenced AR", "ar", 3, "#1a1a24", { dmg: 29, rate: 0.15, recoil: 4e-3 }, ["supp", "scope"]],
+      // SMGs
+      ["hornet", "Hornet SMG", "smg", 1, "#e8c43a", { dmg: 15, rate: 0.065 }, []],
+      ["wasp", "Wasp Compact", "smg", 1, "#2a2a2a", { dmg: 14, rate: 0.055, spread: 0.036, mag: 25 }, []],
+      ["pulse", "Pulse SMG", "smg", 2, "#7a4cff", { dmg: 18, rate: 0.08 }, ["glow"]],
+      ["riptide", "Riptide SMG", "smg", 2, "#2fa8d8", { dmg: 17, rate: 0.07, mag: 36 }, ["laser"]],
+      ["vector", "Volt Vector", "smg", 3, "#ffe14a", { dmg: 19, rate: 0.06, mag: 30, recoil: 5e-3 }, ["glow", "stock"]],
+      ["ghostpdw", "Ghost PDW", "smg", 3, "#c8ccd8", { dmg: 18, rate: 0.07, recoil: 3e-3 }, ["supp"]],
+      ["hail", "Hailstorm SMG", "smg", 2, "#bfe6ff", { dmg: 16, rate: 0.06, mag: 40 }, ["drum"]],
+      ["stinger", "Stinger SMG", "smg", 3, "#d83a3a", { dmg: 20, rate: 0.075, spread: 0.025 }, ["laser", "stock"]],
+      ["cobalt", "Cobalt Spitfire", "smg", 4, "#3a6ad8", { dmg: 21, rate: 0.058, mag: 45, head: 1.6 }, ["glow", "drum"]],
+      ["blitz", "Blitz Drum SMG", "smg", 4, "#ff7a1a", { dmg: 19, rate: 0.05, mag: 60, reload: 3.2 }, ["drum", "glow"]],
+      // shotguns
+      ["tactical", "Tactical Shotgun", "pump", 1, "#6a6a72", { dmg: 7.5, rate: 0.6, mag: 8, reload: 4.4 }, ["stock"]],
+      ["double", "Double Barrel", "pump", 3, "#7a4a2a", { dmg: 13, rate: 0.32, mag: 2, reload: 2.2, pellets: 10, spread: 0.09 }, []],
+      ["hammer", "Hammer Pump", "pump", 3, "#3a3a40", { dmg: 11, rate: 1.1, mag: 5 }, ["stock"]],
+      ["drumshot", "Drum Shotgun", "pump", 4, "#8a3ad8", { dmg: 6.5, rate: 0.3, mag: 12, auto: true, reload: 4.8 }, ["drum"]],
+      ["lever", "Lever Shotgun", "pump", 2, "#a87a4a", { dmg: 10, rate: 0.75, mag: 6 }, []],
+      ["thunderclap", "Thunderclap", "pump", 4, "#ffd23f", { dmg: 12, rate: 0.85, mag: 5, pellets: 12 }, ["glow"]],
+      ["breaker", "Spread Breaker", "pump", 2, "#5a8a5a", { dmg: 8, rate: 0.7, mag: 6, pellets: 14, spread: 0.11 }, []],
+      ["combat", "Combat Shotgun", "pump", 3, "#2a3a4a", { dmg: 8.5, rate: 0.45, mag: 10, spread: 0.065 }, ["laser"]],
+      ["boom", "Boomstick", "pump", 2, "#c83a2a", { dmg: 15, rate: 1.3, mag: 3, spread: 0.1 }, []],
+      ["cyclone", "Cyclone Auto Shotgun", "pump", 4, "#5cf0ff", { dmg: 7, rate: 0.22, mag: 10, auto: true }, ["glow", "drum"]],
+      // pistols
+      ["cannon", "Hand Cannon", "pistol", 4, "#c8c8d0", { dmg: 62, rate: 0.7, mag: 7, head: 2, recoil: 0.04 }, []],
+      ["revolver", "Ace Revolver", "pistol", 3, "#8a6a3a", { dmg: 48, rate: 0.5, mag: 6, reload: 2.4, head: 2 }, []],
+      ["twinviper", "Viper Pistol", "pistol", 1, "#3a7a4a", { dmg: 21, rate: 0.16, mag: 18 }, []],
+      ["flint", "Flint Pistol", "pistol", 2, "#6a4a2a", { dmg: 70, rate: 1.6, mag: 1, reload: 1.6 }, []],
+      ["tacpistol", "Tac Pistol", "pistol", 2, "#2a2a30", { dmg: 23, rate: 0.14, mag: 15 }, ["laser"]],
+      ["spark", "Spark Pistol", "pistol", 2, "#ffe14a", { dmg: 20, rate: 0.12, mag: 20 }, ["glow"]],
+      ["hawk", "Desert Hawk", "pistol", 3, "#d8b87a", { dmg: 42, rate: 0.45, mag: 8, head: 2 }, []],
+      ["emberp", "Ember Pistol", "pistol", 3, "#ff6a1a", { dmg: 27, rate: 0.17, mag: 14 }, ["glow"]],
+      ["hush", "Hush Pistol", "pistol", 2, "#3a3a44", { dmg: 25, rate: 0.2, recoil: 6e-3 }, ["supp"]],
+      ["mpistol", "Machine Pistol", "pistol", 3, "#7a4cff", { dmg: 15, rate: 0.06, mag: 24, auto: true, spread: 0.03 }, ["stock"]],
+      // snipers
+      ["heavysnipe", "Heavy Sniper", "sniper", 4, "#2a2a30", { dmg: 150, rate: 2.4, reload: 3.4, head: 2.5 }, ["scope", "supp"]],
+      ["hunting", "Hunting Rifle", "sniper", 1, "#8a5a3a", { dmg: 86, rate: 1.3, zoom: false, spread: 6e-3 }, ["stock"]],
+      ["rail", "Rail Lance", "sniper", 4, "#5cf0ff", { dmg: 120, rate: 1.9, head: 2.2 }, ["glow", "scope"]],
+      ["stormscout", "Storm Scout", "sniper", 2, "#7a4cff", { dmg: 80, rate: 0.9, mag: 3 }, ["scope"]],
+      ["frostbite", "Frostbite Sniper", "sniper", 3, "#bfe6ff", { dmg: 100, rate: 1.6 }, ["glow", "scope"]],
+      ["longshot", "Longshot", "sniper", 3, "#4a6a4a", { dmg: 110, rate: 1.7, range: 900 }, ["scope", "supp"]],
+      ["semi", "Semi-Auto Sniper", "sniper", 3, "#3a3a44", { dmg: 68, rate: 0.45, mag: 10, reload: 2.8 }, ["scope"]],
+      ["ghostsnipe", "Ghost Sniper", "sniper", 3, "#c8ccd8", { dmg: 96, rate: 1.6, recoil: 0.03 }, ["supp", "scope"]],
+      ["thunderbolt", "Thunderbolt", "sniper", 4, "#ffd23f", { dmg: 115, rate: 1.5, head: 2.6 }, ["glow", "scope"]],
+      ["eagle", "Eagle-Eye", "sniper", 2, "#d8d0c0", { dmg: 92, rate: 1.5, spread: 1e-3 }, ["scope"]]
+    ];
+    const GUNV = {};
+    for (const [k, n, base, r, col, o, att] of GV_RAW) {
+      const short = n.replace(/ (AR|SMG|Shotgun|Pistol|Sniper|Rifle|LMG)$/, "").toUpperCase().slice(0, 10);
+      GUNV[k] = { k, n, base, r, col, att, w: Object.assign({}, WEAP[base], o, { name: n, short }) };
+    }
+    const ARS_CATS = [["ar", "Assault Rifles"], ["smg", "SMGs"], ["pump", "Shotguns"], ["pistol", "Pistols"], ["sniper", "Snipers"]];
+    const ARS_PRICE = [1, 2, 3, 5, 8];
+    const WI = (it) => it && it.v && GUNV[it.v] ? GUNV[it.v].w : WEAP[it.id];
+    function gunVariant(base, q) {
+      const opts = Object.values(GUNV).filter((v2) => v2.base === base);
+      const v = pick(opts);
+      return { kind: "gun", id: base, v: v.k, r: v.r, ammo: v.w.mag };
+    }
+    const GVM = {};
+    function gunDress(g, v) {
+      const V2 = GUNV[v];
+      if (!V2) return g;
+      const tint = new T.Color(V2.col);
+      g.traverse((o) => {
+        if (o.isMesh && o.material && !o.material.transparent) {
+          const k = V2.k + ":" + o.material.uuid;
+          o.material = GVM[k] || (GVM[k] = (() => {
+            const m = o.material.clone();
+            m.color.lerp(tint, 0.55);
+            if (V2.att.includes("glow") && m.emissive) m.emissive.copy(tint).multiplyScalar(0.25);
+            return m;
+          })());
+        }
+      });
+      const mz = g.userData.muzzle, z0 = mz ? mz.position.z : -0.6, y0 = mz ? mz.position.y : 0.02, dark = GVM.dark || (GVM.dark = GPh(1447450, 30)), add = (geo, mat, x, y, z, rx = 0) => {
+        const m = new T.Mesh(geo, mat);
+        m.position.set(x, y, z);
+        m.rotation.x = rx;
+        m.castShadow = true;
+        g.add(m);
+        return m;
+      };
+      for (const a of V2.att) {
+        if (a === "scope") {
+          add(new T.CylinderGeometry(0.022, 0.022, 0.2, 12), dark, 0, y0 + 0.075, z0 * 0.35, Math.PI / 2);
+          add(new T.CylinderGeometry(0.03, 0.026, 0.03, 12), dark, 0, y0 + 0.075, z0 * 0.35 - 0.11, Math.PI / 2);
+          add(new T.CircleGeometry(0.022, 12), GVM.lens || (GVM.lens = new T.MeshBasicMaterial({ color: 6091007 })), 0, y0 + 0.075, z0 * 0.35 - 0.126).rotation.y = Math.PI;
+        }
+        if (a === "supp") {
+          add(new T.CylinderGeometry(0.022, 0.022, 0.2, 12), dark, 0, y0, z0 - 0.09, Math.PI / 2);
+          if (mz) mz.position.z -= 0.19;
+        }
+        if (a === "drum") {
+          add(new T.CylinderGeometry(0.065, 0.065, 0.06, 16), GVM["d" + V2.k] || (GVM["d" + V2.k] = GPh(tint.getHex(), 40)), 0, y0 - 0.1, z0 * 0.3).rotation.z = Math.PI / 2;
+        }
+        if (a === "stock") {
+          add(new T.BoxGeometry(0.03, 0.06, 0.16), dark, 0, y0 - 0.03, 0.2);
+        }
+        if (a === "laser") {
+          add(new T.BoxGeometry(0.02, 0.02, 0.07), dark, 0.025, y0 - 0.03, z0 * 0.6);
+          const b = add(new T.CylinderGeometry(3e-3, 3e-3, 6, 4), GVM.beam || (GVM.beam = new T.MeshBasicMaterial({ color: 16722490, transparent: true, opacity: 0.35, depthWrite: false })), 0.025, y0 - 0.03, z0 * 0.6 - 3, Math.PI / 2);
+          b.castShadow = false;
+        }
+        if (a === "glow") {
+          const h = new T.Sprite(auraMats(tint.getHex()).halo);
+          h.position.set(0, y0, z0 * 0.5);
+          h.scale.setScalar(0.35);
+          g.add(h);
+        }
+      }
+      return g;
+    }
+    let arsCat = 0;
+    function openArsenal() {
+      const p = player;
+      if (!p || !p.alive || state !== "play") return;
+      shopOpen = true;
+      arsOpen = true;
+      renderArsenal();
+      $("shop").hidden = false;
+      $("shop").classList.add("ars");
+      sfx("ui");
+    }
+    function renderArsenal() {
+      const p = player, [base, title] = ARS_CATS[arsCat], list = GV_RAW.filter((x) => x[2] === base);
+      $("shop").querySelector("h2").textContent = "Arsenal";
+      $("shopBank").textContent = String(p.bank);
+      $("shopList").innerHTML = `<div class="arstabs">${ARS_CATS.map((c, i) => `<span class="${i === arsCat ? "on" : ""}">${c[1]}</span>`).join("")}</div>` + list.map(([k, n, b, r], i) => {
+        const V2 = GUNV[k], w = V2.w, pr = ARS_PRICE[r], dps = Math.round(w.dmg * (w.pellets || 1) / w.rate);
+        return `<button class="shopitem ars ${p.bank < pr ? "poor" : ""}" style="--ic:${RAR[r].c}"><span class="k">${(i + 1) % 10}</span><span class="ic">${ICONS[b]}</span><span class="nm">${n}<small>${RAR[r].n} \xB7 ${Math.round(w.dmg * (w.pellets || 1))} dmg \xB7 ${dps} dps \xB7 ${w.mag} mag</small></span><span class="pr">${pr} elims</span></button>`;
+      }).join("");
+      $("shop").querySelector(".shopkeys").textContent = "A / D: category \xB7 1\u20130: buy \xB7 K: close";
+    }
+    function buyArsenal(i) {
+      const p = player, row = GV_RAW.filter((x) => x[2] === ARS_CATS[arsCat][0])[i];
+      if (!row) {
+        sfx("deny");
+        return;
+      }
+      const V2 = GUNV[row[0]], pr = ARS_PRICE[V2.r];
+      if (p.bank < pr) {
+        sfx("deny");
+        toast("Need " + pr + " elims");
+        return;
+      }
+      let slot = -1;
+      for (let k = 1; k < 6; k++) if (!p.slots[k]) {
+        slot = k;
+        break;
+      }
+      if (slot < 0) slot = p.sel >= 1 && p.sel < 6 && p.slots[p.sel] && p.slots[p.sel].kind === "gun" ? p.sel : 1;
+      p.bank -= pr;
+      p.slots[slot] = { kind: "gun", id: V2.base, v: V2.k, r: V2.r, ammo: V2.w.mag };
+      p.sel = slot;
+      refreshHotbar();
+      hudTick();
+      sfx("buy");
+      toast(V2.n + " \xB7 " + RAR[V2.r].n);
+      renderArsenal();
+    }
     function vendFrontSVG() {
       const nr = Math.ceil(SHOP.length / 2), rh = 260 / nr, sc = Math.min(1.6, (rh - 20) / 24);
       const rows = SHOP.map((it, i) => {
@@ -13306,7 +13483,10 @@
     function closeShop() {
       if (!shopOpen) return;
       shopOpen = false;
+      arsOpen = false;
       $("shop").hidden = true;
+      $("shop").classList.remove("ars");
+      $("shop").querySelector("h2").textContent = "Shop";
     }
     function buyItem(i) {
       const p = player, it = SHOP[i];
@@ -14024,7 +14204,7 @@
         best.lid.position.set(0, 0.85 + 0.25 * k, -0.3 * k);
       } });
       for (let i = 0; i < 14; i++) mote(auraMats(16765503).spark, new V(best.x, best.y + 1, best.z), rnd(0.15, 0.35), rnd(0.5, 0.9), rv(3).add(new V(0, 3, 0)), 6);
-      const id = brLoot(), w = WEAP[id], shop = !!SHOP_GUN(id), r = shop ? 4 : rollRarity(0.6), gun = id === "mf" ? { kind: "gun", id, r: 4, ammo: MF_CLIP } : shop ? { kind: "gun", id, r: 4, ammo: 1, cd: 0 } : { kind: "gun", id, r, ammo: w.mag };
+      const id = brLoot(), w = WEAP[id], shop = !!SHOP_GUN(id), r = shop ? 4 : rollRarity(0.6), gun = id === "mf" ? { kind: "gun", id, r: 4, ammo: MF_CLIP } : shop ? { kind: "gun", id, r: 4, ammo: 1, cd: 0 } : GUNV && Math.random() < 0.5 && ["ar", "smg", "pump", "pistol", "sniper"].includes(id) ? gunVariant(id) : { kind: "gun", id, r, ammo: w.mag };
       const s = brGive(gun);
       if (Math.random() < 0.6) brGive(Math.random() < 0.5 ? { kind: "cons", id: "mini", count: 2 } : { kind: "cons", id: "big", count: 1 });
       p.sel = s;
@@ -14519,7 +14699,7 @@
         const want = d < 12 && b.inv[1] ? b.inv[1] : b.inv[0];
         if (want !== b.gun && b.swapT <= 0) {
           b.gun = want;
-          b.mag = WEAP[want.id].mag;
+          b.mag = WI(want).mag;
           b.fireCd = Math.max(b.fireCd, 0.3);
           b.swapT = 1.2;
         }
@@ -14529,7 +14709,7 @@
           b.strafe = Math.random() < 0.5 ? -1 : 1;
           b.strafeT = rnd(0.4, 1.1);
         }
-        const pref = WEAP[b.gun.id].pref, fwd = d > pref + 5 ? 1 : d < pref - 4 ? -0.7 : 0;
+        const pref = WI(b.gun).pref, fwd = d > pref + 5 ? 1 : d < pref - 4 ? -0.7 : 0;
         wx = dx / dh * fwd + -dz / dh * b.strafe * 0.8;
         wz = dz / dh * fwd + dx / dh * b.strafe * 0.8;
         if (matchTime > (b.wake || 0) && matchTime - b.seenAt > b.react && b.fireCd <= 0 && b.reloadT <= 0 && !(b.jamT > 0)) botShoot(b, e, d);
@@ -14987,6 +15167,21 @@
         pauseGame();
         return;
       }
+      if (arsOpen) {
+        if (c.startsWith("Digit")) {
+          const n = +c.slice(5);
+          buyArsenal(n === 0 ? 9 : n - 1);
+        } else if (c === "KeyA" || c === "ArrowLeft") {
+          arsCat = (arsCat + 4) % 5;
+          renderArsenal();
+          sfx("ui");
+        } else if (c === "KeyD" || c === "ArrowRight") {
+          arsCat = (arsCat + 1) % 5;
+          renderArsenal();
+          sfx("ui");
+        } else if (c === "KeyK" || c === "Escape") closeShop();
+        return;
+      }
       if (shopOpen) {
         if (c.startsWith("Digit")) {
           const n = +c.slice(5);
@@ -14999,6 +15194,7 @@
         return;
       }
       if (c === "KeyE" && p.alive && nearMachine()) openShop();
+      if (c === "KeyK" && p.alive) openArsenal();
       else if (c === "KeyQ") startBounce(p);
       else if (c === "KeyR" && p.alive) startReload(curItem());
       else if (c.startsWith("Digit")) {
@@ -15029,7 +15225,7 @@
     addEventListener("mousemove", (ev) => {
       if (state !== "play" || !player || !locked && !fallbackLook) return;
       const it = curItem();
-      const s = 22e-4 * sens * (ads ? it && WEAP[it.id].zoom ? 0.3 : 0.6 : 1);
+      const s = 22e-4 * sens * (ads ? it && WI(it).zoom ? 0.3 : 0.6 : 1);
       player.yaw -= (ev.movementX || 0) * s * (ZG.camRoll > Math.PI / 2 ? -1 : 1);
       player.pitch = clamp(player.pitch - (ev.movementY || 0) * s, -1.35, 1.25);
     });
