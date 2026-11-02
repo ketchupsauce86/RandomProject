@@ -5425,6 +5425,8 @@
       t.anim.hit = Math.min(1, (t.anim.hit || 0) + 0.35 + amt / 50);
       if (src === player && t !== player) {
         player.dmgDealt += amt;
+        MS.hits++;
+        if (info.head) MS.heads++;
         showDmg(info.point || t.pos.clone().add(new V(0, 1.4, 0)), amt, info.head ? "head" : sh > 0 ? "shield" : "");
         hitMarker(info.head);
         if (!info.soft || sh > 0 && t.shield <= 0) sfx(sh > 0 && t.shield <= 0 ? "shieldBreak" : info.head ? "head" : sh > 0 ? "shield" : "hit");
@@ -5502,6 +5504,7 @@
       const p = player;
       if (p.consuming || lockedUp(p)) return;
       const it = curItem();
+      if (it && it.kind === "gun") MS.shots++;
       if (!it) {
         if (animeSt) {
           animeTap(p);
@@ -15298,7 +15301,8 @@
       }
       brScene();
       rollLoadout();
-      player = makeCombatant("You", true);
+      player = makeCombatant(profName(), true);
+      MS.shots = MS.hits = MS.heads = 0;
       Object.assign(player, {
         slots: [null, { kind: "gun", id: "ar", r: 3, ammo: WEAP.ar.mag }, { kind: "gun", id: "pump", r: 3, ammo: WEAP.pump.mag }, { kind: "gun", id: "smg", r: 2, ammo: WEAP.smg.mag }, { kind: "cons", id: "big", count: 2 }, { kind: "cons", id: "mini", count: 3 }, { kind: "gun", id: "mf", r: 4, ammo: MF_CLIP }, null, null],
         sel: 1,
@@ -15364,11 +15368,92 @@
       banner(MODE === "br" ? "Storm Island" : "Inverted", MODE === "br" ? "Press Space to jump out of the jet" : "", 2.5);
       requestLock();
     }
+    const PROF_KEY = "invertedProfile";
+    function profBlank() {
+      return { name: "", matches: 0, wins: 0, top10: 0, elims: 0, deaths: 0, dmg: 0, shots: 0, hits: 0, heads: 0, time: 0, bestElims: 0, bestDmg: 0, modes: { zg: { m: 0, w: 0, e: 0 }, br: { m: 0, w: 0, e: 0 } }, hist: [], ladder: {} };
+    }
+    let PROF = (() => {
+      try {
+        return Object.assign(profBlank(), JSON.parse(localStorage.getItem(PROF_KEY) || "{}"));
+      } catch (e) {
+        return profBlank();
+      }
+    })();
+    function profSave() {
+      try {
+        localStorage.setItem(PROF_KEY, JSON.stringify(PROF));
+      } catch (e) {
+      }
+    }
+    const profName = () => (PROF.name || "").trim() || "You";
+    const MS = { shots: 0, hits: 0, heads: 0 };
+    function profRecord(win, place) {
+      const p = player, M = PROF, md = M.modes[MODE] || (M.modes[MODE] = { m: 0, w: 0, e: 0 });
+      M.matches++;
+      md.m++;
+      if (win) {
+        M.wins++;
+        md.w++;
+      }
+      if (place <= 10) M.top10++;
+      if (!win) M.deaths++;
+      M.elims += p.kills;
+      md.e += p.kills;
+      M.dmg += Math.round(p.dmgDealt);
+      M.shots += MS.shots;
+      M.hits += MS.hits;
+      M.heads += MS.heads;
+      M.time += matchTime;
+      M.bestElims = Math.max(M.bestElims, p.kills);
+      M.bestDmg = Math.max(M.bestDmg, Math.round(p.dmgDealt));
+      M.hist.unshift({ d: Date.now(), mode: MODE, place, of: combatants.length, e: p.kills, dmg: Math.round(p.dmgDealt), t: Math.round(matchTime) });
+      M.hist.length = Math.min(M.hist.length, 10);
+      for (const b of bots) {
+        const L = M.ladder[b.name] || (M.ladder[b.name] = { w: 0, e: 0, m: 0 });
+        L.m++;
+        L.e += b.kills || 0;
+        if (b.alive && !win && aliveCount <= 1) L.w++;
+      }
+      profSave();
+    }
+    function profOpen() {
+      const M = PROF, acc = M.shots ? Math.round(100 * M.hits / M.shots) : 0, kd = (M.elims / Math.max(1, M.deaths)).toFixed(2), wr = M.matches ? Math.round(100 * M.wins / M.matches) : 0;
+      $("profName").value = PROF.name || "";
+      const st = (v, l) => `<div><b>${v}</b><span>${l}</span></div>`;
+      $("profStats").innerHTML = [st(M.matches, "Matches"), st(M.wins, "Wins"), st(wr + "%", "Win rate"), st(M.top10, "Top 10"), st(M.elims, "Elims"), st(kd, "K/D"), st(Math.round(M.dmg).toLocaleString(), "Damage"), st(acc + "%", "Accuracy"), st(M.heads, "Headshots"), st(M.bestElims, "Best elims"), st(fmtTime(M.time), "Time played"), st(M.modes.zg.w + " / " + M.modes.br.w, "Wins ZG / SI")].join("");
+      $("profHist").innerHTML = M.hist.length ? M.hist.map((h) => `<li><span class="pm">${h.mode === "br" ? "Storm Island" : "Zero-G Box"}</span><b>#${h.place}</b><span>${h.e} elims \xB7 ${h.dmg} dmg \xB7 ${fmtTime(h.t)}</span></li>`).join("") : '<li class="none">Play a match and it shows up here.</li>';
+      const rows = Object.entries(M.ladder).map(([n, L]) => ({ n, pts: L.w * 10 + L.e, w: L.w, e: L.e, you: false }));
+      rows.push({ n: profName(), pts: M.wins * 10 + M.elims, w: M.wins, e: M.elims, you: true });
+      rows.sort((a, b) => b.pts - a.pts);
+      const youAt = rows.findIndex((r) => r.you), show = rows.slice(0, 15);
+      if (youAt >= 15) show.push(rows[youAt]);
+      $("profLadder").innerHTML = show.map((r) => `<tr class="${r.you ? "you" : ""}"><td>${rows.indexOf(r) + 1}</td><td>${r.n.replace(/</g, "&lt;")}</td><td>${r.w}</td><td>${r.e}</td><td>${r.pts}</td></tr>`).join("");
+      $("profile").hidden = false;
+      sfx("ui");
+    }
+    $("profileBtn").addEventListener("click", profOpen);
+    $("profClose").addEventListener("click", () => {
+      $("profile").hidden = true;
+    });
+    $("profName").addEventListener("input", (e) => {
+      PROF.name = e.target.value.replace(/[^\w .\-]/g, "").slice(0, 16);
+      profSave();
+      if (player && state === "menu") player.name = profName();
+    });
+    $("profReset").addEventListener("click", () => {
+      if (!confirm("Reset all your stats? Your name stays.")) return;
+      const n = PROF.name;
+      PROF = profBlank();
+      PROF.name = n;
+      profSave();
+      profOpen();
+    });
     function endMatch(win, killer, cause) {
       if (state === "over") return;
       closeShop();
       state = "over";
       const place = win ? 1 : aliveCount + 1;
+      profRecord(win, place);
       for (const k in keys) keys[k] = false;
       mouse.l = mouse.r = false;
       ads = false;
