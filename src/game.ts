@@ -2551,7 +2551,7 @@ function hudFrame(dt){
   else if(p.reloading){ $('usebar').hidden=false; $('uselabel').textContent='Reloading'; $('usefill').style.width=(p.reloading.t/p.reloading.dur*100)+'%'; }
   else if(!busy) $('usebar').hidden=true;
   const vm=p.alive&&!shopOpen&&nearMachine(); $('prompt').hidden=!vm; if(vm&&$('prompt').dataset.k!=='shop'){ $('prompt').dataset.k='shop'; $('prompt').innerHTML='<kbd>E</kbd>Shop'; }
-  if(shopOpen&&(!p.alive||!arsOpen&&!nearMachine(7))) closeShop();
+  if(shopOpen&&!p.alive) closeShop();
   updateDmg(dt);
 }
 // ================= minimap =================
@@ -3078,9 +3078,9 @@ function buildZeroG(){
     const m=new T.Mesh(new T.BoxGeometry(sx,sy,sz),zgMat(col)); m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true; world.add(m);
     const ep=new T.EdgesGeometry(m.geometry).attributes.position.array; for(let i=0;i<ep.length;i+=3) edges.push(ep[i]+x,ep[i+1]+y,ep[i+2]+z); zgSolid(m,boxOf(x,y,z,sx,sy,sz)); };
   const edges=[];
-  for(let i=0;i<18;i++){ const s=rnd(4,7)*BLK, x=rnd(-L+12,L-12), z=rnd(-L+12,L-12); if(fits(x,H/2,z,s,H,s,6)) add(x,H/2,z,s,H,s,pick([0xdfe2e6,0xc9cdd3])); }
+  for(let i=0;i<28;i++){ const s=rnd(4,7)*BLK, x=rnd(-L+12,L-12), z=rnd(-L+12,L-12); if(fits(x,H/2,z,s,H,s,6)) add(x,H/2,z,s,H,s,pick([0xdfe2e6,0xc9cdd3])); }
   let n=0, tries=0;
-  while(n<120&&tries<14000){ tries++; const kind=Math.random(); let sx,sy,sz;
+  while(n<200&&tries<24000){ tries++; const kind=Math.random(); let sx,sy,sz;
     if(kind<0.45){ sx=sy=sz=rnd(3,9); } else if(kind<0.75){ sx=rnd(8,18); sz=rnd(8,18); sy=rnd(1.2,2.5); } else if(kind<0.9){ sx=rnd(2,4); sz=rnd(2,4); sy=rnd(10,22); } else { sx=rnd(10,24); sz=rnd(2,3); sy=rnd(5,10); }
     sx*=BLK; sy*=BLK; sz*=BLK; if(sy>H*0.75) sy=H*0.75; // blocks are 3x their old size
     const x=rnd(-L+6,L-6), z=rnd(-L+6,L-6), y=Math.random()<0.15?sy/2:rnd(sy/2+2,H-sy/2-2);
@@ -3168,7 +3168,7 @@ function updateZG(dt){
   else if(ZG.state==='warn'){ if(Math.floor(ZG.t*4)!==Math.floor((ZG.t+dt)*4)) sfx('alarm',null,{hi:Math.floor(ZG.t*4)%2===0});
     if(ZG.t<=0){ ZG.state='ceil'; ZG.t=rnd(14,20); for(const e of combatants){ startFlip(e,'up'); e.zgRoll=Math.PI; e.vel.y=Math.max(e.vel.y,6); e.zgPropel=false; } sfx('gravUp'); camShake=Math.max(camShake,0.5); banner('Upside down!','',2.5); camRollTo(Math.PI,0.05); } }
   else if(ZG.state==='ceil'&&ZG.t<=0){ ZG.state='float'; ZG.t=rnd(24,36); ZG.flash=1; for(const e of combatants){ startFlip(e,'down'); e.zgRoll=0; e.onGround=false; e.vel.y=-rnd(2,4); } sfx('gravDown'); banner('Zero-G','',2); camRollTo(0,0.05); }
-  updateCamRoll(dt);
+  updateCamRoll(dt); updateHalls(dt);
 }
 // the camera's roll about the player's look axis (S4's updateCamera just applies ZG.camRoll; controls invert once it passes PI/2).
 // A soft spring that starts a beat after the body, so the body leads and the room follows it over; the half turn takes ~0.5 s.
@@ -5148,7 +5148,7 @@ const GV_RAW:[string,string,string,number,string,any,string[]][]=[ // key, name,
   ['eagle','Eagle-Eye','sniper',2,'#d8d0c0',{dmg:92,rate:1.5,spread:0.001},['scope']]];
 const GUNV:any={}; for(const [k,n,base,r,col,o,att] of GV_RAW){ const short=n.replace(/ (AR|SMG|Shotgun|Pistol|Sniper|Rifle|LMG)$/,'').toUpperCase().slice(0,10);
   GUNV[k]={k,n,base,r,col,att,w:Object.assign({},WEAP[base],o,{name:n,short})}; }
-const ARS_CATS=[['ar','Assault Rifles'],['smg','SMGs'],['pump','Shotguns'],['pistol','Pistols'],['sniper','Snipers']];
+const ARS_CATS=[['ar','Assault Rifles'],['smg','SMGs'],['pump','Shotguns'],['pistol','Pistols'],['sniper','Snipers'],['sp','Specials']];
 const ARS_PRICE=[1,2,3,5,8];
 ARM_IDS.push(...Object.keys(GUNV)); // the Armory shows the Arsenal guns after the core ones
 const WI=(it):any=>it&&it.v&&GUNV[it.v]?GUNV[it.v].w:WEAP[it.id];
@@ -5195,11 +5195,12 @@ function gunDress(g,v){ const V=GUNV[v]; if(!V) return g; const tint=new T.Color
 let arsCat=0;
 function openArsenal(){ const p=player; if(!p||!p.alive||state!=='play') return; shopOpen=true; arsOpen=true; renderArsenal(); $('shop').hidden=false; $('shop').classList.add('ars'); sfx('ui'); }
 function renderArsenal(){ const p=player, [base,title]=ARS_CATS[arsCat], list=GV_RAW.filter(x=>x[2]===base);
+  if(base==='sp'){ $('shop').querySelector('h2').textContent='Arsenal'; $('shopBank').textContent=String(p.bank); $('shopList').innerHTML=`<div class="arstabs">${ARS_CATS.map((c,i)=>`<span class="${i===arsCat?'on':''}">${c[1]}</span>`).join('')}</div>`+SHOP.map((it,i)=>{ const owned=ownsItem(it.id); return `<button class="shopitem ars ${owned?'owned':p.bank<it.price?'poor':''}" style="--ic:${it.col}"><span class="k">${i+1}</span><span class="ic">${ICONS[it.id]}</span><span class="nm">${it.name}<small>Special</small></span><span class="pr">${owned?'Owned':it.price+' elims'}</span></button>`; }).join(''); $('shop').querySelector('.shopkeys').textContent='A / D: category · 1–9: buy · K: close'; return; }
   $('shop').querySelector('h2').textContent='Arsenal'; $('shopBank').textContent=String(p.bank);
   $('shopList').innerHTML=`<div class="arstabs">${ARS_CATS.map((c,i)=>`<span class="${i===arsCat?'on':''}">${c[1]}</span>`).join('')}</div>`+list.map(([k,n,b,r],i)=>{ const V=GUNV[k], w=V.w, pr=ARS_PRICE[r], dps=Math.round(w.dmg*(w.pellets||1)/w.rate);
     return `<button class="shopitem ars ${p.bank<pr?'poor':''}" style="--ic:${RAR[r].c}"><span class="k">${(i+1)%10}</span><span class="ic">${ICONS[b]}</span><span class="nm">${n}<small>${RAR[r].n} · ${Math.round(w.dmg*(w.pellets||1))} dmg · ${dps} dps · ${w.mag} mag</small></span><span class="pr">${pr} elims</span></button>`; }).join('');
   $('shop').querySelector('.shopkeys').textContent='A / D: category · 1–0: buy · K: close'; }
-function buyArsenal(i){ const p=player, row=GV_RAW.filter(x=>x[2]===ARS_CATS[arsCat][0])[i]; if(!row){ sfx('deny'); return; }
+function buyArsenal(i){ if(ARS_CATS[arsCat][0]==='sp'){ buyItem(i); renderArsenal(); return; } const p=player, row=GV_RAW.filter(x=>x[2]===ARS_CATS[arsCat][0])[i]; if(!row){ sfx('deny'); return; }
   const V=GUNV[row[0]], pr=ARS_PRICE[V.r]; if(p.bank<pr){ sfx('deny'); toast('Need '+pr+' elims'); return; }
   let slot=-1; for(let k=1;k<6;k++) if(!p.slots[k]){ slot=k; break; } if(slot<0) slot=p.sel>=1&&p.sel<6&&p.slots[p.sel]&&p.slots[p.sel].kind==='gun'?p.sel:1;
   p.bank-=pr; p.slots[slot]={kind:'gun',id:V.base,v:V.k,r:V.r,ammo:V.w.mag}; p.sel=slot; refreshHotbar(); hudTick(); sfx('buy'); toast(V.n+' · '+RAR[V.r].n); renderArsenal(); }
@@ -5503,9 +5504,73 @@ function brOpenChest(){ const p=player; let best=null, bd=3.2;
   if(!best) return false; best.open=true; best.beam.visible=false; best.glow.visible=false;
   effects.push({t:0,dur:0.35,obj:null,upd:(e,k)=>{ best.lid.rotation.x=-1.9*k; best.lid.position.set(0,0.85+0.25*k,-0.3*k); }});
   for(let i=0;i<14;i++) mote(auraMats(0xffd23f).spark,new V(best.x,best.y+1,best.z),rnd(0.15,0.35),rnd(0.5,0.9),rv(3).add(new V(0,3,0)),6);
-  const id=brLoot(), w=WEAP[id], shop=!!SHOP_GUN(id), r=shop?4:rollRarity(0.6), gun=id==='mf'?{kind:'gun',id,r:4,ammo:MF_CLIP}:shop?{kind:'gun',id,r:4,ammo:1,cd:0}:GUNV&&Math.random()<0.5&&['ar','smg','pump','pistol','sniper'].includes(id)?gunVariant(id):{kind:'gun',id,r,ammo:w.mag};
+  const gun=chestGun(), w=WI(gun);
   const s=brGive(gun); if(Math.random()<0.6) brGive(Math.random()<0.5?{kind:'cons',id:'mini',count:2}:{kind:'cons',id:'big',count:1});
   p.sel=s; refreshHotbar(); sfx('pickup',null,{item:{kind:'gun',r:gun.r}}); toast(w.name+' · '+RAR[gun.r].n); return true; }
+// ================= [v1.55] the Shifting Halls: the zero-g box rearranges itself =================
+// Paper-screen walls slide back and forth, double doors open and shut, wooden walls rise and sink, and whole rooms
+// fade in, stand for a while and vanish somewhere else. None of it hurts: it is architecture that gets in the way
+// (solid for people and bullets, and it shoves you aside rather than trapping you). Spike patches on some blocks, the
+// floor and the ceiling do hurt. Chests sit on top of blocks, with any gun in the game inside.
+const SH:any={movers:[],rooms:[],spikes:[],t:0};
+const shojiTex=canvasTex(256,256,(g,w)=>{ g.fillStyle='#f4ecd8'; g.fillRect(0,0,w,w); g.strokeStyle='#3a2414'; g.lineWidth=10; g.strokeRect(5,5,w-10,w-10); g.lineWidth=4;
+  for(let i=1;i<4;i++){ g.beginPath(); g.moveTo(i*w/4,0); g.lineTo(i*w/4,w); g.stroke(); } for(let i=1;i<6;i++){ g.beginPath(); g.moveTo(0,i*w/6); g.lineTo(w,i*w/6); g.stroke(); }
+  g.fillStyle='rgba(255,200,120,.12)'; g.fillRect(10,10,w-20,w-20); });
+const shMat=()=>Lam({map:shojiTex,emissive:0x2a1a08}), shWood=Lam({color:0x5a3420}), shLac=Lam({color:0x8a1a1a});
+// a solid panel that moves: f(t) gives its offset from home; its box follows, and anyone it runs into is pushed along
+function shMover(x,y,z,sx,sy,sz,mat,f){ const m=new T.Mesh(new T.BoxGeometry(sx,sy,sz),mat); m.position.set(x,y,z); m.castShadow=m.receiveShadow=true; world.add(m);
+  const p=zgSolid(m,boxOf(x,y,z,sx,sy,sz)); const M={m,p,home:new V(x,y,z),half:new V(sx/2,sy/2,sz/2),f,prev:new V(x,y,z)}; SH.movers.push(M); return M; }
+function shBox(M,at){ const b=M.p.box; colliders.delete(b); b.min.x=at.x-M.half.x; b.min.y=at.y-M.half.y; b.min.z=at.z-M.half.z; b.max.x=at.x+M.half.x; b.max.y=at.y+M.half.y; b.max.z=at.z+M.half.z; colliders.add(b); }
+// shove a person out of a box the way it just moved
+function shPush(b,d){ for(const e of combatants){ if(!e.alive) continue; const p=e.pos, r=e.radius||0.5;
+  if(p.x+r<=b.min.x||p.x-r>=b.max.x||p.z+r<=b.min.z||p.z-r>=b.max.z||p.y+2<=b.min.y||p.y>=b.max.y) continue;
+  const ax=Math.abs(d.x)>=Math.abs(d.z)?(Math.abs(d.x)>=Math.abs(d.y)?'x':'y'):(Math.abs(d.z)>=Math.abs(d.y)?'z':'y');
+  if(ax==='y') p.y=d.y>0?b.max.y:b.min.y-2; else p[ax]=d[ax]>0?b.max[ax]+r:b.min[ax]-r; } }
+function buildHalls(){ SH.movers=[]; SH.rooms=[]; SH.spikes=[]; SH.t=0; const L=ZG.L, H=ZG.H, free=(x,y,z,sx,sy,sz)=>!ZG.blocks.some(b=>Math.abs(b.x-x)<(b.sx+sx)/2+2&&Math.abs(b.y-y)<(b.sy+sy)/2+2&&Math.abs(b.z-z)<(b.sz+sz)/2+2);
+  let n=0; for(let k=0;k<3000&&n<44;k++){ const kind=n%3, alongX=Math.random()<0.5, x=rnd(-L+20,L-20), z=rnd(-L+20,L-20), y=rnd(8,H-12), ph=rnd(0,TAU), sp=rnd(0.25,0.5);
+    if(kind===0){ // a sliding screen: 12 wide, glides 10 m along itself
+      const sx=alongX?12:0.6, sz=alongX?0.6:12; if(!free(x,y,z,sx+22,10,sz+22)) continue; shMover(x,y,z,sx,10,sz,shMat(),t=>{ const o=Math.sin(t*sp+ph)*10; return alongX?[o,0,0]:[0,0,o]; }); }
+    else if(kind===1){ // double doors in a lacquered frame: two leaves part and meet
+      const w=5, sx=alongX?w:0.6, sz=alongX?0.6:w; if(!free(x,y,z,22,12,22)) continue;
+      for(const s of [-1,1]) shMover(x+(alongX?s*w/2:0),y,z+(alongX?0:s*w/2),sx,9,sz,shMat(),t=>{ const k=0.5+0.5*Math.sin(t*sp*1.6+ph), o=s*k*(w-0.3); return alongX?[o,0,0]:[0,0,o]; });
+      for(const s of [-1,1]){ const px=x+(alongX?s*(w+0.6):0), pz=z+(alongX?0:s*(w+0.6)); const m=new T.Mesh(new T.BoxGeometry(1.2,11,1.2),shLac); m.position.set(px,y,pz); world.add(m); zgSolid(m,boxOf(px,y,pz,1.2,11,1.2)); }
+      const top=new T.Mesh(new T.BoxGeometry(alongX?2*w+3:1.4,1,alongX?1.4:2*w+3),shLac); top.position.set(x,y+5.6,z); world.add(top); }
+    else { // a wooden wall that rises and sinks
+      const sx=alongX?14:1, sz=alongX?1:14; if(!free(x,y,z,sx+4,24,sz+4)) continue; shMover(x,y,z,sx,12,sz,shWood,t=>[0,Math.sin(t*sp*0.8+ph)*7,0]); }
+    n++; }
+  // rooms that appear: four screen walls, a floor and a lantern, fading in and out at new places
+  for(let i=0;i<8;i++){ const g=new T.Group(); const S=16, Hh=9, walls=[];
+    for(const [dx,dz,sx,sz] of [[0,-S/2,S,0.6],[-S/2,0,0.6,S],[S/2,0,0.6,S]]){ const m=new T.Mesh(new T.BoxGeometry(sx,Hh,sz),shMat()); m.position.set(dx,Hh/2,dz); m.material.transparent=true; g.add(m); walls.push([m,dx,Hh/2,dz,sx,Hh,sz]); }
+    for(const s of [-1,1]){ const m=new T.Mesh(new T.BoxGeometry(S/2-2.5,Hh,0.6),shMat()); m.position.set(s*(S/4+1.25),Hh/2,S/2); m.material.transparent=true; g.add(m); walls.push([m,s*(S/4+1.25),Hh/2,S/2,S/2-2.5,Hh,0.6]); }
+    const fl=new T.Mesh(new T.BoxGeometry(S,0.6,S),Lam({color:0x6a4a2a,transparent:true})); fl.position.y=0.3; g.add(fl); walls.push([fl,0,0.3,0,S,0.6,S]);
+    const lan=new T.Sprite(auraMats(0xffb040).halo); lan.position.y=Hh-1.5; lan.scale.setScalar(3); g.add(lan);
+    g.visible=false; world.add(g); SH.rooms.push({g,walls,boxes:[],t:-rnd(0,14)-i*3,life:rnd(14,22)}); }
+  // spike patches: clusters of steel cones on block tops, the floor and the ceiling
+  const coneG=new T.ConeGeometry(0.35,1.4,6).translate(0,0.7,0), steel=GPh(0x8a8f9a,90,0xffffff), tip=new T.MeshBasicMaterial({color:0xff3a3a});
+  const patch=(x,y,z,up)=>{ const g=new T.Group(); g.position.set(x,y,z); if(!up) g.rotation.x=Math.PI; for(let i=0;i<14;i++){ const c=new T.Mesh(coneG,steel); c.position.set(rnd(-2.2,2.2),0,rnd(-2.2,2.2)); c.scale.setScalar(rnd(0.8,1.3)); c.castShadow=true; g.add(c); const t=new T.Mesh(new T.ConeGeometry(0.08,0.3,5).translate(0,1.25,0),tip); t.position.copy(c.position); t.scale.copy(c.scale); g.add(t); }
+    const warn=new T.Mesh(new T.RingGeometry(3,3.4,24).rotateX(-Math.PI/2),new T.MeshBasicMaterial({color:0xff3a3a,transparent:true,opacity:0.6,side:T.DoubleSide})); warn.position.y=0.05; g.add(warn); world.add(g);
+    SH.spikes.push({x,y:up?y:y-1.6,z,h:1.6}); };
+  const tops=ZG.blocks.filter(b=>b.sx>6&&b.sz>6&&b.y+b.sy/2<H-6); for(let i=0;i<16&&tops.length;i++){ const b=tops.splice(Math.floor(Math.random()*tops.length),1)[0]; patch(b.x+rnd(-b.sx/4,b.sx/4),b.y+b.sy/2,b.z+rnd(-b.sz/4,b.sz/4),true); }
+  for(let i=0;i<10;i++){ const x=rnd(-L+10,L-10), z=rnd(-L+10,L-10); if(i%2) patch(x,0,z,true); else patch(x,H,z,false); }
+  // chests on top of blocks, any gun inside
+  BR.chests=[]; const spots=ZG.blocks.filter(b=>b.sx>4&&b.sz>4&&b.y+b.sy/2<H-5); for(let i=0;i<34&&spots.length;i++){ const b=spots.splice(Math.floor(Math.random()*spots.length),1)[0]; brChest(b.x,b.y+b.sy/2,b.z); }
+}
+function updateHalls(dt){ if(MODE!=='zg') return; SH.t+=dt; const t=SH.t;
+  for(const M of SH.movers){ const o=M.f(t), at=_brv0.set(M.home.x+o[0],M.home.y+o[1],M.home.z+o[2]), d=_brv1.subVectors(at,M.prev); if(d.lengthSq()<1e-8) continue;
+    M.m.position.copy(at); shBox(M,at); shPush(M.p.box,d); M.prev.copy(at); }
+  for(const R of SH.rooms){ R.t+=dt;
+    if(R.t>=0&&!R.g.visible){ let spot=null; for(let k=0;k<60&&!spot;k++){ const x=rnd(-ZG.L+20,ZG.L-20), y=rnd(4,ZG.H-14), z=rnd(-ZG.L+20,ZG.L-20); if(zgFree(x,y+4,z,10)) spot=[x,y,z]; }
+      if(!spot){ R.t=-3; continue; } R.g.position.set(...spot); R.g.rotation.y=Math.floor(Math.random()*4)*Math.PI/2; R.g.visible=true; R.g.updateMatrixWorld(true);
+      for(const [m,dx,dy,dz,sx,sy,sz] of R.walls){ const p=m.getWorldPosition(new V()), q=Math.abs(Math.sin(R.g.rotation.y))>0.5; const piece=zgSolid(m,boxOf(p.x,p.y,p.z,q?sz:sx,sy,q?sx:sz)); R.boxes.push(piece); } sfx('whoosh',R.g.position.clone(),{}); }
+    if(R.g.visible){ const k=Math.min(1,R.t*1.5,(R.life-R.t)*1.5); for(const [m] of R.walls) m.material.opacity=Math.max(0.05,k); R.g.scale.setScalar(0.6+0.4*Math.min(1,R.t*2));
+      if(R.t>R.life){ R.g.visible=false; for(const pc of R.boxes){ colliders.delete(pc.box); const j=structMeshes.indexOf(pc.obj); if(j>=0) structMeshes.splice(j,1); } R.boxes=[]; targetsDirty=true; R.t=-rnd(6,14); R.life=rnd(14,22); } } }
+  for(const S of SH.spikes) for(const e of combatants){ if(!e.alive) continue; if(Math.abs(e.pos.x-S.x)>2.8||Math.abs(e.pos.z-S.z)>2.8) continue; if(e.pos.y+2<S.y||e.pos.y>S.y+S.h) continue;
+    if((e.spikeT||0)>matchTime) continue; e.spikeT=matchTime+0.6; hurt(e,12,null,{weapon:'spikes',point:e.pos.clone().add(new V(0,0.5,0))}); e.vel.y+=S.y<1||S.y>ZG.H-3?(S.y<1?8:-8):8; e.vel.x+=rnd(-4,4); e.vel.z+=rnd(-4,4); }
+}
+// a chest's gun: any gun in the game, the Arsenal's 50 included
+function chestGun(){ const r=Math.random();
+  if(r<0.55){ const V=pick(Object.values(GUNV)) as any; return {kind:'gun',id:V.base,v:V.k,r:V.r,ammo:V.w.mag}; }
+  const id=brLoot(), w=WEAP[id], shop=!!SHOP_GUN(id); return id==='mf'?{kind:'gun',id,r:4,ammo:MF_CLIP}:shop?{kind:'gun',id,r:4,ammo:1,cd:0}:{kind:'gun',id,r:rollRarity(0.6),ammo:w.mag}; }
 // ---- the storm: a glowing wall that waits, then closes in on a new circle, again and again until nothing is left
 const BR_STAGES=[[45,45,300,1],[35,35,190,2],[28,28,110,5],[22,22,55,8],[15,15,18,10],[10,20,0,12]]; // radii for the 520 m island
 function brStorm(){ const S={stage:-1,phase:'wait',t:30,cur:{x:0,z:0,r:BR.R*1.25},from:null,next:null,dps:1};
@@ -5692,7 +5757,7 @@ function newMatch(){
   world=new T.Group(); scene.add(world);
   colliders=new BoxGrid(8); structMeshes=[]; charMeshes=[]; combatants=[]; bots=[]; effects=[];
   matchTime=0; targetsDirty=true; hurtFlash=0;
-  if(MODE==='br') buildIsland(); else { ZG.L=125; ZG.H=90; buildZeroG(); buildVending(); } projs=[]; splats=[]; bolts=[]; fires=[]; drones=[]; kunais=[]; pwShots=[]; pwZones=[]; pwWalls=[]; pwLaters=[]; shopOpen=false; $('shop').hidden=true;
+  if(MODE==='br') buildIsland(); else { ZG.L=180; ZG.H=130; buildZeroG(); buildVending(); buildHalls(); } projs=[]; splats=[]; bolts=[]; fires=[]; drones=[]; kunais=[]; pwShots=[]; pwZones=[]; pwWalls=[]; pwLaters=[]; shopOpen=false; $('shop').hidden=true;
   if(MODE!=='br'){ ZG.state='float'; ZG.t=rnd(20,26); ZG.camRoll=0; ZG.flash=0; }
   brScene();
   rollLoadout(); player=makeCombatant('You',true);
@@ -5776,10 +5841,10 @@ document.addEventListener('keydown',ev=>{
 
   if(c==='Escape'&&fallbackLook){ pauseGame(); return; }
 
-  if(arsOpen){ if(c.startsWith('Digit')){ const n=+c.slice(5); buyArsenal(n===0?9:n-1); } else if(c==='KeyA'||c==='ArrowLeft'){ arsCat=(arsCat+4)%5; renderArsenal(); sfx('ui'); } else if(c==='KeyD'||c==='ArrowRight'){ arsCat=(arsCat+1)%5; renderArsenal(); sfx('ui'); } else if(c==='KeyK'||c==='Escape') closeShop(); return; }
+  if(arsOpen){ if(c.startsWith('Digit')){ const n=+c.slice(5); buyArsenal(n===0?9:n-1); } else if(c==='KeyA'||c==='ArrowLeft'){ arsCat=(arsCat+5)%6; renderArsenal(); sfx('ui'); } else if(c==='KeyD'||c==='ArrowRight'){ arsCat=(arsCat+1)%6; renderArsenal(); sfx('ui'); } else if(c==='KeyK'||c==='Escape') closeShop(); return; }
   if(shopOpen){ if(c.startsWith('Digit')){ const n=+c.slice(5); if(n>=1&&n<=SHOP.length) buyItem(n-1); } else if(c==='KeyE'||c==='Escape') closeShop(); return; }
-  if(c==='KeyE'&&p.alive&&MODE==='br'&&p.br==='ground'){ brOpenChest(); return; }
-  if(c==='KeyE'&&p.alive&&nearMachine()) openShop();
+  if(c==='KeyE'&&p.alive&&(MODE==='zg'||p.br==='ground')&&brOpenChest()) return;
+  if(c==='KeyE'&&p.alive&&nearMachine()){ arsCat=5; openArsenal(); return; }
   if(c==='KeyK'&&p.alive) openArsenal();
   else if(c==='KeyQ') startBounce(p);
   else if(c==='KeyR'&&p.alive) startReload(curItem());

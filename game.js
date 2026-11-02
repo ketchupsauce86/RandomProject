@@ -6002,7 +6002,7 @@
         $("prompt").dataset.k = "shop";
         $("prompt").innerHTML = "<kbd>E</kbd>Shop";
       }
-      if (shopOpen && (!p.alive || !arsOpen && !nearMachine(7))) closeShop();
+      if (shopOpen && !p.alive) closeShop();
       updateDmg(dt);
     }
     const mapC = $("map"), mctx = mapC.getContext("2d"), MAPS = 180;
@@ -7393,12 +7393,12 @@
         zgSolid(m, boxOf(x, y, z, sx, sy, sz));
       };
       const edges = [];
-      for (let i = 0; i < 18; i++) {
+      for (let i = 0; i < 28; i++) {
         const s = rnd(4, 7) * BLK, x = rnd(-L + 12, L - 12), z = rnd(-L + 12, L - 12);
         if (fits(x, H / 2, z, s, H, s, 6)) add(x, H / 2, z, s, H, s, pick([14672614, 13225427]));
       }
       let n = 0, tries = 0;
-      while (n < 120 && tries < 14e3) {
+      while (n < 200 && tries < 24e3) {
         tries++;
         const kind = Math.random();
         let sx, sy, sz;
@@ -7664,6 +7664,7 @@
         camRollTo(0, 0.05);
       }
       updateCamRoll(dt);
+      updateHalls(dt);
     }
     const CAMR = { on: false, to: 0, wait: 0, last: 0, r: 0, rV: 0 };
     function camRollTo(to, wait) {
@@ -13308,7 +13309,7 @@
       const short = n.replace(/ (AR|SMG|Shotgun|Pistol|Sniper|Rifle|LMG)$/, "").toUpperCase().slice(0, 10);
       GUNV[k] = { k, n, base, r, col, att, w: Object.assign({}, WEAP[base], o, { name: n, short }) };
     }
-    const ARS_CATS = [["ar", "Assault Rifles"], ["smg", "SMGs"], ["pump", "Shotguns"], ["pistol", "Pistols"], ["sniper", "Snipers"]];
+    const ARS_CATS = [["ar", "Assault Rifles"], ["smg", "SMGs"], ["pump", "Shotguns"], ["pistol", "Pistols"], ["sniper", "Snipers"], ["sp", "Specials"]];
     const ARS_PRICE = [1, 2, 3, 5, 8];
     ARM_IDS.push(...Object.keys(GUNV));
     const WI = (it) => it && it.v && GUNV[it.v] ? GUNV[it.v].w : WEAP[it.id];
@@ -13471,6 +13472,16 @@
     }
     function renderArsenal() {
       const p = player, [base, title] = ARS_CATS[arsCat], list = GV_RAW.filter((x) => x[2] === base);
+      if (base === "sp") {
+        $("shop").querySelector("h2").textContent = "Arsenal";
+        $("shopBank").textContent = String(p.bank);
+        $("shopList").innerHTML = `<div class="arstabs">${ARS_CATS.map((c, i) => `<span class="${i === arsCat ? "on" : ""}">${c[1]}</span>`).join("")}</div>` + SHOP.map((it, i) => {
+          const owned = ownsItem(it.id);
+          return `<button class="shopitem ars ${owned ? "owned" : p.bank < it.price ? "poor" : ""}" style="--ic:${it.col}"><span class="k">${i + 1}</span><span class="ic">${ICONS[it.id]}</span><span class="nm">${it.name}<small>Special</small></span><span class="pr">${owned ? "Owned" : it.price + " elims"}</span></button>`;
+        }).join("");
+        $("shop").querySelector(".shopkeys").textContent = "A / D: category \xB7 1\u20139: buy \xB7 K: close";
+        return;
+      }
       $("shop").querySelector("h2").textContent = "Arsenal";
       $("shopBank").textContent = String(p.bank);
       $("shopList").innerHTML = `<div class="arstabs">${ARS_CATS.map((c, i) => `<span class="${i === arsCat ? "on" : ""}">${c[1]}</span>`).join("")}</div>` + list.map(([k, n, b, r], i) => {
@@ -13480,6 +13491,11 @@
       $("shop").querySelector(".shopkeys").textContent = "A / D: category \xB7 1\u20130: buy \xB7 K: close";
     }
     function buyArsenal(i) {
+      if (ARS_CATS[arsCat][0] === "sp") {
+        buyItem(i);
+        renderArsenal();
+        return;
+      }
       const p = player, row = GV_RAW.filter((x) => x[2] === ARS_CATS[arsCat][0])[i];
       if (!row) {
         sfx("deny");
@@ -14316,7 +14332,7 @@
         best.lid.position.set(0, 0.85 + 0.25 * k, -0.3 * k);
       } });
       for (let i = 0; i < 14; i++) mote(auraMats(16765503).spark, new V(best.x, best.y + 1, best.z), rnd(0.15, 0.35), rnd(0.5, 0.9), rv(3).add(new V(0, 3, 0)), 6);
-      const id = brLoot(), w = WEAP[id], shop = !!SHOP_GUN(id), r = shop ? 4 : rollRarity(0.6), gun = id === "mf" ? { kind: "gun", id, r: 4, ammo: MF_CLIP } : shop ? { kind: "gun", id, r: 4, ammo: 1, cd: 0 } : GUNV && Math.random() < 0.5 && ["ar", "smg", "pump", "pistol", "sniper"].includes(id) ? gunVariant(id) : { kind: "gun", id, r, ammo: w.mag };
+      const gun = chestGun(), w = WI(gun);
       const s = brGive(gun);
       if (Math.random() < 0.6) brGive(Math.random() < 0.5 ? { kind: "cons", id: "mini", count: 2 } : { kind: "cons", id: "big", count: 1 });
       p.sel = s;
@@ -14324,6 +14340,243 @@
       sfx("pickup", null, { item: { kind: "gun", r: gun.r } });
       toast(w.name + " \xB7 " + RAR[gun.r].n);
       return true;
+    }
+    const SH = { movers: [], rooms: [], spikes: [], t: 0 };
+    const shojiTex = canvasTex(256, 256, (g, w) => {
+      g.fillStyle = "#f4ecd8";
+      g.fillRect(0, 0, w, w);
+      g.strokeStyle = "#3a2414";
+      g.lineWidth = 10;
+      g.strokeRect(5, 5, w - 10, w - 10);
+      g.lineWidth = 4;
+      for (let i = 1; i < 4; i++) {
+        g.beginPath();
+        g.moveTo(i * w / 4, 0);
+        g.lineTo(i * w / 4, w);
+        g.stroke();
+      }
+      for (let i = 1; i < 6; i++) {
+        g.beginPath();
+        g.moveTo(0, i * w / 6);
+        g.lineTo(w, i * w / 6);
+        g.stroke();
+      }
+      g.fillStyle = "rgba(255,200,120,.12)";
+      g.fillRect(10, 10, w - 20, w - 20);
+    });
+    const shMat = () => Lam({ map: shojiTex, emissive: 2759176 }), shWood = Lam({ color: 5911584 }), shLac = Lam({ color: 9050650 });
+    function shMover(x, y, z, sx, sy, sz, mat, f) {
+      const m = new T.Mesh(new T.BoxGeometry(sx, sy, sz), mat);
+      m.position.set(x, y, z);
+      m.castShadow = m.receiveShadow = true;
+      world.add(m);
+      const p = zgSolid(m, boxOf(x, y, z, sx, sy, sz));
+      const M = { m, p, home: new V(x, y, z), half: new V(sx / 2, sy / 2, sz / 2), f, prev: new V(x, y, z) };
+      SH.movers.push(M);
+      return M;
+    }
+    function shBox(M, at) {
+      const b = M.p.box;
+      colliders.delete(b);
+      b.min.x = at.x - M.half.x;
+      b.min.y = at.y - M.half.y;
+      b.min.z = at.z - M.half.z;
+      b.max.x = at.x + M.half.x;
+      b.max.y = at.y + M.half.y;
+      b.max.z = at.z + M.half.z;
+      colliders.add(b);
+    }
+    function shPush(b, d) {
+      for (const e of combatants) {
+        if (!e.alive) continue;
+        const p = e.pos, r = e.radius || 0.5;
+        if (p.x + r <= b.min.x || p.x - r >= b.max.x || p.z + r <= b.min.z || p.z - r >= b.max.z || p.y + 2 <= b.min.y || p.y >= b.max.y) continue;
+        const ax = Math.abs(d.x) >= Math.abs(d.z) ? Math.abs(d.x) >= Math.abs(d.y) ? "x" : "y" : Math.abs(d.z) >= Math.abs(d.y) ? "z" : "y";
+        if (ax === "y") p.y = d.y > 0 ? b.max.y : b.min.y - 2;
+        else p[ax] = d[ax] > 0 ? b.max[ax] + r : b.min[ax] - r;
+      }
+    }
+    function buildHalls() {
+      SH.movers = [];
+      SH.rooms = [];
+      SH.spikes = [];
+      SH.t = 0;
+      const L = ZG.L, H = ZG.H, free = (x, y, z, sx, sy, sz) => !ZG.blocks.some((b) => Math.abs(b.x - x) < (b.sx + sx) / 2 + 2 && Math.abs(b.y - y) < (b.sy + sy) / 2 + 2 && Math.abs(b.z - z) < (b.sz + sz) / 2 + 2);
+      let n = 0;
+      for (let k = 0; k < 3e3 && n < 44; k++) {
+        const kind = n % 3, alongX = Math.random() < 0.5, x = rnd(-L + 20, L - 20), z = rnd(-L + 20, L - 20), y = rnd(8, H - 12), ph = rnd(0, TAU), sp = rnd(0.25, 0.5);
+        if (kind === 0) {
+          const sx = alongX ? 12 : 0.6, sz = alongX ? 0.6 : 12;
+          if (!free(x, y, z, sx + 22, 10, sz + 22)) continue;
+          shMover(x, y, z, sx, 10, sz, shMat(), (t) => {
+            const o = Math.sin(t * sp + ph) * 10;
+            return alongX ? [o, 0, 0] : [0, 0, o];
+          });
+        } else if (kind === 1) {
+          const w = 5, sx = alongX ? w : 0.6, sz = alongX ? 0.6 : w;
+          if (!free(x, y, z, 22, 12, 22)) continue;
+          for (const s of [-1, 1]) shMover(x + (alongX ? s * w / 2 : 0), y, z + (alongX ? 0 : s * w / 2), sx, 9, sz, shMat(), (t) => {
+            const k2 = 0.5 + 0.5 * Math.sin(t * sp * 1.6 + ph), o = s * k2 * (w - 0.3);
+            return alongX ? [o, 0, 0] : [0, 0, o];
+          });
+          for (const s of [-1, 1]) {
+            const px = x + (alongX ? s * (w + 0.6) : 0), pz = z + (alongX ? 0 : s * (w + 0.6));
+            const m = new T.Mesh(new T.BoxGeometry(1.2, 11, 1.2), shLac);
+            m.position.set(px, y, pz);
+            world.add(m);
+            zgSolid(m, boxOf(px, y, pz, 1.2, 11, 1.2));
+          }
+          const top = new T.Mesh(new T.BoxGeometry(alongX ? 2 * w + 3 : 1.4, 1, alongX ? 1.4 : 2 * w + 3), shLac);
+          top.position.set(x, y + 5.6, z);
+          world.add(top);
+        } else {
+          const sx = alongX ? 14 : 1, sz = alongX ? 1 : 14;
+          if (!free(x, y, z, sx + 4, 24, sz + 4)) continue;
+          shMover(x, y, z, sx, 12, sz, shWood, (t) => [0, Math.sin(t * sp * 0.8 + ph) * 7, 0]);
+        }
+        n++;
+      }
+      for (let i = 0; i < 8; i++) {
+        const g = new T.Group();
+        const S = 16, Hh = 9, walls = [];
+        for (const [dx, dz, sx, sz] of [[0, -S / 2, S, 0.6], [-S / 2, 0, 0.6, S], [S / 2, 0, 0.6, S]]) {
+          const m = new T.Mesh(new T.BoxGeometry(sx, Hh, sz), shMat());
+          m.position.set(dx, Hh / 2, dz);
+          m.material.transparent = true;
+          g.add(m);
+          walls.push([m, dx, Hh / 2, dz, sx, Hh, sz]);
+        }
+        for (const s of [-1, 1]) {
+          const m = new T.Mesh(new T.BoxGeometry(S / 2 - 2.5, Hh, 0.6), shMat());
+          m.position.set(s * (S / 4 + 1.25), Hh / 2, S / 2);
+          m.material.transparent = true;
+          g.add(m);
+          walls.push([m, s * (S / 4 + 1.25), Hh / 2, S / 2, S / 2 - 2.5, Hh, 0.6]);
+        }
+        const fl = new T.Mesh(new T.BoxGeometry(S, 0.6, S), Lam({ color: 6965802, transparent: true }));
+        fl.position.y = 0.3;
+        g.add(fl);
+        walls.push([fl, 0, 0.3, 0, S, 0.6, S]);
+        const lan = new T.Sprite(auraMats(16756800).halo);
+        lan.position.y = Hh - 1.5;
+        lan.scale.setScalar(3);
+        g.add(lan);
+        g.visible = false;
+        world.add(g);
+        SH.rooms.push({ g, walls, boxes: [], t: -rnd(0, 14) - i * 3, life: rnd(14, 22) });
+      }
+      const coneG = new T.ConeGeometry(0.35, 1.4, 6).translate(0, 0.7, 0), steel = GPh(9080730, 90, 16777215), tip = new T.MeshBasicMaterial({ color: 16726586 });
+      const patch = (x, y, z, up) => {
+        const g = new T.Group();
+        g.position.set(x, y, z);
+        if (!up) g.rotation.x = Math.PI;
+        for (let i = 0; i < 14; i++) {
+          const c = new T.Mesh(coneG, steel);
+          c.position.set(rnd(-2.2, 2.2), 0, rnd(-2.2, 2.2));
+          c.scale.setScalar(rnd(0.8, 1.3));
+          c.castShadow = true;
+          g.add(c);
+          const t = new T.Mesh(new T.ConeGeometry(0.08, 0.3, 5).translate(0, 1.25, 0), tip);
+          t.position.copy(c.position);
+          t.scale.copy(c.scale);
+          g.add(t);
+        }
+        const warn = new T.Mesh(new T.RingGeometry(3, 3.4, 24).rotateX(-Math.PI / 2), new T.MeshBasicMaterial({ color: 16726586, transparent: true, opacity: 0.6, side: T.DoubleSide }));
+        warn.position.y = 0.05;
+        g.add(warn);
+        world.add(g);
+        SH.spikes.push({ x, y: up ? y : y - 1.6, z, h: 1.6 });
+      };
+      const tops = ZG.blocks.filter((b) => b.sx > 6 && b.sz > 6 && b.y + b.sy / 2 < H - 6);
+      for (let i = 0; i < 16 && tops.length; i++) {
+        const b = tops.splice(Math.floor(Math.random() * tops.length), 1)[0];
+        patch(b.x + rnd(-b.sx / 4, b.sx / 4), b.y + b.sy / 2, b.z + rnd(-b.sz / 4, b.sz / 4), true);
+      }
+      for (let i = 0; i < 10; i++) {
+        const x = rnd(-L + 10, L - 10), z = rnd(-L + 10, L - 10);
+        if (i % 2) patch(x, 0, z, true);
+        else patch(x, H, z, false);
+      }
+      BR.chests = [];
+      const spots = ZG.blocks.filter((b) => b.sx > 4 && b.sz > 4 && b.y + b.sy / 2 < H - 5);
+      for (let i = 0; i < 34 && spots.length; i++) {
+        const b = spots.splice(Math.floor(Math.random() * spots.length), 1)[0];
+        brChest(b.x, b.y + b.sy / 2, b.z);
+      }
+    }
+    function updateHalls(dt) {
+      if (MODE !== "zg") return;
+      SH.t += dt;
+      const t = SH.t;
+      for (const M of SH.movers) {
+        const o = M.f(t), at = _brv0.set(M.home.x + o[0], M.home.y + o[1], M.home.z + o[2]), d = _brv1.subVectors(at, M.prev);
+        if (d.lengthSq() < 1e-8) continue;
+        M.m.position.copy(at);
+        shBox(M, at);
+        shPush(M.p.box, d);
+        M.prev.copy(at);
+      }
+      for (const R of SH.rooms) {
+        R.t += dt;
+        if (R.t >= 0 && !R.g.visible) {
+          let spot = null;
+          for (let k = 0; k < 60 && !spot; k++) {
+            const x = rnd(-ZG.L + 20, ZG.L - 20), y = rnd(4, ZG.H - 14), z = rnd(-ZG.L + 20, ZG.L - 20);
+            if (zgFree(x, y + 4, z, 10)) spot = [x, y, z];
+          }
+          if (!spot) {
+            R.t = -3;
+            continue;
+          }
+          R.g.position.set(...spot);
+          R.g.rotation.y = Math.floor(Math.random() * 4) * Math.PI / 2;
+          R.g.visible = true;
+          R.g.updateMatrixWorld(true);
+          for (const [m, dx, dy, dz, sx, sy, sz] of R.walls) {
+            const p = m.getWorldPosition(new V()), q = Math.abs(Math.sin(R.g.rotation.y)) > 0.5;
+            const piece = zgSolid(m, boxOf(p.x, p.y, p.z, q ? sz : sx, sy, q ? sx : sz));
+            R.boxes.push(piece);
+          }
+          sfx("whoosh", R.g.position.clone(), {});
+        }
+        if (R.g.visible) {
+          const k = Math.min(1, R.t * 1.5, (R.life - R.t) * 1.5);
+          for (const [m] of R.walls) m.material.opacity = Math.max(0.05, k);
+          R.g.scale.setScalar(0.6 + 0.4 * Math.min(1, R.t * 2));
+          if (R.t > R.life) {
+            R.g.visible = false;
+            for (const pc of R.boxes) {
+              colliders.delete(pc.box);
+              const j = structMeshes.indexOf(pc.obj);
+              if (j >= 0) structMeshes.splice(j, 1);
+            }
+            R.boxes = [];
+            targetsDirty = true;
+            R.t = -rnd(6, 14);
+            R.life = rnd(14, 22);
+          }
+        }
+      }
+      for (const S of SH.spikes) for (const e of combatants) {
+        if (!e.alive) continue;
+        if (Math.abs(e.pos.x - S.x) > 2.8 || Math.abs(e.pos.z - S.z) > 2.8) continue;
+        if (e.pos.y + 2 < S.y || e.pos.y > S.y + S.h) continue;
+        if ((e.spikeT || 0) > matchTime) continue;
+        e.spikeT = matchTime + 0.6;
+        hurt(e, 12, null, { weapon: "spikes", point: e.pos.clone().add(new V(0, 0.5, 0)) });
+        e.vel.y += S.y < 1 || S.y > ZG.H - 3 ? S.y < 1 ? 8 : -8 : 8;
+        e.vel.x += rnd(-4, 4);
+        e.vel.z += rnd(-4, 4);
+      }
+    }
+    function chestGun() {
+      const r = Math.random();
+      if (r < 0.55) {
+        const V2 = pick(Object.values(GUNV));
+        return { kind: "gun", id: V2.base, v: V2.k, r: V2.r, ammo: V2.w.mag };
+      }
+      const id = brLoot(), w = WEAP[id], shop = !!SHOP_GUN(id);
+      return id === "mf" ? { kind: "gun", id, r: 4, ammo: MF_CLIP } : shop ? { kind: "gun", id, r: 4, ammo: 1, cd: 0 } : { kind: "gun", id, r: rollRarity(0.6), ammo: w.mag };
     }
     const BR_STAGES = [[45, 45, 300, 1], [35, 35, 190, 2], [28, 28, 110, 5], [22, 22, 55, 8], [15, 15, 18, 10], [10, 20, 0, 12]];
     function brStorm() {
@@ -15019,10 +15272,11 @@
       hurtFlash = 0;
       if (MODE === "br") buildIsland();
       else {
-        ZG.L = 125;
-        ZG.H = 90;
+        ZG.L = 180;
+        ZG.H = 130;
         buildZeroG();
         buildVending();
+        buildHalls();
       }
       projs = [];
       splats = [];
@@ -15284,11 +15538,11 @@
           const n = +c.slice(5);
           buyArsenal(n === 0 ? 9 : n - 1);
         } else if (c === "KeyA" || c === "ArrowLeft") {
-          arsCat = (arsCat + 4) % 5;
+          arsCat = (arsCat + 5) % 6;
           renderArsenal();
           sfx("ui");
         } else if (c === "KeyD" || c === "ArrowRight") {
-          arsCat = (arsCat + 1) % 5;
+          arsCat = (arsCat + 1) % 6;
           renderArsenal();
           sfx("ui");
         } else if (c === "KeyK" || c === "Escape") closeShop();
@@ -15301,11 +15555,12 @@
         } else if (c === "KeyE" || c === "Escape") closeShop();
         return;
       }
-      if (c === "KeyE" && p.alive && MODE === "br" && p.br === "ground") {
-        brOpenChest();
+      if (c === "KeyE" && p.alive && (MODE === "zg" || p.br === "ground") && brOpenChest()) return;
+      if (c === "KeyE" && p.alive && nearMachine()) {
+        arsCat = 5;
+        openArsenal();
         return;
       }
-      if (c === "KeyE" && p.alive && nearMachine()) openShop();
       if (c === "KeyK" && p.alive) openArsenal();
       else if (c === "KeyQ") startBounce(p);
       else if (c === "KeyR" && p.alive) startReload(curItem());
