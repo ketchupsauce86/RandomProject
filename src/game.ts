@@ -5166,6 +5166,30 @@ function gunDress(g,v){ const V=GUNV[v]; if(!V) return g; const tint=new T.Color
     if(a==='stock'){ add(new T.BoxGeometry(0.03,0.06,0.16),dark,0,y0-0.03,0.2); }
     if(a==='laser'){ add(new T.BoxGeometry(0.02,0.02,0.07),dark,0.025,y0-0.03,z0*0.6); const b=add(new T.CylinderGeometry(0.003,0.003,6,4),GVM.beam||(GVM.beam=new T.MeshBasicMaterial({color:0xff2a3a,transparent:true,opacity:0.35,depthWrite:false})),0.025,y0-0.03,z0*0.6-3,Math.PI/2); b.castShadow=false; }
     if(a==='glow'){ const h=new T.Sprite(auraMats(tint.getHex()).halo); h.position.set(0,y0,z0*0.5); h.scale.setScalar(0.35); g.add(h); } }
+  // its own silhouette: proportions from its key, and a combination of extra parts that no other gun in its family shares
+  const fam=GV_RAW.filter(x=>x[2]===V.base).map(x=>x[0]), j=fam.indexOf(V.k), hs=(n)=>{ let h=0; for(const ch of V.k+n) h=(h*31+ch.charCodeAt(0))|0; return ((h>>>0)%1000)/1000; };
+  g.scale.set(0.9+0.25*hs('w'),0.88+0.3*hs('h'),0.85+0.35*hs('l'));
+  const acc=new T.Color().setHSL((tint.getHSL({h:0,s:0,l:0}).h+0.45)%1,0.7,0.55), am=GVM['a'+V.k]||(GVM['a'+V.k]=GPh(acc.getHex(),60,acc.getHex())), sw=GVM['aw'+V.k]||(GVM['aw'+V.k]=new T.MeshBasicMaterial({color:acc}));
+  const zf=z0*0.75, PARTS=[
+    ()=>{ add(new T.BoxGeometry(0.06,0.06,0.09),am,0,y0,z0-0.04); for(const s of [-1,1]) add(new T.BoxGeometry(0.008,0.04,0.05),dark,s*0.032,y0,z0-0.04); },               // muzzle brake
+    ()=>{ add(new T.CylinderGeometry(0.036,0.036,0.26,10,1,true),am,0,y0,zf,Math.PI/2); for(let i=0;i<3;i++) add(new T.TorusGeometry(0.037,0.006,6,14),dark,0,y0,zf-0.1+i*0.1); }, // barrel shroud
+    ()=>{ add(new T.CylinderGeometry(0.016,0.02,0.11,8),am,0,y0-0.09,z0*0.55); },                                                                                         // foregrip
+    ()=>{ for(const s of [-1,1]){ const l=add(new T.CylinderGeometry(0.006,0.006,0.2,5),dark,s*0.05,y0-0.09,zf); l.rotation.z=s*0.4; } },                                  // bipod
+    ()=>{ add(new T.BoxGeometry(0.03,0.02,0.2),am,0,y0+0.11,z0*0.25); for(const z of [-0.09,0.09]) add(new T.BoxGeometry(0.03,0.06,0.02),am,0,y0+0.08,z0*0.25+z); },         // carry handle
+    ()=>{ for(const s of [-1,1]) add(new T.BoxGeometry(0.012,0.018,Math.abs(z0)*0.7),am,s*0.042,y0+0.01,z0*0.5); },                                                     // side rails
+    ()=>{ for(let i=0;i<3;i++){ const r=add(new T.TorusGeometry(0.04,0.008,6,16),sw,0,y0,z0*0.4-0.07*i); } const h=new T.Sprite(auraMats(acc.getHex()).halo); h.position.set(0,y0,z0*0.4-0.07); h.scale.setScalar(0.3); g.add(h); }, // energy coils
+    ()=>{ for(let i=0;i<3;i++) add(new T.BoxGeometry(0.006,0.05,0.05),am,0,y0+0.06,z0*0.3-i*0.06); },                                                                    // cooling fins
+    ()=>{ add(new T.BoxGeometry(0.03,0.13,0.05),am,0.05,y0-0.04,z0*0.2); },                                                                                             // side magazine
+    ()=>{ for(const y of [0.05,-0.05]) add(new T.CylinderGeometry(0.01,0.01,Math.abs(z0)*0.8,8),am,0,y0+y,z0*0.5,Math.PI/2); }];                                        // twin tubes
+  if(j>=0) for(const k of [j,(j+3)%10,(j+7)%10]) PARTS[k]();
+  // colour blocking: the gun's own parts take the finish, the accent or a dark or light tone in a pattern unique to it
+  if(j>=0){ const pal=[null,am,dark,GVM['lt'+V.k]||(GVM['lt'+V.k]=GPh(new T.Color(V.col).lerp(new T.Color(1,1,1),0.6).getHex(),50))], pat=[[0,1,0,2],[1,0,2,0],[0,2,1,0],[3,0,0,1],[0,3,2,1],[2,1,0,3],[1,3,0,0],[0,0,3,2],[3,2,1,0],[2,0,3,1]][j];
+    let i=0; g.children.slice(0,6).forEach(o=>{ if(o.isMesh&&!o.material.transparent){ const m=pal[pat[i%4]]; if(m) o.material=m; i++; } }); }
+  // a barrel of its own length, and one of four stock shapes
+  if(j>=0){ const ext=0.04+0.05*(j%5); add(new T.CylinderGeometry(0.013,0.015,ext,10),dark,0,y0,z0-ext/2-0.005,Math.PI/2); if(mz) mz.position.z-=ext;
+    const st=j%4; if(st===1){ for(const y of [0.03,-0.04]) add(new T.BoxGeometry(0.02,0.012,0.2),am,0,y0+y,0.22); add(new T.BoxGeometry(0.03,0.1,0.02),am,0,y0-0.005,0.32); }
+    else if(st===2){ add(new T.CylinderGeometry(0.018,0.018,0.22,8),am,0,y0-0.01,0.22,Math.PI/2); add(new T.BoxGeometry(0.035,0.08,0.03),am,0,y0-0.02,0.34); }
+    else if(st===3){ add(new T.BoxGeometry(0.04,0.11,0.2),am,0,y0-0.04,0.24); } }
   return g; }
 // ---- the store: K anywhere in a match (both modes). Five pages of ten; A/D change page, 1-0 buy, K or Esc closes
 let arsCat=0;
