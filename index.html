@@ -186,6 +186,11 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 .wnmeta{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:6px 0 14px}
 /* News: announcement cards, the latest update, then every release grouped into chapters */
 .modal .card.panel:has(#wnAnnc){width:min(640px,100%)}
+.modal .card.prof{width:min(640px,100%)}.profname{display:flex;gap:10px;align-items:center;margin:10px 0;font-size:14px;color:var(--muted)}.profname input{flex:1;font:inherit;font-size:16px;color:var(--text);background:rgba(255,255,255,.08);border:1px solid var(--edge);border-radius:8px;padding:6px 10px}
+.statgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:6px 0 10px}.statgrid div{background:rgba(255,255,255,.06);border-radius:10px;padding:8px;text-align:center}.statgrid b{display:block;font-size:20px;color:var(--sun)}.statgrid span{font-size:11px;color:var(--muted)}
+.profhist{list-style:none;padding:0;margin:4px 0 10px;display:grid;gap:4px}.profhist li{display:grid;grid-template-columns:110px 40px 1fr;gap:8px;font-size:13px;padding:4px 8px;border-radius:8px;background:rgba(255,255,255,.05)}.profhist .pm{color:var(--muted)}.profhist li.none{display:block;color:var(--muted)}
+.ladder{width:100%;border-collapse:collapse;font-size:13px}.ladder th{color:var(--muted);font-weight:400;text-align:left;padding:3px 6px}.ladder td{padding:3px 6px;border-top:1px solid rgba(255,255,255,.06)}.ladder tr.you td{color:var(--sun);font-weight:700;background:rgba(255,210,63,.08)}
+@media (max-width:560px){.statgrid{grid-template-columns:repeat(3,1fr)}}
 .wn-burst{display:inline-block;animation:wobble 3s ease-in-out infinite}
 @keyframes wobble{0%,80%,100%{transform:rotate(0)}85%{transform:rotate(-14deg) scale(1.15)}90%{transform:rotate(10deg) scale(1.15)}95%{transform:rotate(-4deg)}}
 #wnTitle{background:linear-gradient(90deg,#fff,var(--neon),var(--hot),#fff);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:sheen 6s linear infinite}
@@ -450,7 +455,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
     <section class="loadout" aria-label="Your loadout">
       <div class="lohead">Loadout</div>
       <div id="pickNote" class="lochips"></div>
-      <div class="btnrow"><button class="btn2" id="lockerBtn">Locker</button><button class="btn2" id="armoryBtn">Armory</button></div>
+      <div class="btnrow"><button class="btn2" id="lockerBtn">Locker</button><button class="btn2" id="armoryBtn">Armory</button><button class="btn2" id="profileBtn">Profile</button></div>
     </section>
     <section class="playcard" aria-label="Game mode">
       <div class="modepick" role="radiogroup" aria-label="Game mode"><button id="modeZg" role="radio">Zero-G Box</button><button id="modeBr" role="radio">Storm Island</button></div>
@@ -484,6 +489,17 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
       <label class="sens" for="sens">Mouse speed <input type="range" id="sens" min="0.4" max="3" step="0.1" value="1"></label>
       <label class="sens" for="vol">Volume <input type="range" id="vol" min="0" max="1" step="0.05" value="0.8"></label>
     </aside>
+    <div class="modal" id="profile" hidden role="dialog" aria-modal="true" aria-labelledby="profTitle">
+      <div class="card panel prof">
+        <div class="drawhead"><h2 id="profTitle">👤 Profile</h2><button class="chip" id="profClose" aria-label="Close">✕</button></div>
+        <label class="profname">Username <input id="profName" maxlength="16" placeholder="Pick a name" autocomplete="off"></label>
+        <div class="wn-sec">Lifetime stats · both modes</div><div class="statgrid" id="profStats"></div>
+        <div class="wn-sec">Recent matches</div><ul class="profhist" id="profHist"></ul>
+        <div class="wn-sec">Season ladder · you vs. the players you've faced</div>
+        <table class="ladder"><thead><tr><th>#</th><th>Player</th><th>Wins</th><th>Elims</th><th>Pts</th></tr></thead><tbody id="profLadder"></tbody></table>
+        <p class="wnmeta">Saved in this browser. 10 points a win, 1 an elimination. <button class="chip" id="profReset">Reset stats</button></p>
+      </div>
+    </div>
     <div class="modal" id="whatsNew" hidden role="dialog" aria-modal="true" aria-labelledby="wnTitle">
       <div class="card panel">
         <div class="drawhead"><h2 id="wnTitle"><span class="wn-burst" aria-hidden="true">📰</span> News</h2><button class="chip" id="wnClose" aria-label="Close">✕</button></div>
