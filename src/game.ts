@@ -2707,7 +2707,7 @@ function lkOrbit(){
 }
 // where the camera rests for each kind of item (pos is the offset from the target)
 function lkView(){
-  if(armMode==='guns') return {t:[0,1.0,0],d:SHOP_GUN(ARM_IDS[armIdx])?Math.max(4.5,6/camera.aspect):Math.max(6.5,(ARM_IDS[armIdx]==='sniper'?13:10.5)/camera.aspect),h:0.6,min:3,max:16,az:1.0,spin:false};
+  if(armMode==='guns') return {t:[0,1.0,0],d:SHOP_GUN(ARM_IDS[armIdx])||GUNV[ARM_IDS[armIdx]]?Math.max(4.5,6/camera.aspect):Math.max(6.5,(ARM_IDS[armIdx]==='sniper'?13:10.5)/camera.aspect),h:0.6,min:3,max:16,az:1.0,spin:false};
   if(armMode==='picks') return {t:[0,1.15,0],d:Math.max(5,6/camera.aspect),h:0.35,min:2,max:9,az:Infinity,spin:true};
   return {t:[0,0.9,0],d:Math.max(5.4,6.6/camera.aspect),h:0.5,min:1.3,max:8,az:Infinity,spin:true};
 }
@@ -2734,7 +2734,13 @@ function buildArmory(dir?){
   if(armMode==='picks'&&PX) return buildPickStand(dir);
   if(armMode==='skins'&&SK) return buildSkinStand(dir);
   const holder=new T.Group(); armGuns=[];
-  const id=ARM_IDS[armIdx], shopIt=SHOP_GUN(id);
+  const id=ARM_IDS[armIdx], shopIt=SHOP_GUN(id), V=GUNV[id];
+  if(V){ // an Arsenal gun: one model at its rarity, with its finish and attachments
+    const h=new T.Group(); h.position.set(0,1.0,0); const gm=gunDress(makeGunModel(V.base,V.r),id); gm.scale.setScalar(V.base==='pistol'?3:V.base==='sniper'?1.5:2.1); h.add(gm);
+    const halo=new T.Sprite(auraMats(new T.Color(RAR[V.r].c).getHex()).halo); halo.scale.setScalar(2.6); halo.position.z=-0.6; h.add(halo); holder.add(h); armGuns.push(h);
+    LK.ped.visible=LK.ring.visible=LK.blob.visible=false; lkTint(RAR[V.r].c); lkPut(holder,dir||0); lkFrame(true); const w=V.w;
+    lkInfo(V.n,'Arsenal · '+ARS_PRICE[V.r]+' elims (K in a match) · '+(armIdx+1)+' of '+ARM_IDS.length,RAR[V.r],`Damage ${w.pellets>1?w.dmg+' × '+w.pellets:w.dmg} · ${w.auto?'Full auto':'Single shot'} · ${w.mag} mag · ${Math.round(w.dmg*(w.pellets||1)/w.rate)} dps`);
+    $('armLabels').innerHTML=''; return; }
   if(shopIt){ const h=new T.Group(); h.position.set(0,1.0,0); const gm=makeGunModel(id,4); gm.scale.setScalar(id==='drone'?5:id==='tsr'?3.2:id==='mf'?2.4:2.1); h.add(gm);
     const halo=new T.Sprite(auraMats(shopIt.col).halo); halo.scale.setScalar(2.6); halo.position.z=-0.6; h.add(halo); holder.add(h); armGuns.push(h); }
   else for(let r=0;r<5;r++){ const h=new T.Group(); h.position.set((r-2)*(id==='sniper'?2.15:1.65),1.0,0); const gm=makeGunModel(id,r); gm.scale.setScalar(id==='pistol'?2:id==='sniper'?1.05:1.3); h.add(gm);
@@ -2874,7 +2880,7 @@ function lkCards(){
   const card=(i,col,name,art)=>`<button class="lk-card" role="option" aria-selected="false" data-i="${i}" style="--rc:${col}" aria-label="${esc(name)}">${art}<span class="nm">${esc(name)}</span></button>`;
   if(armMode==='skins') return SK.ITEMS.map((it,i)=>card(i,RAR[it.r].c,it.n,'<span class="ph"></span><canvas width="160" height="200" hidden></canvas>'));
   if(armMode==='picks') return PX.ITEMS.map((it,i)=>card(i,RAR[it.rar].c,it.n,`<span class="art">${PX.pickSVG(it,'lk'+i)}</span>`));
-  return ARM_IDS.map((id,i)=>card(i,WEAP[id].col||'#5cf0ff',WEAP[id].name,`<span class="art gun">${ICONS[id]}</span>`));
+  return ARM_IDS.map((id,i)=>{ const V=GUNV[id]; return V?card(i,RAR[V.r].c,V.n,`<span class="art gun" style="color:${V.col}">${ICONS[V.base]}</span>`):card(i,WEAP[id].col||'#5cf0ff',WEAP[id].name,`<span class="art gun">${ICONS[id]}</span>`); });
 }
 function lkIdx(){ return armMode==='skins'?skIdx:armMode==='picks'?pxIdx:armIdx; }
 function lkRail(){
@@ -5144,6 +5150,7 @@ const GUNV:any={}; for(const [k,n,base,r,col,o,att] of GV_RAW){ const short=n.re
   GUNV[k]={k,n,base,r,col,att,w:Object.assign({},WEAP[base],o,{name:n,short})}; }
 const ARS_CATS=[['ar','Assault Rifles'],['smg','SMGs'],['pump','Shotguns'],['pistol','Pistols'],['sniper','Snipers']];
 const ARS_PRICE=[1,2,3,5,8];
+ARM_IDS.push(...Object.keys(GUNV)); // the Armory shows the Arsenal guns after the core ones
 const WI=(it):any=>it&&it.v&&GUNV[it.v]?GUNV[it.v].w:WEAP[it.id];
 function gunVariant(base,q?){ const opts=Object.values(GUNV).filter((v:any)=>v.base===base) as any[]; const v=pick(opts); return {kind:'gun',id:base,v:v.k,r:v.r,ammo:v.w.mag}; }
 // a variant's look on top of its core gun: the finish (a tint over every part), and attachments

@@ -6378,7 +6378,7 @@
       return o;
     }
     function lkView() {
-      if (armMode === "guns") return { t: [0, 1, 0], d: SHOP_GUN(ARM_IDS[armIdx]) ? Math.max(4.5, 6 / camera.aspect) : Math.max(6.5, (ARM_IDS[armIdx] === "sniper" ? 13 : 10.5) / camera.aspect), h: 0.6, min: 3, max: 16, az: 1, spin: false };
+      if (armMode === "guns") return { t: [0, 1, 0], d: SHOP_GUN(ARM_IDS[armIdx]) || GUNV[ARM_IDS[armIdx]] ? Math.max(4.5, 6 / camera.aspect) : Math.max(6.5, (ARM_IDS[armIdx] === "sniper" ? 13 : 10.5) / camera.aspect), h: 0.6, min: 3, max: 16, az: 1, spin: false };
       if (armMode === "picks") return { t: [0, 1.15, 0], d: Math.max(5, 6 / camera.aspect), h: 0.35, min: 2, max: 9, az: Infinity, spin: true };
       return { t: [0, 0.9, 0], d: Math.max(5.4, 6.6 / camera.aspect), h: 0.5, min: 1.3, max: 8, az: Infinity, spin: true };
     }
@@ -6455,7 +6455,28 @@
       if (armMode === "skins" && SK) return buildSkinStand(dir);
       const holder = new T.Group();
       armGuns = [];
-      const id = ARM_IDS[armIdx], shopIt = SHOP_GUN(id);
+      const id = ARM_IDS[armIdx], shopIt = SHOP_GUN(id), V2 = GUNV[id];
+      if (V2) {
+        const h = new T.Group();
+        h.position.set(0, 1, 0);
+        const gm = gunDress(makeGunModel(V2.base, V2.r), id);
+        gm.scale.setScalar(V2.base === "pistol" ? 3 : V2.base === "sniper" ? 1.5 : 2.1);
+        h.add(gm);
+        const halo = new T.Sprite(auraMats(new T.Color(RAR[V2.r].c).getHex()).halo);
+        halo.scale.setScalar(2.6);
+        halo.position.z = -0.6;
+        h.add(halo);
+        holder.add(h);
+        armGuns.push(h);
+        LK.ped.visible = LK.ring.visible = LK.blob.visible = false;
+        lkTint(RAR[V2.r].c);
+        lkPut(holder, dir || 0);
+        lkFrame(true);
+        const w2 = V2.w;
+        lkInfo(V2.n, "Arsenal \xB7 " + ARS_PRICE[V2.r] + " elims (K in a match) \xB7 " + (armIdx + 1) + " of " + ARM_IDS.length, RAR[V2.r], `Damage ${w2.pellets > 1 ? w2.dmg + " \xD7 " + w2.pellets : w2.dmg} \xB7 ${w2.auto ? "Full auto" : "Single shot"} \xB7 ${w2.mag} mag \xB7 ${Math.round(w2.dmg * (w2.pellets || 1) / w2.rate)} dps`);
+        $("armLabels").innerHTML = "";
+        return;
+      }
       if (shopIt) {
         const h = new T.Group();
         h.position.set(0, 1, 0);
@@ -6801,7 +6822,10 @@
       const card = (i, col, name, art) => `<button class="lk-card" role="option" aria-selected="false" data-i="${i}" style="--rc:${col}" aria-label="${esc(name)}">${art}<span class="nm">${esc(name)}</span></button>`;
       if (armMode === "skins") return SK.ITEMS.map((it, i) => card(i, RAR[it.r].c, it.n, '<span class="ph"></span><canvas width="160" height="200" hidden></canvas>'));
       if (armMode === "picks") return PX.ITEMS.map((it, i) => card(i, RAR[it.rar].c, it.n, `<span class="art">${PX.pickSVG(it, "lk" + i)}</span>`));
-      return ARM_IDS.map((id, i) => card(i, WEAP[id].col || "#5cf0ff", WEAP[id].name, `<span class="art gun">${ICONS[id]}</span>`));
+      return ARM_IDS.map((id, i) => {
+        const V2 = GUNV[id];
+        return V2 ? card(i, RAR[V2.r].c, V2.n, `<span class="art gun" style="color:${V2.col}">${ICONS[V2.base]}</span>`) : card(i, WEAP[id].col || "#5cf0ff", WEAP[id].name, `<span class="art gun">${ICONS[id]}</span>`);
+      });
     }
     function lkIdx() {
       return armMode === "skins" ? skIdx : armMode === "picks" ? pxIdx : armIdx;
@@ -13286,6 +13310,7 @@
     }
     const ARS_CATS = [["ar", "Assault Rifles"], ["smg", "SMGs"], ["pump", "Shotguns"], ["pistol", "Pistols"], ["sniper", "Snipers"]];
     const ARS_PRICE = [1, 2, 3, 5, 8];
+    ARM_IDS.push(...Object.keys(GUNV));
     const WI = (it) => it && it.v && GUNV[it.v] ? GUNV[it.v].w : WEAP[it.id];
     function gunVariant(base, q) {
       const opts = Object.values(GUNV).filter((v2) => v2.base === base);
