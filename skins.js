@@ -97,32 +97,41 @@ const ITEMS=[
   // ---------- Special Ops
   // ---------- Street & Sports
   // ---------- Spooky
-  S('Pumpkin Rider','spooky',3,{p:'#f27a1a',c:'#2a1a0c',s:'#120a04',k:'#3a6b2a',m:'#3a6b2a',x:'#ffb21a',v:'#ffb21a',g:'xv',acc:[['emblem','jack','#ffb21a','#2a1a0c',1],['cape','#2a1a0c','#f27a1a'],['hat','#1a1a1a','#f27a1a','witch']]}),
-  S('Grave Walker','spooky',2,{p:'#7a8a6a',c:'#3a3a40',s:'#141418',k:'#4a3a2a',m:'#9aa08a',x:'#9cff5a',v:'#9cff5a',g:'v',pat:['p','worn','#5a6a4a'],acc:[['emblem','skull','#141418','#d8d8c8']]}),
-  S('Vampire Count','spooky',4,{p:'#1a1a1f',c:'#8a0f1f',s:'#0a0a0c',k:'#c9a227',m:'#c9a227',x:'#ff2b3a',v:'#ff2b3a',g:'xv',fin:[0.3,0.4],acc:[['cape','#0a0a0c','#8a0f1f'],['emblem','fang','#ff2b3a','#1a1a1f'],['hair','#0a0a0c','slick']]}),
-  S('Specter','spooky',3,{p:'#dfe8f0',c:'#9fb2c4',s:'#3a4a5a',k:'#9fb2c4',m:'#ffffff',x:'#9fffff',v:'#9fffff',g:'xvp',acc:[['halo','#9fffff'],['scarf','#dfe8f0']]}),
+  S('Pumpkin Rider','spooky',3,{body:{build:'fit',skin:'#2a1a0c',top:'#2a1a0c',pants:'#1a1208',shoes:'#120a04',shoeTop:13,collar:'#f27a1a',belt:'#f27a1a',beltZ:[103,108],gloves:'#120a04'},
+    p:'#f27a1a',c:'#2a1a0c',s:'#120a04',k:'#3a6b2a',m:'#3a6b2a',x:'#ffb21a',v:'#ffb21a',noVisor:1,cel:1,acc:[['pumpkinHead'],['cape','#2a1a0c','#f27a1a']]}),
+  S('Grave Walker','spooky',2,{body:{build:'avg',skin:'#8aa070',top:'#5a5a62',pants:'#3a3a40',shoes:'#2a2018',shoeTop:12,collar:'#8aa070',sleeves:'elbow',legs:'knee',cuffBand:'#4a4a52'},
+    p:'#7a8a6a',c:'#3a3a40',s:'#141418',k:'#4a3a2a',m:'#9aa08a',x:'#9cff5a',v:'#9cff5a',noVisor:1,cel:1,acc:[['toonHead',{skin:'#8aa070',glow:'#9cff5a',hair:'#3a3a2a',hairStyle:'wild',mouth:'flat',stitch:1,brow:'#2a2a1a'}]]}),
+  S('Vampire Count','spooky',4,{body:{build:'slim',skin:'#e8e4ec',top:'#1a1a1f',pants:'#1a1a1f',shoes:'#0a0a0c',shoeTop:12,collar:'#f4f2f0',cuff:'#8a0f1f',cuffFrom:60,belt:'#8a0f1f',beltZ:[104,107]},
+    p:'#1a1a1f',c:'#8a0f1f',s:'#0a0a0c',k:'#c9a227',m:'#c9a227',x:'#ff2b3a',v:'#ff2b3a',noVisor:1,cel:1,acc:[['toonHead',{skin:'#e8e4ec',eye:'#c8101f',hair:'#0a0a0c',hairStyle:'slick',mouth:'smile',fangs:1,ears:'pointy',angry:1}],['cape','#0a0a0c','#8a0f1f']]}),
+  S('Specter','spooky',3,{p:'#dfe8f0',c:'#9fb2c4',s:'#3a4a5a',k:'#9fb2c4',m:'#ffffff',x:'#9fffff',v:'#9fffff',hide:1,noVisor:1,cel:1,acc:[['ghostBody']]}),
   // ---------- Christmas
-  S('Santa Claus','xmas',4,{p:'#c8161f',c:'#e8222c',s:'#8a0f16',k:'#141414',m:'#f2c230',x:'#ffffff',v:'#ffe8cf',fin:[0.1,0.7],pat:['c','snow','#ffffff'],
-    acc:[['santaHat','#d4121c','#ffffff'],['beard','#ffffff'],['belt','#141414'],['giftSack','#a52a1f','#2fae5b']]}),
-  S('Mrs. Claus','xmas',3,{p:'#f1ead9',c:'#b8202e',s:'#6a1018',k:'#2a6a3a',m:'#e8d28a',x:'#2fae5b',v:'#ffe8cf',fin:[0.1,0.6],pat:['p','check','#e8dcc4'],
-    acc:[['hair','#e4e0d8','long'],['scarf','#2fae5b'],['holly'],['emblem','heart','#b8202e','#f1ead9']]}),
-  S('Elf on the Shelf','xmas',2,{p:'#1f9a46',c:'#d8212e',s:'#0e4a22',k:'#d4a43a',m:'#f2c230',x:'#d8212e',v:'#ffe0b8',fin:[0.1,0.6],pat:['p','stripes','#c8202c'],
-    acc:[['elfHat','#1f9a46','#d8212e'],['ears','#f2c49e','#f0a090'],['bowtie','#d8212e'],['belt','#d4a43a']]}),
-  S('Rudolph','xmas',3,{p:'#8a5a30',c:'#5e3a1c',s:'#2e1c0e',k:'#c8202c',m:'#f2c230',x:'#e8d9b8',v:'#e8d9b8',fin:[0.05,0.85],
-    acc:[['horns','#c9a77a','antler'],['nose'],['scarf','#c8202c'],['choker','#f2c230','#f2c230']]}),
+  S('Santa Claus','xmas',4,{body:{build:'jolly',skin:'#f4c4a0',top:'#c8161f',pants:'#c8161f',shoes:'#141414',shoeTop:16,collar:'#ffffff',belt:'#141414',beltZ:[110,116],cuff:'#ffffff',cuffFrom:58,gloves:'#141414',legBands:[[17,1.6,'#ffffff']]},
+    p:'#c8161f',c:'#e8222c',s:'#8a0f16',k:'#141414',m:'#f2c230',x:'#ffffff',v:'#ffe8cf',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#f4c4a0',eye:'#3a6ad8',hair:'#ffffff',beard:'#ffffff',brow:'#ffffff',cheeks:'#ff8a9a',nose:'round'}],['santaHat','#d4121c','#ffffff'],['giftSack','#a52a1f','#2fae5b']]}),
+  S('Mrs. Claus','xmas',3,{body:{build:'jolly',skin:'#f4c4a0',top:'#b8202e',pants:'#b8202e',shoes:'#2a1a14',shoeTop:12,collar:'#ffffff',cuff:'#ffffff',cuffFrom:60,belt:'#2a6a3a',beltZ:[110,114]},
+    p:'#f1ead9',c:'#b8202e',s:'#6a1018',k:'#2a6a3a',m:'#e8d28a',x:'#2fae5b',v:'#ffe8cf',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#f4c4a0',eye:'#2a7a4a',hair:'#e8e4dc',hairStyle:'bun',brow:'#d8d4cc',cheeks:'#ff8a9a',glasses:'#c9a227'}],['holly']]}),
+  S('Jingle the Elf','xmas',2,{body:{build:'slim',skin:'#f4c8a4',top:'#1f9a46',pants:'#d8212e',shoes:'#1f9a46',shoeTop:12,collar:'#d8212e',belt:'#2a1a0c',beltZ:[104,108],cuff:'#d8212e',cuffFrom:60,legBands:[[30,2,'#ffffff'],[42,2,'#ffffff'],[54,2,'#ffffff'],[66,2,'#ffffff']]},
+    p:'#1f9a46',c:'#d8212e',s:'#0e4a22',k:'#d4a43a',m:'#f2c230',x:'#d8212e',v:'#ffe0b8',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#f4c8a4',eye:'#3a8a3a',hair:'#c8702a',ears:'pointy',cheeks:'#ff8a9a',nose:'pointy',mouth:'grin'}],['elfHat','#1f9a46','#d8212e'],['bowtie','#d8212e']]}),
+  S('Dasher the Reindeer','xmas',3,{body:{build:'fit',skin:'#8a5a30',top:'#8a5a30',pants:'#7a4e28',shoes:'#2e1c0e',shoeTop:14,collar:'#e8d9b8',gloves:'#2e1c0e'},
+    p:'#8a5a30',c:'#5e3a1c',s:'#2e1c0e',k:'#c8202c',m:'#f2c230',x:'#e8d9b8',v:'#e8d9b8',noVisor:1,cel:1,
+    acc:[['reindeerHead','#8a5a30','#ff2a2a'],['scarf','#c8202c'],['choker','#f2c230','#f2c230']]}),
   S('Flurry the Snowpal','xmas',3,{p:'#f4f8ff',c:'#dfeaf8',s:'#9fb8d6',k:'#141414',m:'#c8d6e8',x:'#c8202c',v:'#141414',hide:1,noVisor:1,cel:1,
     acc:[['snowpal','#2f8a4a','#c8202c']]}), // a whole snowman: three snowballs, twig arms and mittens on the skeleton, no armour
   S('Gingerbread Man','xmas',2,{body:{build:'cookie',cookie:1,skin:'#b8733a',top:'#b8733a',pants:'#b8733a',shoes:'#b8733a',collar:'#b8733a'},big:[1.04,1],
     p:'#b8733a',c:'#9a5a28',s:'#6a3a14',k:'#ffffff',m:'#ffffff',x:'#ffffff',v:'#ffffff',noVisor:1,cel:1,
     acc:[['gingerHead','#b8733a'],['bowtie','#e3243b'],['gumdrops',['#e3243b','#2fae5b','#ffd23f']]]}),
-  S('Nutcracker','xmas',4,{p:'#b3121f',c:'#1c2a6a',s:'#0e1640',k:'#d4a43a',m:'#f2c230',x:'#f2c230',v:'#ffe0b8',fin:[0.8,0.3],
-    acc:[['nutHat','#141414','#d4a43a','#c8202c'],['pauldrons','#d4a43a'],['belt','#d4a43a'],['emblem','crown','#f2c230','#1c2a6a']]}),
-  S('Jack Frost','xmas',4,{p:'#bfe8ff',c:'#5aa8e0',s:'#1f4a7a',k:'#e8f6ff',m:'#e8f6ff',x:'#9fefff',v:'#9fefff',g:'xvp',fin:[0.7,0.2],pat:['p','ice','#ffffff'],
-    acc:[['crown','#9fefff',1],['cape','#7fc4f0','#e8f6ff'],['wings','#bfe8ff','#7fb8e6'],['emblem','snow','#ffffff','#1f4a7a',1]]}),
-  S('Krampus','xmas',4,{p:'#2a1a14',c:'#4a2a1e',s:'#120a08',k:'#5a2a1a',m:'#8a8a8a',x:'#ff3b2f',v:'#ff3b2f',g:'xv',fin:[0.2,0.6],pat:['p','worn','#3a2a22'],big:[1.18,1.08],
-    acc:[['horns','#e8e0d0'],['hair','#120a08','wild'],['tail','#2a1a14'],['cape','#2a0a0a','#8a1a14'],['emblem','skull','#e8e0d0','#2a1a14']]}),
-  S('Christmas Tree','xmas',3,{p:'#1f8a3a',c:'#0f5a26',s:'#073a18',k:'#d4a43a',m:'#f2c230',x:'#ffd23f',v:'#ffd23f',g:'xv',pat:['p','worn','#2fae5b'],
-    acc:[['starTop','#ffd23f'],['lights',['#ff3b3b','#ffd23f','#3fa0ff','#ff7ad1','#5cf0a0']],['emblem','star','#ffd23f','#0f5a26',1]]}),
+  S('Nutcracker','xmas',4,{body:{build:'fit',skin:'#f2d2a8',top:'#b3121f',pants:'#1c2a6a',shoes:'#141414',shoeTop:24,collar:'#f2c230',belt:'#f2c230',beltZ:[104,109],cuff:'#f2c230',cuffFrom:60,gloves:'#ffffff'},
+    p:'#b3121f',c:'#1c2a6a',s:'#0e1640',k:'#d4a43a',m:'#f2c230',x:'#f2c230',v:'#ffe0b8',noVisor:1,cel:1,
+    acc:[['nutHead'],['nutHat','#141414','#d4a43a','#c8202c'],['pauldrons','#d4a43a']]}),
+  S('Jack Frost','xmas',4,{body:{build:'slim',skin:'#d8eeff',top:'#5aa8e0',pants:'#1f4a7a',shoes:'#e8f6ff',shoeTop:10,collar:'#ffffff',cuff:'#ffffff',cuffFrom:58,legBands:[[24,1.5,'#bfe8ff']]},
+    p:'#bfe8ff',c:'#5aa8e0',s:'#1f4a7a',k:'#e8f6ff',m:'#e8f6ff',x:'#9fefff',v:'#9fefff',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#d8eeff',eye:'#3fc8ff',hair:'#ffffff',hairStyle:'spiky',brow:'#e8f6ff',mouth:'grin',nose:'pointy'}],['crown','#9fefff',1],['cape','#7fc4f0','#e8f6ff']]}),
+  S('Krampus','xmas',4,{body:{build:'fit',skin:'#2a1a14',top:'#3a221a',pants:'#2a1a14',shoes:'#120a08',shoeTop:16,collar:'#120a08',gloves:'#120a08'},big:[1.18,1.08],
+    p:'#2a1a14',c:'#4a2a1e',s:'#120a08',k:'#5a2a1a',m:'#8a8a8a',x:'#ff3b2f',v:'#ff3b2f',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#3a241a',glow:'#ff3b2f',hair:'#120a08',hairStyle:'wild',mouth:'grin',fangs:1,tongue:1,ears:'pointy',angry:1,brow:'#120a08',line:'#000000'}],['horns','#e8e0d0'],['tail','#2a1a14'],['cape','#2a0a0a','#8a1a14']]}),
+  S('Christmas Tree','xmas',3,{p:'#1f8a3a',c:'#0f5a26',s:'#073a18',k:'#d4a43a',m:'#f2c230',x:'#ffd23f',v:'#ffd23f',hide:1,noVisor:1,cel:1,acc:[['treeBody']]}),
 ];
 ITEMS.forEach((it,i)=>{ it.i=i; it.theme=THEMES.find(t=>t.id===it.t); });
 
@@ -358,6 +367,7 @@ const CM=0.011; // gear is modelled in metres at the character's scale: one bind
 const BUILDS={
   avg:{torso:[[14,10],[17.5,12.2],[17,12.8],[17.4,12.6],[18.4,12.4],[18.6,10.6],[6.8,6.6],[6,5.8]],arm:1,leg:1},
   fit:{torso:[[13.6,9.8],[15.8,11.4],[15,11.4],[16.8,12.6],[19.6,13.2],[20.4,11.2],[7.4,7.2],[6.4,6.2]],arm:1.13,leg:1.03},
+  jolly:{torso:[[17,12.5],[22,17],[24,19.5],[22.5,17],[20,13.6],[19.2,11],[7.6,7.2],[6.6,6.4]],arm:1.15,leg:1.1}, // Santa and Mrs. Claus: a round belly
   cookie:{torso:[[16.5,11.5],[19.5,13.4],[19.6,13.8],[20,13.8],[20.4,13.2],[19.8,11.4],[8,7.6],[7,6.8]],arm:1.32,leg:1.22}, // the Gingerbread Man: puffy and round
   slim:{torso:[[13,9.4],[15.4,11],[14.4,10.6],[15,10.8],[16.6,11],[17.4,9.8],[6.2,6],[5.6,5.4]],arm:0.9,leg:0.92}};
 const TORSO=[['Hips',97,0.5],['Hips',103,0.5],['Spine',115.6,1.2],['Spine1',126.7,1.6],['Spine2',139.3,1.4],['Spine2',148,-0.5],['Neck',153.6,0],['Head',163,0]];
@@ -883,7 +893,7 @@ function gear(T,kind,a,mats,opt){
       const coal=TN('#1a1a1e',{emissive:'#000000'}), glint=TN('#ffffff'), carrot=TN('#ff7a1a'), wood=TN('#6a4428'), red=TN(a[1]), grn=TN(a[0]), hatM=TN('#16161a'), gold=TN('#ffd23f');
       const ball=(r,k)=>INKED(M(GEO('sball'+r,()=>{ const g=new T.SphereGeometry(r,40,28), p=g.attributes.position; for(let i=0;i<p.count;i++){ const v=new T.Vector3().fromBufferAttribute(p,i), n=1+0.025*Math.sin(v.x*31+v.y*17)*Math.cos(v.z*23); p.setXYZ(i,v.x*n,v.y*n*k,v.z*n); } g.computeVertexNormals(); return g; }),snow),0.006);
       // bottom ball on the hips (resting on the ground), middle on the chest, head on the head bone
-      const bot=G(); const b0=ball(0.43,0.9); b0.position.set(0,-0.6,0.02); bot.add(b0); out.push(['Hips',bot]);
+      const bot=G(); const b0=ball(0.46,0.9); b0.position.set(0,-0.43,0.02); bot.add(b0); out.push(['Hips',bot]);
       const mid=G(); const b1=ball(0.31,0.95); b1.position.set(0,-0.08,0.02); mid.add(b1);
       for(let i=0;i<3;i++){ const bt=INKED(M(GEO('scoal',()=>new T.SphereGeometry(0.032,12,8).scale(1,1,0.55)),coal,0,0.08-i*0.11,0.3-Math.abs(i-1)*0.012),0.003); mid.add(bt); }
       out.push(['Spine2',mid]);
@@ -911,6 +921,90 @@ function gear(T,kind,a,mats,opt){
       for(const sd of ['Left','Right']){ out.push([sd+'Arm',twig(0.27,0.022)]); out.push([sd+'ForeArm',twig(0.25,0.018)]);
         const mt=G(); mt.add(INKED(M(GEO('smit',()=>new T.SphereGeometry(0.06,14,10).scale(0.85,1.25,0.6).translate(0,0.06,0)),red),0.003)); const th=M(GEO('sthumb',()=>new T.SphereGeometry(0.025,10,6).scale(0.8,1.3,0.8)),red,0.045,0.04,0.01); th.rotation.z=-0.6; mt.add(th);
         mt.add(M(GEO('scuff',()=>new T.CylinderGeometry(0.055,0.055,0.035,14)),TN('#f4f4f4'),0,0.005,0)); out.push([sd+'Hand',mt]); }
+      break; }
+    case 'toonHead': { // [options] a sculpted cartoon head: skin, eyes with irises and glints, brows, nose, mouth, ears, hair, beard...
+      const o=a[0], g=G(), C=(x,y,z)=>[HCN[0]+x,HCN[1]+y,HCN[2]+z], skin=TN(o.skin), dark=TN(o.line||'#241818'), white=TN('#ffffff');
+      g.add(INKED(M(GEO('th_head',()=>new T.SphereGeometry(1,32,24).scale(0.095,0.11,0.1)),skin,...C(0,0,0)),0.004));
+      for(const sx of [-1,1]){
+        if(o.glow){ const e=M(GEO('th_ge',()=>new T.SphereGeometry(0.018,12,8).scale(1.2,0.8,0.45)),TN(o.glow,{emissive:o.glow,emissiveIntensity:1}),...C(sx*0.036,0.02,0.092)); e.rotation.z=sx*-0.25; g.add(e); }
+        else { g.add(INKED(M(GEO('th_scl',()=>new T.SphereGeometry(0.021,14,10).scale(1,1.15,0.5)),white,...C(sx*0.035,0.02,0.088)),0.0025));
+          g.add(M(GEO('th_iris',()=>new T.SphereGeometry(0.012,12,8).scale(1,1.1,0.45)),TN(o.eye||'#4a3020'),...C(sx*0.035,0.018,0.097)));
+          g.add(M(GEO('th_pup',()=>new T.SphereGeometry(0.0062,8,6).scale(1,1,0.5)),TN('#0a0a0a'),...C(sx*0.035,0.018,0.1015)));
+          g.add(M(GEO('th_gl',()=>new T.SphereGeometry(0.0032,6,4)),white,...C(sx*0.035+0.004,0.024,0.104))); }
+        const br=M(GEO('th_brow',()=>new T.BoxGeometry(0.032,0.008,0.008)),TN(o.brow||o.hair||'#3a2a1a'),...C(sx*0.036,0.05,0.093)); br.rotation.z=sx*(o.angry?0.35:-0.12); g.add(br);
+        if(o.ears==='pointy'){ const e=INKED(M(GEO('th_pear',()=>new T.ConeGeometry(0.022,0.08,8).translate(0,0.04,0)),skin,...C(sx*0.092,0.005,-0.01)),0.0025); e.rotation.z=-sx*1.0; e.rotation.x=-0.25; g.add(e); }
+        else if(o.ears!=='none') g.add(INKED(M(GEO('th_ear',()=>new T.SphereGeometry(0.022,10,8).scale(0.45,1,0.75)),skin,...C(sx*0.094,0.0,-0.005)),0.0025));
+        if(o.cheeks) { const ck=M(GEO('th_ck',()=>new T.CircleGeometry(0.016,14)),TN(o.cheeks,{transparent:true,opacity:0.65}),...C(sx*0.058,-0.018,0.083)); ck.rotation.y=sx*0.6; g.add(ck); }
+        if(o.glasses){ const r=M(GEO('th_gls',()=>new T.TorusGeometry(0.02,0.0035,6,16)),TN(o.glasses),...C(sx*0.035,0.02,0.104)); g.add(r); }
+        if(o.stitch){ for(let i=0;i<3;i++){ const s=M(GEO('th_st',()=>new T.BoxGeometry(0.003,0.016,0.004)),dark,...C(sx*0.06+i*0.008*sx,0.06-i*0.004,0.08)); g.add(s); } } }
+      if(o.glasses) g.add(M(GEO('th_glb',()=>new T.BoxGeometry(0.03,0.004,0.004)),TN(o.glasses),...C(0,0.022,0.106)));
+      const nose=o.nose||'round';
+      if(nose==='red'){ g.add(INKED(M(GEO('th_rn',()=>new T.SphereGeometry(0.02,14,10)),TN('#ff2a2a',{emissive:'#ff2a2a',emissiveIntensity:0.6}),...C(0,-0.005,0.104)),0.0025)); }
+      else if(nose==='pointy'){ const n=M(GEO('th_pn',()=>new T.ConeGeometry(0.012,0.04,8).rotateX(Math.PI/2).translate(0,0,0.02)),skin,...C(0,-0.004,0.095)); g.add(n); }
+      else g.add(M(GEO('th_nose',()=>new T.SphereGeometry(0.014,10,8).scale(1,0.9,0.9)),skin,...C(0,-0.006,0.1)));
+      const mouth=o.mouth||'smile';
+      if(mouth!=='none'){ const m=M(GEO('th_m'+mouth,()=>new T.TorusGeometry(mouth==='grin'?0.032:0.024,0.0042,6,16,Math.PI*(mouth==='flat'?0.4:0.8))),dark,...C(0,-0.04,0.09)); m.rotation.z=Math.PI+Math.PI*(mouth==='flat'?0.3:0.1); m.rotation.x=-0.3; g.add(m);
+        if(o.fangs) for(const sx of [-1,1]) g.add(M(GEO('th_fang',()=>new T.ConeGeometry(0.004,0.014,6).rotateX(Math.PI)),white,...C(sx*0.012,-0.05,0.093))); }
+      if(o.tongue) { const t=M(GEO('th_tng',()=>new T.SphereGeometry(0.014,8,6).scale(0.8,2.6,0.4)),TN('#c8202c'),...C(0,-0.085,0.09)); t.rotation.x=-0.3; g.add(t); }
+      const hc=o.hair&&TN(o.hair), st=o.hairStyle||'cap';
+      if(hc){ g.add(INKED(M(GEO('th_cap',()=>new T.SphereGeometry(1,28,14,0,Math.PI*2,0,Math.PI*0.55).scale(0.1,0.118,0.106).rotateX(-0.3)),hc,...C(0,0.004,-0.004)),0.0035));
+        if(st==='bun') g.add(INKED(M(GEO('th_bun',()=>new T.SphereGeometry(0.042,14,10)),hc,...C(0,0.09,-0.07)),0.003));
+        if(st==='slick'){ const p=M(GEO('th_peak',()=>new T.ConeGeometry(0.02,0.04,4).rotateX(Math.PI)),hc,...C(0,0.08,0.085)); g.add(p); }
+        if(st==='spiky'||st==='wild') for(let i=0;i<(st==='wild'?14:9);i++){ const a2=i/(st==='wild'?14:9)*Math.PI*2, sp=M(GEO('th_spk',()=>new T.ConeGeometry(0.022,0.07,6).translate(0,0.035,0)),hc,...C(Math.cos(a2)*0.06,0.08+(i%2)*0.01,Math.sin(a2)*0.06-0.02)); sp.rotation.z=-Math.cos(a2)*0.8; sp.rotation.x=Math.sin(a2)*0.8; g.add(sp); }
+        if(st==='long') g.add(INKED(M(GEO('th_long',()=>new T.SphereGeometry(1,20,12,0,Math.PI*2,0,Math.PI*0.7).scale(0.11,0.17,0.08).rotateX(Math.PI)),hc,...C(0,0.02,-0.06)),0.003)); }
+      if(o.beard){ const bm=TN(o.beard); g.add(INKED(M(GEO('th_beard',()=>{ const gg=new T.SphereGeometry(1,24,16), p=gg.attributes.position; for(let i=0;i<p.count;i++){ const y=p.getY(i); p.setY(i,y<0?y*1.5:y); } gg.computeVertexNormals(); return gg.scale(0.09,0.08,0.06); }),bm,...C(0,-0.07,0.06)),0.003));
+        for(const sx of [-1,1]){ const s=INKED(M(GEO('th_stache',()=>new T.SphereGeometry(0.022,12,8).scale(1.4,0.7,0.7)),bm,...C(sx*0.022,-0.026,0.1)),0.0025); s.rotation.z=sx*0.35; g.add(s); } }
+      out.push(['Head',g]); break; }
+    case 'pumpkinHead': { // a carved jack-o'-lantern with a candle glowing inside
+      const g=G(), C=(x,y,z)=>[HCN[0]+x,HCN[1]+y,HCN[2]+z];
+      g.add(INKED(M(GEO('pk_head',()=>{ const gg=new T.SphereGeometry(0.14,36,24), p=gg.attributes.position; for(let i=0;i<p.count;i++){ const x=p.getX(i), y=p.getY(i), z=p.getZ(i), k=1-0.08*Math.abs(Math.sin(4*Math.atan2(z,x))); p.setXYZ(i,x*k*1.12,y*0.85,z*k*1.05); } gg.computeVertexNormals(); return gg; }),TN('#f27a1a'),...C(0,0.02,0)),0.005));
+      const lit=TN('#ffd23f',{emissive:'#ffb21a',emissiveIntensity:1});
+      for(const sx of [-1,1]){ const e=M(GEO('pk_eye',()=>new T.CircleGeometry(0.03,3)),lit,...C(sx*0.05,0.05,0.142)); e.rotation.z=Math.PI/2+sx*0.3; g.add(e); }
+      g.add(M(GEO('pk_nose',()=>new T.CircleGeometry(0.016,3)),lit,...C(0,0.005,0.146)));
+      const mo=M(GEO('pk_mouth',()=>{ const s=new T.Shape(); s.moveTo(-0.075,0); for(let i=0;i<=10;i++){ const x=-0.075+i*0.015; s.lineTo(x,i%2?-0.012:0.01-Math.abs(x)*0.25); } s.lineTo(0.075,0); s.quadraticCurveTo(0,-0.07,-0.075,0); return new T.ShapeGeometry(s); }),lit,...C(0,-0.04,0.142)); g.add(mo);
+      g.add(INKED(M(GEO('pk_stem',()=>new T.CylinderGeometry(0.014,0.02,0.06,8)),TN('#3d7a2a'),...C(0.01,0.15,0)),0.003));
+      out.push(['Head',g]); break; }
+    case 'reindeerHead': { // [fur, nose] a reindeer: long muzzle, big eyes, ears, branching antlers and a glowing nose
+      const g=G(), C=(x,y,z)=>[HCN[0]+x,HCN[1]+y,HCN[2]+z], fur=TN(a[0]), pale=TN('#e8d9b8'), ant=TN('#c9a77a');
+      g.add(INKED(M(GEO('rd_head',()=>new T.SphereGeometry(1,28,20).scale(0.09,0.1,0.11)),fur,...C(0,0.01,0)),0.004));
+      g.add(INKED(M(GEO('rd_muz',()=>new T.SphereGeometry(1,20,14).scale(0.055,0.05,0.07)),pale,...C(0,-0.035,0.09)),0.003));
+      g.add(INKED(M(GEO('rd_nose',()=>new T.SphereGeometry(0.024,14,10)),TN(a[1],{emissive:a[1],emissiveIntensity:0.9}),...C(0,-0.022,0.155)),0.0025));
+      for(const sx of [-1,1]){ g.add(INKED(M(GEO('rd_eye',()=>new T.SphereGeometry(0.02,12,8).scale(1,1.2,0.5)),TN('#ffffff'),...C(sx*0.04,0.035,0.085)),0.0025)); g.add(M(GEO('rd_pup',()=>new T.SphereGeometry(0.011,10,6).scale(1,1.2,0.5)),TN('#1a1008'),...C(sx*0.042,0.033,0.094)));
+        g.add(M(GEO('rd_gl',()=>new T.SphereGeometry(0.004,6,4)),TN('#ffffff'),...C(sx*0.042+0.004,0.04,0.099)));
+        const ear=INKED(M(GEO('rd_ear',()=>new T.SphereGeometry(0.03,10,8).scale(0.45,1,0.25)),fur,...C(sx*0.09,0.06,-0.01)),0.0025); ear.rotation.z=-sx*1.1; g.add(ear);
+        const A=G(); A.position.set(...C(sx*0.05,0.09,-0.02)); A.rotation.z=-sx*0.35; const main=M(GEO('rd_ant',()=>new T.CylinderGeometry(0.008,0.012,0.18,6).translate(0,0.09,0)),ant); A.add(main);
+        for(const [y,r] of [[0.07,0.9],[0.12,-0.8],[0.16,0.7]]){ const b=M(GEO('rd_tine',()=>new T.CylinderGeometry(0.005,0.008,0.07,5).translate(0,0.035,0)),ant,0,y,0); b.rotation.z=r*sx; b.rotation.x=-0.3; A.add(b); } g.add(A); }
+      out.push(['Head',g]); break; }
+    case 'nutHead': { // a carved wooden nutcracker head: square jaw, painted eyes and cheeks, a white moustache
+      const g=G(), C=(x,y,z)=>[HCN[0]+x,HCN[1]+y,HCN[2]+z], wood=TN('#f2d2a8');
+      g.add(INKED(M(GEO('nc_head',()=>new T.BoxGeometry(0.16,0.17,0.15)),wood,...C(0,0.0,0)),0.004));
+      g.add(INKED(M(GEO('nc_jaw',()=>new T.BoxGeometry(0.15,0.05,0.12)),wood,...C(0,-0.1,0.02)),0.003));
+      for(const sx of [-1,1]){ g.add(M(GEO('nc_eye',()=>new T.CircleGeometry(0.018,14)),TN('#ffffff'),...C(sx*0.035,0.025,0.0755))); g.add(M(GEO('nc_pup',()=>new T.CircleGeometry(0.009,12)),TN('#141414'),...C(sx*0.035,0.025,0.076)));
+        g.add(M(GEO('nc_ck',()=>new T.CircleGeometry(0.016,14)),TN('#e84a4a'),...C(sx*0.055,-0.02,0.0755)));
+        const s=INKED(M(GEO('nc_st',()=>new T.SphereGeometry(0.03,12,8).scale(1.5,0.55,0.6)),TN('#ffffff'),...C(sx*0.03,-0.045,0.08)),0.0025); s.rotation.z=sx*0.25; g.add(s);
+        g.add(M(GEO('nc_brow',()=>new T.BoxGeometry(0.03,0.008,0.006)),TN('#141414'),...C(sx*0.035,0.05,0.077))); }
+      g.add(M(GEO('nc_nose',()=>new T.BoxGeometry(0.02,0.04,0.03)),wood,...C(0,-0.005,0.087)));
+      g.add(M(GEO('nc_teeth',()=>new T.BoxGeometry(0.08,0.012,0.004)),TN('#ffffff'),...C(0,-0.08,0.0825)));
+      out.push(['Head',g]); break; }
+    case 'treeBody': { // a walking Christmas tree: stacked tiers of needles, baubles, a trunk, branch arms
+      const tier=(r,h,y,bone)=>{ const g=G(); const c=INKED(M(GEO('tr_t'+r,()=>{ const gg=new T.ConeGeometry(r,h,20,3), p=gg.attributes.position; for(let i=0;i<p.count;i++){ const x=p.getX(i), z=p.getZ(i), yy=p.getY(i); if(yy<-h/2+0.01){ const k=1+0.08*Math.sin(Math.atan2(z,x)*10); p.setX(i,x*k); p.setZ(i,z*k); } } gg.computeVertexNormals(); return gg; }),TN('#1f8a3a'),0,y,0),0.005); g.add(c);
+        const cols=['#ff3b3b','#ffd23f','#3fa0ff','#ff7ad1','#ffffff']; for(let i=0;i<7;i++){ const an=i/7*Math.PI*2+r, rr=r*0.78, yy=y-h*0.3; g.add(INKED(M(GEO('tr_orn',()=>new T.SphereGeometry(0.03,10,8)),TN(cols[i%5],{emissive:cols[i%5],emissiveIntensity:0.3}),Math.cos(an)*rr,yy,Math.sin(an)*rr),0.002)); }
+        out.push([bone,g]); };
+      tier(0.5,0.62,-0.38,'Hips'); tier(0.4,0.52,-0.02,'Spine1'); tier(0.28,0.42,0.02,'Neck');
+      const top=G(); const pk=INKED(M(GEO('tr_top',()=>new T.ConeGeometry(0.17,0.3,16)),TN('#1f8a3a'),0,0.12,0),0.004); top.add(pk);
+      const star=M(GEO('tr_star',()=>{ const s=new T.Shape(); for(let i=0;i<10;i++){ const r=i%2?0.04:0.09, t=i*Math.PI/5+Math.PI/2; i?s.lineTo(Math.cos(t)*r,Math.sin(t)*r):s.moveTo(Math.cos(t)*r,Math.sin(t)*r); } return new T.ExtrudeGeometry(s,{depth:0.03,bevelEnabled:false}).center(); }),TN('#ffd23f',{emissive:'#ffb21a',emissiveIntensity:0.9}),0,0.33,0); top.add(star);
+      for(const sx of [-1,1]){ top.add(M(GEO('tr_eye',()=>new T.SphereGeometry(0.02,10,8).scale(1,1.2,0.5)),TN('#141414'),sx*0.045,0.05,0.13)); }
+      const sm=M(GEO('tr_sm',()=>new T.TorusGeometry(0.035,0.006,6,14,Math.PI*0.8)),TN('#141414'),0,0.0,0.14); sm.rotation.z=Math.PI*1.1; top.add(sm); out.push(['Head',top]);
+      const tr=G(); tr.add(INKED(M(GEO('tr_trunk',()=>new T.CylinderGeometry(0.1,0.12,0.4,10)),TN('#6a4428'),0,-0.82,0),0.004)); out.push(['Hips',tr]);
+      for(const sd of ['Left','Right']) for(const b of ['Arm','ForeArm']){ const g=G(); g.add(INKED(M(GEO('tr_arm',()=>new T.CylinderGeometry(0.05,0.07,0.27,8).translate(0,0.135,0)),TN('#1f8a3a')),0.003)); out.push([sd+b,g]); }
+      break; }
+    case 'ghostBody': { // a sheet ghost: a draped sheet to the floor with a ragged hem, hollow eyes, floppy sleeves
+      const sheet=TN('#eef4fa',{emissive:'#9fd8ff',emissiveIntensity:0.2,side:T.DoubleSide});
+      const g=G(); g.add((M(GEO('gh_sheet',()=>{ const pts=[]; for(let i=0;i<=24;i++){ const t=i/24, y=1.0-t*1.85, r=t<0.18?Math.sin(t/0.18*Math.PI/2)*0.2:0.2+0.22*Math.pow((t-0.18)/0.82,0.8); pts.push(new T.Vector2(r,y)); }
+        const gg=new T.LatheGeometry(pts,32), p=gg.attributes.position; for(let i=0;i<p.count;i++){ const y=p.getY(i); if(y<-0.6){ const a2=Math.atan2(p.getZ(i),p.getX(i)); p.setY(i,y+0.06*Math.sin(a2*7)); } } gg.computeVertexNormals(); return gg; }),sheet,0,-0.45,0)));
+      for(const sx of [-1,1]){ g.add(M(GEO('gh_eye',()=>new T.SphereGeometry(0.035,12,8).scale(0.8,1.3,0.4)),TN('#141420'),sx*0.065,0.38,0.19)); }
+      g.add(M(GEO('gh_mouth',()=>new T.SphereGeometry(0.025,10,8).scale(1,1.3,0.4)),TN('#141420'),0,0.27,0.205)); out.push(['Spine2',g]);
+      for(const sd of ['Left','Right']) for(const b of ['Arm','ForeArm']){ const s=G(); s.add(INKED(M(GEO('gh_slv'+b,()=>new T.CylinderGeometry(b==='Arm'?0.07:0.09,0.07,0.28,10,1,true).translate(0,0.14,0)),sheet),0.003)); out.push([sd+b,s]); }
       break; }
     case 'gingerHead': { // [dough] a round cookie head: speckled dough, icing eyes, a piped smile, rosy cheeks
       const tex=TX('dough'+a[0],()=>{ const cv=document.createElement('canvas'); cv.width=cv.height=256; const x=cv.getContext('2d'); x.fillStyle=a[0]; x.fillRect(0,0,256,256);
