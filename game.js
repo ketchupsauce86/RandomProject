@@ -6220,7 +6220,7 @@
       camFwd.set(-Math.sin(cyaw) * cp, Math.sin(p.pitch), -Math.cos(cyaw) * cp);
       camRight.set(Math.cos(cyaw), 0, -Math.sin(cyaw));
       const pivot = tv1.set(p.pos.x, p.pos.y + 1.7 - 0.5 * A.crouch, p.pos.z);
-      const gun = !!curItem() && curItem().kind === "gun", dist = lerp(p.bounceT > 0 ? 7.5 : ads ? 2 : gun ? 3.4 : 4.6, 3.6, ek), side = (ads ? 0.8 : gun ? 1.1 : 0.85) * (1 - ek);
+      const gun = !!curItem() && curItem().kind === "gun", dist = lerp(p.bounceT > 0 ? 6 : ads ? 2 : gun ? 2.7 : 3.5, 3, ek), side = (ads ? 0.8 : gun ? 1.1 : 0.85) * (1 - ek);
       pivot.y += lerp(ads ? 0.05 : gun ? 0.3 : 0.45, -0.45, ek);
       const sp = A.sprint || 0;
       let ld = A.landS;
@@ -6877,7 +6877,7 @@
       lkTint(r.c);
       lkPut(h, dir || 0);
       if (LK.kind !== "picks" || dir == null) lkFrame(true);
-      lkInfo(it.n, `${it.set.n} set \xB7 ${pxIdx + 1} of ${PX.ITEMS.length}`, r, it.anime ? `${it.hero} \xB7 ${it.pw}` : it.form ? `${it.form.n} \xB7 ${Z.n} size` : `${Z.n} size`);
+      lkInfo(it.n, `${it.set.n} set \xB7 ${pxIdx + 1} of ${PX.ITEMS.length}`, r, it.anime ? `${it.pw}` : it.form ? `${it.form.n} \xB7 ${Z.n} size` : `${Z.n} size`);
       $("armNote").textContent = it.pwd || "";
       $("armLabels").innerHTML = "";
       showEquip();
@@ -7209,7 +7209,7 @@
     $("armGunsTab").addEventListener("click", () => setArmMode("guns"));
     lkInitRail();
     let equippedName = "Standard Issue";
-    const PICK_RENAMED = { "Jack's Grin": "Jack-o-Lantern", "Night Wing": "Spooky Shadow", "Reaper's Toll": "Grim Reaper", "Candy Corn Crusher": "Candy Corn", "Witch's Brew": "Witch's Wart", "Ghost Light": "Glossy Ghost" };
+    const PICK_RENAMED = { "Gum-Gum Fists": "Elastic Fists", "Serious Fist": "Calm Fist", "Super Saiyan": "Radiant Surge", "Attack Titan": "Colossus Form", "Nichirin Sword": "Tidecutter Blade", "Death Note": "Spell Tome", "Jack's Grin": "Jack-o-Lantern", "Night Wing": "Spooky Shadow", "Reaper's Toll": "Grim Reaper", "Candy Corn Crusher": "Candy Corn", "Witch's Brew": "Witch's Wart", "Ghost Light": "Glossy Ghost" };
     try {
       let v = localStorage.getItem("stormIslandPick");
       if (v && PICK_RENAMED[v]) {
@@ -12322,7 +12322,7 @@
         sfx("slash");
       } else if (animeSt === "rubber") {
         p.fireCd = 0.5;
-        punch(p, "Right", { dur: 0.5, reach: 16, dmg: 32, kb: 30, name: "Gum-Gum Pistol", stretch: true });
+        punch(p, "Right", { dur: 0.5, reach: 16, dmg: 32, kb: 30, name: "Elastic Jab", stretch: true });
         sfx("stretch");
       } else if (animeSt === "nichirin") {
         p.fireCd = 0.38;
@@ -12335,7 +12335,7 @@
         }
       } else if (animeSt === "goku") {
         p.fireCd = 0.55;
-        punch(p, "Right", { dur: 0.3, reach: 0, dmg: 36, kb: 44, name: "Super Saiyan Strike", shock: 0.8, gold: true });
+        punch(p, "Right", { dur: 0.3, reach: 0, dmg: 36, kb: 44, name: "Radiant Strike", shock: 0.8, gold: true });
         kiFlash(p, 0.6);
         sfx("ssjHit");
       } else if (animeSt === "titan") {
@@ -12351,7 +12351,7 @@
         }
       } else {
         p.fireCd = 0.6;
-        punch(p, "Right", { dur: 0.34, reach: 0, dmg: 45, kb: 52, name: "Normal Punch", shock: 1 });
+        punch(p, "Right", { dur: 0.34, reach: 0, dmg: 45, kb: 52, name: "Calm Punch", shock: 1 });
       }
     }
     function animeHold(p, dt) {
@@ -12377,7 +12377,7 @@
         throwKunai(p);
       } else if (animeSt === "rubber") {
         p.aGap = 0.055;
-        punch(p, sd, { dur: 0.24, reach: rnd(8, 11), dmg: 7, kb: 1.5, name: "Gum-Gum Gatling", stretch: true, spread: 0.1, soft: true });
+        punch(p, sd, { dur: 0.24, reach: rnd(8, 11), dmg: 7, kb: 1.5, name: "Elastic Barrage", stretch: true, spread: 0.1, soft: true });
         sfx("stretch", null, { gain: 0.45 });
       } else if (animeSt === "titan") {
         if (p.titan && p.titanS > 2) {
@@ -12390,7 +12390,7 @@
         }
       } else {
         p.aGap = 0.085;
-        punch(p, sd, { dur: 0.17, reach: 0, dmg: 10, kb: 3, name: "Consecutive Normal Punches", shock: 0.5, spread: 0.05, soft: true });
+        punch(p, sd, { dur: 0.17, reach: 0, dmg: 10, kb: 3, name: "Consecutive Calm Punches", shock: 0.5, spread: 0.05, soft: true });
       }
     }
     const cutMat = new T.MeshBasicMaterial({ color: 2784767, transparent: true, depthWrite: false, side: T.DoubleSide, opacity: 0.8 });
@@ -12783,7 +12783,7 @@
         const at = new V(e.pos.x, e.pos.y + 1, e.pos.z), d = at.distanceTo(c);
         if (d > R || !hasLOS(c, at)) continue;
         const dir = at.clone().sub(c).normalize(), fall = 1 - 0.5 * d / R;
-        hurt(e, dmg * fall, p, { point: at, weapon: "Super Saiyan Burst", dir, melee: true });
+        hurt(e, dmg * fall, p, { point: at, weapon: "Radiant Burst", dir, melee: true });
         if (!e.alive || e.bounceT > 0) continue;
         e.vel.addScaledVector(dir, kb * fall);
         e.knockT = Math.max(e.knockT || 0, kb * fall / 45);
@@ -12980,7 +12980,7 @@
         if (d > 5.2 || _dv.dot(tv1) < 0.5 * d) continue;
         const at = new V(e.pos.x, e.pos.y + 1.1, e.pos.z);
         if (!hasLOS(c, at)) continue;
-        hurt(e, 34, p, { point: at, weapon: "Nichirin Sword", dir: tv1.clone(), melee: true, soft: true });
+        hurt(e, 34, p, { point: at, weapon: "Tidecutter Blade", dir: tv1.clone(), melee: true, soft: true });
         if (e.alive && !(e.bounceT > 0)) {
           e.vel.addScaledVector(tv1, 9);
           e.knockT = Math.max(e.knockT || 0, 0.2);
@@ -13032,7 +13032,7 @@
         const tgt = new V(shooter.pos.x, shooter.pos.y + 1.2, shooter.pos.z);
         if (hasLOS(at, tgt)) {
           tracer(at, tgt);
-          hurt(shooter, dmg * 0.7, p, { point: tgt, weapon: POW && bv(p, "guard") ? POW.name : "Nichirin Deflect", dir: tgt.clone().sub(at).normalize() });
+          hurt(shooter, dmg * 0.7, p, { point: tgt, weapon: POW && bv(p, "guard") ? POW.name : "Tidecutter Parry", dir: tgt.clone().sub(at).normalize() });
           return;
         }
       }
@@ -13047,13 +13047,18 @@
       cv.width = 256;
       cv.height = 340;
       const x = cv.getContext("2d");
-      x.fillStyle = "#0c0c0e";
+      x.fillStyle = "#3a1a5a";
       x.fillRect(0, 0, 256, 340);
-      x.fillStyle = "#f2f2f2";
+      x.fillStyle = "#ffd23f";
       x.textAlign = "center";
       x.font = 'bold 40px "Times New Roman",serif';
-      x.fillText("DEATH", 128, 150);
-      x.fillText("NOTE", 128, 196);
+      x.fillText("SPELL", 128, 150);
+      x.fillText("TOME", 128, 196);
+      x.strokeStyle = "#ffd23f";
+      x.lineWidth = 3;
+      x.beginPath();
+      x.arc(128, 250, 30, 0, 7);
+      x.stroke();
       x.strokeStyle = "#2a2a2e";
       x.lineWidth = 3;
       x.strokeRect(10, 10, 236, 320);
@@ -13228,7 +13233,7 @@
       const dmg = 40 + 50 * power, kb = 36 + 40 * power;
       for (const e of hits) {
         const at = new V(e.pos.x, e.pos.y + 1.1, e.pos.z);
-        hurt(e, dmg, p, { point: at, weapon: "Death Note", dir: bd.clone() });
+        hurt(e, dmg, p, { point: at, weapon: "Spell Tome", dir: bd.clone() });
         if (e.alive && !(e.bounceT > 0)) {
           e.vel.addScaledVector(bd, kb);
           e.knockT = Math.max(e.knockT || 0, kb / 45);

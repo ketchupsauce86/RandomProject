@@ -15,7 +15,7 @@ const SETS=[
  {id:'cosmic',n:'Cosmic',c:'#9d86ff',d:'Mined from meteors and starlight.'},
  {id:'wild',n:'Wild',c:'#53d16b',d:'Straight out of the jungle, teeth included.'},
  {id:'storm',n:'Inverted',c:'#ffd23f',d:'Made for this box and nowhere else.'},
- {id:'anime',n:'Anime',c:'#ff7a2a',d:'Signature moves from your favourite heroes. Tap and hold for two different attacks.'},
+ {id:'anime',n:'Anime',c:'#ff7a2a',d:'Signature anime-style moves. Tap and hold for two different attacks.'},
 ];
 
 // [name, rarity, head shape, head top, head bottom, edge, handle style, handle a, handle b, pattern, pattern color, extras{parts,gem,glow,drip,pom}, flavor]
@@ -385,13 +385,13 @@ ITEMS.forEach(it=>{ const f=FORM_OF[it.n]; if(f){ it.shape=f; it.form=FORMS[f]; 
 const formOf=it=>it.form||null, pickLen=it=>Math.round(SIZES[it.sz].L*(it.form?it.form.Lk:1));
 // the Anime set: not pickaxes at all but each hero's own way of fighting (the game gives them their own models and moves)
 const ANIME=[
- {n:'Shadow Kunai',hero:'Naruto',anime:'kunai',short:'KUNAI',c:'#ff8a1f',pw:'Shred',pwd:'Tap to slash. Hold to throw fans of kunai that cut straight through.',flav:'Believe it.'},
- {n:'Gum-Gum Fists',hero:'Luffy',anime:'rubber',short:'FISTS',c:'#e8342c',pw:'Gatling',pwd:'Tap for a stretching Pistol punch. Hold for a Gatling of rubber fists.',flav:'Gonna be King of the Pirates.'},
- {n:'Serious Fist',hero:'Saitama',anime:'saitama',short:'FISTS',c:'#ffd23f',pw:'Serious Series',pwd:'Tap for a Normal Punch shockwave. Hold for Consecutive Normal Punches.',flav:'OK.'},
- {n:'Super Saiyan',hero:'Goku',anime:'goku',short:'SAIYAN',c:'#ffc21a',pw:'Power Up',pwd:'Tap for a golden Super Saiyan strike. Hold to power up, then let go to blast everyone around you away.',flav:'I am the hope of the universe.'},
- {n:'Attack Titan',hero:'Eren',anime:'titan',short:'TITAN',c:'#c4553f',pw:'Titan Shift',pwd:'Tap to turn into the Attack Titan for a few seconds and punch people flying. Hold for a titan barrage.',flav:'If you win, you live.'},
- {n:'Nichirin Sword',hero:'Tanjiro',anime:'nichirin',short:'SWORD',c:'#2a7dff',pw:'Water Breathing',pwd:'Tap for Water Breathing slashes. Hold to stand on guard: bullets from the front ring off the blade, and some fly back at the shooter.',flav:'Set your heart ablaze.'},
- {n:'Death Note',hero:'Light Yagami',anime:'deathnote',short:'NOTE',c:'#e8e8ec',pw:'Kira',pwd:'Tap to write a name and fire a black-and-white death beam. Hold to keep writing for a bigger beam that pierces everyone.',flav:'I am justice.'},
+ {n:'Shadow Kunai',anime:'kunai',short:'KUNAI',c:'#ff8a1f',pw:'Shred',pwd:'Tap to slash. Hold to throw fans of kunai that cut straight through.',flav:'Never miss twice.'},
+ {n:'Elastic Fists',anime:'rubber',short:'FISTS',c:'#e8342c',pw:'Rubber Barrage',pwd:'Tap for a stretching jab that snaps back. Hold for a barrage of stretching fists.',flav:'Boing.'},
+ {n:'Calm Fist',anime:'saitama',short:'FISTS',c:'#ffd23f',pw:'Calm Barrage',pwd:'Tap for one calm punch with a huge shockwave. Hold for a flurry of smaller shockwaves.',flav:'One is enough.'},
+ {n:'Radiant Surge',anime:'goku',short:'SURGE',c:'#ffc21a',pw:'Surge Up',pwd:'Tap for a golden radiant strike. Hold to power up, then let go to blast everyone around you away.',flav:'Shine brighter.'},
+ {n:'Colossus Form',anime:'titan',short:'COLOSSUS',c:'#c4553f',pw:'Colossus Shift',pwd:'Tap to grow into a giant for a few seconds and punch people flying. Hold for a giant barrage.',flav:'Stand tall.'},
+ {n:'Tidecutter Blade',anime:'nichirin',short:'SWORD',c:'#2a7dff',pw:'Tide Form',pwd:'Tap for flowing water slashes. Hold to stand on guard: bullets from the front ring off the blade, and some fly back at the shooter.',flav:'Flow like the tide.'},
+ {n:'Spell Tome',anime:'deathnote',short:'TOME',c:'#9a5cff',pw:'Hex',pwd:'Tap to write a rune and fire a crackling hex beam. Hold to keep writing for a bigger beam that pierces everyone.',flav:'Every page a spell.'},
 ];
 const animeSet=SETS.find(s=>s.id==='anime');
 ANIME.forEach(a=>ITEMS.push(Object.assign({i:ITEMS.length,set:animeSet,rar:4,shape:'classic',h1:a.c,h2:a.c,edge:'#222',hs:'plain',ha:'#333',hb:'#222',pat:'none',pc:'',x:{},sz:'m'},a)));
@@ -550,7 +550,7 @@ ANIME_ART.nichirin=id=>`<defs><pattern id="${id}c" width="20" height="20" patter
   `<g transform="rotate(42 100 100)"><path d="M95 12 C101 22 104 30 104 40 L104 130 L96 130 L96 34Z" fill="#16181c" stroke="#d8dee8" stroke-width="2"/><path d="M103 30 L103 130" stroke="#d8dee8" stroke-width="2.5"/>`+
   `<path d="M78 128 L122 128 L130 136 L122 144 L78 144 L70 136Z" fill="#26282c" stroke="#0a0a0c" stroke-width="2"/><rect x="94" y="144" width="12" height="46" rx="4" fill="#15233a"/>`+[0,1,2,3].map(i=>`<path d="M100 ${149+i*10} l4 4 l-4 4 l-4 -4Z" fill="#e8e2d0"/>`).join('')+`</g>`;
 ANIME_ART.deathnote=id=>`<circle cx="100" cy="100" r="62" fill="#e8e8ec" opacity=".14"/><g transform="rotate(-10 92 100)"><rect x="46" y="34" width="96" height="130" rx="4" fill="#0c0c0e" stroke="#3a3a40" stroke-width="2.5"/><rect x="138" y="38" width="7" height="122" fill="#efe9dc"/>`+
-  `<text x="94" y="94" text-anchor="middle" font-family="Times New Roman,serif" font-weight="700" font-size="20" fill="#f2f2f2">DEATH</text><text x="94" y="118" text-anchor="middle" font-family="Times New Roman,serif" font-weight="700" font-size="20" fill="#f2f2f2">NOTE</text></g>`+
+  `<text x="94" y="94" text-anchor="middle" font-family="Times New Roman,serif" font-weight="700" font-size="20" fill="#ffd23f">SPELL</text><text x="94" y="118" text-anchor="middle" font-family="Times New Roman,serif" font-weight="700" font-size="20" fill="#ffd23f">TOME</text></g>`+
   `<circle cx="150" cy="150" r="20" fill="#c8141c" stroke="#6a0a0e" stroke-width="2.5"/><path d="M150 130 q2 -8 6 -12" stroke="#4a2e18" stroke-width="3" fill="none"/><ellipse cx="160" cy="122" rx="8" ry="3.5" fill="#2f8a3a" transform="rotate(-20 160 122)"/><path d="M141 141 q4 -4 9 -3" stroke="#fff" stroke-opacity=".55" stroke-width="3" fill="none" stroke-linecap="round"/>`;
 ANIME_ART.titan=id=>`<circle cx="100" cy="104" r="64" fill="#c4553f" opacity=".18"/>`+
   [[62,70,16],[140,60,20],[150,96,14],[54,104,12]].map(([x,y,r])=>`<circle cx="${x}" cy="${y}" r="${r}" fill="#d9d1cb" opacity=".75"/>`).join('')+
