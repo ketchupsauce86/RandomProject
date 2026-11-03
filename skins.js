@@ -6,9 +6,7 @@
 (function(){
 
 const THEMES=[
-  {id:'heroes',n:'Heroes & Villains'},{id:'anime',n:'Anime'},{id:'west',n:'Wild West'},{id:'cyber',n:'Cyber Neon'},
-  {id:'myth',n:'Myth & Fantasy'},{id:'space',n:'Space'},{id:'ops',n:'Special Ops'},{id:'street',n:'Street & Sports'},
-  {id:'spooky',n:'Spooky'},{id:'xmas',n:'Christmas'}
+  {id:'heroes',n:'Heroes & Villains'},{id:'anime',n:'Anime'},{id:'spooky',n:'Halloween'},{id:'xmas',n:'Christmas'}
 ];
 
 // p plate · c cloth · s undersuit · k straps · m metal · x stripes · v visor · g which parts glow
@@ -93,67 +91,11 @@ const ITEMS=[
   S('Spirit Fox','anime',3,{p:'#f6f1e6',c:'#d6402b',s:'#2a120c',k:'#d6402b',m:'#ffd27a',x:'#ff7a33',v:'#ff7a33',g:'xv',
     acc:[['ears','#f6f1e6','#d6402b'],['tail','#ff8a3d','#ffffff'],['hair','#f6f1e6','long']]}),
   // ---------- Wild West
-  S('Desert Marshal','west',3,{p:'#c49a6c',c:'#7a4a2a',s:'#2a1a10',k:'#5a3a22',m:'#d8b25a',x:'#8a2a1a',v:'#3a2a1a',fin:[0.1,0.85],pat:['c','denim','#5d3a22'],
-    acc:[['hat','#8a5a32','#2a1a10'],['badge','#e3c04a'],['holster','#5a3a22'],['scarf','#8a2a1a']]}),
-  S('Black Hat Outlaw','west',3,{p:'#403830',c:'#5e5044',s:'#141210',k:'#5a2a1a',m:'#b8a98a',x:'#7a1a14',v:'#141210',fin:[0.1,0.9],
-    acc:[['hat','#161412','#7a1a14'],['bandana','#a3221a'],['holster','#3a2a1a']]}),
-  S('Gold Rush','west',4,{p:'#e0b13a',c:'#6b4423',s:'#2a1a0c',k:'#3a2614',m:'#fff1b0',x:'#ffffff',v:'#5a4010',fin:[0.75,0.3],
-    acc:[['hat','#e0b13a','#3a2614'],['badge','#ffffff'],['holster','#3a2614']]}),
-  S('Bounty Hunter','west',2,{p:'#7d6a52',c:'#3f4a36',s:'#1d1d18',k:'#4d3826',m:'#9a9a8a',x:'#b07a3a',v:'#2a2a24',fin:[0.1,0.9],pat:['p','worn','#5d4a36'],
-    acc:[['hat','#5a4632','#2a1d12'],['poncho','#8a4a2a','#d9b27a'],['holster','#3a2a1a']]}),
-  S('Rodeo Star','west',2,{p:'#f2efe8',c:'#c8212e',s:'#1d2a55',k:'#1d2a55',m:'#c0c6cf',x:'#c8212e',v:'#1d2a55',
-    acc:[['hat','#f2efe8','#c8212e'],['badge','#c0c6cf'],['scarf','#1d2a55']]}),
-  S('Canyon Ranger','west',1,{p:'#a6763f',c:'#55623a',s:'#262b1a',k:'#3d2b18',m:'#a39b80',x:'#d2a050',v:'#262b1a',fin:[0.1,0.9],
-    acc:[['hat','#6d5233','#3d2b18'],['bandana','#3d5a7a']]}),
   // ---------- Cyber Neon
-  S('Neon Runner','cyber',3,{p:'#15151f',c:'#ff2bd6',s:'#07070c',k:'#22e6ff',m:'#22e6ff',x:'#22e6ff',v:'#ff2bd6',g:'xvc',fin:[0.4,0.35],
-    acc:[['emblem','chip','#22e6ff','#15151f',1],['antenna','#15151f','#ff2bd6']]}),
-  S('Glitch','cyber',4,{p:'#0f1a14',c:'#0f1a14',s:'#050805',k:'#1aff6b',m:'#1aff6b',x:'#1aff6b',v:'#1aff6b',g:'xv',pat:['p','digital','#1aff6b'],
-    acc:[['emblem','glitch','#1aff6b','#0f1a14',1]]}),
-  S('Synthwave','cyber',3,{p:'#2a0f4f',c:'#ff6a3d',s:'#12062a',k:'#ff2bd6',m:'#ffd34f',x:'#ff2bd6',v:'#ffd34f',g:'xv',pat:['p','grid','#ff2bd6'],
-    acc:[['emblem','sun','#ffd34f','#ff2bd6'],['jetpack','#2a0f4f','#ff2bd6']]}),
-  S('Chrome Ghost','cyber',4,{p:'#e4e8ee',c:'#9aa2ac',s:'#2a2e33',k:'#5a6068',m:'#ffffff',x:'#ffffff',v:'#ffffff',g:'v',fin:[0.6,0.2],
-    acc:[['pauldrons','#d9dee5'],['antenna','#8a929c','#ffffff']]}),
-  S('Circuit Breaker','cyber',2,{p:'#1b2a3a',c:'#1b2a3a',s:'#0a1018',k:'#ffb21a',m:'#ffb21a',x:'#ffb21a',v:'#ffb21a',g:'xv',pat:['c','circuit','#ffb21a'],
-    acc:[['emblem','chip','#ffb21a','#1b2a3a',1]]}),
-  S('Laser Lotus','cyber',3,{p:'#ffffff',c:'#00c2a8',s:'#0c2a2a',k:'#00c2a8',m:'#ff5ca8',x:'#ff5ca8',v:'#00ffd5',g:'xv',
-    acc:[['hair','#00ffd5','long'],['emblem','flower','#ff5ca8','#ffffff',1]]}),
   // ---------- Myth & Fantasy
-  S('Dragon Knight','myth',4,{p:'#5a1414',c:'#2a2a2a',s:'#120606',k:'#c9a227',m:'#c9a227',x:'#ff5a1a',v:'#ff5a1a',g:'xv',fin:[0.55,0.4],pat:['p','scales','#3a0c0c'],
-    acc:[['horns','#2a2a2a'],['wings','#5a1414','#2a0808'],['pauldrons','#5a1414']]}),
-  S('Holy Paladin','myth',4,{p:'#f2efe6',c:'#2a4fa3',s:'#1a2340',k:'#d4a43a',m:'#d4a43a',x:'#ffe08a',v:'#ffe08a',g:'v',fin:[0.6,0.3],
-    acc:[['halo','#ffe08a'],['cape','#2a4fa3','#162a5a'],['emblem','shield','#d4a43a','#f2efe6'],['pauldrons','#d4a43a']]}),
-  S('Frost Warden','myth',3,{p:'#bfe6ff',c:'#2a3f6b',s:'#101a2e',k:'#ffffff',m:'#ffffff',x:'#7fe0ff',v:'#7fe0ff',g:'xv',pat:['p','ice','#e8f7ff'],
-    acc:[['crown','#bfe6ff',1],['cape','#ffffff','#7fb6e0']]}),
-  S('Forest Druid','myth',2,{p:'#5b7a3a',c:'#7a5a33',s:'#1e2a12',k:'#4a3220',m:'#c9b88a',x:'#9cff5a',v:'#9cff5a',g:'v',fin:[0,0.95],pat:['p','leaf','#3d5a24'],
-    acc:[['horns','#8a6a42','antler'],['cape','#3d5a24','#2a3a18']]}),
-  S('Bone King','myth',4,{p:'#e8e0c8',c:'#2a2a2a',s:'#0c0c0c',k:'#5a5a5a',m:'#c9a227',x:'#4dff9e',v:'#4dff9e',g:'xv',
-    acc:[['crown','#c9a227'],['emblem','skull','#0c0c0c','#e8e0c8'],['cape','#141414','#2a6b4a']]}),
-  S('Storm Valkyrie','myth',3,{p:'#c0c8d2',c:'#3a5a8a',s:'#16243a',k:'#d4a43a',m:'#ffffff',x:'#9fd8ff',v:'#9fd8ff',g:'xv',fin:[0.7,0.3],
-    acc:[['wings','#ffffff','#c0c8d2'],['hair','#ffe08a','long'],['emblem','bolt','#9fd8ff','#3a5a8a']]}),
   // ---------- Space
-  S('Astro Explorer','space',2,{p:'#f4f4f2',c:'#ff7a1a',s:'#2a2a2a',k:'#8a8a8a',m:'#c0c6cf',x:'#ff7a1a',v:'#d4a43a',fin:[0.2,0.6],
-    acc:[['jetpack','#f4f4f2','#7fd4ff'],['antenna','#c0c6cf','#ff3b2f'],['emblem','planet','#ff7a1a','#f4f4f2']]}),
-  S('Nebula Drifter','space',4,{p:'#1a1040',c:'#3a1a6b',s:'#08051a',k:'#7a5aff',m:'#b9a6ff',x:'#ff6be6',v:'#7affff',g:'xv',pat:['p','nebula','#ff6be6'],
-    acc:[['emblem','planet','#7affff','#1a1040',1],['halo','#7affff']]}),
-  S('Moon Walker','space',1,{p:'#d9d9d9',c:'#7a7a7a',s:'#2a2a2a',k:'#4a4a4a',m:'#ffffff',x:'#3a7fc2',v:'#2a2a2a',fin:[0.1,0.7],pat:['p','craters','#a9a9a9'],
-    acc:[['jetpack','#d9d9d9','#ffffff']]}),
-  S('Star Admiral','space',3,{p:'#1d2a4f',c:'#e6e6e6',s:'#0c1226',k:'#d4a43a',m:'#d4a43a',x:'#d4a43a',v:'#7fd4ff',g:'v',
-    acc:[['cape','#1d2a4f','#d4a43a'],['emblem','star','#d4a43a','#1d2a4f'],['pauldrons','#d4a43a']]}),
-  S('Alien Envoy','space',3,{p:'#6bd65a',c:'#2a3a6b',s:'#0c1a10',k:'#2a3a6b',m:'#c9ffc0',x:'#c9ffc0',v:'#101010',g:'x',
-    acc:[['antenna','#6bd65a','#c9ffc0'],['antenna2','#6bd65a','#c9ffc0']]}),
   // ---------- Special Ops
-  S('Arctic Ops','ops',1,{p:'#e9eef2',c:'#b9c4cc',s:'#3a4048',k:'#7a8590',m:'#9aa4ae',x:'#5a6670',v:'#20262c',pat:['p','camo','#a9b4be'],acc:[]}),
-  S('Jungle Recon','ops',1,{p:'#4f6a3a',c:'#3a4a2a',s:'#1a2012',k:'#4a3a22',m:'#6a7060',x:'#2a3420',v:'#1a2012',pat:['p','camo','#2a3a1e'],acc:[['headband','#2a3420','#2a3420']]}),
-  S('Dune Ops','ops',1,{p:'#cdb185',c:'#a88a5a',s:'#3a3020',k:'#6a5434',m:'#9a8a6a',x:'#7a5a2a',v:'#3a3020',pat:['p','camo','#a38a60'],acc:[['scarf','#a88a5a']]}),
-  S('Urban Ghost','ops',2,{p:'#5a5f66',c:'#3a3e44',s:'#16181b',k:'#26292d',m:'#8a9098',x:'#ff4a3a',v:'#ff4a3a',g:'v',pat:['p','digital','#3e4248'],acc:[['bandana','#26292d']]}),
-  S('Midnight Strike','ops',2,{p:'#1a1d22',c:'#22262c',s:'#0a0b0d',k:'#30343a',m:'#4a5058',x:'#3aff5a',v:'#3aff5a',g:'v',fin:[0.3,0.5],acc:[['pauldrons','#1a1d22']]}),
   // ---------- Street & Sports
-  S('Hoop Legend','street',2,{p:'#f26b1d',c:'#1a1a1a',s:'#0c0c0c',k:'#ffffff',m:'#ffffff',x:'#ffffff',v:'#1a1a1a',acc:[['headband','#ffffff','#ffffff'],['emblem','ball','#f26b1d','#1a1a1a']]}),
-  S('Graffiti King','street',3,{p:'#ffe14a',c:'#2a2a2a',s:'#141414',k:'#ff3b8a',m:'#3ad1ff',x:'#ff3b8a',v:'#3ad1ff',g:'v',pat:['p','splat','#ff3b8a'],acc:[['hair','#3ad1ff','spiky'],['emblem','crown','#ffe14a','#2a2a2a']]}),
-  S('Gridiron','street',2,{p:'#7a1a2a',c:'#d4a43a',s:'#2a0a10',k:'#ffffff',m:'#ffffff',x:'#ffffff',v:'#2a0a10',fin:[0.3,0.4],acc:[['pauldrons','#7a1a2a'],['emblem','num','#ffffff','#7a1a2a']]}),
-  S('Skate Rat','street',1,{p:'#3a7fc2',c:'#e9e4d3',s:'#1a2a3a',k:'#c8212e',m:'#e9e4d3',x:'#c8212e',v:'#1a2a3a',pat:['c','check','#1a1a1a'],acc:[['hat2','#c8212e']]}),
-  S('Track Star','street',1,{p:'#ffffff',c:'#1d6bf2',s:'#0c1f4a',k:'#1d6bf2',m:'#d0d0d0',x:'#1d6bf2',v:'#1d6bf2',acc:[['headband','#1d6bf2','#ffffff']]}),
   // ---------- Spooky
   S('Pumpkin Rider','spooky',3,{p:'#f27a1a',c:'#2a1a0c',s:'#120a04',k:'#3a6b2a',m:'#3a6b2a',x:'#ffb21a',v:'#ffb21a',g:'xv',acc:[['emblem','jack','#ffb21a','#2a1a0c',1],['cape','#2a1a0c','#f27a1a'],['hat','#1a1a1a','#f27a1a','witch']]}),
   S('Grave Walker','spooky',2,{p:'#7a8a6a',c:'#3a3a40',s:'#141418',k:'#4a3a2a',m:'#9aa08a',x:'#9cff5a',v:'#9cff5a',g:'v',pat:['p','worn','#5a6a4a'],acc:[['emblem','skull','#141418','#d8d8c8']]}),
