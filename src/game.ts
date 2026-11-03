@@ -16,7 +16,7 @@ const fmtTime=s=>{s=Math.max(0,Math.ceil(s));return Math.floor(s/60)+':'+String(
 function angLerp(a,b,t){ let d=((b-a+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI; return a+d*t; }
 
 // ================= constants =================
-const DIFF={easy:{dmg:0.28,spread:1.7,react:[0.9,1.5],cad:2.6,head:0.04,range:65,cover:0.2},normal:{dmg:0.4,spread:1.15,react:[0.6,1.1],cad:2.0,head:0.08,range:80,cover:0.4},hard:{dmg:0.8,spread:0.5,react:[0.18,0.38],cad:1.15,head:0.24,range:130,cover:0.7}};
+const DIFF={easy:{dmg:0.28,spread:1.7,react:[0.9,1.5],cad:2.6,head:0.04,range:65,cover:0.2},normal:{dmg:0.4,spread:1.15,react:[0.6,1.1],cad:2.0,head:0.08,range:80,cover:0.4},hard:{dmg:1.0,spread:0.32,react:[0.12,0.26],cad:0.85,head:0.34,range:170,cover:0.85}};
 // the Zero-G Box: a huge white box (L is half its width, H its height) and 20 bots (see the Zero-G Box section)
 const ZG={L:125,H:90,BOTS:100,state:'float',t:0,camRoll:0,flash:0,blocks:[],flyers:[],pads:[],vend:[]};
 const diff='hard'; // bots always play on hard
@@ -3564,7 +3564,7 @@ function fireBolt(src,origin,dir,w){
 function boltSparks(p){ const s=new T.Sprite(mfSparkMat.clone()); s.position.copy(p); s.scale.setScalar(1.4); s.material.rotation=Math.random()*TAU; world.add(s);
   effects.push({t:0,dur:0.25,obj:s,upd:(e,k)=>{ s.material.opacity=1-k; s.scale.setScalar(1.4*(1-k*0.6)); },done:()=>s.material.dispose()}); }
 // a bolt is a fat beam of light: anyone whose body comes within a hand's width of its path is hit (head shots near the head)
-const BOLT_R=0.75, _bq=new V(), _bh=new V();
+const BOLT_R=0.4, _bq=new V(), _bh=new V();
 function segDist(o,d,len,p){ _bq.subVectors(p,o); const t=clamp(_bq.dot(d),0,len); return _bq.addScaledVector(d,-t).length(); }
 function boltHits(B,o,d,len){
   for(const ent of combatants){ if(!ent.alive) continue; if(ent===B.src&&B.t<BOLT_SELF) continue;
@@ -3600,7 +3600,7 @@ function updateBolts(dt){
       boltHits(B,o,d,dist);
       o.addScaledVector(d,dist); left-=dist;
       if(!n) break;
-      if(n.dot(d)>0) n.negate(); d.reflect(n).normalize(); o.addScaledVector(n,0.03); boltBounceAim(B,o,n); B.pts.push(o.clone()); B.bounces++;
+      if(n.dot(d)>0) n.negate(); d.reflect(n).normalize(); o.addScaledVector(n,0.03); // [v1.61] plain reflections: no steering toward enemies B.pts.push(o.clone()); B.bounces++;
       if(B.bounces%3===1) boltSparks(o); if(player&&o.distanceTo(player.pos)<35&&matchTime-zapT>0.06){ zapT=matchTime; sfx('zapB',o.clone()); }
     }
     // the trail: the last few metres of the path, bending round each bounce
@@ -5761,7 +5761,7 @@ function newMatch(){
   if(MODE!=='br'){ ZG.state='float'; ZG.t=rnd(20,26); ZG.camRoll=0; ZG.flash=0; }
   brScene();
   rollLoadout(); player=makeCombatant(profName(),true); MS.shots=MS.hits=MS.heads=0;
-  Object.assign(player,{slots:[null,{kind:'gun',id:'ar',r:3,ammo:WEAP.ar.mag},{kind:'gun',id:'pump',r:3,ammo:WEAP.pump.mag},{kind:'gun',id:'smg',r:2,ammo:WEAP.smg.mag},{kind:'cons',id:'big',count:2},{kind:'cons',id:'mini',count:3},{kind:'gun',id:'mf',r:4,ammo:MF_CLIP},null,null],
+  Object.assign(player,{slots:[null,{kind:'gun',id:'ar',r:3,ammo:WEAP.ar.mag},{kind:'gun',id:'pump',r:3,ammo:WEAP.pump.mag},{kind:'gun',id:'smg',r:2,ammo:WEAP.smg.mag},{kind:'cons',id:'big',count:2},{kind:'cons',id:'mini',count:3},null,null,null],
     sel:1,bank:0,throwA:null,bouncer:{cd:0},bounceT:0,ball:null,ammo:{light:150,medium:240,heavy:12,shells:48},fireCd:0,bloom:0,reloading:null,consuming:null,dmgDealt:0,wantJump:false,shield:50});
   if(MODE==='br'){ player.slots=[null,null,null,null,null,null,null,null,null]; player.sel=0; player.shield=0; brSpawn(player,0); } else zgSpawn(player,0,ZG.BOTS+1);
   player.pitch=0; applyPickSkin(player);

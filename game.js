@@ -28,7 +28,7 @@
       let d = ((b - a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
       return a + d * t;
     }
-    const DIFF = { easy: { dmg: 0.28, spread: 1.7, react: [0.9, 1.5], cad: 2.6, head: 0.04, range: 65, cover: 0.2 }, normal: { dmg: 0.4, spread: 1.15, react: [0.6, 1.1], cad: 2, head: 0.08, range: 80, cover: 0.4 }, hard: { dmg: 0.8, spread: 0.5, react: [0.18, 0.38], cad: 1.15, head: 0.24, range: 130, cover: 0.7 } };
+    const DIFF = { easy: { dmg: 0.28, spread: 1.7, react: [0.9, 1.5], cad: 2.6, head: 0.04, range: 65, cover: 0.2 }, normal: { dmg: 0.4, spread: 1.15, react: [0.6, 1.1], cad: 2, head: 0.08, range: 80, cover: 0.4 }, hard: { dmg: 1, spread: 0.32, react: [0.12, 0.26], cad: 0.85, head: 0.34, range: 170, cover: 0.85 } };
     const ZG = { L: 125, H: 90, BOTS: 100, state: "float", t: 0, camRoll: 0, flash: 0, blocks: [], flyers: [], pads: [], vend: [] };
     const diff = "hard";
     const GRAV = 30;
@@ -8682,7 +8682,7 @@
         s.scale.setScalar(1.4 * (1 - k * 0.6));
       }, done: () => s.material.dispose() });
     }
-    const BOLT_R = 0.75, _bq = new V(), _bh = new V();
+    const BOLT_R = 0.4, _bq = new V(), _bh = new V();
     function segDist(o, d, len, p) {
       _bq.subVectors(p, o);
       const t = clamp(_bq.dot(d), 0, len);
@@ -8761,9 +8761,6 @@
           if (n.dot(d) > 0) n.negate();
           d.reflect(n).normalize();
           o.addScaledVector(n, 0.03);
-          boltBounceAim(B, o, n);
-          B.pts.push(o.clone());
-          B.bounces++;
           if (B.bounces % 3 === 1) boltSparks(o);
           if (player && o.distanceTo(player.pos) < 35 && matchTime - zapT > 0.06) {
             zapT = matchTime;
@@ -15304,7 +15301,7 @@
       player = makeCombatant(profName(), true);
       MS.shots = MS.hits = MS.heads = 0;
       Object.assign(player, {
-        slots: [null, { kind: "gun", id: "ar", r: 3, ammo: WEAP.ar.mag }, { kind: "gun", id: "pump", r: 3, ammo: WEAP.pump.mag }, { kind: "gun", id: "smg", r: 2, ammo: WEAP.smg.mag }, { kind: "cons", id: "big", count: 2 }, { kind: "cons", id: "mini", count: 3 }, { kind: "gun", id: "mf", r: 4, ammo: MF_CLIP }, null, null],
+        slots: [null, { kind: "gun", id: "ar", r: 3, ammo: WEAP.ar.mag }, { kind: "gun", id: "pump", r: 3, ammo: WEAP.pump.mag }, { kind: "gun", id: "smg", r: 2, ammo: WEAP.smg.mag }, { kind: "cons", id: "big", count: 2 }, { kind: "cons", id: "mini", count: 3 }, null, null, null],
         sel: 1,
         bank: 0,
         throwA: null,
