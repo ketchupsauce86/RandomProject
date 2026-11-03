@@ -168,8 +168,8 @@ const ITEMS=[
     acc:[['elfHat','#1f9a46','#d8212e'],['ears','#f2c49e','#f0a090'],['bowtie','#d8212e'],['belt','#d4a43a']]}),
   S('Rudolph','xmas',3,{p:'#8a5a30',c:'#5e3a1c',s:'#2e1c0e',k:'#c8202c',m:'#f2c230',x:'#e8d9b8',v:'#e8d9b8',fin:[0.05,0.85],
     acc:[['horns','#c9a77a','antler'],['nose'],['scarf','#c8202c'],['choker','#f2c230','#f2c230']]}),
-  S('Frosty','xmas',3,{p:'#f4f8ff',c:'#dfeaf8',s:'#9fb8d6',k:'#141414',m:'#c8d6e8',x:'#c8202c',v:'#141414',fin:[0.05,0.7],pat:['p','snow','#cfe0f4'],
-    acc:[['topHat','#141414','#c8202c'],['carrot'],['buttons','#141414'],['scarf','#c8202c']]}),
+  S('Flurry the Snowpal','xmas',3,{p:'#f4f8ff',c:'#dfeaf8',s:'#9fb8d6',k:'#141414',m:'#c8d6e8',x:'#c8202c',v:'#141414',hide:1,noVisor:1,cel:1,
+    acc:[['snowpal','#2f8a4a','#c8202c']]}), // a whole snowman: three snowballs, twig arms and mittens on the skeleton, no armour
   S('Gingerbread Man','xmas',2,{body:{build:'cookie',cookie:1,skin:'#b8733a',top:'#b8733a',pants:'#b8733a',shoes:'#b8733a',collar:'#b8733a'},big:[1.04,1],
     p:'#b8733a',c:'#9a5a28',s:'#6a3a14',k:'#ffffff',m:'#ffffff',x:'#ffffff',v:'#ffffff',noVisor:1,cel:1,
     acc:[['gingerHead','#b8733a'],['bowtie','#e3243b'],['gumdrops',['#e3243b','#2fae5b','#ffd23f']]]}),
@@ -934,6 +934,42 @@ function gear(T,kind,a,mats,opt){
       for(const s of [-1,1]){ const p=headAt(s*Math.PI/2,-0.14), e=INKED(M(GEO('ear',()=>new T.SphereGeometry(0.018,12,10).scale(0.42,1.15,0.72)),TN(a[0])),0.003);
         e.position.set(HCN[0]+p[0]*0.97,HCN[1]+p[1],HCN[2]+p[2]-0.006); e.rotation.y=s*0.3; g.add(e); } // small ears, tucked close
       out.push(['Head',g]); break; }
+    case 'snowpal': { // [scarf stripe, scarf/mitten red] a hand-built snowman, every part on its own bone so it moves with the animations
+      const snowT=TX('snowpal',()=>{ const cv=document.createElement('canvas'); cv.width=cv.height=256; const x=cv.getContext('2d'); const gr=x.createLinearGradient(0,0,0,256); gr.addColorStop(0,'#ffffff'); gr.addColorStop(1,'#e4eefb'); x.fillStyle=gr; x.fillRect(0,0,256,256);
+        for(let i=0;i<1400;i++){ const r=Math.random(); x.fillStyle=r<0.55?'rgba(170,195,230,.22)':r<0.9?'rgba(255,255,255,.9)':'rgba(140,200,255,.8)'; x.beginPath(); x.arc(Math.random()*256,Math.random()*256,Math.random()*1.6+0.3,0,7); x.fill(); } return cv; });
+      const snow=mats.snowpal||(mats.snowpal=new T.MeshToonMaterial({map:snowT,gradientMap:ramp(T),emissive:'#c8daf2',emissiveIntensity:0.18}));
+      const coal=TN('#1a1a1e',{emissive:'#000000'}), glint=TN('#ffffff'), carrot=TN('#ff7a1a'), wood=TN('#6a4428'), red=TN(a[1]), grn=TN(a[0]), hatM=TN('#16161a'), gold=TN('#ffd23f');
+      const ball=(r,k)=>INKED(M(GEO('sball'+r,()=>{ const g=new T.SphereGeometry(r,40,28), p=g.attributes.position; for(let i=0;i<p.count;i++){ const v=new T.Vector3().fromBufferAttribute(p,i), n=1+0.025*Math.sin(v.x*31+v.y*17)*Math.cos(v.z*23); p.setXYZ(i,v.x*n,v.y*n*k,v.z*n); } g.computeVertexNormals(); return g; }),snow),0.006);
+      // bottom ball on the hips (resting on the ground), middle on the chest, head on the head bone
+      const bot=G(); const b0=ball(0.43,0.9); b0.position.set(0,-0.6,0.02); bot.add(b0); out.push(['Hips',bot]);
+      const mid=G(); const b1=ball(0.31,0.95); b1.position.set(0,-0.08,0.02); mid.add(b1);
+      for(let i=0;i<3;i++){ const bt=INKED(M(GEO('scoal',()=>new T.SphereGeometry(0.032,12,8).scale(1,1,0.55)),coal,0,0.08-i*0.11,0.3-Math.abs(i-1)*0.012),0.003); mid.add(bt); }
+      out.push(['Spine2',mid]);
+      const hd=G(); const b2=ball(0.22,1); b2.position.set(0,0.1,0.03); hd.add(b2);
+      for(const sx of [-1,1]){ const e=INKED(M(GEO('seye',()=>new T.SphereGeometry(0.026,14,10).scale(1,1.15,0.6)),coal,sx*0.075,0.16,0.225),0.0025); hd.add(e); hd.add(M(GEO('sgl',()=>new T.SphereGeometry(0.0075,6,4)),glint,sx*0.075+0.009,0.172,0.238));
+        const br=M(GEO('sbrow',()=>new T.CylinderGeometry(0.008,0.008,0.05,6)),coal,sx*0.075,0.21,0.21); br.rotation.z=Math.PI/2-sx*0.3; hd.add(br);
+        const ck=M(GEO('scheek',()=>new T.CircleGeometry(0.03,16)),TN('#ff9fb0',{transparent:true,opacity:0.7}),sx*0.13,0.085,0.19); ck.rotation.y=sx*0.62; hd.add(ck); }
+      const nose=G(); nose.position.set(0,0.11,0.245); const cn=INKED(M(GEO('scarrot',()=>{ const g=new T.ConeGeometry(0.03,0.17,10,6).rotateX(Math.PI/2).translate(0,0,0.085), p=g.attributes.position; for(let i=0;i<p.count;i++){ const z=p.getZ(i), k=1+0.12*Math.sin(z*90); p.setX(i,p.getX(i)*k); p.setY(i,p.getY(i)*k-z*z*0.6); } g.computeVertexNormals(); return g; }),carrot),0.003); nose.add(cn);
+      for(let i=0;i<3;i++){ const rg=M(GEO('sridge',()=>new T.TorusGeometry(0.022,0.003,4,12)),TN('#c85a10'),0,-0.001-i*0.004,0.03+i*0.04); rg.scale.setScalar(1-i*0.28); nose.add(rg); } hd.add(nose);
+      for(let i=0;i<7;i++){ const t=(i/6-0.5)*1.9, x=Math.sin(t)*0.11, y=0.035-Math.cos(t)*0.03-0.02*(1-Math.abs(i/3-1)); hd.add(INKED(M(GEO('ssm',()=>new T.SphereGeometry(0.014,8,6)),coal,x,y,0.205+0.01*Math.cos(t)),0.002)); }
+      // a tall top hat with a red band and a holly sprig, tipped a little
+      const hat=G(); hat.position.set(0.02,0.3,0.0); hat.rotation.z=-0.12;
+      hat.add(INKED(M(GEO('shbrim',()=>new T.CylinderGeometry(0.2,0.2,0.022,32)),hatM),0.003)); const crown=INKED(M(GEO('shcr',()=>new T.CylinderGeometry(0.135,0.145,0.24,32)),hatM,0,0.13,0),0.003); hat.add(crown);
+      hat.add(M(GEO('shband',()=>new T.CylinderGeometry(0.147,0.149,0.045,32)),red,0,0.04,0));
+      for(const r of [-0.4,0.4]){ const lf=M(GEO('shleaf',()=>new T.SphereGeometry(0.035,10,6).scale(1,0.25,0.5)),grn,0.11*Math.cos(r)+0.02,0.06,0.11); lf.rotation.y=r; hat.add(lf); }
+      for(const [x,z] of [[0.11,0.13],[0.13,0.11],[0.12,0.14]]) hat.add(M(GEO('sberry',()=>new T.SphereGeometry(0.012,8,6)),red,x,0.07,z));
+      hd.add(hat); out.push(['Head',hd]);
+      // a knitted scarf round the neck: red with stripes, a knot and a tail that hangs down the front
+      const sc=G(); sc.position.y=-0.025; sc.scale.setScalar(1.12); const ring=INKED(M(GEO('sscarf',()=>new T.TorusGeometry(0.17,0.05,12,28).rotateX(Math.PI/2).scale(1,1.15,1)),red,0,0.0,0.01),0.003); sc.add(ring);
+      for(const y of [-0.025,0.025]) sc.add(M(GEO('sstripe',()=>new T.TorusGeometry(0.175,0.012,6,28).rotateX(Math.PI/2)),grn,0,y,0.01));
+      const tail=G(); tail.position.set(0.09,-0.03,0.15); tail.rotation.z=0.18; for(let i=0;i<3;i++){ const p=M(GEO('stail',()=>new T.BoxGeometry(0.08,0.09,0.03)),i%2?grn:red,0,-0.05-i*0.09,0); tail.add(p); } tail.add(M(GEO('sfr',()=>new T.BoxGeometry(0.08,0.03,0.02)),gold,0,-0.3,0)); sc.add(tail);
+      out.push(['Neck',sc]);
+      // twig arms with little side twigs, and red knitted mittens
+      const twig=(len,r)=>{ const g=G(); g.add(INKED(M(GEO('stw'+len,()=>new T.CylinderGeometry(r*0.75,r,len,7).translate(0,len/2,0)),wood),0.003)); const s=M(GEO('stws'+len,()=>new T.CylinderGeometry(r*0.4,r*0.55,len*0.35,5).translate(0,len*0.175,0)),wood,0,len*0.55,0); s.rotation.z=0.7; g.add(s); return g; };
+      for(const sd of ['Left','Right']){ out.push([sd+'Arm',twig(0.27,0.022)]); out.push([sd+'ForeArm',twig(0.25,0.018)]);
+        const mt=G(); mt.add(INKED(M(GEO('smit',()=>new T.SphereGeometry(0.06,14,10).scale(0.85,1.25,0.6).translate(0,0.06,0)),red),0.003)); const th=M(GEO('sthumb',()=>new T.SphereGeometry(0.025,10,6).scale(0.8,1.3,0.8)),red,0.045,0.04,0.01); th.rotation.z=-0.6; mt.add(th);
+        mt.add(M(GEO('scuff',()=>new T.CylinderGeometry(0.055,0.055,0.035,14)),TN('#f4f4f4'),0,0.005,0)); out.push([sd+'Hand',mt]); }
+      break; }
     case 'gingerHead': { // [dough] a round cookie head: speckled dough, icing eyes, a piped smile, rosy cheeks
       const tex=TX('dough'+a[0],()=>{ const cv=document.createElement('canvas'); cv.width=cv.height=256; const x=cv.getContext('2d'); x.fillStyle=a[0]; x.fillRect(0,0,256,256);
         for(let i=0;i<900;i++){ x.fillStyle=Math.random()<0.5?'rgba(70,30,8,.22)':'rgba(255,220,170,.18)'; x.beginPath(); x.arc(Math.random()*256,Math.random()*256,Math.random()*2.2+0.4,0,7); x.fill(); } return cv; });

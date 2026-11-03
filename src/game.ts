@@ -1097,7 +1097,7 @@ function applySkin(c,skin){
   if(c.animeBody){ c.animeBody.parent&&c.animeBody.parent.remove(c.animeBody); c.animeBody=null; }
   let geo=null; c.model.traverse(o=>{ if(o.name==='vanguard_Mesh') geo=o.geometry; });
   const mats=skin.def||skin.body?null:skinMaterials(skin,c.baseMats.vanguard_Mesh,c.baseMats.vanguard_visor,geo);
-  c.model.traverse(o=>{ if(o.isMesh) o.material=mats?(o.name==='vanguard_visor'?mats.visor:mats.body):c.baseMats[o.name]; if(o.name==='vanguard_visor') o.visible=!skin.noVisor&&!skin.body; if(o.name==='vanguard_Mesh') o.visible=!skin.body; }); if(c.line) c.line.userData.off=!!skin.body; if(c.line) c.line.visible=!skin.body; // masks like the Joker's replace the visor
+  c.model.traverse(o=>{ if(o.isMesh) o.material=mats?(o.name==='vanguard_visor'?mats.visor:mats.body):c.baseMats[o.name]; if(o.name==='vanguard_visor') o.visible=!skin.noVisor&&!skin.body&&!skin.hide; if(o.name==='vanguard_Mesh') o.visible=!skin.body&&!skin.hide; }); if(c.line) c.line.userData.off=!!(skin.body||skin.hide); if(c.line) c.line.visible=!(skin.body||skin.hide); // masks like the Joker's replace the visor
   if(skin.body){ // anime skins swap the armored soldier for a smooth body on the same skeleton (see skins.js)
     let sm=null; c.model.traverse(o=>{ if(o.name==='vanguard_Mesh') sm=o; });
     let bm=skinMats.get('body'+skin.i); if(!bm){ const geo=SK.bodyGeometry(T,sm.skeleton,skin.body); bm={geo,mat:SK.bodyMaterial(T,geo),line:SK.bodyOutline(T,geo)}; skinMats.set('body'+skin.i,bm); }
