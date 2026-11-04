@@ -9,6 +9,7 @@ declare global {
     gsap: any;
     Draggable: any;
     SOLDIER_GLB: string;
+    MODELS: Record<string, string>;
     SKINS: any;
     PICKAXES: any;
     GAME_VERSION: any;

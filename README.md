@@ -41,9 +41,22 @@ Other files:
 - `pickaxes.js`: the pickaxes (`window.PICKAXES`).
 - `ui.js`: the home screen polish: version badge, What's new list, a GLSL glitch-light layer and GSAP motion.
 - `soldier.js`: the character rig, packed as base64 glTF.
+- `models.js`: models built in Blender by `tools/build_models.py` (see below).
 - `version.js`: the version badge (see below).
 - `news.js`: the News panel's announcements and the chapters its update log is grouped into.
 - `sounds/` and `sounds.js`: recorded sound effects that replace synthesized ones (see below).
+
+## Models
+
+Some models are built in **Blender** from a Python script, so you never have to open Blender to change one. `tools/build_models.py` builds each model with Blender's Python module, exports it as glTF binary and packs it into `models.js`. Right now that covers the booster pad. To change a model, edit its build function and rebuild (no rebuild of `game.js` needed):
+
+```
+pip install bpy                        # once: the bpy package is Blender itself
+python3 tools/build_models.py          # rebuild models.js
+python3 tools/build_models.py --render # also save preview pictures in tools/previews/
+```
+
+To add a model made by hand in Blender instead, export it with **File → Export → glTF 2.0 (.glb)**, Draco compression off, materials using the Principled BSDF. If a model can't load, the game falls back to its simple built-in shape.
 
 ## Sounds
 
@@ -73,7 +86,7 @@ This rewrites `version.js` from the game's git history.
 
 ## Built with
 
-TypeScript, HTML and CSS, GLSL shaders (the glitch light on the home screen in `ui.js`), and Python (the version stamper). Libraries: three.js r128 for the 3D world (with its GLTFLoader and SkeletonUtils, loaded from cdnjs and jsDelivr) and GSAP for the home screen motion. esbuild bundles the TypeScript.
+TypeScript, HTML and CSS, GLSL shaders (the glitch light on the home screen in `ui.js`), and Python (the version stamper and the Blender model builder). Libraries: three.js r128 for the 3D world (with its GLTFLoader and SkeletonUtils, loaded from cdnjs and jsDelivr) and GSAP for the home screen motion. esbuild bundles the TypeScript. Blender builds the booster pad model.
 
 Most sound is synthesized live in the browser with the Web Audio API, with a few CC0 recordings from Kenney in `sounds/`. Each gun has its own layered shot, plus reload steps, distant echoes and bullet whizzes. Sounds in the world are panned left and right, muffled with distance, and arrive later from far away. When your health drops to 35 or below you hear your heartbeat, faster and louder the lower it gets. The home screen and pause screen have a volume slider.
 

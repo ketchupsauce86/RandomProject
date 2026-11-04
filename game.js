@@ -7998,16 +7998,41 @@
       }
     });
     padTex.wrapT = T.RepeatWrapping;
+    let PAD_MODEL = null;
+    function loadModels() {
+      const pad = window.MODELS && window.MODELS.pad;
+      if (!pad || !T.GLTFLoader) return;
+      try {
+        const bin = atob(pad), buf = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+        new T.GLTFLoader().parse(buf.buffer, "", (gl) => {
+          gl.scene.traverse((o) => {
+            if (!o.isMesh) return;
+            o.receiveShadow = true;
+            const m = o.material;
+            m.color.convertLinearToSRGB();
+            m.emissive.convertLinearToSRGB();
+          });
+          PAD_MODEL = gl.scene;
+        }, () => {
+        });
+      } catch (e) {
+      }
+    }
+    loadModels();
     function addPad(pos, n) {
       const g = new T.Group();
       g.position.copy(pos);
       g.quaternion.setFromUnitVectors(UP, n);
-      const base = new T.Mesh(new T.CylinderGeometry(PAD_R, PAD_R + 0.2, 0.25, 28), Lam({ color: 1911354, emissive: 678512 }));
-      base.position.y = 0.12;
-      g.add(base);
+      if (PAD_MODEL) g.add(PAD_MODEL.clone());
+      else {
+        const base = new T.Mesh(new T.CylinderGeometry(PAD_R, PAD_R + 0.2, 0.25, 28), Lam({ color: 1911354, emissive: 678512 }));
+        base.position.y = 0.12;
+        g.add(base);
+      }
       const arrows = new T.Mesh(new T.PlaneGeometry(PAD_R * 1.5, PAD_R * 1.5), new T.MeshBasicMaterial({ map: padTex, color: 6091007, transparent: true, depthWrite: false }));
       arrows.rotation.x = -Math.PI / 2;
-      arrows.position.y = 0.27;
+      arrows.position.y = PAD_MODEL ? 0.37 : 0.27;
       g.add(arrows);
       const glow = new T.Mesh(new T.CylinderGeometry(PAD_R, PAD_R, 2.2, 28, 1, true), new T.MeshBasicMaterial({ color: 6091007, transparent: true, opacity: 0.18, side: T.DoubleSide, depthWrite: false, blending: T.AdditiveBlending }));
       glow.position.y = 1.25;
