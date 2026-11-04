@@ -3315,11 +3315,24 @@ const PAD_R=3.4, PAD_V=34;
 const padTex=canvasTex(128,128,(g,w)=>{ g.clearRect(0,0,w,w); g.strokeStyle='#ffffff'; g.lineWidth=12; g.lineCap='round'; g.lineJoin='round';
   for(const y of [34,70,106]){ g.beginPath(); g.moveTo(26,y); g.lineTo(64,y-26); g.lineTo(102,y); g.stroke(); } });
 padTex.wrapT=T.RepeatWrapping;
+// The pad's body is modelled in Blender (tools/build_models.py, packed in models.js); the plain cylinder stands in if it can't load.
+let PAD_MODEL=null;
+function loadModels(){
+  const pad=window.MODELS&&window.MODELS.pad; if(!pad||!T.GLTFLoader) return;
+  try{ const bin=atob(pad), buf=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
+    new T.GLTFLoader().parse(buf.buffer,'',gl=>{
+      // glTF colours are linear and this renderer outputs them as is, so turn them back into the sRGB picked in Blender
+      gl.scene.traverse(o=>{ if(!o.isMesh) return; o.receiveShadow=true; const m=o.material; m.color.convertLinearToSRGB(); m.emissive.convertLinearToSRGB(); });
+      PAD_MODEL=gl.scene; },()=>{}); }
+  catch(e){}
+}
+loadModels();
 function addPad(pos,n){
   const g=new T.Group(); g.position.copy(pos); g.quaternion.setFromUnitVectors(UP,n);
-  const base=new T.Mesh(new T.CylinderGeometry(PAD_R,PAD_R+0.2,0.25,28),Lam({color:0x1d2a3a,emissive:0x0a5a70})); base.position.y=0.12; g.add(base);
+  if(PAD_MODEL) g.add(PAD_MODEL.clone());   // the clone shares the geometry and materials
+  else { const base=new T.Mesh(new T.CylinderGeometry(PAD_R,PAD_R+0.2,0.25,28),Lam({color:0x1d2a3a,emissive:0x0a5a70})); base.position.y=0.12; g.add(base); }
   const arrows=new T.Mesh(new T.PlaneGeometry(PAD_R*1.5,PAD_R*1.5),new T.MeshBasicMaterial({map:padTex,color:0x5cf0ff,transparent:true,depthWrite:false}));
-  arrows.rotation.x=-Math.PI/2; arrows.position.y=0.27; g.add(arrows);
+  arrows.rotation.x=-Math.PI/2; arrows.position.y=PAD_MODEL?0.37:0.27; g.add(arrows);
   const glow=new T.Mesh(new T.CylinderGeometry(PAD_R,PAD_R,2.2,28,1,true),new T.MeshBasicMaterial({color:0x5cf0ff,transparent:true,opacity:0.18,side:T.DoubleSide,depthWrite:false,blending:T.AdditiveBlending}));
   glow.position.y=1.25; g.add(glow); world.add(g);
   ZG.pads.push({pos:pos.clone(),n:n.clone(),g,glow,arrows,pulse:0});
