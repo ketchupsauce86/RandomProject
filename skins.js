@@ -339,9 +339,9 @@ function wingsCanvas(){ const cv=document.createElement('canvas'); cv.width=cv.h
   x.fillStyle='#f2efe6'; x.strokeStyle='#2a2a2a'; x.lineWidth=4; x.beginPath(); x.moveTo(-46,-50); x.lineTo(46,-50); x.lineTo(46,10); x.quadraticCurveTo(40,44,0,58); x.quadraticCurveTo(-40,44,-46,10); x.closePath(); x.fill(); x.stroke();
   const wing=(s,c)=>{ x.save(); x.scale(s,1); x.fillStyle=c; x.beginPath(); x.moveTo(-2,30); x.quadraticCurveTo(-8,-10,-38,-34); x.quadraticCurveTo(-30,-14,-36,-6); x.quadraticCurveTo(-24,-4,-30,8); x.quadraticCurveTo(-18,8,-22,20); x.quadraticCurveTo(-12,20,-2,30); x.fill(); x.strokeStyle='#1a1a1a'; x.lineWidth=2; x.stroke(); x.restore(); };
   wing(1,'#ffffff'); wing(-1,'#2a5ab8'); return cv; }
-// the Death Note
+// the Spell Tome
 function noteCanvas(){ const cv=document.createElement('canvas'); cv.width=64; cv.height=90; const x=cv.getContext('2d');
-  x.fillStyle='#121214'; x.fillRect(0,0,64,90); x.fillStyle='#e8e8e8'; x.font='bold 11px Georgia, serif'; x.textAlign='center'; x.fillText('DEATH',32,40); x.fillText('NOTE',32,54); return cv; }
+  x.fillStyle='#121214'; x.fillRect(0,0,64,90); x.fillStyle='#e8e8e8'; x.font='bold 11px Georgia, serif'; x.textAlign='center'; x.fillText('SPELL',32,40); x.fillText('TOME',32,54); return cv; }
 
 // ---------------------------------------------------------------- anime bodies
 // A smooth body in place of the armored soldier: tubes swept through the skeleton's joints in the bind pose

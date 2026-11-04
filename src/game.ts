@@ -1486,7 +1486,7 @@ function poseBlend(c,dt){ c.blFDt=dt; if(!c.blNew&&!(c.blT<c.blD)) return;
     bs[i].quaternion.premultiply(_blq.setFromAxisAngle(_blv.fromArray(c.blAx,i*3),x)); }
   c.model.updateMatrixWorld(true); blPropsFollow(c); }
 // props held in a hand ride along with it while the blend moves the hand: [prop, hand bone] pairs that are in a hand
-// this frame (the gun only when the arms were posed onto it; the Death Note book lives in the world)
+// this frame (the gun only when the arms were posed onto it; the Spell Tome book lives in the world)
 function blPropList(c){ const L=c.blPL||(c.blPL=[]); L.length=0; if(c.lcDead) return L;
   if(c.lcGunIK&&c.held) L.push(c.gunMount,'RightHand'); if(c.pick.visible) L.push(c.pick,'RightHand'); if(c.pickL&&c.pickL.visible) L.push(c.pickL,'LeftHand');
   if(c.consG.visible) L.push(c.consG,'RightHand'); if(c.handG&&c.handG.visible) L.push(c.handG,'RightHand'); if(c.lcBook&&c.lcBook.visible) L.push(c.lcBook,'LeftHand');
@@ -1837,7 +1837,7 @@ function animSwingTorso(e,X){ const {A,B,near,upB,right,pickaxe}=X; if(!near) re
 // the held gun or the pickaxe changes, poseSnap lets S1's blend hide the switch.
 function animArms(e,X){ const {c,A,B,near,held,pickaxe,cons,rightB,fwdB,upB}=X;
   X.busy=e.swingT>0||e.guardK>0.05;
-  c.pick.visible=pickaxe&&!e.writing; if(c.pickL) c.pickL.visible=false; // it stays on the shoulder while you swim (the Death Note opens out of the hand to write)
+  c.pick.visible=pickaxe&&!e.writing; if(c.pickL) c.pickL.visible=false; // it stays on the shoulder while you swim (the Spell Tome opens out of the hand to write)
   if(e.isPlayer) syncVest(e);
   let br=0;
   if(e.emote&&near){ br=1; emotePose(e,X); }                                            // [S4]
@@ -2636,7 +2636,7 @@ function updateCamera(dt){
   const ek=0; // emoting keeps the usual camera behind you
   const cyaw=p.yaw+Math.PI*ek, cp=Math.cos(p.pitch); camFwd.set(-Math.sin(cyaw)*cp,Math.sin(p.pitch),-Math.cos(cyaw)*cp); camRight.set(Math.cos(cyaw),0,-Math.sin(cyaw));
   const pivot=tv1.set(p.pos.x,p.pos.y+1.7-0.5*A.crouch,p.pos.z);
-  const gun=!!curItem()&&curItem().kind==='gun', dist=lerp(p.bounceT>0?7.5:ads?2.0:gun?3.4:4.6,3.6,ek), side=(ads?0.8:gun?1.1:0.85)*(1-ek); pivot.y+=lerp(ads?0.05:gun?0.3:0.45,-0.45,ek);
+  const gun=!!curItem()&&curItem().kind==='gun', dist=lerp(p.bounceT>0?6:ads?2.0:gun?2.7:3.5,3.0,ek), side=(ads?0.8:gun?1.1:0.85)*(1-ek); pivot.y+=lerp(ads?0.05:gun?0.3:0.45,-0.45,ek);
   // sprinting on the ceiling: a little head bob and the camera eases back
   const sp=A.sprint||0;
   // landing: the camera dips and settles (Stream 1's landS spring when it exists, else one of ours kicked by the landing)
@@ -2900,7 +2900,7 @@ function buildPickStand(dir?){
   const h=new T.Group(), m=makePickaxe3D(it); h.userData.px=true; h.add(m); h.position.y=1.15; h.scale.setScalar(0.55); pxShown=[h];
   LK.ped.visible=LK.ring.visible=LK.blob.visible=true; lkTint(r.c);
   lkPut(h,dir||0); if(LK.kind!=='picks'||dir==null) lkFrame(true);
-  lkInfo(it.n,`${it.set.n} set · ${pxIdx+1} of ${PX.ITEMS.length}`,r,it.anime?`${it.hero} · ${it.pw}`:it.form?`${it.form.n} · ${Z.n} size`:`${Z.n} size`); $('armNote').textContent=it.pwd||'';
+  lkInfo(it.n,`${it.set.n} set · ${pxIdx+1} of ${PX.ITEMS.length}`,r,it.anime?`${it.pw}`:it.form?`${it.form.n} · ${Z.n} size`:`${Z.n} size`); $('armNote').textContent=it.pwd||'';
   $('armLabels').innerHTML='';
   showEquip();
   [...$('armSets').children].forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.s===it.set.id)));
@@ -3023,7 +3023,7 @@ lkInitRail();
 // ---- locker: the equipped pickaxe is the one you carry into matches (looks only, every pickaxe plays the same)
 let equippedName='Standard Issue';
 // pickaxes that were renamed: a saved equip under the old name carries over
-const PICK_RENAMED={"Jack's Grin":'Jack-o-Lantern','Night Wing':'Spooky Shadow',"Reaper's Toll":'Grim Reaper','Candy Corn Crusher':'Candy Corn',"Witch's Brew":"Witch's Wart",'Ghost Light':'Glossy Ghost'};
+const PICK_RENAMED={'Gum-Gum Fists':'Elastic Fists','Serious Fist':'Calm Fist','Super Saiyan':'Radiant Surge','Attack Titan':'Colossus Form','Nichirin Sword':'Tidecutter Blade','Death Note':'Spell Tome',"Jack's Grin":'Jack-o-Lantern','Night Wing':'Spooky Shadow',"Reaper's Toll":'Grim Reaper','Candy Corn Crusher':'Candy Corn',"Witch's Brew":"Witch's Wart",'Ghost Light':'Glossy Ghost'};
 try{ let v=localStorage.getItem('stormIslandPick'); if(v&&PICK_RENAMED[v]){ v=PICK_RENAMED[v]; localStorage.setItem('stormIslandPick',v); } if(v&&PX&&PX.ITEMS.some(i=>i.n===v)) equippedName=v; }catch(e){}
 function equippedPick(){ return PX?PX.ITEMS.find(i=>i.n===equippedName)||null:null; }
 // Random: a fresh pickaxe and/or skin is rolled at the start of every match (the last one rolled stays equipped)
@@ -4661,10 +4661,10 @@ const POWERS={
 // past a quarter of a second starts the hold move, which keeps going until you let go.
 //  Shadow Kunai (Naruto): tap slashes everyone just in front; hold throws fans of three kunai that cut through
 //    everyone in their path and stick in the walls.
-//  Gum-Gum Fists (Luffy): tap is the Pistol, a fist that stretches out up to 16 m and snaps back; hold is the
-//    Gatling, a blur of stretching fists from both arms.
-//  Serious Fist (Saitama): tap is a Normal Punch whose shockwave blasts everyone in a long cone off their feet;
-//    hold is Consecutive Normal Punches, a barrage of smaller shockwaves.
+//  Elastic Fists: tap is the Pistol, a fist that stretches out up to 16 m and snaps back; hold is the
+//    Barrage, a blur of stretching fists from both arms.
+//  Calm Fist: tap is a Calm Punch whose shockwave blasts everyone in a long cone off their feet;
+//    hold is Consecutive Calm Punches, a barrage of smaller shockwaves.
 let animeSt=null; // the equipped anime style, or null for an ordinary pickaxe
 const ANIME_HOLD=0.26;
 const skinMat=new T.MeshPhongMaterial({color:0xf2c49a,shininess:25,specular:0x332211});
@@ -4686,7 +4686,7 @@ function fistModel(mat){ // a closed fist, knuckles toward +z, about 12 cm acros
   const th=new T.Mesh(FSM.thumb,mat); th.position.set(-0.05,-0.02,0.02); th.rotation.set(0.4,0,1.2); g.add(th); g.traverse((o:any)=>{ if(o.isMesh) o.castShadow=true; }); return g;
 }
 const KTM:any={};
-function katanaModel(){ // Tanjiro's black Nichirin blade: grip at the origin, blade up +y with the edge along +x, a metre long
+function katanaModel(){ // Tanjiro's black Tidecutter blade: grip at the origin, blade up +y with the edge along +x, a metre long
   if(!KTM.steel) Object.assign(KTM,{steel:new T.MeshPhongMaterial({color:0x16181c,shininess:140,specular:0x8a94a8}),edge:new T.MeshPhongMaterial({color:0xd8dee8,shininess:160,specular:0xffffff}),
     iron:GPh(0x26282c,50,0x555555),wrap:GPh(0x15233a,15),dia:GPh(0xe8e2d0,10)});
   const g=new T.Group(), add=(geo,m,x,y,z?)=>{ const o=new T.Mesh(geo,m); o.position.set(x,y,z||0); o.castShadow=true; g.add(o); return o; };
@@ -4718,7 +4718,7 @@ function makeAnime3D(it,held){
     const lf=new T.Mesh(new T.SphereGeometry(0.018,10,6),GPh(0x2f8a3a,20)); lf.scale.set(1.6,0.35,0.8); lf.position.set(0.185,-0.03,0.08); g.add(lf);
     g.scale.setScalar(4.4); g.position.y=0.15; return g; }
   if(held) return g; // fists: the hands are the weapon
-  if(it.anime==='goku'){ // an orange-sleeved fist with Goku's blue wristband, wreathed in spiky Super Saiyan flames
+  if(it.anime==='goku'){ // an orange-sleeved fist with Goku's blue wristband, wreathed in spiky radiant flames
     const gi=GPh(0xf27a1a,25), band=GPh(0x1f4fb8,40), gold=new T.MeshBasicMaterial({color:0xffc928,transparent:true,opacity:0.9,side:T.DoubleSide});
     const sl=new T.Mesh(new T.CylinderGeometry(0.065,0.075,0.3,16),gi); sl.rotation.x=Math.PI/2; sl.position.z=-0.24; g.add(sl);
     const cf=new T.Mesh(new T.CylinderGeometry(0.066,0.066,0.07,16),band); cf.rotation.x=Math.PI/2; cf.position.z=-0.06; g.add(cf);
@@ -4758,12 +4758,12 @@ function makeAnime3D(it,held){
 function animeTap(p){
   if(p.fireCd>0||lockedUp(p)) return;
   if(animeSt==='kunai'){ p.fireCd=0.34; startSwing(p,SWING_T*0.75,null,{hit:1,combo:SWING_T+0.3}); sfx('slash'); }
-  else if(animeSt==='rubber'){ p.fireCd=0.5; punch(p,'Right',{dur:0.5,reach:16,dmg:32,kb:30,name:'Gum-Gum Pistol',stretch:true}); sfx('stretch'); }
+  else if(animeSt==='rubber'){ p.fireCd=0.5; punch(p,'Right',{dur:0.5,reach:16,dmg:32,kb:30,name:'Elastic Jab',stretch:true}); sfx('stretch'); }
   else if(animeSt==='nichirin'){ p.fireCd=0.38; startSwing(p,SWING_T*0.8,null,{hit:1,combo:SWING_T+0.3}); sfx('katana'); }
   else if(animeSt==='deathnote'){ if(!p.writing){ p.fireCd=0.6; startWriting(p); } }
-  else if(animeSt==='goku'){ p.fireCd=0.55; punch(p,'Right',{dur:0.3,reach:0,dmg:36,kb:44,name:'Super Saiyan Strike',shock:0.8,gold:true}); kiFlash(p,0.6); sfx('ssjHit'); }
+  else if(animeSt==='goku'){ p.fireCd=0.55; punch(p,'Right',{dur:0.3,reach:0,dmg:36,kb:44,name:'Radiant Strike',shock:0.8,gold:true}); kiFlash(p,0.6); sfx('ssjHit'); }
   else if(animeSt==='titan'){ if(p.titan&&p.titanS>2){ p.fireCd=0.45; titanPunch(p,'Right'); } else if(!p.titan&&!(p.titanCd>0)){ p.fireCd=0.6; titanStart(p); } else { p.fireCd=0.35; punch(p,'Right',{dur:0.28,reach:0,dmg:12,kb:8,name:'Punch',shock:0.25}); } }
-  else { p.fireCd=0.6; punch(p,'Right',{dur:0.34,reach:0,dmg:45,kb:52,name:'Normal Punch',shock:1}); }
+  else { p.fireCd=0.6; punch(p,'Right',{dur:0.34,reach:0,dmg:45,kb:52,name:'Calm Punch',shock:1}); }
 }
 function animeHold(p,dt){
   if(lockedUp(p)) return;
@@ -4773,9 +4773,9 @@ function animeHold(p,dt){
   p.aGap=(p.aGap||0)-dt; if(p.aGap>0) return;
   const sd=(p.aSide=(p.aSide||0)^1)?'Right':'Left';
   if(animeSt==='kunai'){ p.aGap=0.3; startSwing(p,SWING_T*0.55,((p.swingSide||0)+1)%2,{combo:SWING_T,th:1}); throwKunai(p); }
-  else if(animeSt==='rubber'){ p.aGap=0.055; punch(p,sd,{dur:0.24,reach:rnd(8,11),dmg:7,kb:1.5,name:'Gum-Gum Gatling',stretch:true,spread:0.1,soft:true}); sfx('stretch',null,{gain:0.45}); }
+  else if(animeSt==='rubber'){ p.aGap=0.055; punch(p,sd,{dur:0.24,reach:rnd(8,11),dmg:7,kb:1.5,name:'Elastic Barrage',stretch:true,spread:0.1,soft:true}); sfx('stretch',null,{gain:0.45}); }
   else if(animeSt==='titan'){ if(p.titan&&p.titanS>2){ p.aGap=0.26; titanPunch(p,sd,true); } else if(!p.titan&&!(p.titanCd>0)) titanStart(p); else { p.aGap=0.2; punch(p,sd,{dur:0.2,reach:0,dmg:8,kb:4,name:'Punch',shock:0.2,soft:true}); } }
-  else { p.aGap=0.085; punch(p,sd,{dur:0.17,reach:0,dmg:10,kb:3,name:'Consecutive Normal Punches',shock:0.5,spread:0.05,soft:true}); }
+  else { p.aGap=0.085; punch(p,sd,{dur:0.17,reach:0,dmg:10,kb:3,name:'Consecutive Calm Punches',shock:0.5,spread:0.05,soft:true}); }
 }
 // ---- Naruto: kunai
 const cutMat=new T.MeshBasicMaterial({color:0x2a7dff,transparent:true,depthWrite:false,side:T.DoubleSide,opacity:0.8});
@@ -4888,7 +4888,7 @@ function fistArms(e,B,rightB,upB,fwdB){
     solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],t,sh.clone().addScaledVector(rightB,sx*0.5*S).addScaledVector(upB,-0.6*S));
     poseHand(B,sd,x>0.5?aim:upB.clone().multiplyScalar(0.8).addScaledVector(fwdB,0.5),x>0.5?upB.clone().negate():rightB.clone().multiplyScalar(-sx),1.35); }
 }
-// ---- Goku: Super Saiyan. Tap is a golden strike with a ki shockwave; hold to power up (gold aura, crackling ki),
+// ---- Goku: Radiant Surge. Tap is a golden strike with a ki shockwave; hold to power up (gold aura, crackling ki),
 // then let go and the whole charge bursts out of you in every direction, blasting everyone nearby away.
 const kiMat=new T.SpriteMaterial({map:glowTex,color:0xffc21a,transparent:true,depthWrite:false,opacity:0.85}); // solid colours: additive light vanishes against the white box
 const kiCore=new T.MeshBasicMaterial({color:0xfff6c8,transparent:true,depthWrite:false,fog:false});
@@ -4927,7 +4927,7 @@ function kiRelease(p){
   const {c}=bodyAxis(p), R=7+11*k, dmg=14+46*k, kb=22+48*k;
   for(const e of combatants){ if(!e.alive||e===p) continue; const at=new V(e.pos.x,e.pos.y+1,e.pos.z), d=at.distanceTo(c); if(d>R||!hasLOS(c,at)) continue;
     const dir=at.clone().sub(c).normalize(), fall=1-0.5*d/R;
-    hurt(e,dmg*fall,p,{point:at,weapon:'Super Saiyan Burst',dir,melee:true}); if(!e.alive||e.bounceT>0) continue; e.vel.addScaledVector(dir,kb*fall); e.knockT=Math.max(e.knockT||0,kb*fall/45); }
+    hurt(e,dmg*fall,p,{point:at,weapon:'Radiant Burst',dir,melee:true}); if(!e.alive||e.bounceT>0) continue; e.vel.addScaledVector(dir,kb*fall); e.knockT=Math.max(e.knockT||0,kb*fall/45); }
   // a golden dome blasting outward, two rings and a storm of ki
   const dome=new T.Mesh(new T.SphereGeometry(1,32,20),new T.MeshBasicMaterial({color:0xffcf2a,transparent:true,opacity:0.5,depthWrite:false,side:T.DoubleSide})); dome.position.copy(c); world.add(dome);
   effects.push({t:0,dur:0.5,obj:dome,upd:(e,q)=>{ dome.scale.setScalar(0.5+R*Math.sqrt(q)); dome.material.opacity=0.5*(1-q); },done:()=>{ dome.geometry.dispose(); dome.material.dispose(); }});
@@ -4937,7 +4937,7 @@ function kiRelease(p){
   for(let i=0;i<Math.round(2+5*k);i++){ const d=rv(1).normalize(); zapArc(c.clone().addScaledVector(d,0.5),c.clone().addScaledVector(d,rnd(2,4)*(0.5+k)),0.18,0.02,kiCore,kiGlow); }
   camShake=Math.max(camShake,0.35+0.6*k); sfx('ssjBurst',c.clone(),{k});
 }
-// ---- Eren: the Attack Titan. Tap (or hold) and lightning strikes: you grow into a 15-metre... well, a 3x titan for a few
+// ---- Eren: the Colossus Form. Tap (or hold) and lightning strikes: you grow into a 15-metre... well, a 3x titan for a few
 // seconds, steaming, punching people clean across the box, then shrink back. A titan punch hits a big area in front.
 const TITAN={S:3.2,GROW:0.5,ON:4.5,SHRINK:0.6,CD:7};
 const steamMat=new T.SpriteMaterial({map:glowTex,color:0xa49a92,transparent:true,depthWrite:false,opacity:0.55});
@@ -4983,7 +4983,7 @@ function titanLand(p,P,sh,knock){
   effects.push({t:0,dur:0.35,obj:r,upd:(e,k)=>{ r.scale.setScalar(0.6+k*6); r.position.copy(tip).addScaledVector(P.dir,k*3); r.material.opacity=0.8*(1-k); },done:()=>r.material.dispose()});
   camShake=Math.max(camShake,P.o.soft?0.3:0.6); sfx(n?'titanHit':'titanWhiff',tip.clone(),{v:P.o.soft?0.7:1});
 }
-// ---- Tanjiro: the Nichirin sword. Tap for Water Breathing slashes (a crescent of water follows the blade); hold to
+// ---- Tanjiro: the Tidecutter Blade. Tap for Tide Form slashes (a crescent of water follows the blade); hold to
 // stand on guard, sword up across your body: bullets fired at you from the front ring off the blade, and some fly
 // straight back at whoever shot them.
 const waterMat=new T.MeshBasicMaterial({color:0x1f6fe0,transparent:true,depthWrite:false,side:T.DoubleSide,opacity:0.8});
@@ -5000,7 +5000,7 @@ function waterSlash(p,side){
 function nichirinSlash(p){
   camera.getWorldDirection(tv1); waterSlash(p,p.swingSide); const c=new V(p.pos.x,p.pos.y+1.2,p.pos.z); let n=0;
   for(const e of combatants){ if(!e.alive||e===p) continue; _dv.set(e.pos.x,e.pos.y+1,e.pos.z).sub(c); const d=_dv.length(); if(d>5.2||_dv.dot(tv1)<0.5*d) continue;
-    const at=new V(e.pos.x,e.pos.y+1.1,e.pos.z); if(!hasLOS(c,at)) continue; hurt(e,34,p,{point:at,weapon:'Nichirin Sword',dir:tv1.clone(),melee:true,soft:true});
+    const at=new V(e.pos.x,e.pos.y+1.1,e.pos.z); if(!hasLOS(c,at)) continue; hurt(e,34,p,{point:at,weapon:'Tidecutter Blade',dir:tv1.clone(),melee:true,soft:true});
     if(e.alive&&!(e.bounceT>0)){ e.vel.addScaledVector(tv1,9); e.knockT=Math.max(e.knockT||0,0.2); } cutFx(at); for(let i=0;i<6;i++) mote(dropMat,at.clone(),rnd(0.15,0.3),rnd(0.3,0.5),rv(4)); n++; }
   if(n) sfx('bladeHit',c.clone());
   else { const h=aimHit(p,tv1,camDistNow+5.2); if(h.wall){ sfx('clang',h.p,{v:0.5}); for(let i=0;i<6;i++) mote(sparkOMat,h.p.clone(),rnd(0.12,0.25),0.15,rv(6),10); } }
@@ -5015,16 +5015,16 @@ function deflect(p,shooter,at,dir,dmg){
   effects.push({t:0,dur:0.18,obj:r,upd:(e,k)=>{ r.scale.setScalar(0.15+k*0.9); r.material.opacity=1-k; },done:()=>r.material.dispose()});
   sfx('clang',at.clone()); p.anim.hit=Math.min(1,(p.anim.hit||0)+0.15); camShake=Math.max(camShake,0.12);
   // half the time it goes straight back where it came from
-  if(shooter&&shooter.alive&&Math.random()<0.5){ const tgt=new V(shooter.pos.x,shooter.pos.y+1.2,shooter.pos.z); if(hasLOS(at,tgt)){ tracer(at,tgt); hurt(shooter,dmg*0.7,p,{point:tgt,weapon:POW&&bv(p,'guard')?POW.name:'Nichirin Deflect',dir:tgt.clone().sub(at).normalize()}); return; } }
+  if(shooter&&shooter.alive&&Math.random()<0.5){ const tgt=new V(shooter.pos.x,shooter.pos.y+1.2,shooter.pos.z); if(hasLOS(at,tgt)){ tracer(at,tgt); hurt(shooter,dmg*0.7,p,{point:tgt,weapon:POW&&bv(p,'guard')?POW.name:'Tidecutter Parry',dir:tgt.clone().sub(at).normalize()}); return; } }
   const out=dir.clone().multiplyScalar(-1).add(rv(0.8)).normalize(); tracer(at,at.clone().addScaledVector(out,rnd(8,20)));
 }
-// ---- Light Yagami: the Death Note. Tap: Light flips the notebook open and writes a name (whoever is under your
+// ---- Light Yagami: the Spell Tome. Tap: Light flips the notebook open and writes a name (whoever is under your
 // crosshair), then a black-and-white death beam shoots out of the page and knocks them flying. Hold to keep
 // writing: the longer the name, the bigger the beam, and a full page pierces straight through everyone in its path.
 const NOTE_TAP=0.45, NOTE_MAX=1.6;
 const DN:any={};
 function coverTex(){ if(DN.cover) return DN.cover; const cv=document.createElement('canvas'); cv.width=256; cv.height=340; const x=cv.getContext('2d');
-  x.fillStyle='#0c0c0e'; x.fillRect(0,0,256,340); x.fillStyle='#f2f2f2'; x.textAlign='center'; x.font='bold 40px "Times New Roman",serif'; x.fillText('DEATH',128,150); x.fillText('NOTE',128,196);
+  x.fillStyle='#3a1a5a'; x.fillRect(0,0,256,340); x.fillStyle='#ffd23f'; x.textAlign='center'; x.font='bold 40px "Times New Roman",serif'; x.fillText('SPELL',128,150); x.fillText('TOME',128,196); x.strokeStyle='#ffd23f'; x.lineWidth=3; x.beginPath(); x.arc(128,250,30,0,7); x.stroke();
   x.strokeStyle='#2a2a2e'; x.lineWidth=3; x.strokeRect(10,10,236,320); DN.cover=new T.CanvasTexture(cv); return DN.cover; }
 function noteModel(){ // the closed notebook, held by its bottom edge, standing up +y
   const g=new T.Group(), black=new T.MeshPhongMaterial({color:0x111114,shininess:40}), cov=new T.MeshPhongMaterial({map:coverTex(),shininess:40}), pages=new T.MeshPhongMaterial({color:0xefe9dc});
@@ -5094,7 +5094,7 @@ function deathBeam(p,power){
   const hits=[]; if(h.ent) hits.push(h.ent);
   if(power>0.5){ for(const e of combatants){ if(!e.alive||e===p||hits.includes(e)) continue; _dv.set(e.pos.x,e.pos.y+1,e.pos.z); if(segDist(from,bd,L+1,_dv)<1+0.6*power&&hasLOS(from,_dv)) hits.push(e); } }
   const dmg=40+50*power, kb=36+40*power;
-  for(const e of hits){ const at=new V(e.pos.x,e.pos.y+1.1,e.pos.z); hurt(e,dmg,p,{point:at,weapon:'Death Note',dir:bd.clone()}); if(e.alive&&!(e.bounceT>0)){ e.vel.addScaledVector(bd,kb); e.knockT=Math.max(e.knockT||0,kb/45); } deathBurst(at,0.7+0.6*power); }
+  for(const e of hits){ const at=new V(e.pos.x,e.pos.y+1.1,e.pos.z); hurt(e,dmg,p,{point:at,weapon:'Spell Tome',dir:bd.clone()}); if(e.alive&&!(e.bounceT>0)){ e.vel.addScaledVector(bd,kb); e.knockT=Math.max(e.knockT||0,kb/45); } deathBurst(at,0.7+0.6*power); }
   // the beam: a black core in a white sheath in grey haze, with black and white rings racing down it
   const g=new T.Group(), core=new T.Mesh(beamGeo,dbCore.clone()), sh=new T.Mesh(beamGeo,dbSheath.clone()), hz=new T.Mesh(beamGeo,dbHaze.clone()); g.add(hz); g.add(sh); g.add(core); world.add(g);
   const r0=0.07+0.08*power;
@@ -6003,7 +6003,7 @@ function heroFrame(dt){
   if(!e.emote&&(eq&&!eq.anime||eq&&eq.anime==='nichirin'||eq&&eq.anime==='kunai')){ // [S3] the form's rest pose through pickHold
     const P=pickPose({swingT:0,guardK:0,swingSide:0,ch:c}); P.h.y+=0.008*Math.sin(t*1.7); // [S3] each form's own rest pose and grip, breathing
     c.pick.visible=true; pickHold(c,e,P,rightB,upB,fwdB,1);
-  } else if(!e.emote) c.pick.visible=false; // the fists and the Death Note have nothing to rest on a shoulder
+  } else if(!e.emote) c.pick.visible=false; // the fists and the Spell Tome have nothing to rest on a shoulder
   poseBlend(c,dt); poseStore(c); // [S4] so Stream 1's inertial blend works on the hero too
   HERO.ring.material.opacity=0.45+0.12*Math.sin(t*2);
   // sit the character just right of the middle of the screen, between the logo and the play card
