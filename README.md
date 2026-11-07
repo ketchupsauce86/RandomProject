@@ -14,8 +14,10 @@ Needs a keyboard and mouse. The **Armory** button shows every gun design, and it
 | --- | --- |
 | WASD | Swim toward where you look |
 | Mouse | Look |
-| Space / C | Swim up / down (Space jumps off the ceiling); on Storm Island: jump, leave the jet, open your glider / crouch |
+| Space / C | Swim up / down (Space jumps off the ceiling); on Storm Island: jump, leave the jet, open your glider |
 | Shift | Propel forward fast (uses the stamina bar); sprint on the ceiling |
+| C (on the ground) | Crouch (on Storm Island and on the ceiling) |
+| Ctrl while sprinting | Slide |
 | Left click | Shoot, swing pickaxe, drink a potion |
 | Right click | Aim down sights |
 | 1–9 / wheel | Switch slots |

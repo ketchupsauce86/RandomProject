@@ -761,11 +761,20 @@ function solveIK(A,B,C,target,pole){
     const pb=_v1.subVectors(_ikB,_ikA); pb.addScaledVector(ax,-pb.dot(ax)); const pp=_v4.subVectors(pole,_ikA); pp.addScaledVector(ax,-pp.dot(ax));
     if(pb.lengthSq()>1e-6&&pp.lengthSq()>1e-6){ const s=new V().crossVectors(pb,pp).dot(ax)<0?-1:1; rotateBoneWorld(A,ax,pb.angleTo(pp)*s); } }
 }
+// [v1.63] Kash's moves made in Blender (moves.js, from tools/retarget_moves.py): Walk, Sprint, Crouch (walking crouched),
+// Slide and Swim, as extra clips 'HM_<name>' next to the soldier's own. Each carries its stride (soldier units per loop).
+const HM_NAMES=['Walk','Sprint','Crouch','Slide','Swim'];
+function heroMoveClips(){ const H=window.HERO_MOVES; if(!H||!H.clips) return;
+  for(const n of HM_NAMES){ const C=H.clips[n]; if(!C) continue; const times=[]; for(let i=0;i<C.n;i++) times.push(i/H.fps);
+    // the loader strips ':' from node names (mixamorig:Hips -> mixamorigHips), so the tracks must too or they bind to the model root
+    const tr=[]; for(const k in C.tracks){ const v=C.tracks[k], i=k.lastIndexOf('.'), nm=T.PropertyBinding.sanitizeNodeName(k.slice(0,i))+k.slice(i);
+      tr.push(k.endsWith('.position')?new T.VectorKeyframeTrack(nm,times,v):new T.QuaternionKeyframeTrack(nm,times,v)); }
+    const clip=new T.AnimationClip('HM_'+n,C.dur,tr); (clip as any).stride=C.stride; SOLDIER.clips['HM_'+n]=clip; } }
 function loadSoldier(done){
   if(!T.GLTFLoader||!T.SkeletonUtils){ done(false); return; }
   let finished=false; const fin=ok=>{ if(!finished){ finished=true; done(ok); } };
   setTimeout(()=>fin(false),15000);
-  const ready=gl=>{ SOLDIER={scene:gl.scene,clips:{}}; gl.animations.forEach(a=>SOLDIER.clips[a.name]=a); fin(true); };
+  const ready=gl=>{ SOLDIER={scene:gl.scene,clips:{}}; gl.animations.forEach(a=>SOLDIER.clips[a.name]=a); heroMoveClips(); fin(true); };
   try{ if(!window.SOLDIER_GLB){ fin(false); return; }
     const bin=atob(window.SOLDIER_GLB), buf=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
     new T.GLTFLoader().parse(buf.buffer,'',ready,()=>fin(false)); }
@@ -1068,6 +1077,8 @@ function makeCharacterGLB(){
   model.traverse(o=>{ if(o.isBone){ bones[o.name.replace(/^mixamorig:?/,'')]=o; if(/Hand(Index|Middle|Ring|Pinky|Thumb)\d/.test(o.name)) o.userData.q0=o.quaternion.clone(); } if(o.isMesh){ o.castShadow=true; o.frustumCulled=false; } });
   const mixer=new T.AnimationMixer(model), act={};
   for(const n of ['Idle','Walk','Run','TPose']){ const a=mixer.clipAction(SOLDIER.clips[n]); a.play(); a.setEffectiveWeight(n==='Idle'?1:0); a.time=Math.random()*a.getClip().duration; act[n]=a; }
+  const w:any={Idle:1,Walk:0,Run:0,TPose:0}; let hm=false;
+  for(const n of HM_NAMES){ const cl=SOLDIER.clips['HM_'+n]; if(!cl) continue; const a=mixer.clipAction(cl); a.play(); a.setEffectiveWeight(0); a.setEffectiveTimeScale(0); act['HM_'+n]=a; w['HM_'+n]=0; hm=true; }
   const gunMount=new T.Group(); gunMount.scale.setScalar(GUN_S); g.add(gunMount);
   const pickG=new T.Group(); const handle=new T.Mesh(GEO.handle,colorMat(0x6b4a2a)); handle.position.y=0.35; const ph=new T.Mesh(GEO.pickHead,colorMat(0xb8c4d6)); ph.position.set(0,0.78,0); pickG.add(handle,ph); pickG.visible=false; g.add(pickG);
   // [v1.49] a cartoon ink line round the armour: the body again, inside out and pushed out along its normals
@@ -1075,7 +1086,7 @@ function makeCharacterGLB(){
   const consG=new T.Group(); consG.visible=false; g.add(consG);
   const flash=new T.Sprite(flashMat); flash.scale.setScalar(0.8); flash.visible=false;
   const hb={head:new T.Mesh(HIT_GEO.head,hitMat),chest:new T.Mesh(HIT_GEO.chest,hitMat),legs:new T.Mesh(HIT_GEO.legs,hitMat)}; g.add(hb.head,hb.chest,hb.legs);
-  return {glb:true,line,g,spin,model,bones,mixer,act,gunMount,pick:pickG,consG,consId:'',flash,hb,parts:[hb.head,hb.chest,hb.legs],head:hb.head,heldKey:'',held:null,w:{Idle:1,Walk:0,Run:0,TPose:0}};
+  return {glb:true,line,g,spin,model,bones,mixer,act,gunMount,pick:pickG,consG,consId:'',flash,hb,parts:[hb.head,hb.chest,hb.legs],head:hb.head,heldKey:'',held:null,w,hm};
 }
 // ---- outfits: repaint the soldier's armor and hang themed gear on its bones (see skins.js)
 const SK=window.SKINS||null, skinMats=new Map(), gearMats={};
@@ -1343,7 +1354,7 @@ function deathPose(e,g,c,dt){
   d.spread=d.kind==='ice'?0:Math.min(d.kind==='shot'||d.kind==='burn'?0.45:1,d.spread+dt*(d.stuck?8:3));
   // blown up or burned: the body smoulders until it breaks apart
   if((d.kind==='explosion'||d.kind==='burn')&&g.visible){ d.fx+=dt; if(d.fx>0.06){ d.fx=0; flame(_dv.copy(d.c).add(new V(rnd(-0.4,0.4),rnd(-0.7,0.7),rnd(-0.4,0.4))),rnd(0.5,0.9),rnd(0.35,0.6),new V(rnd(-0.5,0.5),rnd(1,2.5),rnd(-0.5,0.5))); } }
-  const W=c.w; W.TPose=d.spread; W.Idle=(1-d.spread); W.Walk=W.Run=0; for(const k in c.act) c.act[k].setEffectiveWeight(W[k]);
+  const W=c.w; W.TPose=d.spread; W.Idle=(1-d.spread); W.Walk=W.Run=0; for(const k in W) if(k.startsWith('HM_')) W[k]=0; for(const k in c.act) c.act[k].setEffectiveWeight(W[k]);
   if(d.kind!=='ice') c.mixer.update(d.t<0.3?dt*0.3:0); // frozen bodies keep exactly the pose they froze in (no mixer: the bones stay put)
   // squash against the wall right after the hit, and a beat before the shatter: the body shivers and burns white
   const s=d.stuck?Math.exp(-d.stuck.t*7)*Math.sin(Math.min(1,d.stuck.t*12)*Math.PI):0, bt=smooth(d.shatterAt-0.3,d.shatterAt,d.t), fl=1+bt*(0.045*Math.sin(d.t*TAU*15)-0.05);
@@ -1586,8 +1597,10 @@ function animCtx(e,dt,a,aS){
   if(e.isPlayer){ const it=curItem(); if(it&&it.kind==='cons'){ cons=it.id; if(e.consuming&&e.consuming.it===it) useK=e.consuming.t/e.consuming.dur; } }
   else if(e.healT>0){ cons='big'; useK=clamp(1-e.healT/2.5,0,1); held=null; }
   if(e.emote){ held=null; pickaxe=false; cons=null; } // [S4] an emote puts everything away
+  if(e.swimming){ held=null; pickaxe=false; cons=null; } // [v1.63] both arms swim
   setHeld(e,held); setConsHeld(c,cons);
   D(A,'crouch',e.crouch?1:0,a*0.7); D(A,'air',!e.onGround&&!e.zgFloat?1:0,a);
+  if(A.slide==null){ A.slide=0; A.swim=0; A.hmSpr=0; } D(A,'slide',e.slideT>0?1:0,a); D(A,'swim',e.swimming?1:0,aS*0.6); // [v1.63]
   const X:any={e,dt,a,aS,c,A,B,g,fx,fz,fwd,side,speed,held,pickaxe,cons,useK,armOv:{}};
   animCombatState(e,X); // [S3]
   X.pitch=e.isPlayer?e.pitch:(e.aimPitch||0); X.sp=A.sprPose; X.pE=X.pitch*(1-X.sp);
@@ -1627,7 +1640,21 @@ function animClips(e,X){ const {c,A,fwd,speed,aS,dt}=X;
   const s=X.s=e.onGround?speed:0, back=X.back=A.lcBack;
   const wRun=smooth(3.5,6.5,s), wWalk=smooth(0.3,2,s)*(1-wRun), wT=0;
   const wIdle=Math.max(0,1-wRun-wWalk-wT), W=c.w;
-  D(W,'Idle',wIdle,aS); D(W,'Walk',wWalk,aS); D(W,'Run',wRun,aS); D(W,'TPose',wT,aS);
+  if(c.hm){ // [v1.63] Kash's Blender moves: slide, swim and crouch-walk take over the whole body; walking is the Blender
+    // walk and a sprint the Blender sprint, while the soldier's own Idle and Run stay for standing and jogging
+    const mv=smooth(0.3,1.5,s), sl=A.slide||0, sw=(A.swim||0)*(1-sl), cw=A.crouch*mv*(1-sl-sw), f=Math.max(0,1-sl-sw-cw);
+    D(A,'hmSpr',e.sprinting&&e.onGround?1:A.sprint,aS); const spr=A.hmSpr; // (holding sprint is the Blender sprint even a touch under top speed)
+    X.hmCr=Math.min(1,mv*(1-sl-sw)+sl+sw); X.hmOn=true;
+    D(W,'Idle',wIdle*f,aS); D(W,'Walk',0,aS); D(W,'HM_Walk',wWalk*f,aS); D(W,'Run',wRun*(1-spr)*f,aS); D(W,'HM_Sprint',wRun*spr*f,aS); D(W,'TPose',wT,aS);
+    W.HM_Crouch=cw; W.HM_Slide=sl; W.HM_Swim=sw;
+    let tot=0; for(const n in W) tot+=W[n]; if(tot>1) for(const n in W) W[n]/=tot; // (the eased weights can overlap a hard switch)
+    // each move runs on its own phase, paced by the ground covered over its stride (kept within a natural range so
+    // the legs neither freeze nor blur); the slide and a swimmer treading water just play at their own speed
+    const P=A.hmPh||(A.hmPh={}), scW=c.g.scale.y*c.model.scale.y, sp=e.onGround?speed:0;
+    for(const n of HM_NAMES){ const ac=c.act['HM_'+n]; if(!ac) continue; const cl=ac.getClip(), nat=1/cl.duration, str=(cl as any).stride*scW;
+      const rate=n==='Slide'?nat:str>1e-3?clamp(sp/str,n==='Swim'?nat*0.7:0,nat*(n==='Sprint'?2:2.5)):nat;
+      P[n]=(((P[n]==null?hashE(e,11+HM_NAMES.indexOf(n)):P[n])+(n==='Walk'||n==='Crouch'?back:1)*rate*dt)%1+1)%1; ac.time=P[n]*cl.duration; }
+  } else { D(W,'Idle',wIdle,aS); D(W,'Walk',wWalk,aS); D(W,'Run',wRun,aS); D(W,'TPose',wT,aS); }
   for(const n in c.act) c.act[n].setEffectiveWeight(W[n]);
   // stride for the target blend (the weights lag a little; a full stride keeps the cadence natural while they catch up)
   const sc=c.g.scale.y*c.model.scale.y/MODEL_SCALE, str=(wWalk*STR_W+wRun*STR_R*(1+STR_SPR*A.sprint))*sc;
@@ -1655,12 +1682,12 @@ function bend(X,sd,th,kn){ rotateBoneWorld(X.B[sd+'UpLeg'],X.rightB,th); rotateB
 // impacts, superhero landings, emotes write it and return it to 0). A.hipOff (shared, metres in the body frame:
 // x right, y up, z forward) shifts the hips with the feet left where they were; A.lcHip is S1's own idle weight shift.
 function animLegs(e,X){ const {c,A,B,near,upB}=X;
-  const cr=X.cr=A.crouch, crE=X.crE=Math.max(cr,A.landS||0,A.dip||0), ho=A.hipOff;
+  const cr=X.cr=A.crouch*(1-(X.hmCr||0)), crE=X.crE=Math.max(cr,A.landS||0,A.dip||0), ho=A.hipOff; // (a Blender crouch-walk or slide lowers the hips itself)
   const hx=(ho?ho.x||0:0)+(A.lcHip||0), hy=ho?ho.y||0:0, hz=ho?ho.z||0:0, shift=Math.abs(hx)+Math.abs(hy)+Math.abs(hz)>2e-4;
   let feet=null;
   if(near&&(crE>0.01||shift)){ feet=[B.LeftFoot.getWorldPosition(new V()),B.RightFoot.getWorldPosition(new V())]; if(A.air>0.5){ feet[0].addScaledVector(upB,0.25*A.air); feet[1].addScaledVector(upB,0.4*A.air); } }
   X.feet=feet;
-  c.model.position.y=-0.48*crE;
+  c.model.position.y=-0.48*crE-0.28*(c.w.HM_Swim||0); // [v1.63] a swimmer floats low, the back at the surface
   if(shift&&near){ const hp=B.Hips, gs=X.g.scale.x; hp.getWorldPosition(_lv1).addScaledVector(X.rightB,hx*gs).addScaledVector(upB,hy*gs).addScaledVector(X.fwdB,hz*gs); hp.position.copy(hp.parent.worldToLocal(_lv1)); } // (the mixer rewrites Hips.position every frame)
 }
 // [S2] zero-g: a lazy bob while drifting, and cartoon squash and stretch: long on the kick, squashed on the tuck
@@ -1760,7 +1787,7 @@ function animLegPose(e,X){ const {A,B,rightB,fwdB,held,pickaxe,cr,dt}=X;
     if(!held&&!(pickaxe&&e.swingT>0)){ const lift=tk*1.9+A.air*0.25, out=Math.max(0,A.air-tk)*0.85; // the arms settle as A.air runs out
       rotateBoneWorld(B.LeftArm,rightB,lift); rotateBoneWorld(B.RightArm,rightB,lift); rotateBoneWorld(B.LeftArm,fwdB,out); rotateBoneWorld(B.RightArm,fwdB,-out); }
   }
-  if(e.onGround&&A.sprint>0.02){
+  if(e.onGround&&A.sprint>0.02&&!X.hmOn){
     // sprint: on top of the run clip, a longer stride and a high knee on whichever leg is swinging through
     const sp=A.sprint*(1-cr)*(1-A.air), d=B.LeftFoot.getWorldPosition(new V()).sub(B.RightFoot.getWorldPosition(new V())).dot(fwdB), dn=clamp(d/0.5,-1,1);
     const vd=(dn-(A.dn==null?dn:A.dn))/Math.max(dt,1e-3); A.dn=dn; D(A,'swingL',clamp(vd*0.35,-1,1),1-Math.exp(-18*dt));
@@ -1802,7 +1829,8 @@ function animTorso(e,X){ const {A,B,near,upB,right,speed,side,fwd,back,aS,cr,hel
   const twist=speed>1.2?-clamp(Math.atan2(side*(e.zgRoll>1.5?-1:1),Math.abs(fwd))*back,-0.85,0.85):0; D(A,'twist',twist,aS);
   if(near){ rotateBoneWorld(B.Hips,upB,A.twist); rotateBoneWorld(B.Spine,upB,-A.twist*0.5); rotateBoneWorld(B.Spine1,upB,-A.twist*0.5); }
   if(near){ const ls=A.landS||0; // landing: fold forward into the compression (and lift the chest on the rebound), shoulders sag with the weight
-    const lean=-0.28*cr-(held?0.06:0)*Math.min(1,s/4)-0.34*A.sprint-0.3*ls; rotateBoneWorld(B.Spine,right,lean); if(A.sprint>0.01||ls>0.01) rotateBoneWorld(B.Neck,right,0.2*A.sprint+0.18*Math.max(0,ls)); // lean into a sprint, eyes up
+    const spL=X.hmOn&&e.onGround?0:A.sprint; // (the Blender sprint and slide bring their own hunch)
+    const lean=-0.28*cr-(held?0.06:0)*Math.min(1,s/4)-0.34*spL-0.3*ls; rotateBoneWorld(B.Spine,right,lean); if(spL>0.01||ls>0.01) rotateBoneWorld(B.Neck,right,0.2*spL+0.18*Math.max(0,ls)); // lean into a sprint, eyes up
     if(ls>0.01&&B.LeftShoulder){ rotateBoneWorld(B.LeftShoulder,X.fwdB,-0.2*ls); rotateBoneWorld(B.RightShoulder,X.fwdB,0.2*ls); }
     if(held){ for(const n of ['Spine','Spine1','Spine2']) rotateBoneWorld(B[n],right,pE/3); } else rotateBoneWorld(B.Neck,right,pitch*0.5); }
 }
@@ -2400,7 +2428,7 @@ function eliminate(t,killer,weapon,info?){
 function curItem(){ const p=player; return p.sel===0?null:p.slots[p.sel]; }
 function cancelActions(){ player.consuming=null; player.reloading=null; if(player.throwA&&!player.throwA.released) player.throwA=null; }
 function playerFire(){
-  const p=player; if(p.consuming||lockedUp(p)) return;
+  const p=player; if(p.consuming||lockedUp(p)||p.swimming) return; // (both arms are swimming)
   const it=curItem(); if(it&&it.kind==='gun') MS.shots++;
   if(!it){
     if(animeSt){ animeTap(p); return; }
@@ -2635,7 +2663,7 @@ function updateCamera(dt){
   CAM.dead=false;
   const ek=0; // emoting keeps the usual camera behind you
   const cyaw=p.yaw+Math.PI*ek, cp=Math.cos(p.pitch); camFwd.set(-Math.sin(cyaw)*cp,Math.sin(p.pitch),-Math.cos(cyaw)*cp); camRight.set(Math.cos(cyaw),0,-Math.sin(cyaw));
-  const pivot=tv1.set(p.pos.x,p.pos.y+1.7-0.5*A.crouch,p.pos.z);
+  const pivot=tv1.set(p.pos.x,p.pos.y+1.7-0.5*Math.max(A.crouch,0.9*(A.slide||0))-0.5*(A.swim||0),p.pos.z);
   const gun=!!curItem()&&curItem().kind==='gun', dist=lerp(p.bounceT>0?7.5:ads?2.0:gun?3.4:4.6,3.6,ek), side=(ads?0.8:gun?1.1:0.85)*(1-ek); pivot.y+=lerp(ads?0.05:gun?0.3:0.45,-0.45,ek);
   // sprinting on the ceiling: a little head bob and the camera eases back
   const sp=A.sprint||0;
@@ -3167,6 +3195,16 @@ function zgStamina(e,want,dt){
   else { e.stamRest=(e.stamRest||0)+dt; if(e.stamRest>0.6) e.stam=Math.min(100,e.stam+22*dt); }
   return can;
 }
+// [v1.63] Ctrl while sprinting: a slide (Kash's Blender Slide). A burst forward that slows down; let go of Ctrl, jump
+// or leave the ground and it ends. Returns true while sliding (it has set the speed along the ground)
+function slideTick(p,dt,sprint){
+  const ctrl=!!(keys.ControlLeft||keys.ControlRight), go=ctrl&&!p.slideHeld; p.slideHeld=ctrl;
+  if(!(p.slideT>0)){ if(!(go&&sprint&&p.onGround)) return false;
+    const s=Math.max(13,Math.hypot(p.vel.x,p.vel.z)*1.3); p.slideT=1e-3; p.slideV=new V(-Math.sin(p.yaw)*s,0,-Math.cos(p.yaw)*s); sfx('whoosh',null,{}); }
+  p.slideT+=dt; p.slideV.multiplyScalar(Math.exp(-1.5*dt));
+  if(!p.onGround||p.swimming||!ctrl&&p.slideT>0.3||p.slideT>1.3||p.slideV.length()<4){ p.slideT=0; return false; }
+  p.vel.x=p.slideV.x; p.vel.z=p.slideV.z; p.sprinting=false; return true;
+}
 const _zf=new V(), _zr=new V(), _zw=new V();
 function updatePlayerZG(dt){
   const p=player; if(!p.alive){ p.wantJump=false; return; }
@@ -3175,7 +3213,7 @@ function updatePlayerZG(dt){
   const flip=ZG.camRoll>Math.PI/2, cp=Math.cos(p.pitch);
   let mx=(keys.KeyD?1:0)-(keys.KeyA?1:0), mz=(keys.KeyW?1:0)-(keys.KeyS?1:0); if(flip) mx=-mx;
   const my=(keys.Space?1:0)-(keys.KeyC||keys.ControlLeft?1:0);
-  _zr.set(Math.cos(p.yaw),0,-Math.sin(p.yaw)); p.crouch=false;
+  _zr.set(Math.cos(p.yaw),0,-Math.sin(p.yaw)); p.crouch=ZG.state==='ceil'&&!!keys.KeyC&&p.onGround; if(ZG.state!=='ceil') p.slideT=0;
   if(ZG.state!=='ceil'){
     // swim toward where you look; Shift kicks you forward fast
     const prop=zgStamina(p,(keys.ShiftLeft||keys.ShiftRight)&&mz>0&&!ads,dt);
@@ -3188,9 +3226,10 @@ function updatePlayerZG(dt){
   } else {
     p.zgPropel=false; zgStamina(p,false,dt);
     const sprint=(keys.ShiftLeft||keys.ShiftRight)&&mz>0&&!ads; p.sprinting=sprint&&p.onGround;
-    const sp=(ads?4.5:sprint?11:7.5)*slowK(p)*bv(p,'spd',1), fx=-Math.sin(p.yaw), fz=-Math.cos(p.yaw), k=1-Math.exp(-(p.onGround?14:3)*dt);
-    p.vel.x=lerp(p.vel.x,(fx*mz+_zr.x*mx)*sp,k); p.vel.z=lerp(p.vel.z,(fz*mz+_zr.z*mx)*sp,k);
-    if(p.onGround&&p.wantJump){ p.vel.y=-10.5; p.onGround=false; sfx('jump'); }
+    if(!slideTick(p,dt,sprint)){ // [v1.63] on the ceiling too: C crouches, Ctrl while sprinting slides
+      const sp=(ads?4.5:p.crouch?3.8:sprint?11:7.5)*slowK(p)*bv(p,'spd',1), fx=-Math.sin(p.yaw), fz=-Math.cos(p.yaw), k=1-Math.exp(-(p.onGround?14:3)*dt);
+      p.vel.x=lerp(p.vel.x,(fx*mz+_zr.x*mx)*sp,k); p.vel.z=lerp(p.vel.z,(fz*mz+_zr.z*mx)*sp,k); }
+    if(p.onGround&&p.wantJump){ p.vel.y=-10.5; p.onGround=false; p.slideT=0; sfx('jump'); }
     p.zgTx=0;
   }
   p.wantJump=false; zgMove(p,dt);
@@ -5506,9 +5545,9 @@ function brKingdomsUpdate(dt){ const t=BR.t;
   const p=player; if(!p) return;
   const K=(BR.K||[]).find(k=>Math.hypot(p.pos.x-k.x,p.pos.z-k.z)<k.r); if(K&&K!==BR.kIn&&p.br==='ground') banner(K.n,'',2.2); if(p.br==='ground'||!K) BR.kIn=K||null;
   const near=(o)=>o&&Math.hypot(camera.position.x-o.x,camera.position.z-o.z)<o.r+40;
-  if(near(BR.snowAt)&&Math.random()<0.8) for(let i=0;i<3;i++) mote(auraMats(0xffffff).soft,camera.position.clone().add(new V(rnd(-25,25),rnd(4,16),rnd(-25,25))),rnd(0.2,0.35),2.5,new V(rnd(-0.6,0.6),-3,rnd(-0.6,0.6)));
+  if(near(BR.snowAt)&&Math.random()<0.8) for(let i=0;i<3;i++) mote(auraMats(0xffffff).halo,camera.position.clone().add(new V(rnd(-25,25),rnd(4,16),rnd(-25,25))),rnd(0.2,0.35),2.5,new V(rnd(-0.6,0.6),-3,rnd(-0.6,0.6)));
   if(near(BR.sporesAt)&&Math.random()<0.5) mote(auraMats(pick([0xff7ad1,0x5cf0ff,0x9a5cff])).spark,new V(BR.sporesAt.x+rnd(-40,40),brHeight(BR.sporesAt.x,BR.sporesAt.z)+rnd(1,12),BR.sporesAt.z+rnd(-40,40)),rnd(0.3,0.6),3,new V(rnd(-0.4,0.4),rnd(0.3,0.9),rnd(-0.4,0.4)));
-  const F=BR.fountain; if(F&&camera.position.distanceTo(_brv0.set(F.x,F.y,F.z))<90&&Math.random()<0.9) for(let i=0;i<2;i++){ const a=rnd(0,TAU); mote(auraMats(0xbfe6ff).soft,new V(F.x,F.y,F.z),rnd(0.3,0.5),1,new V(Math.cos(a)*2,rnd(5,7),Math.sin(a)*2)); }
+  const F=BR.fountain; if(F&&camera.position.distanceTo(_brv0.set(F.x,F.y,F.z))<90&&Math.random()<0.9) for(let i=0;i<2;i++){ const a=rnd(0,TAU); mote(auraMats(0xbfe6ff).halo,new V(F.x,F.y,F.z),rnd(0.3,0.5),1,new V(Math.cos(a)*2,rnd(5,7),Math.sin(a)*2)); }
 }
 // the minimap names
 function brMapNames(g,M){ const k=M/BR.W; g.save(); g.font='bold 9px system-ui'; g.textAlign='center'; for(const K of BR.K||[]){ const x=(K.x+BR.W/2)*k, y=(K.z+BR.W/2)*k; g.lineWidth=3; g.strokeStyle='rgba(20,10,40,.8)'; g.strokeText(K.n,x,y); g.fillStyle=K.col; g.fillText(K.n,x,y); } g.restore(); }
@@ -5671,7 +5710,7 @@ function brMove(e,dt){
   const fl=brFloor(p.x,p.z), was=e.onGround; let on=e.brStand&&e.vel.y<=0; e.brStand=false;
   if(p.y<=fl+0.02){ p.y=fl; if(e.vel.y<0) e.vel.y=0; on=true; }
   else if(was&&e.br==='ground'&&p.y-fl<0.5&&e.vel.y<=0){ p.y=fl; on=true; } // walking downhill keeps your feet on the slope
-  e.onGround=on;
+  e.onGround=on; e.swimming=on&&e.br==='ground'&&brHeight(p.x,p.z)<BR_SEA-1.0; // [v1.63] deep water: swim (the sea floor there is the flat BR_SEA-0.9)
   if(on&&e.br!=='ground'){ const fall=-Math.min(e.vel.y,0); if(e.br==='fall') brCrash(e,fall); else brDust(e.pos,0.8); e.brNoGlide=false; e.br='ground'; e.zgFloat=false; e.zgTx=0; if(e.ch&&e.ch.glider) e.ch.glider.visible=false;
     e.anim.land=clamp(Math.max(fall,8)/20,0.3,1); if(e===player){ sfx('land',null,{v:12,surf:'rock'}); camShake=Math.max(camShake,0.3); } }
   if(e.onGround&&!was&&e.br==='ground'&&(e.brFall||0)>9){ e.anim.land=clamp(e.brFall/20,0.3,1); if(e===player) sfx('land',null,{v:e.brFall,surf:'rock'}); }
@@ -5704,7 +5743,7 @@ function brAir(e,wx,wz,dt){
     if(e===player||e.pos.distanceTo(camera.position)<60){ e.brTr=(e.brTr||0)-dt; if(e.brTr<=0&&e.ch&&e.ch.glider){ e.brTr=0.05; for(const x of [-2.4,2.4]) mote(auraMats(0xff3fd4).spark,e.ch.glider.localToWorld(_brv0.set(x,0,-0.9)).clone(),0.5,0.7,new V()); } } }
 }
 function updatePlayerBR(dt){
-  const p=player; if(!p.alive){ p.wantJump=false; return; }
+  const p=player; if(!p.alive){ p.wantJump=false; p.slideT=0; return; }
   if(p.br==='jet'){ if(p.wantJump&&BR.jet.t>0.4) brDrop(p); else { p.pos.copy(BR.jet.g.position); p.vel.set(0,0,0); } p.wantJump=false; return; }
   if(p.bounceT>0){ p.wantJump=false; updateBounce(p,dt); return; }
   if(brCrashTick(p,dt)){ p.wantJump=false; return; }
@@ -5713,10 +5752,11 @@ function updatePlayerBR(dt){
   let wx=fx*mz+rx*mx, wz=fz*mz+rz*mx; const wl=Math.hypot(wx,wz); if(wl>1){ wx/=wl; wz/=wl; }
   if(p.br==='fall'||p.br==='glide'){ if(p.wantJump&&p.br==='fall') p.brOpen=true; brAir(p,wx,wz,dt); p.wantJump=false; brMove(p,dt); return; }
   if(lockedUp(p)){ p.wantJump=false; p.vel.x*=Math.exp(-6*dt); p.vel.z*=Math.exp(-6*dt); brMove(p,dt); return; }
-  const sprint=(keys.ShiftLeft||keys.ShiftRight)&&mz>0&&!ads; p.sprinting=sprint&&p.onGround; p.crouch=!!(keys.KeyC||keys.ControlLeft)&&p.onGround;
-  const sp=(ads?4.5:p.crouch?3.5:sprint?10:7)*slowK(p)*bv(p,'spd',1), k=1-Math.exp(-(p.onGround?14:2.5)*dt);
-  p.vel.x=lerp(p.vel.x,wx*sp,k); p.vel.z=lerp(p.vel.z,wz*sp,k);
-  if(p.onGround&&p.wantJump){ p.vel.y=9.5; p.onGround=false; sfx('jump'); }
+  const swim=p.swimming, sprint=(keys.ShiftLeft||keys.ShiftRight)&&mz>0&&!ads&&!swim; p.sprinting=sprint&&p.onGround; p.crouch=!!keys.KeyC&&p.onGround&&!swim;
+  if(!slideTick(p,dt,sprint)){ // [v1.63] C crouches, Ctrl while sprinting slides; in deep water you swim (slower, no jumping)
+    const sp=(swim?4.2:ads?4.5:p.crouch?3.5:sprint?10:7)*slowK(p)*bv(p,'spd',1), k=1-Math.exp(-(p.onGround?(swim?4:14):2.5)*dt);
+    p.vel.x=lerp(p.vel.x,wx*sp,k); p.vel.z=lerp(p.vel.z,wz*sp,k); }
+  if(p.onGround&&p.wantJump&&!swim){ p.vel.y=9.5; p.onGround=false; p.slideT=0; sfx('jump'); }
   p.wantJump=false; p.zgTx=0; brMove(p,dt);
 }
 // bots: ride the jet to a random point, skydive and glide toward a landing spot, then fight on foot and keep inside the storm
@@ -6041,6 +6081,6 @@ window.__game={keys,camera,sfx:(k,o)=>sfx(k,null,o),get audioOk(){return !!(AC&&
   equipPick:n=>{ equippedName=n; applyPickSkin(player); refreshHotbar(); }, get POW(){return POW;}, get pw(){return {shots:pwShots.length,zones:pwZones.length,zd:pwZones.map(z=>{ const e=combatants.find(c=>c!==player&&c.alive); return e?+z.pos.distanceTo(e.pos).toFixed(1):-1; }),pd:+chest(player).distanceTo(camera.position).toFixed(1),walls:pwWalls.map(w=>[w.m.position.toArray().map(Math.round),w.m.scale.x,w.m.visible])};},
   renderer,scene,mouse,shop:()=>openShop(),fire:()=>playerFire(),kill:(e,weapon,info)=>eliminate(e,null,weapon,info),colliderCount:()=>colliders.size,get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},get ZG(){return ZG;},get splats(){return splats.length;},get heartT(){return heartT;},startMatch,update,setState:s=>state=s};
 Object.assign(window.__game,{emote:(k,o)=>startEmote(player,k,o),emoteOn:(e,k,o)=>startEmote(e,k,o),stopEmote:()=>stopEmote(player,true),EM,EMOTES,get HERO(){return HERO;},heroEmote:k=>heroEmote(k)}); // [S4] test hooks
-Object.assign((window as any).__game,{BR,brOpenChest,get MODE(){ return MODE; }});
+Object.assign((window as any).__game,{BR,brOpenChest,brHeight,get MODE(){ return MODE; }});
 Object.assign((window as any).__game,{pwGo:()=>{ const H=POW&&POW.hold; if(!H) return false; if(H.kind==='chan'){ for(let i=0;i<20;i++) H.tick(player,0.05,i*0.05); return true; } H.go(player,1); return true; }}); // [v1.47] test hook: fire the held pickaxe's special move
 })();

@@ -2114,6 +2114,25 @@
         }
       }
     }
+    const HM_NAMES = ["Walk", "Sprint", "Crouch", "Slide", "Swim"];
+    function heroMoveClips() {
+      const H = window.HERO_MOVES;
+      if (!H || !H.clips) return;
+      for (const n of HM_NAMES) {
+        const C = H.clips[n];
+        if (!C) continue;
+        const times = [];
+        for (let i = 0; i < C.n; i++) times.push(i / H.fps);
+        const tr = [];
+        for (const k in C.tracks) {
+          const v = C.tracks[k], i = k.lastIndexOf("."), nm = T.PropertyBinding.sanitizeNodeName(k.slice(0, i)) + k.slice(i);
+          tr.push(k.endsWith(".position") ? new T.VectorKeyframeTrack(nm, times, v) : new T.QuaternionKeyframeTrack(nm, times, v));
+        }
+        const clip = new T.AnimationClip("HM_" + n, C.dur, tr);
+        clip.stride = C.stride;
+        SOLDIER.clips["HM_" + n] = clip;
+      }
+    }
     function loadSoldier(done2) {
       if (!T.GLTFLoader || !T.SkeletonUtils) {
         done2(false);
@@ -2130,6 +2149,7 @@
       const ready = (gl) => {
         SOLDIER = { scene: gl.scene, clips: {} };
         gl.animations.forEach((a) => SOLDIER.clips[a.name] = a);
+        heroMoveClips();
         fin(true);
       };
       try {
@@ -2655,6 +2675,19 @@
         a.time = Math.random() * a.getClip().duration;
         act[n] = a;
       }
+      const w = { Idle: 1, Walk: 0, Run: 0, TPose: 0 };
+      let hm = false;
+      for (const n of HM_NAMES) {
+        const cl = SOLDIER.clips["HM_" + n];
+        if (!cl) continue;
+        const a = mixer.clipAction(cl);
+        a.play();
+        a.setEffectiveWeight(0);
+        a.setEffectiveTimeScale(0);
+        act["HM_" + n] = a;
+        w["HM_" + n] = 0;
+        hm = true;
+      }
       const gunMount = new T.Group();
       gunMount.scale.setScalar(GUN_S);
       g.add(gunMount);
@@ -2687,7 +2720,7 @@
       flash.visible = false;
       const hb = { head: new T.Mesh(HIT_GEO.head, hitMat), chest: new T.Mesh(HIT_GEO.chest, hitMat), legs: new T.Mesh(HIT_GEO.legs, hitMat) };
       g.add(hb.head, hb.chest, hb.legs);
-      return { glb: true, line, g, spin, model, bones, mixer, act, gunMount, pick: pickG, consG, consId: "", flash, hb, parts: [hb.head, hb.chest, hb.legs], head: hb.head, heldKey: "", held: null, w: { Idle: 1, Walk: 0, Run: 0, TPose: 0 } };
+      return { glb: true, line, g, spin, model, bones, mixer, act, gunMount, pick: pickG, consG, consId: "", flash, hb, parts: [hb.head, hb.chest, hb.legs], head: hb.head, heldKey: "", held: null, w, hm };
     }
     const SK = window.SKINS || null, skinMats = /* @__PURE__ */ new Map(), gearMats = {};
     function skinMaterials(skin, body, visor, geo) {
@@ -3288,6 +3321,7 @@
       W.TPose = d.spread;
       W.Idle = 1 - d.spread;
       W.Walk = W.Run = 0;
+      for (const k in W) if (k.startsWith("HM_")) W[k] = 0;
       for (const k in c.act) c.act[k].setEffectiveWeight(W[k]);
       if (d.kind !== "ice") c.mixer.update(d.t < 0.3 ? dt * 0.3 : 0);
       const s = d.stuck ? Math.exp(-d.stuck.t * 7) * Math.sin(Math.min(1, d.stuck.t * 12) * Math.PI) : 0, bt = smooth(d.shatterAt - 0.3, d.shatterAt, d.t), fl = 1 + bt * (0.045 * Math.sin(d.t * TAU * 15) - 0.05);
@@ -3801,10 +3835,22 @@
         pickaxe = false;
         cons = null;
       }
+      if (e.swimming) {
+        held = null;
+        pickaxe = false;
+        cons = null;
+      }
       setHeld(e, held);
       setConsHeld(c, cons);
       D(A, "crouch", e.crouch ? 1 : 0, a * 0.7);
       D(A, "air", !e.onGround && !e.zgFloat ? 1 : 0, a);
+      if (A.slide == null) {
+        A.slide = 0;
+        A.swim = 0;
+        A.hmSpr = 0;
+      }
+      D(A, "slide", e.slideT > 0 ? 1 : 0, a);
+      D(A, "swim", e.swimming ? 1 : 0, aS * 0.6);
       const X = { e, dt, a, aS, c, A, B, g, fx, fz, fwd, side, speed, held, pickaxe, cons, useK, armOv: {} };
       animCombatState(e, X);
       X.pitch = e.isPlayer ? e.pitch : e.aimPitch || 0;
@@ -3857,10 +3903,39 @@
       const s = X.s = e.onGround ? speed : 0, back = X.back = A.lcBack;
       const wRun = smooth(3.5, 6.5, s), wWalk = smooth(0.3, 2, s) * (1 - wRun), wT = 0;
       const wIdle = Math.max(0, 1 - wRun - wWalk - wT), W = c.w;
-      D(W, "Idle", wIdle, aS);
-      D(W, "Walk", wWalk, aS);
-      D(W, "Run", wRun, aS);
-      D(W, "TPose", wT, aS);
+      if (c.hm) {
+        const mv = smooth(0.3, 1.5, s), sl = A.slide || 0, sw = (A.swim || 0) * (1 - sl), cw = A.crouch * mv * (1 - sl - sw), f = Math.max(0, 1 - sl - sw - cw);
+        D(A, "hmSpr", e.sprinting && e.onGround ? 1 : A.sprint, aS);
+        const spr = A.hmSpr;
+        X.hmCr = Math.min(1, mv * (1 - sl - sw) + sl + sw);
+        X.hmOn = true;
+        D(W, "Idle", wIdle * f, aS);
+        D(W, "Walk", 0, aS);
+        D(W, "HM_Walk", wWalk * f, aS);
+        D(W, "Run", wRun * (1 - spr) * f, aS);
+        D(W, "HM_Sprint", wRun * spr * f, aS);
+        D(W, "TPose", wT, aS);
+        W.HM_Crouch = cw;
+        W.HM_Slide = sl;
+        W.HM_Swim = sw;
+        let tot = 0;
+        for (const n in W) tot += W[n];
+        if (tot > 1) for (const n in W) W[n] /= tot;
+        const P = A.hmPh || (A.hmPh = {}), scW = c.g.scale.y * c.model.scale.y, sp = e.onGround ? speed : 0;
+        for (const n of HM_NAMES) {
+          const ac = c.act["HM_" + n];
+          if (!ac) continue;
+          const cl = ac.getClip(), nat = 1 / cl.duration, str2 = cl.stride * scW;
+          const rate2 = n === "Slide" ? nat : str2 > 1e-3 ? clamp(sp / str2, n === "Swim" ? nat * 0.7 : 0, nat * (n === "Sprint" ? 2 : 2.5)) : nat;
+          P[n] = (((P[n] == null ? hashE(e, 11 + HM_NAMES.indexOf(n)) : P[n]) + (n === "Walk" || n === "Crouch" ? back : 1) * rate2 * dt) % 1 + 1) % 1;
+          ac.time = P[n] * cl.duration;
+        }
+      } else {
+        D(W, "Idle", wIdle, aS);
+        D(W, "Walk", wWalk, aS);
+        D(W, "Run", wRun, aS);
+        D(W, "TPose", wT, aS);
+      }
       for (const n in c.act) c.act[n].setEffectiveWeight(W[n]);
       const sc = c.g.scale.y * c.model.scale.y / MODEL_SCALE, str = (wWalk * STR_W + wRun * STR_R * (1 + STR_SPR * A.sprint)) * sc;
       const rate = str > 1e-3 ? Math.min(lerp(1.6, 3.6, wRun), s / str) : 0;
@@ -3893,7 +3968,7 @@
     }
     function animLegs(e, X) {
       const { c, A, B, near, upB } = X;
-      const cr = X.cr = A.crouch, crE = X.crE = Math.max(cr, A.landS || 0, A.dip || 0), ho = A.hipOff;
+      const cr = X.cr = A.crouch * (1 - (X.hmCr || 0)), crE = X.crE = Math.max(cr, A.landS || 0, A.dip || 0), ho = A.hipOff;
       const hx = (ho ? ho.x || 0 : 0) + (A.lcHip || 0), hy = ho ? ho.y || 0 : 0, hz = ho ? ho.z || 0 : 0, shift = Math.abs(hx) + Math.abs(hy) + Math.abs(hz) > 2e-4;
       let feet = null;
       if (near && (crE > 0.01 || shift)) {
@@ -3904,7 +3979,7 @@
         }
       }
       X.feet = feet;
-      c.model.position.y = -0.48 * crE;
+      c.model.position.y = -0.48 * crE - 0.28 * (c.w.HM_Swim || 0);
       if (shift && near) {
         const hp = B.Hips, gs = X.g.scale.x;
         hp.getWorldPosition(_lv1).addScaledVector(X.rightB, hx * gs).addScaledVector(upB, hy * gs).addScaledVector(X.fwdB, hz * gs);
@@ -4088,7 +4163,7 @@
           rotateBoneWorld(B.RightArm, fwdB, -out);
         }
       }
-      if (e.onGround && A.sprint > 0.02) {
+      if (e.onGround && A.sprint > 0.02 && !X.hmOn) {
         const sp = A.sprint * (1 - cr) * (1 - A.air), d = B.LeftFoot.getWorldPosition(new V()).sub(B.RightFoot.getWorldPosition(new V())).dot(fwdB), dn = clamp(d / 0.5, -1, 1);
         const vd = (dn - (A.dn == null ? dn : A.dn)) / Math.max(dt, 1e-3);
         A.dn = dn;
@@ -4171,9 +4246,10 @@
       }
       if (near) {
         const ls = A.landS || 0;
-        const lean = -0.28 * cr - (held ? 0.06 : 0) * Math.min(1, s / 4) - 0.34 * A.sprint - 0.3 * ls;
+        const spL = X.hmOn && e.onGround ? 0 : A.sprint;
+        const lean = -0.28 * cr - (held ? 0.06 : 0) * Math.min(1, s / 4) - 0.34 * spL - 0.3 * ls;
         rotateBoneWorld(B.Spine, right, lean);
-        if (A.sprint > 0.01 || ls > 0.01) rotateBoneWorld(B.Neck, right, 0.2 * A.sprint + 0.18 * Math.max(0, ls));
+        if (spL > 0.01 || ls > 0.01) rotateBoneWorld(B.Neck, right, 0.2 * spL + 0.18 * Math.max(0, ls));
         if (ls > 0.01 && B.LeftShoulder) {
           rotateBoneWorld(B.LeftShoulder, X.fwdB, -0.2 * ls);
           rotateBoneWorld(B.RightShoulder, X.fwdB, 0.2 * ls);
@@ -5572,7 +5648,7 @@
     }
     function playerFire() {
       const p = player;
-      if (p.consuming || lockedUp(p)) return;
+      if (p.consuming || lockedUp(p) || p.swimming) return;
       const it = curItem();
       if (it && it.kind === "gun") MS.shots++;
       if (!it) {
@@ -6219,7 +6295,7 @@
       const cyaw = p.yaw + Math.PI * ek, cp = Math.cos(p.pitch);
       camFwd.set(-Math.sin(cyaw) * cp, Math.sin(p.pitch), -Math.cos(cyaw) * cp);
       camRight.set(Math.cos(cyaw), 0, -Math.sin(cyaw));
-      const pivot = tv1.set(p.pos.x, p.pos.y + 1.7 - 0.5 * A.crouch, p.pos.z);
+      const pivot = tv1.set(p.pos.x, p.pos.y + 1.7 - 0.5 * Math.max(A.crouch, 0.9 * (A.slide || 0)) - 0.5 * (A.swim || 0), p.pos.z);
       const gun = !!curItem() && curItem().kind === "gun", dist = lerp(p.bounceT > 0 ? 7.5 : ads ? 2 : gun ? 3.4 : 4.6, 3.6, ek), side = (ads ? 0.8 : gun ? 1.1 : 0.85) * (1 - ek);
       pivot.y += lerp(ads ? 0.05 : gun ? 0.3 : 0.45, -0.45, ek);
       const sp = A.sprint || 0;
@@ -7642,6 +7718,27 @@
       }
       return can;
     }
+    function slideTick(p, dt, sprint) {
+      const ctrl = !!(keys.ControlLeft || keys.ControlRight), go = ctrl && !p.slideHeld;
+      p.slideHeld = ctrl;
+      if (!(p.slideT > 0)) {
+        if (!(go && sprint && p.onGround)) return false;
+        const s = Math.max(13, Math.hypot(p.vel.x, p.vel.z) * 1.3);
+        p.slideT = 1e-3;
+        p.slideV = new V(-Math.sin(p.yaw) * s, 0, -Math.cos(p.yaw) * s);
+        sfx("whoosh", null, {});
+      }
+      p.slideT += dt;
+      p.slideV.multiplyScalar(Math.exp(-1.5 * dt));
+      if (!p.onGround || p.swimming || !ctrl && p.slideT > 0.3 || p.slideT > 1.3 || p.slideV.length() < 4) {
+        p.slideT = 0;
+        return false;
+      }
+      p.vel.x = p.slideV.x;
+      p.vel.z = p.slideV.z;
+      p.sprinting = false;
+      return true;
+    }
     const _zf = new V(), _zr = new V(), _zw = new V();
     function updatePlayerZG(dt) {
       const p = player;
@@ -7666,7 +7763,8 @@
       if (flip) mx = -mx;
       const my = (keys.Space ? 1 : 0) - (keys.KeyC || keys.ControlLeft ? 1 : 0);
       _zr.set(Math.cos(p.yaw), 0, -Math.sin(p.yaw));
-      p.crouch = false;
+      p.crouch = ZG.state === "ceil" && !!keys.KeyC && p.onGround;
+      if (ZG.state !== "ceil") p.slideT = 0;
       if (ZG.state !== "ceil") {
         const prop = zgStamina(p, (keys.ShiftLeft || keys.ShiftRight) && mz > 0 && !ads, dt);
         if (prop && !p.zgPropel) sfx("propel");
@@ -7685,12 +7783,15 @@
         zgStamina(p, false, dt);
         const sprint = (keys.ShiftLeft || keys.ShiftRight) && mz > 0 && !ads;
         p.sprinting = sprint && p.onGround;
-        const sp = (ads ? 4.5 : sprint ? 11 : 7.5) * slowK(p) * bv(p, "spd", 1), fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), k = 1 - Math.exp(-(p.onGround ? 14 : 3) * dt);
-        p.vel.x = lerp(p.vel.x, (fx * mz + _zr.x * mx) * sp, k);
-        p.vel.z = lerp(p.vel.z, (fz * mz + _zr.z * mx) * sp, k);
+        if (!slideTick(p, dt, sprint)) {
+          const sp = (ads ? 4.5 : p.crouch ? 3.8 : sprint ? 11 : 7.5) * slowK(p) * bv(p, "spd", 1), fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), k = 1 - Math.exp(-(p.onGround ? 14 : 3) * dt);
+          p.vel.x = lerp(p.vel.x, (fx * mz + _zr.x * mx) * sp, k);
+          p.vel.z = lerp(p.vel.z, (fz * mz + _zr.z * mx) * sp, k);
+        }
         if (p.onGround && p.wantJump) {
           p.vel.y = -10.5;
           p.onGround = false;
+          p.slideT = 0;
           sfx("jump");
         }
         p.zgTx = 0;
@@ -14282,12 +14383,12 @@
       if (K && K !== BR.kIn && p.br === "ground") banner(K.n, "", 2.2);
       if (p.br === "ground" || !K) BR.kIn = K || null;
       const near = (o) => o && Math.hypot(camera.position.x - o.x, camera.position.z - o.z) < o.r + 40;
-      if (near(BR.snowAt) && Math.random() < 0.8) for (let i = 0; i < 3; i++) mote(auraMats(16777215).soft, camera.position.clone().add(new V(rnd(-25, 25), rnd(4, 16), rnd(-25, 25))), rnd(0.2, 0.35), 2.5, new V(rnd(-0.6, 0.6), -3, rnd(-0.6, 0.6)));
+      if (near(BR.snowAt) && Math.random() < 0.8) for (let i = 0; i < 3; i++) mote(auraMats(16777215).halo, camera.position.clone().add(new V(rnd(-25, 25), rnd(4, 16), rnd(-25, 25))), rnd(0.2, 0.35), 2.5, new V(rnd(-0.6, 0.6), -3, rnd(-0.6, 0.6)));
       if (near(BR.sporesAt) && Math.random() < 0.5) mote(auraMats(pick([16743121, 6091007, 10116351])).spark, new V(BR.sporesAt.x + rnd(-40, 40), brHeight(BR.sporesAt.x, BR.sporesAt.z) + rnd(1, 12), BR.sporesAt.z + rnd(-40, 40)), rnd(0.3, 0.6), 3, new V(rnd(-0.4, 0.4), rnd(0.3, 0.9), rnd(-0.4, 0.4)));
       const F2 = BR.fountain;
       if (F2 && camera.position.distanceTo(_brv0.set(F2.x, F2.y, F2.z)) < 90 && Math.random() < 0.9) for (let i = 0; i < 2; i++) {
         const a = rnd(0, TAU);
-        mote(auraMats(12576511).soft, new V(F2.x, F2.y, F2.z), rnd(0.3, 0.5), 1, new V(Math.cos(a) * 2, rnd(5, 7), Math.sin(a) * 2));
+        mote(auraMats(12576511).halo, new V(F2.x, F2.y, F2.z), rnd(0.3, 0.5), 1, new V(Math.cos(a) * 2, rnd(5, 7), Math.sin(a) * 2));
       }
     }
     function brMapNames(g, M) {
@@ -14884,6 +14985,7 @@
         on = true;
       }
       e.onGround = on;
+      e.swimming = on && e.br === "ground" && brHeight(p.x, p.z) < BR_SEA - 1;
       if (on && e.br !== "ground") {
         const fall = -Math.min(e.vel.y, 0);
         if (e.br === "fall") brCrash(e, fall);
@@ -15012,6 +15114,7 @@
       const p = player;
       if (!p.alive) {
         p.wantJump = false;
+        p.slideT = 0;
         return;
       }
       if (p.br === "jet") {
@@ -15054,15 +15157,18 @@
         brMove(p, dt);
         return;
       }
-      const sprint = (keys.ShiftLeft || keys.ShiftRight) && mz > 0 && !ads;
+      const swim = p.swimming, sprint = (keys.ShiftLeft || keys.ShiftRight) && mz > 0 && !ads && !swim;
       p.sprinting = sprint && p.onGround;
-      p.crouch = !!(keys.KeyC || keys.ControlLeft) && p.onGround;
-      const sp = (ads ? 4.5 : p.crouch ? 3.5 : sprint ? 10 : 7) * slowK(p) * bv(p, "spd", 1), k = 1 - Math.exp(-(p.onGround ? 14 : 2.5) * dt);
-      p.vel.x = lerp(p.vel.x, wx * sp, k);
-      p.vel.z = lerp(p.vel.z, wz * sp, k);
-      if (p.onGround && p.wantJump) {
+      p.crouch = !!keys.KeyC && p.onGround && !swim;
+      if (!slideTick(p, dt, sprint)) {
+        const sp = (swim ? 4.2 : ads ? 4.5 : p.crouch ? 3.5 : sprint ? 10 : 7) * slowK(p) * bv(p, "spd", 1), k = 1 - Math.exp(-(p.onGround ? swim ? 4 : 14 : 2.5) * dt);
+        p.vel.x = lerp(p.vel.x, wx * sp, k);
+        p.vel.z = lerp(p.vel.z, wz * sp, k);
+      }
+      if (p.onGround && p.wantJump && !swim) {
         p.vel.y = 9.5;
         p.onGround = false;
+        p.slideT = 0;
         sfx("jump");
       }
       p.wantJump = false;
@@ -16129,7 +16235,7 @@
     Object.assign(window.__game, { emote: (k, o) => startEmote(player, k, o), emoteOn: (e, k, o) => startEmote(e, k, o), stopEmote: () => stopEmote(player, true), EM, EMOTES, get HERO() {
       return HERO;
     }, heroEmote: (k) => heroEmote(k) });
-    Object.assign(window.__game, { BR, brOpenChest, get MODE() {
+    Object.assign(window.__game, { BR, brOpenChest, brHeight, get MODE() {
       return MODE;
     } });
     Object.assign(window.__game, { pwGo: () => {
