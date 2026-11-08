@@ -1536,6 +1536,7 @@ function animateGLB(e,dt){
   animCombatTorso(e,X);         // [S3] rifle stance
   animHit(e,X);                 // [S1] flinch when hit
   animSwingTorso(e,X);          // [S3] pickaxe swing twist and lean
+  animLife(e,X);                // [v1.64] the Blender moves loosened up: steady eyes, a breathing chest, no two strides alike
   animArms(e,X);                // [S0] the hands: one arm layer per frame
   applyArmOverrides(e,X);       // [S0] X.armOv pulls a hand toward a target on top of that layer
   animBR(e,X);                  // [v1.50] Storm Island: skydive arch, hanging off the glider, crash tumble
@@ -1651,8 +1652,10 @@ function animClips(e,X){ const {c,A,fwd,speed,aS,dt}=X;
     // each move runs on its own phase, paced by the ground covered over its stride (kept within a natural range so
     // the legs neither freeze nor blur); the slide and a swimmer treading water just play at their own speed
     const P=A.hmPh||(A.hmPh={}), scW=c.g.scale.y*c.model.scale.y, sp=e.onGround?speed:0;
+    A.hmT=(A.hmT==null?hashE(e,21)*50:A.hmT)+dt; X.hmTempo=1+0.035*Math.sin(A.hmT*0.83)+0.02*Math.sin(A.hmT*2.1+1.7); // a stride is never quite the last one
+    X.hmMove=(W.HM_Walk||0)+(W.HM_Sprint||0)+(W.HM_Crouch||0)+(W.HM_Slide||0); X.hmT=A.hmT;
     for(const n of HM_NAMES){ const ac=c.act['HM_'+n]; if(!ac) continue; const cl=ac.getClip(), nat=1/cl.duration, str=(cl as any).stride*scW;
-      const rate=n==='Slide'?nat:str>1e-3?clamp(sp/str,n==='Swim'?nat*0.7:0,nat*(n==='Sprint'?2:2.5)):nat;
+      const rate=(n==='Slide'?nat:str>1e-3?clamp(sp/str,n==='Swim'?nat*0.7:0,nat*(n==='Sprint'?2:2.5)):nat)*X.hmTempo;
       P[n]=(((P[n]==null?hashE(e,11+HM_NAMES.indexOf(n)):P[n])+(n==='Walk'||n==='Crouch'?back:1)*rate*dt)%1+1)%1; ac.time=P[n]*cl.duration; }
   } else { D(W,'Idle',wIdle,aS); D(W,'Walk',wWalk,aS); D(W,'Run',wRun,aS); D(W,'TPose',wT,aS); }
   for(const n in c.act) c.act[n].setEffectiveWeight(W[n]);
@@ -1843,6 +1846,27 @@ function animCombatTorso(e,X){ const {A,B,near,upB,held,sp,aS,right,fwdB}=X; if(
   if(R.sp&&A.rkX) rotateBoneWorld(B.Spine2,right,A.rkX*R.sp/(R.x||1));
   const fi=A.rkFid&&A.rkFid.id==='gun'?Math.sin(Math.PI*A.rkFid.k):0; if(fi>0.01){ rotateBoneWorld(B.Neck,upB,-0.3*fi); rotateBoneWorld(B.Neck,right,-0.25*fi); }
   const ad=A.ads||0; if(ad>0.01){ const hand=held.id==='pistol'||held.id==='mf'||held.id==='tsr'; rotateBoneWorld(B.Neck,fwdB,(hand?0.04:0.13)*ad); rotateBoneWorld(B.Neck,right,-0.07*ad); rotateBoneWorld(B.Spine2,upB,(hand?0:-0.06)*ad); }
+}
+// [v1.64] what keeps the Blender moves from looking robotic (they are perfect loops, the same every step):
+// - the eyes stay steady: a body pitching and rolling through a stride carries the head with it like a camera on a
+//   pole; people hold their gaze, so the head takes back part of the tilt (not while aiming a gun: the aim owns it)
+// - a slow, uneven drift through the chest and neck, and a breath, different for everyone
+// The stride tempo itself wanders a few percent (X.hmTempo, in animClips).
+const _lf1=new V(), _lf2=new V(), _lf3=new V();
+function animLife(e,X){ const {A,B,near,upB,rightB,fwdB,held}=X; if(!near||!X.hmOn||!e.alive) return;
+  const k=clamp(X.hmMove||0,0,1)*(e.onGround?1:0); if(k<0.02) return;
+  const t=X.hmT||0, sd=hashE(e,23)*TAU;
+  // drift and breath, a few degrees at most
+  const br=Math.sin(t*(1.6+0.8*(A.sprint||0))+sd);
+  rotateBoneWorld(B.Spine2,rightB,k*(0.025*br+0.02*Math.sin(t*0.71+sd*2)));
+  rotateBoneWorld(B.Spine2,upB,k*0.035*Math.sin(t*0.53+sd));
+  rotateBoneWorld(B.Neck,upB,k*0.06*Math.sin(t*0.37+sd*3)+k*0.03*Math.sin(t*1.3+sd));
+  // steady eyes: pull the head part way back toward upright
+  const f=0.5*k*(held?(X.sp||0):1); if(f<0.01) return;
+  B.Head.getWorldQuaternion(_lq1); const hu=_lf1.set(0,1,0).applyQuaternion(_lq1);
+  const want=_lf2.copy(upB).addScaledVector(fwdB,0.25).normalize(); // eyes level, chin a touch forward
+  const ang=hu.angleTo(want); if(ang<1e-3) return; const ax=_lf3.crossVectors(hu,want).normalize();
+  rotateBoneWorld(B.Head,ax,ang*f*0.6); rotateBoneWorld(B.Neck,ax,ang*f*0.4);
 }
 // [S1] flinch when hit
 function animHit(e,X){ const {A,B,near,right}=X; if(!near) return;
