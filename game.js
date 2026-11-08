@@ -3721,6 +3721,7 @@
       animCombatTorso(e, X);
       animHit(e, X);
       animSwingTorso(e, X);
+      animLife(e, X);
       animArms(e, X);
       applyArmOverrides(e, X);
       animBR(e, X);
@@ -3922,11 +3923,15 @@
         for (const n in W) tot += W[n];
         if (tot > 1) for (const n in W) W[n] /= tot;
         const P = A.hmPh || (A.hmPh = {}), scW = c.g.scale.y * c.model.scale.y, sp = e.onGround ? speed : 0;
+        A.hmT = (A.hmT == null ? hashE(e, 21) * 50 : A.hmT) + dt;
+        X.hmTempo = 1 + 0.035 * Math.sin(A.hmT * 0.83) + 0.02 * Math.sin(A.hmT * 2.1 + 1.7);
+        X.hmMove = (W.HM_Walk || 0) + (W.HM_Sprint || 0) + (W.HM_Crouch || 0) + (W.HM_Slide || 0);
+        X.hmT = A.hmT;
         for (const n of HM_NAMES) {
           const ac = c.act["HM_" + n];
           if (!ac) continue;
           const cl = ac.getClip(), nat = 1 / cl.duration, str2 = cl.stride * scW;
-          const rate2 = n === "Slide" ? nat : str2 > 1e-3 ? clamp(sp / str2, n === "Swim" ? nat * 0.7 : 0, nat * (n === "Sprint" ? 2 : 2.5)) : nat;
+          const rate2 = (n === "Slide" ? nat : str2 > 1e-3 ? clamp(sp / str2, n === "Swim" ? nat * 0.7 : 0, nat * (n === "Sprint" ? 2 : 2.5)) : nat) * X.hmTempo;
           P[n] = (((P[n] == null ? hashE(e, 11 + HM_NAMES.indexOf(n)) : P[n]) + (n === "Walk" || n === "Crouch" ? back : 1) * rate2 * dt) % 1 + 1) % 1;
           ac.time = P[n] * cl.duration;
         }
@@ -4285,6 +4290,28 @@
         rotateBoneWorld(B.Neck, right, -0.07 * ad);
         rotateBoneWorld(B.Spine2, upB, (hand ? 0 : -0.06) * ad);
       }
+    }
+    const _lf1 = new V(), _lf2 = new V(), _lf3 = new V();
+    function animLife(e, X) {
+      const { A, B, near, upB, rightB, fwdB, held } = X;
+      if (!near || !X.hmOn || !e.alive) return;
+      const k = clamp(X.hmMove || 0, 0, 1) * (e.onGround ? 1 : 0);
+      if (k < 0.02) return;
+      const t = X.hmT || 0, sd = hashE(e, 23) * TAU;
+      const br = Math.sin(t * (1.6 + 0.8 * (A.sprint || 0)) + sd);
+      rotateBoneWorld(B.Spine2, rightB, k * (0.025 * br + 0.02 * Math.sin(t * 0.71 + sd * 2)));
+      rotateBoneWorld(B.Spine2, upB, k * 0.035 * Math.sin(t * 0.53 + sd));
+      rotateBoneWorld(B.Neck, upB, k * 0.06 * Math.sin(t * 0.37 + sd * 3) + k * 0.03 * Math.sin(t * 1.3 + sd));
+      const f = 0.5 * k * (held ? X.sp || 0 : 1);
+      if (f < 0.01) return;
+      B.Head.getWorldQuaternion(_lq1);
+      const hu = _lf1.set(0, 1, 0).applyQuaternion(_lq1);
+      const want = _lf2.copy(upB).addScaledVector(fwdB, 0.25).normalize();
+      const ang = hu.angleTo(want);
+      if (ang < 1e-3) return;
+      const ax = _lf3.crossVectors(hu, want).normalize();
+      rotateBoneWorld(B.Head, ax, ang * f * 0.6);
+      rotateBoneWorld(B.Neck, ax, ang * f * 0.4);
     }
     function animHit(e, X) {
       const { A, B, near, right } = X;

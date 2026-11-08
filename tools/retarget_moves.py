@@ -17,6 +17,7 @@ import numpy as np
 
 ROOT = __file__.rsplit('/tools/', 1)[0]
 FPS = 24
+OUT_FPS = 48
 MAP = {'hips': 'Hips', 'spine': 'Spine', 'chest': 'Spine2', 'neck': 'Neck', 'head': 'Head'}
 for s, S in (('L', 'Left'), ('R', 'Right')):
     MAP.update({f'shoulder.{s}': f'{S}Shoulder', f'upper_arm.{s}': f'{S}Arm', f'forearm.{s}': f'{S}ForeArm',
@@ -56,6 +57,32 @@ def mat_to_quat(m):
         q = [(m[0, 2] + m[2, 0]) / s, (m[1, 2] + m[2, 1]) / s, 0.25 * s, (m[1, 0] - m[0, 1]) / s]
     q = np.array(q)
     return q / np.linalg.norm(q)
+
+
+def slerp(a, b, t):
+    if np.dot(a, b) < 0: b = -b
+    d = min(1.0, float(np.dot(a, b))); th = math.acos(d)
+    if th < 1e-5: return a
+    return (math.sin((1 - t) * th) * a + math.sin(t * th) * b) / math.sin(th)
+
+
+def upsample(V, loop, m):
+    """Catmull-Rom through the rows of V, m samples per key. A loop's last row repeats its first, and its ends
+    take their neighbours from the other end; otherwise the ends are held."""
+    n = len(V)
+    def at(i):
+        if loop:
+            return V[i % (n - 1)]
+        return V[min(max(i, 0), n - 1)]
+    out = []
+    for i in range(n - 1):
+        p0, p1, p2, p3 = at(i - 1) if (loop or i > 0) else V[0], V[i], V[i + 1], at(i + 2)
+        if loop and i == 0: p0 = V[n - 2]
+        for s in range(m):
+            t = s / m; t2 = t * t; t3 = t2 * t
+            out.append(0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3))
+    out.append(V[-1])
+    return np.array(out)
 
 
 def ortho(m):
@@ -132,34 +159,49 @@ def main():
         for c in nodes[i].get('children', []): walk(c)
     walk(idx['Hips'])
     order = [n for n in order if not n.endswith(('_End', '4'))]
-    out = {'fps': FPS, 'clips': {}}
+    out = {'fps': OUT_FPS, 'clips': {}}
     for clip, frames in ex['clips'].items():
-        tracks = {f'mixamorig:{n}.quaternion': [] for n in order}
-        tracks['mixamorig:Hips.position'] = []
+        raw = {f'mixamorig:{n}.quaternion': [] for n in order}
+        raw['mixamorig:Hips.position'] = []
         allf = frames + ([frames[0]] if LOOP[clip] else [])
         prevq = {}
         for fr in allf:
             Wp = {}
+            # the mapped bones' world rotations first, so Spine1 (no match in the hero rig) can sit halfway between
+            # Spine and Spine2 and the back curves through all three instead of bending at two joints
+            tgt = {n: ortho(C @ np.array(fr["r"][inv_map[n]]).reshape(3, 3) @ O[n]) for n in order if n in inv_map}
             for n in order:
                 i = idx[n]
                 pw = rot(world[parent[i]]) if n == 'Hips' else Wp[nodes[parent[i]]['name'].replace('mixamorig:', '')]
-                if n in inv_map:
-                    Hp = C @ np.array(fr["r"][inv_map[n]]).reshape(3, 3)
-                    Wn = ortho(Hp @ O[n])
+                if n in tgt:
+                    Wn = tgt[n]
+                elif n == 'Spine1':
+                    a_ = pw @ rot(local[i]); b_ = tgt['Spine2'] @ rot(local[idx['Spine2']]).T
+                    Wn = quat_to_mat(slerp(mat_to_quat(a_), mat_to_quat(b_), 0.5))
                 else:
                     Wn = pw @ rot(local[i])
                 Wp[n] = Wn
                 q = mat_to_quat(pw.T @ Wn)
                 if n in prevq and np.dot(q, prevq[n]) < 0: q = -q
                 prevq[n] = q
-                tracks[f'mixamorig:{n}.quaternion'] += [round(float(v), 4) for v in q]
+                raw[f'mixamorig:{n}.quaternion'].append(q)
             hp = C @ np.array(fr['hp']) * k
             P = np.array([hips_rest[0] + hp[0], hp[1], hips_rest[2] + hp[2]])
             pm = world[parent[idx['Hips']]]
-            lp = np.linalg.inv(pm) @ np.append(P, 1)
-            tracks['mixamorig:Hips.position'] += [round(float(v), 3) for v in lp[:3]]
-        n = len(allf)
-        out['clips'][clip] = {'n': n, 'dur': round((n - 1) / FPS, 5), 'stride': round(SPEED[clip] * len(frames) * k, 4), 'tracks': tracks}
+            raw['mixamorig:Hips.position'].append((np.linalg.inv(pm) @ np.append(P, 1))[:3])
+        # 24 fps keys played back with straight lines between them give the motion a corner at every key (it reads
+        # as stiff, robotic). Resample through a smooth Catmull-Rom curve at OUT_FPS; loops wrap their neighbours.
+        tracks = {}
+        for name, vals in raw.items():
+            V = np.array(vals); quat = name.endswith('quaternion')
+            sm = upsample(V, LOOP[clip], OUT_FPS // FPS)
+            if quat:
+                for j in range(1, len(sm)):
+                    if np.dot(sm[j], sm[j - 1]) < 0: sm[j] = -sm[j]
+                sm = sm / np.linalg.norm(sm, axis=1, keepdims=True)
+            tracks[name] = [round(float(v), 4 if quat else 3) for v in sm.ravel()]
+        n = (len(allf) - 1) * (OUT_FPS // FPS) + 1
+        out['clips'][clip] = {'n': n, 'dur': round((len(allf) - 1) / FPS, 5), 'stride': round(SPEED[clip] * len(frames) * k, 4), 'tracks': tracks}
     out['unit'] = round(float(k), 5)
     js = ('/* Hero moves made in Blender (RegularJump.blend), retargeted onto the soldier rig by tools/retarget_moves.py.\n'
           '   Generated: do not edit by hand. */\nwindow.HERO_MOVES=' + json.dumps(out, separators=(',', ':')) + ';\n')
