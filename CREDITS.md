@@ -7,7 +7,8 @@ required, but they made the game better and deserve a thank you.
 ## Animations (`packmoves.js`)
 
 The moves are retargeted onto the game's soldier rig by `tools/pack_export_blender.py` and `tools/retarget_moves.py`.
-In the game they have their own names (see `PM_EMOTES` in `src/game.ts`).
+In the game they have their own names (see `PM_EMOTES` and `PM_EMOTES2` in `src/game.ts`). The props they hold
+(rollercoaster, gloves, sword and the rest) are made in code from simple shapes, no outside models.
 
 - **Universal Animation Library (Standard)** by **Quaternius** (https://quaternius.com, https://www.patreon.com/quaternius). License: CC0 1.0.
 - **Animated Characters: Protagonists** by **Kenney** (https://kenney.nl). License: CC0 1.0.
