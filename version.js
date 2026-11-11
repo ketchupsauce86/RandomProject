@@ -2,13 +2,13 @@
 window.GAME_VERSION={
  "version": "1.69.0",
  "date": "2026-11-11",
- "build": "617d57d",
+ "build": "e535e0b",
  "season": "Glitched",
  "notes": [
   {
    "v": "1.69.0",
    "date": "2026-11-11",
-   "title": "27 new emotes: puppies, piñatas, snowmen, thumbs up and more"
+   "title": "Holiday and seasonal skins"
   },
   {
    "v": "1.68.0",

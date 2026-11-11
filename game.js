@@ -2823,6 +2823,7 @@
       c.capes = [];
       c.flaps = [];
       c.bobs = [];
+      c.spins = [];
       c.skin = skin;
       if (c.animeBody) {
         c.animeBody.parent && c.animeBody.parent.remove(c.animeBody);
@@ -2887,6 +2888,7 @@
             if (o.userData.cape) c.capes.push(o);
             if (o.userData.flap) c.flaps.push(o);
             if (o.userData.bob) c.bobs.push(o);
+            if (o.userData.spin) c.spins.push(o);
           });
         }
       }
@@ -2895,6 +2897,7 @@
     const UPZ = new T.Vector3(0, 0, 1), _sv = new T.Vector3();
     function swayGear(e, c, speed, dt) {
       var _a, _b;
+      if (c.spins && c.spins.length) for (const o of c.spins) o.rotation[o.userData.spinAxis || "y"] += o.userData.spin * (dt || 0);
       if (!c.capes || !c.capes.length && !c.flaps.length && !c.bobs.length) return;
       const t = performance.now() / 1e3, G = c.sw || (c.sw = {}), v = e.vel, wt = e.walkT || 0, flt = !!e.zgFloat;
       let vf = 0, vu = 0, vs = 0, yr = 0;
@@ -8927,8 +8930,9 @@
         c.mixer.update(dt);
         swayGear({ onGround: true, walkT: 0 }, c, 0, dt);
       }
-      camera.position.set(0, ARM_Y + 1.25, armGroup.userData.dist);
-      camera.lookAt(0, ARM_Y + 1, 0);
+      const W = window, D2 = W.__lineDist || armGroup.userData.dist, LY = W.__lineY || 1;
+      camera.position.set(0, ARM_Y + LY + 0.25 * D2 / armGroup.userData.dist, D2);
+      camera.lookAt(0, ARM_Y + LY, 0);
       if (camera.fov !== 50) {
         camera.fov = 50;
         camera.updateProjectionMatrix();
