@@ -2133,6 +2133,44 @@
         SOLDIER.clips["HM_" + n] = clip;
       }
     }
+    function packMoveClips() {
+      const H = window.PACK_MOVES;
+      if (!H || !H.clips) return;
+      for (const n in H.clips) {
+        const C = H.clips[n], times = [];
+        for (let i = 0; i < C.n; i++) times.push(i / H.fps);
+        const tr = [];
+        for (const k in C.tracks) {
+          const v = C.tracks[k], i = k.lastIndexOf("."), nm = T.PropertyBinding.sanitizeNodeName(k.slice(0, i)) + k.slice(i);
+          tr.push(k.endsWith(".position") ? new T.VectorKeyframeTrack(nm, times, v) : new T.QuaternionKeyframeTrack(nm, times, v));
+        }
+        SOLDIER.clips["PM_" + n] = new T.AnimationClip("PM_" + n, C.dur, tr);
+      }
+      for (const k in EMOTES) {
+        const E = EMOTES[k], cl = E.clip && SOLDIER.clips[E.clip];
+        if (cl && !E.loop) E.dur = cl.duration * (E.speed ? 1 / E.speed : 1) + (E.hold || 0);
+      }
+    }
+    function emClip(e, c) {
+      const em = e && e.emote, E = em && em.E, k = E && E.clip && SOLDIER.clips[E.clip] ? E.clip : null;
+      if (c.pmK && c.pmK !== k) {
+        c.pmA.stop();
+        c.pmA = null;
+        c.pmK = null;
+      }
+      if (!k) return;
+      if (!c.pmA) {
+        c.pmA = c.mixer.clipAction(SOLDIER.clips[k]);
+        c.pmA.reset();
+        c.pmA.play();
+        c.pmA.setEffectiveTimeScale(0);
+        c.pmK = k;
+      }
+      const cl = c.pmA.getClip(), mv = smooth(0.6, 2.5, e.zgFloat ? e.vel.length() : Math.hypot(e.vel.x, e.vel.z)), w = smooth(0, 1, em.w) * (1 - mv * 0.85), tt = em.t * (E.speed || 1);
+      for (const n in c.act) c.act[n].setEffectiveWeight((c.w[n] || 0) * (1 - w));
+      c.pmA.setEffectiveWeight(w);
+      c.pmA.time = E.loop ? tt % cl.duration : Math.min(tt, cl.duration - 1e-3);
+    }
     function loadSoldier(done2) {
       if (!T.GLTFLoader || !T.SkeletonUtils) {
         done2(false);
@@ -2150,6 +2188,7 @@
         SOLDIER = { scene: gl.scene, clips: {} };
         gl.animations.forEach((a) => SOLDIER.clips[a.name] = a);
         heroMoveClips();
+        packMoveClips();
         fin(true);
       };
       try {
@@ -3954,6 +3993,7 @@
       if (c.lcNear !== void 0 && nr !== c.lcNear) poseSnap(c, 0.4);
       c.lcNear = nr;
       X.near = nr;
+      emClip(e, c);
       c.mixer.update(dt);
     }
     function animAxes(X) {
@@ -4800,7 +4840,24 @@
         hand: { R: { c: 0.75 }, L: { c: 0.75 } }
       }
     };
-    const EM_ORDER = ["wave", "floss", "pump", "robot", "disco", "dab", "salute", "flip", "jacks", "guitar", "bow", "clap", "shrug", "heart"];
+    Object.assign(EMOTES, {
+      pmGroove: { n: "Groove", clip: "PM_Groove", loop: 1 },
+      pmChatter: { n: "Chatterbox", clip: "PM_Chatter", loop: 1 },
+      pmTinker: { n: "Tinker", clip: "PM_Tinker" },
+      pmChair: { n: "Air Chair", clip: "PM_Chair", loop: 1 },
+      pmMime: { n: "Mime Wall", clip: "PM_Mime", loop: 1 },
+      pmRoll: { n: "Dive Roll", clip: "PM_Roll" },
+      pmSpark: { n: "Spark Shot", clip: "PM_Spark" },
+      pmBox: { n: "Shadowbox", clip: "PM_ShadowBox", loop: 1 },
+      pmTorch: { n: "Torch Up", clip: "PM_Torch", loop: 1 },
+      pmDead: { n: "Play Dead", clip: "PM_PlayDead", hold: 1.6 },
+      pmJoy: { n: "Joyride", clip: "PM_Joyride", loop: 1 },
+      pmRun: { n: "Treadmill", clip: "PM_RunInPlace", loop: 1 },
+      pmHang: { n: "Hang Time", clip: "PM_HangTime", loop: 1 }
+    });
+    const PM_EMOTES = ["pmGroove", "pmBox", "pmSpark", "pmRoll", "pmChair", "pmMime", "pmTorch", "pmChatter", "pmTinker", "pmDead", "pmJoy", "pmRun", "pmHang"];
+    const EM_PAGES = [["wave", "floss", "pump", "robot", "disco", "dab", "salute", "flip", "jacks", "guitar", "bow", "clap", "shrug", "heart"], PM_EMOTES];
+    let EM_ORDER = EM_PAGES[0];
     try {
       const v = localStorage.getItem("stormIslandEmote");
       if (v && EMOTES[v]) EM.last = v;
@@ -4895,6 +4952,13 @@
     function emotePose(e, X) {
       const em = e.emote, E = em && em.E;
       if (!E) return;
+      if (E.clip) {
+        if (X.c.emSpin) {
+          X.c.spin.quaternion.identity();
+          X.c.emSpin = false;
+        }
+        return;
+      }
       const { c, B } = X, W = smooth(0, 1, em.w), t = em.t, loop2 = !!E.loop;
       const u = loop2 ? t * E.bpm / (60 * E.beats) % 1 : Math.min(1, t / E.dur), uq = E.step ? (Math.floor(u * E.step) + smooth(0, 0.22, u * E.step % 1)) / E.step : u;
       const r = _eR.copy(X.rightB), up = _eU.copy(X.upB), fw = _eF.copy(X.fwdB);
@@ -5114,9 +5178,19 @@
       if (killer.isPlayer || !player || !player.alive || ZG.state === "ceil" || !killer.alive || killer.emote || EM.on.length > 4 || Math.random() > 0.3) return;
       if (killer.pos.distanceTo(camera.position) > 28 || lockedUp(killer) || killer.bounceT > 0 || killer.knockT > 0) return;
       for (const o of combatants) if (o.alive && o !== killer && o !== victim && !o.isPlayer && o.pos.distanceToSquared(killer.pos) < 625) return;
-      startEmote(killer, pick(["floss", "pump", "disco", "robot", "wave", "flip"]), { max: 2.4, face: camera.position });
+      startEmote(killer, pick(["floss", "pump", "disco", "robot", "wave", "flip", "pmGroove", "pmBox", "pmSpark"]), { max: 2.4, face: camera.position });
     }
-    const EW = { built: false, on: 0, cx: 0, cy: 0, step: Math.PI * 2 / 8, R0: 78, R1: 186 };
+    const EW = { built: false, on: 0, cx: 0, cy: 0, step: Math.PI * 2 / 8, R0: 78, R1: 186, page: 0 };
+    const emPages = () => EM_PAGES.map((P) => P.filter((k) => EMOTES[k] && (!EMOTES[k].clip || SOLDIER && SOLDIER.clips[EMOTES[k].clip]))).filter((P) => P.length);
+    function ewPage(d) {
+      const P = emPages();
+      EW.page = ((EW.page + d) % P.length + P.length) % P.length;
+      EM_ORDER = P[EW.page];
+      EW.built = false;
+      EW.on = Math.min(EW.on, EM_ORDER.length - 1);
+      ewBuild();
+      ewRender();
+    }
     const EM_IC = {
       // little stick figures on a 48x48 grid: t=[shoulder x,y,hip x,y], a=[elbow x,y,hand x,y] per arm, w=waving marks
       wave: { a: [[31, 15, 35, 6], [20, 24, 18, 32]], w: [[38, 3, 41, 6], [40, 9, 43, 12]] },
@@ -5132,7 +5206,20 @@
       bow: { a: [[22, 22, 20, 27], [12, 22, 6, 24]], t: [19, 22, 26, 31] },
       clap: { a: [[30, 22, 26, 19], [18, 22, 22, 19]], w: [[22, 12, 22, 15], [26, 12, 27, 15]] },
       shrug: { a: [[32, 22, 38, 19], [16, 22, 10, 19]] },
-      heart: { a: [[31, 19, 26, 15], [17, 19, 22, 15]], w: [[22, 8, 26, 8]] }
+      heart: { a: [[31, 19, 26, 15], [17, 19, 22, 15]], w: [[22, 8, 26, 8]] },
+      pmGroove: { a: [[32, 20, 36, 12], [16, 20, 12, 12]], t: [25, 17, 23, 31] },
+      pmChatter: { a: [[31, 24, 36, 22], [17, 24, 12, 22]] },
+      pmTinker: { a: [[30, 28, 34, 34], [18, 28, 16, 34]], t: [24, 22, 24, 33] },
+      pmChair: { a: [[30, 24, 34, 27], [18, 24, 14, 27]], t: [22, 17, 20, 31] },
+      pmMime: { a: [[34, 18, 38, 12], [33, 23, 38, 22]] },
+      pmRoll: { ring: 1 },
+      pmSpark: { a: [[34, 17, 42, 15], [18, 25, 16, 32]], w: [[44, 11, 46, 9], [45, 16, 47, 17]] },
+      pmBox: { a: [[31, 22, 40, 18], [22, 22, 28, 17]] },
+      pmTorch: { a: [[32, 12, 32, 4], [18, 25, 16, 32]], w: [[30, 1, 32, -2], [34, 1, 33, -2]] },
+      pmDead: { a: [[31, 25, 33, 32], [17, 25, 15, 32]], t: [24, 20, 26, 32] },
+      pmJoy: { a: [[30, 23, 35, 21], [18, 23, 23, 21]] },
+      pmRun: { a: [[30, 22, 36, 17], [18, 24, 14, 30]], t: [25, 17, 23, 31] },
+      pmHang: { a: [[33, 15, 38, 9], [15, 15, 10, 9]] }
     };
     function emIcon(k) {
       const d = EM_IC[k] || { a: [[31, 24, 34, 31], [17, 24, 14, 31]] }, t = d.t || [24, 17, 24, 31];
@@ -5150,6 +5237,9 @@
     function ewBuild() {
       if (EW.built) return;
       EW.built = true;
+      const P = emPages();
+      EW.page = Math.min(EW.page, P.length - 1);
+      EM_ORDER = P[EW.page];
       const st = $q("#emoteWheel .ew-stage"), n = EM_ORDER.length;
       EW.step = TAU / n;
       let svg = '<svg class="ew-ring" viewBox="-220 -220 440 440" aria-hidden="true"><defs><linearGradient id="ewg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5cf0ff" stop-opacity=".5"/><stop offset="1" stop-color="#ff3bd4" stop-opacity=".42"/></linearGradient></defs>', sl = "";
@@ -5160,7 +5250,7 @@
         sl += `<div class="ew-slot" data-i="${i}" style="left:${(220 + Math.cos(a) * rm).toFixed(1)}px;top:${(220 + Math.sin(a) * rm).toFixed(1)}px">${emIcon(EM_ORDER[i])}<span>${E.n}</span><kbd>${i + 1}</kbd>${E.zg ? "<em>zero-g</em>" : ""}</div>`;
       }
       svg += "</svg>";
-      st.innerHTML = svg + sl + '<div class="ew-center"><span class="ew-k">Emote</span><b id="ewName"></b><i>Release <kbd>B</kbd> to play</i></div><div class="ew-cursor" id="ewCur"></div>';
+      st.innerHTML = svg + sl + '<div class="ew-center"><span class="ew-k">Emote</span><b id="ewName"></b><i>Release <kbd>B</kbd> to play</i>' + (P.length > 1 ? `<i class="ew-pg">${P.map((_, i) => i === EW.page ? "\u25CF" : "\u25CB").join(" ")} scroll for more</i>` : "") + '</div><div class="ew-cursor" id="ewCur"></div>';
     }
     function ewRender() {
       const el = $("emoteWheel");
@@ -5174,6 +5264,10 @@
     }
     function emWheelOpen() {
       if (EM.wheel || !player || !player.alive) return;
+      EW.built = false;
+      const P = emPages();
+      const pg = P.findIndex((Q) => Q.indexOf(EM.last) >= 0);
+      if (pg >= 0) EW.page = pg;
       ewBuild();
       EM.wheel = true;
       const i = Math.max(0, EM_ORDER.indexOf(EM.last)), a = -Math.PI / 2 + i * EW.step;
@@ -5260,7 +5354,16 @@
       }
       if (player.emote && !player.emote.out) emStopNow(player);
     }, true);
+    addEventListener("wheel", (ev) => {
+      if (!EM.wheel || state !== "play") return;
+      ev.stopImmediatePropagation();
+      const t = performance.now();
+      if (t - (EW.wt || 0) < 180) return;
+      EW.wt = t;
+      ewPage(ev.deltaY > 0 ? 1 : -1);
+    }, { capture: true, passive: true });
     addEventListener("wheel", () => {
+      if (EM.wheel) return;
       if (player && player.emote && !player.emote.out && state === "play") stopEmote(player);
     }, { capture: true, passive: true });
     addEventListener("blur", () => {
@@ -7291,6 +7394,7 @@
     }
     function updateSkinStand(t, dt) {
       for (const c of skShown) {
+        if (c.sl) emClip(c.sl.e, c);
         c.mixer.update(dt);
         swayGear({ onGround: true, walkT: 0 }, c, 0, dt);
         standLife(c, dt);
@@ -15949,7 +16053,7 @@
       HERO.cam.position.set(0, 1, 8.2);
       HERO.cam.lookAt(0, 0.98, 0);
     }
-    const HERO_EM = ["wave", "floss", "pump", "robot", "disco", "dab", "salute"], HM = { x: 0, y: 0, t: -99 }, _hl0 = new V(), _hl1 = new V(), _hl2 = new V();
+    const HERO_EM = ["wave", "floss", "pump", "robot", "disco", "dab", "salute", "pmGroove", "pmBox", "pmSpark", "pmChatter"], HM = { x: 0, y: 0, t: -99 }, _hl0 = new V(), _hl1 = new V(), _hl2 = new V();
     addEventListener("pointermove", (ev) => {
       HM.x = ev.clientX;
       HM.y = ev.clientY;
@@ -16064,6 +16168,7 @@
       if (HERO.spinT < 1.1) HERO.spinT += dt;
       g.rotation.y = HERO.fy + (HERO.spinT < 1.1 ? TAU * easeIO(clamp(HERO.spinT / 1.1, 0, 1)) : 0);
       c.model.position.set(0, 0, 0);
+      emClip(e, c);
       c.mixer.update(dt);
       swayGear({ onGround: true, walkT: 0 }, c, 0, dt);
       g.updateMatrixWorld(true);

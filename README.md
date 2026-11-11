@@ -24,7 +24,7 @@ Needs a keyboard and mouse. The **Armory** button shows every gun design, and it
 | E | Use a vending machine; open a chest on Storm Island |
 | Q | Bouncer Ball |
 | R | Reload MF Guns |
-| B | Emote (tap: the last one; hold: the emote wheel, move the mouse and let go) |
+| B | Emote (tap: the last one; hold: the emote wheel, move the mouse and let go; scroll for the second page) |
 
 ## Code
 
@@ -43,6 +43,8 @@ Other files:
 - `pickaxes.js`: the pickaxes (`window.PICKAXES`).
 - `ui.js`: the home screen polish: version badge, What's new list, a GLSL glitch-light layer and GSAP motion.
 - `soldier.js`: the character rig, packed as base64 glTF.
+- `moves.js`: Kash's walk, sprint, crouch, slide and swim made in Blender, retargeted onto the rig by `tools/retarget_moves.py`.
+- `packmoves.js`: whole-body emotes from the CC0 Quaternius and Kenney animation packs (`tools/pack_export_blender.py`, then `tools/retarget_moves.py`; see `CREDITS.md`).
 - `version.js`: the version badge (see below).
 - `news.js`: the News panel's announcements and the chapters its update log is grouped into.
 - `sounds/` and `sounds.js`: recorded sound effects that replace synthesized ones (see below).
@@ -79,4 +81,4 @@ TypeScript, HTML and CSS, GLSL shaders (the glitch light on the home screen in `
 
 Most sound is synthesized live in the browser with the Web Audio API, with a few CC0 recordings from Kenney in `sounds/`. Each gun has its own layered shot, plus reload steps, distant echoes and bullet whizzes. Sounds in the world are panned left and right, muffled with distance, and arrive later from far away. When your health drops to 35 or below you hear your heartbeat, faster and louder the lower it gets. The home screen and pause screen have a volume slider.
 
-Characters use the Soldier model and its Idle, Walk, Run and T-Pose motion-capture clips from the three.js examples (animations from Mixamo), packed into `soldier.js`. Swimming, propelling, aiming, recoil and drinking are layered on top live, with two-bone inverse kinematics for the arms and legs.
+Characters use the Soldier model and its Idle, Walk, Run and T-Pose motion-capture clips from the three.js examples (animations from Mixamo), packed into `soldier.js`. Thirteen emotes are CC0 animations from Quaternius (Universal Animation Library) and Kenney (Animated Characters), retargeted onto the same rig; credits are in `CREDITS.md`. Swimming, propelling, aiming, recoil and drinking are layered on top live, with two-bone inverse kinematics for the arms and legs.
