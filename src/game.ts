@@ -2192,24 +2192,29 @@ function prText(lines,o?){ o=o||{}; const W=o.w||256, H=o.h||128;
   return tex; }
 // gloves, held things
 function prGlove(col){ const w=new T.Group(), g=new T.Group(); g.scale.setScalar(1.55); w.add(g); g.add(prMesh(SPH(0.075,14),prM(col,{shininess:90})),prMesh(CYL(0.055,0.06,0.07),prM(0xffffff),0,-0.06,0)); g.children[0].scale.set(1.15,1.25,1.05); g.children[0].position.set(-0.01,0.05,0); return w; }
+// [v1.67.1] a held thing's handle runs through GRIP along the hand's z (pinky to index on the right hand, index to pinky on
+// the left), and the fingers close round it (userData.grip: how far each finger joint curls, radians)
+const GRIP=[-0.035,0.085,0];
+function prHeld(curl){ const g=new T.Group(); g.userData.grip=curl; return g; }
 const PROPS:any={
   // Shadowbox: a pair of shiny red boxing gloves
-  gloves:()=>({R:prGlove(0xe02030),L:prGlove(0xe02030)}),
+  gloves:()=>{ const R=prGlove(0xe02030), L=prGlove(0xe02030); R.userData.grip=L.userData.grip=1.45; return {R,L}; },
   // Torch Up: a wooden torch with a flickering flame
-  torch:()=>{ const R=new T.Group(); R.userData.upright=1; R.add(prMesh(CYL(0.035,0.028,0.6),prM(0xb07a40),0,0.12,0),prMesh(CYL(0.06,0.04,0.12),prM(0x3a2a1a),0,0.44,0));
-    const f1=prSprite(0xff7a1a,0.42), f2=prSprite(0xffe08a,0.24); f1.position.set(0,0.58,0); f2.position.set(0,0.55,0); R.add(f1,f2);
-    return {R,f:[f1,f2],up:(P,t)=>{ P.f[0].scale.setScalar(0.38+0.08*Math.sin(t*23)+0.05*Math.sin(t*37)); P.f[1].scale.setScalar(0.22+0.05*Math.sin(t*29+1)); P.f[0].position.y=0.6+0.02*Math.sin(t*17); }}; },
+  torch:()=>{ const L=prHeld(1.25), x=GRIP[0], y=GRIP[1]; // (in the left hand, held up: the left hand's index side is -z)
+    L.add(prMesh(CYL(0.032,0.026,0.62),prM(0xb07a40),x,y,-0.14,Math.PI/2),prMesh(CYL(0.06,0.04,0.12),prM(0x3a2a1a),x,y,-0.48,Math.PI/2));
+    const f1=prSprite(0xff7a1a,0.42), f2=prSprite(0xffe08a,0.24); f1.position.set(x,y,-0.62); f2.position.set(x,y,-0.58); L.add(f1,f2);
+    return {L,f:[f1,f2],up:(P,t)=>{ P.f[0].scale.setScalar(0.38+0.08*Math.sin(t*23)+0.05*Math.sin(t*37)); P.f[1].scale.setScalar(0.22+0.05*Math.sin(t*29+1)); P.f[0].position.z=-0.64-0.02*Math.sin(t*17); }}; },
   // Spark Shot: a crackling orb of light in the palm
-  orb:()=>{ const R=new T.Group(), o=prMesh(SPH(0.07,16),prM(0x9ff6ff,{emissive:0x3fd8ff})), h=prSprite(0x5cf0ff,0.5), r=prMesh(TOR(0.12,0.008,32),prM(0xffffff,{emissive:0x9ff6ff}));
-    o.position.set(-0.12,0.09,0); h.position.copy(o.position); r.position.copy(o.position); R.add(o,h,r);
-    return {R,o,h,r,up:(P,t,u)=>{ const k=1+0.15*Math.sin(t*12)+(u>0.72&&u<0.86?0.9*Math.sin((u-0.72)/0.14*Math.PI):0); P.o.scale.setScalar(k); P.h.scale.setScalar(0.5*k); P.r.rotation.set(t*3,t*4.2,0); }}; },
+  orb:()=>{ const L=new T.Group(), o=prMesh(SPH(0.07,16),prM(0x9ff6ff,{emissive:0x3fd8ff})), h=prSprite(0x5cf0ff,0.5), r=prMesh(TOR(0.12,0.008,32),prM(0xffffff,{emissive:0x9ff6ff}));
+    o.position.set(-0.15,0.1,0); h.position.copy(o.position); r.position.copy(o.position); L.add(o,h,r); // (floating off the open left palm, the casting hand)
+    return {L,o,h,r,up:(P,t,u)=>{ const k=1+0.15*Math.sin(t*12)+(u>0.72&&u<0.86?0.9*Math.sin((u-0.72)/0.14*Math.PI):0); P.o.scale.setScalar(k); P.h.scale.setScalar(0.5*k); P.r.rotation.set(t*3,t*4.2,0); }}; },
   // Tinker: a wrench in hand and a toolbox at your feet
-  wrench:()=>{ const R=new T.Group(); R.add(prMesh(BOX(0.035,0.03,0.32),prM(0x9aa6b8,{shininess:120}),-0.02,0.06,0.14),prMesh(TOR(0.045,0.016,16),prM(0x9aa6b8,{shininess:120}),-0.02,0.06,0.33,Math.PI/2));
+  wrench:()=>{ const R=prHeld(1.3), x=GRIP[0], y=GRIP[1], st=prM(0x9aa6b8,{shininess:120}); R.add(prMesh(BOX(0.03,0.035,0.34),st,x,y,0.1),prMesh(TOR(0.045,0.016,16),st,x,y,0.3,0,Math.PI/2));
     const root=new T.Group(), tb=new T.Group(); tb.add(prMesh(BOX(0.5,0.22,0.24),prM(0xd92b2b),0,0.11,0),prMesh(BOX(0.52,0.04,0.26),prM(0xb01e1e),0,0.24,0),prMesh(BOX(0.2,0.04,0.03),prM(0x222222),0,0.29,0));
     tb.position.set(0.55,0,-0.25); tb.rotation.y=0.5; root.add(tb); return {R,root}; },
   // Air Chair: a see-through ghost of the chair you are sitting on
   ghostChair:()=>{ const root=new T.Group(), m=prM(0x9ff6ff,{transparent:true,opacity:0.28,emissive:0x2a8aa0,depthWrite:false});
-    root.add(prMesh(BOX(0.55,0.06,0.5),m,0,0.5,0.15),prMesh(BOX(0.55,0.6,0.06),m,0,0.83,0.42)); for(const x of[-0.24,0.24]) for(const z of[-0.07,0.37]) root.add(prMesh(BOX(0.05,0.5,0.05),m,x,0.25,z));
+    root.add(prMesh(BOX(0.55,0.06,0.5),m,0,0.55,0.03),prMesh(BOX(0.55,0.6,0.06),m,0,0.88,0.28)); for(const x of[-0.24,0.24]) for(const z of[-0.19,0.25]) root.add(prMesh(BOX(0.05,0.55,0.05),m,x,0.275,z)); // (the seat under the hips)
     return {root,m,up:(P,t)=>{ P.m.opacity=0.22+0.1*Math.sin(t*3); }}; },
   // Mime Wall: a pane of glass you are pushing on
   glass:()=>{ const root=new T.Group(), pane=prMesh(BOX(1.3,1.9,0.03),prM(0xbfeaff,{transparent:true,opacity:0.18,shininess:200,specular:0xffffff,depthWrite:false}),0,1.0,-0.62);
@@ -2226,8 +2231,8 @@ const PROPS:any={
     st.position.set(-0.6,0,1.0); root.add(st); return {root,st,up:(P,t,u)=>{ const k=smooth(0.45,0.6,u); P.st.scale.set(1,Math.max(0.001,k),1); }}; },
   // Joyride: a rollercoaster car on its own bit of track, rattling over the bumps
   coaster:()=>{ const root=new T.Group(), car=new T.Group(), red=prM(0xe8283c,{shininess:90}), yel=prM(0xffd23f), dark=prM(0x22223a);
-    car.add(prMesh(BOX(0.8,0.12,1.3),red,0,0.18,0),prMesh(BOX(0.08,0.55,1.3),red,-0.42,0.42,0),prMesh(BOX(0.08,0.55,1.3),red,0.42,0.42,0),prMesh(BOX(0.84,0.75,0.12),red,0,0.5,-0.66),prMesh(BOX(0.84,0.9,0.1),red,0,0.55,0.52),
-      prMesh(BOX(0.7,0.05,0.05),yel,0,0.72,-0.2),prMesh(BOX(0.86,0.06,0.06),yel,0,0.7,-0.66),prMesh(BOX(0.86,0.06,0.06),yel,0,0.7,0.52));
+    car.add(prMesh(BOX(0.8,0.12,1.3),red,0,0.18,0),prMesh(BOX(0.08,0.55,1.3),red,-0.42,0.42,0),prMesh(BOX(0.08,0.55,1.3),red,0.42,0.42,0),prMesh(BOX(0.84,0.75,0.12),red,0,0.5,-0.66),prMesh(BOX(0.84,0.95,0.1),red,0,0.57,0.36),prMesh(BOX(0.76,0.3,0.42),prM(0x22223a),0,0.39,0.12),
+      prMesh(BOX(0.7,0.05,0.05),yel,0,1.0,-0.33),prMesh(BOX(0.05,0.3,0.05),yel,-0.34,0.85,-0.33),prMesh(BOX(0.05,0.3,0.05),yel,0.34,0.85,-0.33),prMesh(BOX(0.86,0.06,0.06),yel,0,0.7,-0.66),prMesh(BOX(0.86,0.06,0.06),yel,0,1.05,0.36)); // (a seat under you, and the lap bar where your hands are)
     for(const x of[-0.36,0.36]) for(const z of[-0.45,0.45]) car.add(prMesh(CYL(0.09,0.09,0.06,14),dark,x,0.06,z,0,0,Math.PI/2));
     const track=new T.Group(); for(const x of[-0.36,0.36]) track.add(prMesh(BOX(0.06,0.06,3.6),prM(0xb8c4d6,{shininess:120}),x,-0.02,0));
     for(let z=-1.7;z<=1.7;z+=0.34) track.add(prMesh(BOX(0.9,0.04,0.1),prM(0x6b4a2a),0,-0.07,z));
@@ -2250,14 +2255,15 @@ const PROPS:any={
   // Dive Roll: a crash mat to land on
   mat:()=>{ const root=new T.Group(); root.add(prMesh(BOX(1.3,0.12,2.6),prM(0x2f6bff),0,0.06,-0.3),prMesh(BOX(1.32,0.02,0.04),prM(0xffd23f),0,0.125,-1.1),prMesh(BOX(1.32,0.02,0.04),prM(0xffd23f),0,0.125,0.5)); return {root}; },
   // Knight Strike: a glowing sword
-  sword:()=>{ const R=new T.Group(); R.add(prMesh(CYL(0.02,0.02,0.18),prM(0x5a3a22),-0.02,0.06,0.05,Math.PI/2),prMesh(BOX(0.04,0.04,0.3),prM(0xffd23f,{shininess:120}),-0.02,0.06,0.16,0,Math.PI/2),
-      prMesh(BOX(0.015,0.07,0.95),prM(0xcfe8ff,{emissive:0x3a7aff,shininess:160}),-0.02,0.06,0.65),prMesh(SPH(0.03,10),prM(0xffd23f),-0.02,0.06,-0.05));
-    const gl=prSprite(0x7ab8ff,1.3,0.35); gl.position.set(-0.02,0.06,0.65); gl.scale.set(0.3,1.3,1); R.add(gl); return {R}; },
+  sword:()=>{ const R=prHeld(1.3), x=GRIP[0], y=GRIP[1]; R.add(prMesh(CYL(0.022,0.022,0.17),prM(0x5a3a22),x,y,0,Math.PI/2),prMesh(BOX(0.04,0.3,0.04),prM(0xffd23f,{shininess:120}),x,y,0.1),
+      prMesh(BOX(0.015,0.07,0.95),prM(0xcfe8ff,{emissive:0x3a7aff,shininess:160}),x,y,0.59),prMesh(SPH(0.03,10),prM(0xffd23f),x,y,-0.1));
+    const gl=prSprite(0x7ab8ff,1.3,0.35); gl.position.set(x,y,0.59); gl.scale.set(0.3,1.3,1); R.add(gl); return {R}; },
   // Squirt Gun: a bright toy water gun, and water
-  squirt:()=>{ const R=new T.Group(); R.add(prMesh(BOX(0.05,0.07,0.14),prM(0xff8a1f),-0.02,0.05,0.02),prMesh(BOX(0.06,0.24,0.07),prM(0x2f8cff),-0.02,0.14,0.11),prMesh(SPH(0.05,10),prM(0x5cf0ff,{transparent:true,opacity:0.7}),-0.02,0.12,0.17),prMesh(CYL(0.012,0.012,0.08),prM(0xffd23f),-0.02,0.29,0.11));
+  squirt:()=>{ const R=prHeld(1.2), x=GRIP[0], y=GRIP[1]; // the grip through the fist, the body on top (index side) pointing where the fingers point
+    R.add(prMesh(BOX(0.045,0.06,0.14),prM(0xff8a1f),x,y,0.0),prMesh(BOX(0.06,0.3,0.075),prM(0x2f8cff),x,y+0.06,0.1),prMesh(SPH(0.05,10),prM(0x5cf0ff,{transparent:true,opacity:0.7}),x,y+0.02,0.17),prMesh(CYL(0.013,0.013,0.08),prM(0xffd23f),x,y+0.24,0.1));
     const root=new T.Group(), drops=[]; for(let i=0;i<14;i++){ const d=prMesh(SPH(0.022,8),prM(0x8fe8ff,{transparent:true,opacity:0.8,emissive:0x205a70})); d.visible=false; root.add(d); drops.push({m:d,v:new V(),life:0}); }
     return {R,root,drops,cd:0,up:(P,t,u,c,dt)=>{ const fire=(u>0.29&&u<0.34)||(u>0.4&&u<0.45); P.cd-=dt;
-      if(fire&&P.cd<=0){ P.cd=0.03; const d=P.drops.find(x=>x.life<=0); if(d){ P.R.updateMatrixWorld(true); const m=P.R.matrix; const o=new V(-0.02,0.33,0.11).applyMatrix4(m), dir=new V(0,1,0).transformDirection(m);
+      if(fire&&P.cd<=0){ P.cd=0.03; const d=P.drops.find(x=>x.life<=0); if(d){ P.R.updateMatrix(); const m=P.R.matrix; const o=new V(GRIP[0],GRIP[1]+0.29,0.1).applyMatrix4(m), dir=new V(0,1,0).transformDirection(m);
         d.m.position.copy(o); d.v.copy(dir).multiplyScalar(5).add(new V((Math.random()-0.5)*0.4,0.5,(Math.random()-0.5)*0.4)); d.life=0.7; d.m.visible=true; } }
       for(const d of P.drops) if(d.life>0){ d.life-=dt; d.v.y-=9*dt; d.m.position.addScaledVector(d.v,dt); if(d.life<=0||d.m.position.y<0) { d.life=0; d.m.visible=false; } } }}; },
   // Surprise Gift: a present between your hands that bursts into confetti
@@ -2269,9 +2275,10 @@ const PROPS:any={
       if(!open){ P.popped=false; } P.lid.position.y=open?0.16+Math.min(0.6,(u-0.32)*6):0.16; P.lid.rotation.z=open?Math.min(1.2,(u-0.32)*10):0;
       for(const q of P.conf) if(q.life>0){ q.life-=dt; q.v.y-=4*dt; q.v.multiplyScalar(1-1.5*dt); q.m.position.addScaledVector(q.v,dt); q.m.rotation.x+=dt*9; q.m.rotation.y+=dt*7; if(q.life<=0||q.m.position.y<0.01){ q.life=0; q.m.visible=false; } } }}; },
   // Big Red Button: do NOT press it
-  button:()=>{ const root=new T.Group(), st=new T.Group(); st.add(prMesh(CYL(0.16,0.2,0.9,20),prM(0x2a2d3a),0,0.45,0),prMesh(CYL(0.2,0.2,0.06,24),prM(0xffd23f),0,0.92,0));
-    const btn=prMesh(CYL(0.13,0.14,0.08,24),prM(0xff2a3a,{emissive:0x400000,shininess:120}),0,0.98,0); st.add(btn); st.position.set(0.12,0,-0.5); root.add(st);
-    const fl=prSprite(0xff3a3a,1.6,0.0); fl.position.set(0.12,1.2,-0.5); root.add(fl); return {root,btn,fl,up:(P,t,u)=>{ const p=smooth(0.42,0.5,u)*(1-smooth(0.62,0.7,u)); P.btn.position.y=0.98-0.045*p; P.fl.material.opacity=p*(0.5+0.5*Math.sin(t*30)); }}; },
+  button:()=>{ const root=new T.Group(), st=new T.Group(); st.add(prMesh(CYL(0.15,0.2,1.38,20),prM(0x2a2d3a),0,0.69,0),prMesh(CYL(0.2,0.2,0.06,24),prM(0xffd23f),0,1.4,0));
+    const btn=prMesh(CYL(0.12,0.13,0.07,24),prM(0xff2a3a,{emissive:0x400000,shininess:120}),0,1.465,0); st.add(btn); st.position.set(-0.13,0,-0.6); root.add(st); // (under the left palm at the press)
+    const fl=prSprite(0xff3a3a,1.6,0.0); fl.position.set(-0.13,1.7,-0.6); root.add(fl);
+    return {root,btn,fl,up:(P,t,u,c,dt,B,g)=>{ const h=prLocal(B.LeftHand,g,_prA), p=smooth(1.36,1.5,h.y)*smooth(0.25,0.0,Math.hypot(h.x+0.13,h.z+0.55)); P.btn.position.y=1.465-0.04*p; P.fl.material.opacity=p*(0.5+0.5*Math.sin(t*30)); }}; },
   // Pogo Stick: a pogo stick that bounces with you
   pogo:()=>{ const root=new T.Group(), st=new T.Group(); st.add(prMesh(CYL(0.04,0.04,1.1),prM(0x2f8cff,{shininess:90}),0,0.55,0),prMesh(BOX(0.5,0.06,0.08),prM(0x222222),0,1.08,0),prMesh(BOX(0.44,0.04,0.14),prM(0xffd23f),0,0.28,0));
     const spring=prMesh(CYL(0.06,0.06,0.25,10),prM(0xb8c4d6,{wireframe:true}),0,0.12,0); st.add(spring); st.position.set(0,0,-0.16); root.add(st);
@@ -2281,6 +2288,7 @@ const PROPS:any={
     root.add(prMesh(BOX(0.75,0.45,0.6),gold,0,0.22,0.15),prMesh(BOX(0.62,0.08,0.5),red,0,0.48,0.12),prMesh(BOX(0.75,1.3,0.12),gold,0,0.9,0.48),prMesh(BOX(0.55,0.9,0.03),red,0,0.95,0.41),
       prMesh(BOX(0.1,0.25,0.55),gold,-0.38,0.58,0.15),prMesh(BOX(0.1,0.25,0.55),gold,0.38,0.58,0.15));
     for(const x of[-0.3,0,0.3]) root.add(prMesh(SPH(0.06,10),gold,x,1.62,0.48)); root.add(prMesh(SPH(0.05,10),prM(0x5cf0ff,{emissive:0x1a6070}),0,1.35,0.42));
+    for(const o of root.children){ o.position.z-=0.15; o.position.y+=0.05; } // (the cushion under the hips, the back behind them)
     return {root}; },
   // Pool Party: a pink rubber ring and a puddle of pool
   floatie:()=>{ const root=new T.Group(), ring=new T.Group(); for(let i=0;i<8;i++){ const seg=new T.Mesh(prG('fl'+i,()=>new T.TorusGeometry(0.34,0.11,10,6,TAU/8)),prM(i%2?0xffffff:0xff5fa8,{shininess:100})); seg.rotation.z=i*TAU/8; ring.add(seg); }
@@ -2294,7 +2302,7 @@ const PROPS:any={
   campfire:()=>{ const root=new T.Group(), fire=new T.Group(); for(let i=0;i<4;i++) fire.add(prMesh(CYL(0.04,0.04,0.45),prM(0x6b4423),0,0.05,0,Math.PI/2,i*Math.PI/4));
     for(let i=0;i<7;i++){ const a=i/7*TAU; fire.add(prMesh(SPH(0.06,8),prM(0x777a86),Math.cos(a)*0.28,0.03,Math.sin(a)*0.28)); }
     const f=[prSprite(0xff5a1a,0.6),prSprite(0xffa020,0.45),prSprite(0xffe08a,0.25)]; f.forEach((s,i)=>{ s.position.y=0.18+i*0.06; fire.add(s); }); fire.position.set(0,0,-0.75); root.add(fire);
-    const R=new T.Group(); R.add(prMesh(CYL(0.008,0.008,0.75),prM(0x8a6a42),-0.02,0.06,0.33,Math.PI/2),prMesh(CYL(0.035,0.035,0.06,10),prM(0xfff6e6),-0.02,0.06,0.72,Math.PI/2));
+    const R=prHeld(1.3); R.add(prMesh(CYL(0.01,0.01,0.8),prM(0x8a6a42),GRIP[0],GRIP[1],0.3,Math.PI/2),prMesh(CYL(0.035,0.035,0.06,10),prM(0xfff6e6),GRIP[0],GRIP[1],0.68,Math.PI/2));
     return {root,R,f,up:(P,t)=>{ P.f.forEach((s,i)=>s.scale.setScalar((0.6-i*0.16)*(1+0.18*Math.sin(t*(17+i*6)+i)))); }}; },
   // Red Carpet: a red carpet, velvet ropes and camera flashes
   carpet:()=>{ const root=new T.Group(); root.add(prMesh(BOX(1.0,0.015,4),prM(0xc0182a,{shininess:10}),0,0.008,0));
@@ -2303,18 +2311,18 @@ const PROPS:any={
     const fl=[0,1,2,3,4].map(i=>{ const s=prSprite(0xffffff,0.6,0); s.position.set((i%2?-1:1)*(1.3+0.3*Math.random()),0.9+Math.random()*0.9,-1.5+i*0.75); root.add(s); return s; });
     return {root,fl,up:(P,t)=>{ P.fl.forEach((s,i)=>{ const p=((t*0.9+i*0.37)%1); s.material.opacity=p<0.06?1-p/0.06:0; }); }}; },
   // Crystal Ball: a glowing ball between your hands, swirling
-  crystal:()=>{ const root=new T.Group(), ball=prMesh(SPH(0.14,20),prM(0xc9a0ff,{transparent:true,opacity:0.55,emissive:0x5a2aa0,shininess:200,specular:0xffffff}));
-    const core=prSprite(0xb07cff,0.45), sw=prMesh(TOR(0.08,0.01,24),prM(0xffffff,{emissive:0xc9a0ff})); root.add(ball,core,sw);
-    return {root,ball,core,sw,up:(P,t,u,c,dt,B,g)=>{ const a=prLocal(B.RightHand,g,_prA), b=prLocal(B.LeftHand,g,_prB); const m=a.add(b).multiplyScalar(0.5); m.z-=0.12; m.y+=0.04;
-      P.ball.position.copy(m); P.core.position.copy(m); P.sw.position.copy(m); P.sw.rotation.set(t*2,t*3,0); P.core.scale.setScalar(0.4+0.1*Math.sin(t*4)); }}; },
+  crystal:()=>{ const L=new T.Group(), ball=prMesh(SPH(0.13,20),prM(0xc9a0ff,{transparent:true,opacity:0.55,emissive:0x5a2aa0,shininess:200,specular:0xffffff}));
+    const core=prSprite(0xb07cff,0.45), sw=prMesh(TOR(0.08,0.01,24),prM(0xffffff,{emissive:0xc9a0ff})); L.add(ball,core,sw); for(const o of [ball,core,sw]) o.position.set(-0.22,0.1,0); // (floating off the open left palm)
+    return {L,ball,core,sw,up:(P,t)=>{ const b=0.015*Math.sin(t*2.2); for(const o of [P.ball,P.core,P.sw]) o.position.x=-0.22+b; P.sw.rotation.set(t*2,t*3,0); P.core.scale.setScalar(0.4+0.1*Math.sin(t*4)); }}; },
   // Bubble Gum: a bubble that grows and grows... and pops
   bubble:()=>{ const head=new T.Group(), b=prMesh(SPH(0.1,18),prM(0xff8ac8,{transparent:true,opacity:0.75,shininess:160,specular:0xffffff})); b.position.set(0,-0.02,-0.16); head.add(b);
     return {head,b,up:(P,t)=>{ const p=(t%3.2)/3.2, s=p<0.82?0.1+1.6*p*p:0.02; P.b.scale.setScalar(s); P.b.position.z=-0.12-0.1*s; P.b.visible=p<0.84; }}; },
   // Yo-Yo: walk the dog
-  yoyo:()=>{ const root=new T.Group(), yo=new T.Group(); yo.add(prMesh(CYL(0.06,0.06,0.025,18),prM(0xff3fa4),0,0,0.015,Math.PI/2),prMesh(CYL(0.06,0.06,0.025,18),prM(0xff3fa4),0,0,-0.015,Math.PI/2),prMesh(CYL(0.02,0.02,0.04,10),prM(0xffffff),0,0,0,Math.PI/2));
+  yoyo:()=>{ const R=prHeld(0.9), tip=new T.Object3D(); tip.position.set(-0.03,0.13,0.02); R.add(tip); const root=new T.Group(), yo=new T.Group(); // (the string hangs from the middle finger)
+    yo.add(prMesh(CYL(0.06,0.06,0.025,18),prM(0xff3fa4),0,0,0.015,Math.PI/2),prMesh(CYL(0.06,0.06,0.025,18),prM(0xff3fa4),0,0,-0.015,Math.PI/2),prMesh(CYL(0.02,0.02,0.04,10),prM(0xffffff),0,0,0,Math.PI/2));
     const str=prMesh(CYL(0.003,0.003,1),prM(0xffffff)); root.add(yo,str);
-    return {root,yo,str,up:(P,t,u,c,dt,B,g)=>{ const h=prLocal(B.RightHand,g,_prA); const p=(t*1.1)%1, d=0.08+0.7*Math.sin(p*Math.PI); P.yo.position.set(h.x,h.y-d,h.z); P.yo.rotation.x=t*25;
-      P.str.position.set(h.x,h.y-d/2,h.z); P.str.scale.y=d; }}; },
+    return {R,tip,root,yo,str,up:(P,t,u,c,dt,B,g)=>{ P.R.updateMatrix(); const h=_prA.copy(P.tip.position).applyMatrix4(P.R.matrix); const p=(t*1.1)%1, d=0.08+0.62*Math.sin(p*Math.PI); P.yo.position.set(h.x,h.y-d-0.06,h.z); P.yo.rotation.x=t*25;
+      P.str.position.set(h.x,h.y-(d)/2,h.z); P.str.scale.y=d; }}; },
 };
 const _prA=new V(), _prB=new V(), _prM=new T.Matrix4(), _prI=new T.Matrix4(), _prP=new V(), _prQ=new T.Quaternion(), _prS=new V(), _prQ2=new T.Quaternion();
 // a bone's position in the character root's frame
@@ -2324,12 +2332,23 @@ function prOnto(o,bone,g,upright?){ _prI.copy(g.matrixWorld).invert(); _prM.mult
 function propMake(c,E){ const f=PROPS[E.prop]; if(!f) return null; const P=f(); P.k=E.prop; P.t=0;
   for(const s of ['root','R','L','head']) if(P[s]){ P[s].scale.setScalar(0.001); c.g.add(P[s]); }
   return P; }
-function propDrop(c){ const P=c.prop; if(!P) return; for(const s of ['root','R','L','head']) if(P[s]) c.g.remove(P[s]); c.prop=null; }
+function propDrop(c){ const P=c.prop; if(!P) return; if(c.bones) for(const sd of ['Right','Left']) prCurl(c.bones,sd,0); for(const s of ['root','R','L','head']) if(P[s]) c.g.remove(P[s]); c.prop=null; }
+// close a hand round a grip: each finger joint turns about the hand's z (fingers +y toward the palm, -x), the thumb
+// folds over; 0 opens it back to the rest pose
+const _pcQ=new T.Quaternion(), _pcZ=new V(), _pcY=new V();
+function prCurl(B,sd,a){ const h=B[sd+'Hand']; if(!h) return;
+  for(const fg of ['Index','Middle','Ring','Pinky','Thumb']) for(const k of [1,2,3]){ const b=B[sd+'Hand'+fg+k]; if(b&&b.userData.q0) b.quaternion.copy(b.userData.q0); }
+  if(!(a>1e-3)){ h.updateMatrixWorld(true); return; }
+  h.getWorldQuaternion(_pcQ); _pcZ.set(0,0,1).applyQuaternion(_pcQ); _pcY.set(0,1,0).applyQuaternion(_pcQ);
+  for(const fg of ['Index','Middle','Ring','Pinky']) for(const k of [1,2,3]){ const b=B[sd+'Hand'+fg+k]; if(b) rotateBoneWorld(b,_pcZ,a*(k===1?0.85:1)); }
+  for(const k of [2,3]){ const b=B[sd+'HandThumb'+k]; if(b) rotateBoneWorld(b,_pcY,(sd==='Right'?-1:1)*a*0.45); }
+}
 // after the pose: props onto the hands and head, pop in and out with the emote, and animate
 function emProps(e,c,B,dt){ const P=c.prop, em=e.emote; if(!P||!em) return; c.g.updateMatrixWorld(true);
   const s=Math.max(0.001,smooth(0,1,em.w)), E=em.E, L=E.clip&&SOLDIER.clips[E.clip]?SOLDIER.clips[E.clip].duration:1, tt=em.t*(E.speed||1), u=E.loop?(tt%L)/L:Math.min(1,tt/L);
   if(P.R) prOnto(P.R,B.RightHand,c.g,P.R.userData.upright); if(P.L) prOnto(P.L,B.LeftHand,c.g); if(P.head) prOnto(P.head,B.Head,c.g,true);
   for(const k of ['root','R','L','head']) if(P[k]) P[k].scale.setScalar(s);
+  if(P.R&&P.R.userData.grip) prCurl(B,'Right',P.R.userData.grip*s); if(P.L&&P.L.userData.grip) prCurl(B,'Left',P.L.userData.grip*s);
   P.t=em.t; if(P.up) P.up(P,em.t,u,c,dt||1/60,B,c.g);
 }
 // [v1.65] the wheel has pages (scroll while it is open): the hand-keyed emotes, then the CC0 pack moves (only the ones whose clip loaded)
