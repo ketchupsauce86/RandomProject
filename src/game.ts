@@ -782,6 +782,7 @@ function packMoveClips(){ const H=window.PACK_MOVES; if(!H||!H.clips) return;
 // a clip emote: its clip takes over from whatever the mixer was blending, by the emote's weight (less while moving).
 // The action is made the first time a character plays that move (so 100 bots do not carry every dance around) and stopped after.
 function emClip(e,c){ const em=e&&e.emote, E=em&&em.E, k=E&&E.clip&&SOLDIER.clips[E.clip]?E.clip:null;
+  const pk=k&&E.prop?em.k:null; if(c.propK!==pk){ propDrop(c); c.propK=pk; if(pk) c.prop=propMake(c,E); } // [v1.67] its props
   if(c.pmK&&c.pmK!==k){ c.pmA.stop(); c.pmA=null; c.pmK=null; }
   if(!k) return;
   if(!c.pmA){ c.pmA=c.mixer.clipAction(SOLDIER.clips[k]); c.pmA.reset(); c.pmA.play(); c.pmA.setEffectiveTimeScale(0); c.pmK=k; }
@@ -2152,15 +2153,187 @@ const EMOTES:any={
 // [v1.65] whole-body moves from the CC0 packs (packmoves.js; credits in CREDITS.md), each with its own name in the game.
 // clip: the clip that moves the body (emClip). Looping ones play until cancelled; the rest last as long as their clip (+hold).
 Object.assign(EMOTES,{
-  pmGroove:{n:'Groove',clip:'PM_Groove',loop:1}, pmChatter:{n:'Chatterbox',clip:'PM_Chatter',loop:1},
-  pmTinker:{n:'Tinker',clip:'PM_Tinker'}, pmChair:{n:'Air Chair',clip:'PM_Chair',loop:1},
-  pmMime:{n:'Mime Wall',clip:'PM_Mime',loop:1}, pmRoll:{n:'Dive Roll',clip:'PM_Roll'},
-  pmSpark:{n:'Spark Shot',clip:'PM_Spark'}, pmBox:{n:'Shadowbox',clip:'PM_ShadowBox',loop:1},
-  pmTorch:{n:'Torch Up',clip:'PM_Torch',loop:1}, pmDead:{n:'Play Dead',clip:'PM_PlayDead',hold:1.6},
-  pmJoy:{n:'Joyride',clip:'PM_Joyride',loop:1}, pmRun:{n:'Treadmill',clip:'PM_RunInPlace',loop:1}, pmHang:{n:'Hang Time',clip:'PM_HangTime',loop:1}});
+  pmGroove:{n:'Groove',clip:'PM_Groove',loop:1,prop:'disco'}, pmChatter:{n:'Chatterbox',clip:'PM_Chatter',loop:1,prop:'speech'},
+  pmTinker:{n:'Tinker',clip:'PM_Tinker',prop:'wrench'}, pmChair:{n:'Air Chair',clip:'PM_Chair',loop:1,prop:'ghostChair'},
+  pmMime:{n:'Mime Wall',clip:'PM_Mime',loop:1,prop:'glass'}, pmRoll:{n:'Dive Roll',clip:'PM_Roll',prop:'mat'},
+  pmSpark:{n:'Spark Shot',clip:'PM_Spark',prop:'orb'}, pmBox:{n:'Shadowbox',clip:'PM_ShadowBox',loop:1,prop:'gloves'},
+  pmTorch:{n:'Torch Up',clip:'PM_Torch',loop:1,prop:'torch'}, pmDead:{n:'Play Dead',clip:'PM_PlayDead',hold:1.6,prop:'grave'},
+  pmJoy:{n:'Joyride',clip:'PM_Joyride',loop:1,prop:'coaster'}, pmRun:{n:'Treadmill',clip:'PM_RunInPlace',loop:1,prop:'treadmill'}, pmHang:{n:'Hang Time',clip:'PM_HangTime',loop:1,prop:'trampoline'},
+  // [v1.67] thirteen more, each with its own props
+  pmSword:{n:'Knight Strike',clip:'PM_Sword',loop:1,prop:'sword'}, pmSquirt:{n:'Squirt Gun',clip:'PM_Squirt',loop:1,prop:'squirt'},
+  pmGift:{n:'Surprise Gift',clip:'PM_Gift',hold:0.3,prop:'gift'}, pmButton:{n:'Big Red Button',clip:'PM_Button',hold:0.4,prop:'button'},
+  pmPogo:{n:'Pogo Stick',clip:'PM_Pogo',loop:1,prop:'pogo'}, pmThrone:{n:'Royal Throne',clip:'PM_Throne',loop:1,prop:'throne'},
+  pmFloat:{n:'Pool Party',clip:'PM_Float',loop:1,prop:'floatie'}, pmBonk:{n:'Bonk!',clip:'PM_Bonk',hold:1.8,prop:'stars'},
+  pmFire:{n:'Campfire',clip:'PM_Campfire',loop:1,prop:'campfire'}, pmCarpet:{n:'Red Carpet',clip:'PM_Carpet',loop:1,prop:'carpet'},
+  pmCrystal:{n:'Crystal Ball',clip:'PM_Crystal',loop:1,prop:'crystal'}, pmBubble:{n:'Bubble Gum',clip:'PM_Bubble',loop:1,prop:'bubble'}, pmYoyo:{n:'Yo-Yo',clip:'PM_YoYo',loop:1,prop:'yoyo'}});
 const PM_EMOTES=['pmGroove','pmBox','pmSpark','pmRoll','pmChair','pmMime','pmTorch','pmChatter','pmTinker','pmDead','pmJoy','pmRun','pmHang'];
+const PM_EMOTES2=['pmSword','pmSquirt','pmGift','pmButton','pmPogo','pmThrone','pmFloat','pmBonk','pmFire','pmCarpet','pmCrystal','pmBubble','pmYoyo'];
+// ---- [v1.67] emote props: things the pack emotes hold, stand on or float round. EMOTES[k].prop names a builder in
+// PROPS; it runs when the emote starts and returns P = {root (body frame: feet at y 0, facing -z, right +x), R / L (moved
+// onto that hand every frame), head (moved onto the head, upright), up(P,t,u,c) to animate}. emClip makes and drops
+// them, emProps places them after the pose. Hand frame: +y along the fingers, +z from pinky to index (right hand),
+// -x out of the palm. Shapes and materials are made once and shared, so a prop costs a few meshes.
+const PRC:any={g:{},m:{}};
+const prG=(k,f)=>PRC.g[k]||(PRC.g[k]=f());
+const prM=(col,o?)=>{ const k=col+JSON.stringify(o||{}); return PRC.m[k]||(PRC.m[k]=new T.MeshPhongMaterial(Object.assign({color:col,shininess:45},o||{}))); };
+const prGlow=(col,op?)=>{ const k='glow'+col+(op||1); return PRC.m[k]||(PRC.m[k]=new T.SpriteMaterial({map:glowTex,color:col,blending:T.AdditiveBlending,depthWrite:false,transparent:true,opacity:op||1,fog:false})); };
+function prMesh(geo,mat,x?,y?,z?,rx?,ry?,rz?){ const m=new T.Mesh(geo,mat); m.position.set(x||0,y||0,z||0); m.rotation.set(rx||0,ry||0,rz||0); return m; }
+const BOX=(w,h,d)=>prG('b'+w+'_'+h+'_'+d,()=>new T.BoxGeometry(w,h,d));
+const CYL=(r0,r1,h,n?)=>prG('c'+r0+'_'+r1+'_'+h+'_'+(n||12),()=>new T.CylinderGeometry(r0,r1,h,n||12));
+const SPH=(r,n?)=>prG('s'+r+'_'+(n||12),()=>new T.SphereGeometry(r,n||12,Math.max(6,(n||12)>>1)));
+const TOR=(R,r,n?)=>prG('t'+R+'_'+r,()=>new T.TorusGeometry(R,r,8,n||24));
+function prSprite(col,s,op?){ const sp=new T.Sprite(prGlow(col,op)); sp.scale.setScalar(s); return sp; }
+// a word or two on a canvas, as a sprite (speech bubbles, the RIP stone)
+function prText(lines,o?){ o=o||{}; const W=o.w||256, H=o.h||128;
+  const tex=canvasTex(W,H,(g,w,h)=>{ g.clearRect(0,0,w,h); if(o.bubble){ g.fillStyle='#ffffff'; g.strokeStyle='#1b1240'; g.lineWidth=6; g.beginPath(); g.roundRect?g.roundRect(8,8,w-16,h-40,28):g.rect(8,8,w-16,h-40); g.fill(); g.stroke();
+      g.beginPath(); g.moveTo(w*0.42,h-34); g.lineTo(w*0.36,h-6); g.lineTo(w*0.56,h-34); g.closePath(); g.fill(); g.stroke(); }
+    g.fillStyle=o.col||'#1b1240'; g.font=`800 ${o.fs||40}px system-ui,sans-serif`; g.textAlign='center'; g.textBaseline='middle';
+    lines.forEach((l,i)=>g.fillText(l,w/2,(o.bubble?(h-32)/2:h/2)+(i-(lines.length-1)/2)*(o.fs||40)*1.1)); });
+  return tex; }
+// gloves, held things
+function prGlove(col){ const w=new T.Group(), g=new T.Group(); g.scale.setScalar(1.55); w.add(g); g.add(prMesh(SPH(0.075,14),prM(col,{shininess:90})),prMesh(CYL(0.055,0.06,0.07),prM(0xffffff),0,-0.06,0)); g.children[0].scale.set(1.15,1.25,1.05); g.children[0].position.set(-0.01,0.05,0); return w; }
+const PROPS:any={
+  // Shadowbox: a pair of shiny red boxing gloves
+  gloves:()=>({R:prGlove(0xe02030),L:prGlove(0xe02030)}),
+  // Torch Up: a wooden torch with a flickering flame
+  torch:()=>{ const R=new T.Group(); R.userData.upright=1; R.add(prMesh(CYL(0.035,0.028,0.6),prM(0xb07a40),0,0.12,0),prMesh(CYL(0.06,0.04,0.12),prM(0x3a2a1a),0,0.44,0));
+    const f1=prSprite(0xff7a1a,0.42), f2=prSprite(0xffe08a,0.24); f1.position.set(0,0.58,0); f2.position.set(0,0.55,0); R.add(f1,f2);
+    return {R,f:[f1,f2],up:(P,t)=>{ P.f[0].scale.setScalar(0.38+0.08*Math.sin(t*23)+0.05*Math.sin(t*37)); P.f[1].scale.setScalar(0.22+0.05*Math.sin(t*29+1)); P.f[0].position.y=0.6+0.02*Math.sin(t*17); }}; },
+  // Spark Shot: a crackling orb of light in the palm
+  orb:()=>{ const R=new T.Group(), o=prMesh(SPH(0.07,16),prM(0x9ff6ff,{emissive:0x3fd8ff})), h=prSprite(0x5cf0ff,0.5), r=prMesh(TOR(0.12,0.008,32),prM(0xffffff,{emissive:0x9ff6ff}));
+    o.position.set(-0.12,0.09,0); h.position.copy(o.position); r.position.copy(o.position); R.add(o,h,r);
+    return {R,o,h,r,up:(P,t,u)=>{ const k=1+0.15*Math.sin(t*12)+(u>0.72&&u<0.86?0.9*Math.sin((u-0.72)/0.14*Math.PI):0); P.o.scale.setScalar(k); P.h.scale.setScalar(0.5*k); P.r.rotation.set(t*3,t*4.2,0); }}; },
+  // Tinker: a wrench in hand and a toolbox at your feet
+  wrench:()=>{ const R=new T.Group(); R.add(prMesh(BOX(0.035,0.03,0.32),prM(0x9aa6b8,{shininess:120}),-0.02,0.06,0.14),prMesh(TOR(0.045,0.016,16),prM(0x9aa6b8,{shininess:120}),-0.02,0.06,0.33,Math.PI/2));
+    const root=new T.Group(), tb=new T.Group(); tb.add(prMesh(BOX(0.5,0.22,0.24),prM(0xd92b2b),0,0.11,0),prMesh(BOX(0.52,0.04,0.26),prM(0xb01e1e),0,0.24,0),prMesh(BOX(0.2,0.04,0.03),prM(0x222222),0,0.29,0));
+    tb.position.set(0.55,0,-0.25); tb.rotation.y=0.5; root.add(tb); return {R,root}; },
+  // Air Chair: a see-through ghost of the chair you are sitting on
+  ghostChair:()=>{ const root=new T.Group(), m=prM(0x9ff6ff,{transparent:true,opacity:0.28,emissive:0x2a8aa0,depthWrite:false});
+    root.add(prMesh(BOX(0.55,0.06,0.5),m,0,0.5,0.15),prMesh(BOX(0.55,0.6,0.06),m,0,0.83,0.42)); for(const x of[-0.24,0.24]) for(const z of[-0.07,0.37]) root.add(prMesh(BOX(0.05,0.5,0.05),m,x,0.25,z));
+    return {root,m,up:(P,t)=>{ P.m.opacity=0.22+0.1*Math.sin(t*3); }}; },
+  // Mime Wall: a pane of glass you are pushing on
+  glass:()=>{ const root=new T.Group(), pane=prMesh(BOX(1.3,1.9,0.03),prM(0xbfeaff,{transparent:true,opacity:0.18,shininess:200,specular:0xffffff,depthWrite:false}),0,1.0,-0.62);
+    const edge=prM(0xe8f6ff,{emissive:0x557788}); root.add(pane,prMesh(BOX(1.34,0.04,0.05),edge,0,1.96,-0.62),prMesh(BOX(1.34,0.04,0.05),edge,0,0.04,-0.62),prMesh(BOX(0.04,1.94,0.05),edge,-0.66,1.0,-0.62),prMesh(BOX(0.04,1.94,0.05),edge,0.66,1.0,-0.62));
+    const gl=prSprite(0xffffff,0.5,0.5); gl.position.set(0.3,1.5,-0.6); root.add(gl); return {root,gl,up:(P,t)=>{ P.gl.position.x=-0.5+((t*0.4)%1.2); }}; },
+  // Chatterbox: a speech bubble that never runs out of things to say
+  speech:()=>{ const head=new T.Group(), texs=[['Blah blah'],['...and THEN'],['So anyway'],['No way!'],['Literally'],['Wait wait']].map(l=>prText(l,{bubble:1,fs:44}));
+    const sp=new T.Sprite(new T.SpriteMaterial({map:texs[0],transparent:true,depthWrite:false})); sp.scale.set(0.9,0.45,1); sp.position.set(0.45,0.45,0); head.add(sp);
+    return {head,sp,texs,i:0,up:(P,t)=>{ const i=Math.floor(t/1.4)%P.texs.length; if(i!==P.i){ P.i=i; P.sp.material.map=P.texs[i]; } const p=(t%1.4)/1.4; P.sp.scale.set(0.9*(0.85+0.15*smooth(0,0.1,p)),0.45*(0.85+0.15*smooth(0,0.1,p)),1); }}; },
+  // Play Dead: a little gravestone pops up, with a daisy
+  grave:()=>{ const root=new T.Group(), st=new T.Group(); st.add(prMesh(BOX(0.5,0.6,0.12),prM(0x8d93a3),0,0.3,0),prMesh(CYL(0.25,0.25,0.12,20),prM(0x8d93a3),0,0.6,0,Math.PI/2));
+    const tx=new T.Mesh(prG('ripP',()=>new T.PlaneGeometry(0.4,0.3)),new T.MeshBasicMaterial({map:prText(['R.I.P.'],{col:'#2a2a3a',fs:64}),transparent:true})); tx.position.set(0,0.45,0.062); st.add(tx);
+    const fl=new T.Group(); fl.add(prMesh(CYL(0.008,0.008,0.25),prM(0x2f9a3a),0,0.12,0),prMesh(SPH(0.05,10),prM(0xffffff),0,0.26,0),prMesh(SPH(0.025,8),prM(0xffd23f),0,0.26,0.03)); fl.position.set(0.32,0,0.15); st.add(fl);
+    st.position.set(-0.6,0,1.0); root.add(st); return {root,st,up:(P,t,u)=>{ const k=smooth(0.45,0.6,u); P.st.scale.set(1,Math.max(0.001,k),1); }}; },
+  // Joyride: a rollercoaster car on its own bit of track, rattling over the bumps
+  coaster:()=>{ const root=new T.Group(), car=new T.Group(), red=prM(0xe8283c,{shininess:90}), yel=prM(0xffd23f), dark=prM(0x22223a);
+    car.add(prMesh(BOX(0.8,0.12,1.3),red,0,0.18,0),prMesh(BOX(0.08,0.55,1.3),red,-0.42,0.42,0),prMesh(BOX(0.08,0.55,1.3),red,0.42,0.42,0),prMesh(BOX(0.84,0.75,0.12),red,0,0.5,-0.66),prMesh(BOX(0.84,0.9,0.1),red,0,0.55,0.52),
+      prMesh(BOX(0.7,0.05,0.05),yel,0,0.72,-0.2),prMesh(BOX(0.86,0.06,0.06),yel,0,0.7,-0.66),prMesh(BOX(0.86,0.06,0.06),yel,0,0.7,0.52));
+    for(const x of[-0.36,0.36]) for(const z of[-0.45,0.45]) car.add(prMesh(CYL(0.09,0.09,0.06,14),dark,x,0.06,z,0,0,Math.PI/2));
+    const track=new T.Group(); for(const x of[-0.36,0.36]) track.add(prMesh(BOX(0.06,0.06,3.6),prM(0xb8c4d6,{shininess:120}),x,-0.02,0));
+    for(let z=-1.7;z<=1.7;z+=0.34) track.add(prMesh(BOX(0.9,0.04,0.1),prM(0x6b4a2a),0,-0.07,z));
+    root.add(track,car); return {root,car,up:(P,t)=>{ P.car.position.y=0.03*Math.abs(Math.sin(t*9))+0.02*Math.sin(t*2.3); P.car.rotation.x=0.05*Math.sin(t*1.7); P.car.rotation.z=0.03*Math.sin(t*2.9); }}; },
+  // Treadmill: a running machine with a moving belt and a little screen
+  treadmill:()=>{ const root=new T.Group(), dark=prM(0x2a2d3a), belt=prMesh(BOX(0.7,0.04,1.6),new T.MeshPhongMaterial({map:canvasTex(16,128,(g,w,h)=>{ g.fillStyle='#14141c'; g.fillRect(0,0,w,h); g.fillStyle='#2c2c3a'; for(let y=0;y<h;y+=16) g.fillRect(0,y,w,6); }),shininess:10}),0,0.12,0);
+    belt.material.map.wrapT=T.RepeatWrapping; belt.material.map.repeat.set(1,4);
+    root.add(prMesh(BOX(0.86,0.1,1.8),dark,0,0.05,0),belt); for(const x of[-0.4,0.4]) root.add(prMesh(CYL(0.025,0.025,1.1),dark,x,0.6,-0.85),prMesh(BOX(0.04,0.04,0.5),dark,x,1.05,-0.62));
+    root.add(prMesh(BOX(0.84,0.32,0.08),dark,0,1.15,-0.88,-0.4),prMesh(BOX(0.5,0.18,0.02),prM(0x2fd6c3,{emissive:0x1a8a80}),0,1.16,-0.83,-0.4));
+    return {root,belt,up:(P,t)=>{ P.belt.material.map.offset.y=-(t*2.2)%1; }}; },
+  // Hang Time: a trampoline, and the bounce to go with it
+  trampoline:()=>{ const root=new T.Group(), mat=prMesh(CYL(0.85,0.85,0.03,32),prM(0x1b1b2a),0,0.42,0); root.add(prMesh(TOR(0.9,0.06,40),prM(0x2f8cff),0,0.44,0,Math.PI/2),mat);
+    for(let i=0;i<6;i++){ const a=i/6*TAU; root.add(prMesh(CYL(0.03,0.03,0.44),prM(0x9aa6b8),Math.cos(a)*0.85,0.22,Math.sin(a)*0.85)); }
+    return {root,mat,up:(P,t,u,c)=>{ const b=Math.abs(Math.sin(t*Math.PI*1.25)); c.model.position.y+=0.42+0.75*b*b*(3-2*b); P.mat.position.y=0.42-0.12*Math.max(0,1-b*5); }}; }, // (the body rides the bounce; the mat dips as you land)
+  // Groove: a disco ball overhead, and coloured lights sweeping the floor
+  disco:()=>{ const root=new T.Group(), ball=prMesh(SPH(0.22,10),prM(0xdfe6f2,{shininess:200,specular:0xffffff,flatShading:true,emissive:0x333344}),0,2.55,0);
+    root.add(prMesh(CYL(0.005,0.005,0.6),prM(0x888888),0,2.95,0),ball); const spots=[0xff3fa4,0x5cf0ff,0xffd23f,0x62ff9a].map(c=>{ const s=new T.Mesh(prG('spot',()=>new T.CircleGeometry(0.35,24)),new T.MeshBasicMaterial({map:glowTex,color:c,transparent:true,blending:T.AdditiveBlending,depthWrite:false})); s.rotation.x=-Math.PI/2; s.position.y=0.02; root.add(s); return s; });
+    const sh=prSprite(0xffffff,0.7,0.7); sh.position.set(0,2.55,0); root.add(sh);
+    return {root,ball,spots,up:(P,t)=>{ P.ball.rotation.y=t*1.5; P.spots.forEach((s,i)=>{ const a=t*(1.1+i*0.23)+i*1.6; s.position.x=Math.cos(a)*(0.9+0.3*Math.sin(t+i)); s.position.z=Math.sin(a*1.3)*0.9; }); }}; },
+  // Dive Roll: a crash mat to land on
+  mat:()=>{ const root=new T.Group(); root.add(prMesh(BOX(1.3,0.12,2.6),prM(0x2f6bff),0,0.06,-0.3),prMesh(BOX(1.32,0.02,0.04),prM(0xffd23f),0,0.125,-1.1),prMesh(BOX(1.32,0.02,0.04),prM(0xffd23f),0,0.125,0.5)); return {root}; },
+  // Knight Strike: a glowing sword
+  sword:()=>{ const R=new T.Group(); R.add(prMesh(CYL(0.02,0.02,0.18),prM(0x5a3a22),-0.02,0.06,0.05,Math.PI/2),prMesh(BOX(0.04,0.04,0.3),prM(0xffd23f,{shininess:120}),-0.02,0.06,0.16,0,Math.PI/2),
+      prMesh(BOX(0.015,0.07,0.95),prM(0xcfe8ff,{emissive:0x3a7aff,shininess:160}),-0.02,0.06,0.65),prMesh(SPH(0.03,10),prM(0xffd23f),-0.02,0.06,-0.05));
+    const gl=prSprite(0x7ab8ff,1.3,0.35); gl.position.set(-0.02,0.06,0.65); gl.scale.set(0.3,1.3,1); R.add(gl); return {R}; },
+  // Squirt Gun: a bright toy water gun, and water
+  squirt:()=>{ const R=new T.Group(); R.add(prMesh(BOX(0.05,0.07,0.14),prM(0xff8a1f),-0.02,0.05,0.02),prMesh(BOX(0.06,0.24,0.07),prM(0x2f8cff),-0.02,0.14,0.11),prMesh(SPH(0.05,10),prM(0x5cf0ff,{transparent:true,opacity:0.7}),-0.02,0.12,0.17),prMesh(CYL(0.012,0.012,0.08),prM(0xffd23f),-0.02,0.29,0.11));
+    const root=new T.Group(), drops=[]; for(let i=0;i<14;i++){ const d=prMesh(SPH(0.022,8),prM(0x8fe8ff,{transparent:true,opacity:0.8,emissive:0x205a70})); d.visible=false; root.add(d); drops.push({m:d,v:new V(),life:0}); }
+    return {R,root,drops,cd:0,up:(P,t,u,c,dt)=>{ const fire=(u>0.29&&u<0.34)||(u>0.4&&u<0.45); P.cd-=dt;
+      if(fire&&P.cd<=0){ P.cd=0.03; const d=P.drops.find(x=>x.life<=0); if(d){ P.R.updateMatrixWorld(true); const m=P.R.matrix; const o=new V(-0.02,0.33,0.11).applyMatrix4(m), dir=new V(0,1,0).transformDirection(m);
+        d.m.position.copy(o); d.v.copy(dir).multiplyScalar(5).add(new V((Math.random()-0.5)*0.4,0.5,(Math.random()-0.5)*0.4)); d.life=0.7; d.m.visible=true; } }
+      for(const d of P.drops) if(d.life>0){ d.life-=dt; d.v.y-=9*dt; d.m.position.addScaledVector(d.v,dt); if(d.life<=0||d.m.position.y<0) { d.life=0; d.m.visible=false; } } }}; },
+  // Surprise Gift: a present between your hands that bursts into confetti
+  gift:()=>{ const root=new T.Group(), box=new T.Group(), lid=new T.Group(); box.add(prMesh(BOX(0.3,0.26,0.3),prM(0x9b5cff),0,0,0),prMesh(BOX(0.06,0.265,0.305),prM(0xffd23f),0,0,0),prMesh(BOX(0.305,0.265,0.06),prM(0xffd23f),0,0,0));
+    lid.add(prMesh(BOX(0.33,0.06,0.33),prM(0xb07cff),0,0,0),prMesh(TOR(0.05,0.018,12),prM(0xffd23f),0.04,0.05,0,0,0.6),prMesh(TOR(0.05,0.018,12),prM(0xffd23f),-0.04,0.05,0,0,-0.6)); lid.position.y=0.16; box.add(lid); root.add(box);
+    const conf=[]; const cols=[0xff3fa4,0x5cf0ff,0xffd23f,0x62ff9a,0xffffff]; for(let i=0;i<26;i++){ const m=prMesh(BOX(0.035,0.035,0.006),prM(cols[i%5],{side:T.DoubleSide})); m.visible=false; root.add(m); conf.push({m,v:new V(),life:0}); }
+    return {root,box,lid,conf,popped:false,up:(P,t,u,c,dt,B,g)=>{ const a=prLocal(B.RightHand,g,_prA), b=prLocal(B.LeftHand,g,_prB); P.box.position.copy(a).add(b).multiplyScalar(0.5); P.box.position.y-=0.04;
+      const open=u>0.32; if(open&&!P.popped){ P.popped=true; for(const q of P.conf){ q.m.position.copy(P.box.position); q.m.position.y+=0.15; q.v.set((Math.random()-0.5)*2.4,2.5+Math.random()*2,(Math.random()-0.5)*2.4); q.life=1.6; q.m.visible=true; } }
+      if(!open){ P.popped=false; } P.lid.position.y=open?0.16+Math.min(0.6,(u-0.32)*6):0.16; P.lid.rotation.z=open?Math.min(1.2,(u-0.32)*10):0;
+      for(const q of P.conf) if(q.life>0){ q.life-=dt; q.v.y-=4*dt; q.v.multiplyScalar(1-1.5*dt); q.m.position.addScaledVector(q.v,dt); q.m.rotation.x+=dt*9; q.m.rotation.y+=dt*7; if(q.life<=0||q.m.position.y<0.01){ q.life=0; q.m.visible=false; } } }}; },
+  // Big Red Button: do NOT press it
+  button:()=>{ const root=new T.Group(), st=new T.Group(); st.add(prMesh(CYL(0.16,0.2,0.9,20),prM(0x2a2d3a),0,0.45,0),prMesh(CYL(0.2,0.2,0.06,24),prM(0xffd23f),0,0.92,0));
+    const btn=prMesh(CYL(0.13,0.14,0.08,24),prM(0xff2a3a,{emissive:0x400000,shininess:120}),0,0.98,0); st.add(btn); st.position.set(0.12,0,-0.5); root.add(st);
+    const fl=prSprite(0xff3a3a,1.6,0.0); fl.position.set(0.12,1.2,-0.5); root.add(fl); return {root,btn,fl,up:(P,t,u)=>{ const p=smooth(0.42,0.5,u)*(1-smooth(0.62,0.7,u)); P.btn.position.y=0.98-0.045*p; P.fl.material.opacity=p*(0.5+0.5*Math.sin(t*30)); }}; },
+  // Pogo Stick: a pogo stick that bounces with you
+  pogo:()=>{ const root=new T.Group(), st=new T.Group(); st.add(prMesh(CYL(0.04,0.04,1.1),prM(0x2f8cff,{shininess:90}),0,0.55,0),prMesh(BOX(0.5,0.06,0.08),prM(0x222222),0,1.08,0),prMesh(BOX(0.44,0.04,0.14),prM(0xffd23f),0,0.28,0));
+    const spring=prMesh(CYL(0.06,0.06,0.25,10),prM(0xb8c4d6,{wireframe:true}),0,0.12,0); st.add(spring); st.position.set(0,0,-0.16); root.add(st);
+    return {root,st,spring,up:(P,t,u,c,dt,B,g)=>{ const h=prLocal(B.Hips,g,_prA); P.st.position.y=Math.max(0,h.y-1.0); P.spring.scale.y=0.6+Math.min(0.8,P.st.position.y*2); }}; },
+  // Royal Throne: a golden throne with a red cushion
+  throne:()=>{ const root=new T.Group(), gold=prM(0xffc23a,{shininess:120,specular:0xfff2b0}), red=prM(0xc0182a);
+    root.add(prMesh(BOX(0.75,0.45,0.6),gold,0,0.22,0.15),prMesh(BOX(0.62,0.08,0.5),red,0,0.48,0.12),prMesh(BOX(0.75,1.3,0.12),gold,0,0.9,0.48),prMesh(BOX(0.55,0.9,0.03),red,0,0.95,0.41),
+      prMesh(BOX(0.1,0.25,0.55),gold,-0.38,0.58,0.15),prMesh(BOX(0.1,0.25,0.55),gold,0.38,0.58,0.15));
+    for(const x of[-0.3,0,0.3]) root.add(prMesh(SPH(0.06,10),gold,x,1.62,0.48)); root.add(prMesh(SPH(0.05,10),prM(0x5cf0ff,{emissive:0x1a6070}),0,1.35,0.42));
+    return {root}; },
+  // Pool Party: a pink rubber ring and a puddle of pool
+  floatie:()=>{ const root=new T.Group(), ring=new T.Group(); for(let i=0;i<8;i++){ const seg=new T.Mesh(prG('fl'+i,()=>new T.TorusGeometry(0.34,0.11,10,6,TAU/8)),prM(i%2?0xffffff:0xff5fa8,{shininess:100})); seg.rotation.z=i*TAU/8; ring.add(seg); }
+    ring.rotation.x=Math.PI/2; root.add(ring); const water=prMesh(prG('pool',()=>new T.CircleGeometry(1.2,32)),prM(0x3fb8ff,{transparent:true,opacity:0.45,shininess:150,depthWrite:false}),0,0,0,-Math.PI/2); root.add(water);
+    return {root,ring,water,up:(P,t,u,c,dt,B,g)=>{ const h=prLocal(B.Hips,g,_prA); P.ring.position.set(h.x,h.y+0.12,h.z); P.water.position.set(0,h.y+0.06,0); P.ring.rotation.z=t*0.3; }}; },
+  // Bonk!: stars and little birds going round your head
+  stars:()=>{ const head=new T.Group(), ring=new T.Group(); head.add(ring); const geo=prG('star',()=>{ const s=new T.Shape(); for(let i=0;i<10;i++){ const r=i%2?0.025:0.06, a=i/10*TAU-Math.PI/2; i?s.lineTo(Math.cos(a)*r,Math.sin(a)*r):s.moveTo(Math.cos(a)*r,Math.sin(a)*r); } return new T.ExtrudeGeometry(s,{depth:0.015,bevelEnabled:false}); });
+    for(let i=0;i<5;i++){ const st=new T.Mesh(geo,prM(0xffd23f,{emissive:0x806000})); const a=i/5*TAU; st.position.set(Math.cos(a)*0.22,0,Math.sin(a)*0.22); ring.add(st); }
+    ring.position.y=0.28; return {head,ring,up:(P,t,u)=>{ P.ring.rotation.y=t*4; P.ring.children.forEach((s,i)=>s.rotation.y=-t*4+t*3); P.ring.scale.setScalar(smooth(0.12,0.3,u)); }}; },
+  // Campfire: crackling logs, and a marshmallow on a stick
+  campfire:()=>{ const root=new T.Group(), fire=new T.Group(); for(let i=0;i<4;i++) fire.add(prMesh(CYL(0.04,0.04,0.45),prM(0x6b4423),0,0.05,0,Math.PI/2,i*Math.PI/4));
+    for(let i=0;i<7;i++){ const a=i/7*TAU; fire.add(prMesh(SPH(0.06,8),prM(0x777a86),Math.cos(a)*0.28,0.03,Math.sin(a)*0.28)); }
+    const f=[prSprite(0xff5a1a,0.6),prSprite(0xffa020,0.45),prSprite(0xffe08a,0.25)]; f.forEach((s,i)=>{ s.position.y=0.18+i*0.06; fire.add(s); }); fire.position.set(0,0,-0.75); root.add(fire);
+    const R=new T.Group(); R.add(prMesh(CYL(0.008,0.008,0.75),prM(0x8a6a42),-0.02,0.06,0.33,Math.PI/2),prMesh(CYL(0.035,0.035,0.06,10),prM(0xfff6e6),-0.02,0.06,0.72,Math.PI/2));
+    return {root,R,f,up:(P,t)=>{ P.f.forEach((s,i)=>s.scale.setScalar((0.6-i*0.16)*(1+0.18*Math.sin(t*(17+i*6)+i)))); }}; },
+  // Red Carpet: a red carpet, velvet ropes and camera flashes
+  carpet:()=>{ const root=new T.Group(); root.add(prMesh(BOX(1.0,0.015,4),prM(0xc0182a,{shininess:10}),0,0.008,0));
+    for(const x of[-0.75,0.75]) for(let z=-1.6;z<=1.6;z+=1.6){ root.add(prMesh(CYL(0.03,0.05,0.9),prM(0xffc23a,{shininess:120}),x,0.45,z),prMesh(SPH(0.05,10),prM(0xffc23a),x,0.92,z)); }
+    for(const x of[-0.75,0.75]) for(const z of[-0.8,0.8]) root.add(prMesh(CYL(0.02,0.02,1.6),prM(0x8a1020),x,0.78,z,Math.PI/2));
+    const fl=[0,1,2,3,4].map(i=>{ const s=prSprite(0xffffff,0.6,0); s.position.set((i%2?-1:1)*(1.3+0.3*Math.random()),0.9+Math.random()*0.9,-1.5+i*0.75); root.add(s); return s; });
+    return {root,fl,up:(P,t)=>{ P.fl.forEach((s,i)=>{ const p=((t*0.9+i*0.37)%1); s.material.opacity=p<0.06?1-p/0.06:0; }); }}; },
+  // Crystal Ball: a glowing ball between your hands, swirling
+  crystal:()=>{ const root=new T.Group(), ball=prMesh(SPH(0.14,20),prM(0xc9a0ff,{transparent:true,opacity:0.55,emissive:0x5a2aa0,shininess:200,specular:0xffffff}));
+    const core=prSprite(0xb07cff,0.45), sw=prMesh(TOR(0.08,0.01,24),prM(0xffffff,{emissive:0xc9a0ff})); root.add(ball,core,sw);
+    return {root,ball,core,sw,up:(P,t,u,c,dt,B,g)=>{ const a=prLocal(B.RightHand,g,_prA), b=prLocal(B.LeftHand,g,_prB); const m=a.add(b).multiplyScalar(0.5); m.z-=0.12; m.y+=0.04;
+      P.ball.position.copy(m); P.core.position.copy(m); P.sw.position.copy(m); P.sw.rotation.set(t*2,t*3,0); P.core.scale.setScalar(0.4+0.1*Math.sin(t*4)); }}; },
+  // Bubble Gum: a bubble that grows and grows... and pops
+  bubble:()=>{ const head=new T.Group(), b=prMesh(SPH(0.1,18),prM(0xff8ac8,{transparent:true,opacity:0.75,shininess:160,specular:0xffffff})); b.position.set(0,-0.02,-0.16); head.add(b);
+    return {head,b,up:(P,t)=>{ const p=(t%3.2)/3.2, s=p<0.82?0.1+1.6*p*p:0.02; P.b.scale.setScalar(s); P.b.position.z=-0.12-0.1*s; P.b.visible=p<0.84; }}; },
+  // Yo-Yo: walk the dog
+  yoyo:()=>{ const root=new T.Group(), yo=new T.Group(); yo.add(prMesh(CYL(0.06,0.06,0.025,18),prM(0xff3fa4),0,0,0.015,Math.PI/2),prMesh(CYL(0.06,0.06,0.025,18),prM(0xff3fa4),0,0,-0.015,Math.PI/2),prMesh(CYL(0.02,0.02,0.04,10),prM(0xffffff),0,0,0,Math.PI/2));
+    const str=prMesh(CYL(0.003,0.003,1),prM(0xffffff)); root.add(yo,str);
+    return {root,yo,str,up:(P,t,u,c,dt,B,g)=>{ const h=prLocal(B.RightHand,g,_prA); const p=(t*1.1)%1, d=0.08+0.7*Math.sin(p*Math.PI); P.yo.position.set(h.x,h.y-d,h.z); P.yo.rotation.x=t*25;
+      P.str.position.set(h.x,h.y-d/2,h.z); P.str.scale.y=d; }}; },
+};
+const _prA=new V(), _prB=new V(), _prM=new T.Matrix4(), _prI=new T.Matrix4(), _prP=new V(), _prQ=new T.Quaternion(), _prS=new V(), _prQ2=new T.Quaternion();
+// a bone's position in the character root's frame
+function prLocal(bone,g,out){ bone.getWorldPosition(out); return g.worldToLocal(out); }
+// a bone's position and turn in the character root's frame (its scale dropped)
+function prOnto(o,bone,g,upright?){ _prI.copy(g.matrixWorld).invert(); _prM.multiplyMatrices(_prI,bone.matrixWorld); _prM.decompose(_prP,_prQ,_prS); o.position.copy(_prP); if(upright) o.quaternion.identity(); else o.quaternion.copy(_prQ); }
+function propMake(c,E){ const f=PROPS[E.prop]; if(!f) return null; const P=f(); P.k=E.prop; P.t=0;
+  for(const s of ['root','R','L','head']) if(P[s]){ P[s].scale.setScalar(0.001); c.g.add(P[s]); }
+  return P; }
+function propDrop(c){ const P=c.prop; if(!P) return; for(const s of ['root','R','L','head']) if(P[s]) c.g.remove(P[s]); c.prop=null; }
+// after the pose: props onto the hands and head, pop in and out with the emote, and animate
+function emProps(e,c,B,dt){ const P=c.prop, em=e.emote; if(!P||!em) return; c.g.updateMatrixWorld(true);
+  const s=Math.max(0.001,smooth(0,1,em.w)), E=em.E, L=E.clip&&SOLDIER.clips[E.clip]?SOLDIER.clips[E.clip].duration:1, tt=em.t*(E.speed||1), u=E.loop?(tt%L)/L:Math.min(1,tt/L);
+  if(P.R) prOnto(P.R,B.RightHand,c.g,P.R.userData.upright); if(P.L) prOnto(P.L,B.LeftHand,c.g); if(P.head) prOnto(P.head,B.Head,c.g,true);
+  for(const k of ['root','R','L','head']) if(P[k]) P[k].scale.setScalar(s);
+  P.t=em.t; if(P.up) P.up(P,em.t,u,c,dt||1/60,B,c.g);
+}
 // [v1.65] the wheel has pages (scroll while it is open): the hand-keyed emotes, then the CC0 pack moves (only the ones whose clip loaded)
-const EM_PAGES=[['wave','floss','pump','robot','disco','dab','salute','flip','jacks','guitar','bow','clap','shrug','heart'],PM_EMOTES];
+const EM_PAGES=[['wave','floss','pump','robot','disco','dab','salute','flip','jacks','guitar','bow','clap','shrug','heart'],PM_EMOTES,PM_EMOTES2];
 let EM_ORDER=EM_PAGES[0];
 try{ const v=localStorage.getItem('stormIslandEmote'); if(v&&EMOTES[v]) EM.last=v; }catch(e){}
 // keyed paths: K=[[u,a,b,..],..]. loop: a closed Catmull-Rom ring through the keys; otherwise open, held at both ends
@@ -2199,7 +2372,7 @@ function emPlant(B,fw,up,tw){ for(let i=0;i<2;i++){ const sd=i?'Right':'Left'; B
   solveIK(B[sd+'UpLeg'],B[sd+'Leg'],B[sd+'Foot'],_eFeet[i],_eB); if(tw) rotateBoneWorld(B[sd+'Foot'],up,tw); } }
 // the arm layer while emoting, and the whole-body pose (hips, spine, head, planted feet). X needs c, B, g, rightB, upB, fwdB (+pitch)
 function emotePose(e,X){ const em=e.emote, E=em&&em.E; if(!E) return;
-  if(E.clip){ if(X.c.emSpin){ X.c.spin.quaternion.identity(); X.c.emSpin=false; } return; } // [v1.65] the clip moves the whole body (emClip)
+  if(E.clip){ if(X.c.emSpin){ X.c.spin.quaternion.identity(); X.c.emSpin=false; } emProps(e,X.c,X.B,X.dt); return; } // [v1.65] the clip moves the whole body (emClip)
   const {c,B}=X, W=smooth(0,1,em.w), t=em.t, loop=!!E.loop;
   const u=loop?((t*E.bpm/(60*E.beats))%1):Math.min(1,t/E.dur), uq=E.step?(Math.floor(u*E.step)+smooth(0,0.22,(u*E.step)%1))/E.step:u;
   const r=_eR.copy(X.rightB), up=_eU.copy(X.upB), fw=_eF.copy(X.fwdB);
@@ -2261,7 +2434,7 @@ function emBegin(e,key,o?){ const E=EMOTES[key], old=e.emote;
   if(!old) poseSnap(e.ch,0.2);
   return !old; }
 function startEmote(e,key,o?){ const E=EMOTES[key]; if(!E||!emoteOk(e,E)) return false; if(emBegin(e,key,o)) EM.on.push(e); return true; }
-function emEnd(e){ const c=e.ch; e.emote=null; if(c){ c.spin.quaternion.identity(); c.emSpin=false; c.model.position.x=0; poseSnap(c,0.2); } }
+function emEnd(e){ const c=e.ch; e.emote=null; if(c){ propDrop(c); c.propK=null; c.spin.quaternion.identity(); c.emSpin=false; c.model.position.x=0; poseSnap(c,0.2); } }
 function stopEmote(e,instant?){ const em=e.emote; if(!em) return; if(instant||em.w<=0.001){ emEnd(e); const i=EM.on.indexOf(e); if(i>=0) EM.on.splice(i,1); } else em.out=true; }
 // B played the emote you picked; refuses (and says so) when the body is busy
 function playerEmote(key){ const p=player; if(!p||!p.alive||state!=='play'||shopOpen) return false; const E=EMOTES[key]; if(!E) return false;
@@ -2298,7 +2471,7 @@ function emoteOnKill(killer,victim){
   if(killer.isPlayer||!player||!player.alive||ZG.state==='ceil'||!killer.alive||killer.emote||EM.on.length>4||Math.random()>0.3) return;
   if(killer.pos.distanceTo(camera.position)>28||lockedUp(killer)||killer.bounceT>0||killer.knockT>0) return;
   for(const o of combatants) if(o.alive&&o!==killer&&o!==victim&&!o.isPlayer&&o.pos.distanceToSquared(killer.pos)<625) return; // nobody else close by
-  startEmote(killer,pick(['floss','pump','disco','robot','wave','flip','pmGroove','pmBox','pmSpark']),{max:2.4,face:camera.position}); }
+  startEmote(killer,pick(['floss','pump','disco','robot','wave','flip','pmGroove','pmBox','pmSpark','pmSword','pmBonk','pmBubble']),{max:2.4,face:camera.position}); }
 // ---- the emote wheel (DOM in index.html; this fills it). Hold B, move the mouse, release to play; 1-8 pick directly
 const EW:any={built:false,on:0,cx:0,cy:0,step:Math.PI*2/8,R0:78,R1:186,page:0};
 const emPages=()=>EM_PAGES.map(P=>P.filter(k=>EMOTES[k]&&(!EMOTES[k].clip||SOLDIER&&SOLDIER.clips[EMOTES[k].clip]))).filter(P=>P.length);
@@ -2312,7 +2485,12 @@ const EM_IC={ // little stick figures on a 48x48 grid: t=[shoulder x,y,hip x,y],
   pmGroove:{a:[[32,20,36,12],[16,20,12,12]],t:[25,17,23,31]}, pmChatter:{a:[[31,24,36,22],[17,24,12,22]]}, pmTinker:{a:[[30,28,34,34],[18,28,16,34]],t:[24,22,24,33]},
   pmChair:{a:[[30,24,34,27],[18,24,14,27]],t:[22,17,20,31]}, pmMime:{a:[[34,18,38,12],[33,23,38,22]]}, pmRoll:{ring:1}, pmSpark:{a:[[34,17,42,15],[18,25,16,32]],w:[[44,11,46,9],[45,16,47,17]]},
   pmBox:{a:[[31,22,40,18],[22,22,28,17]]}, pmTorch:{a:[[32,12,32,4],[18,25,16,32]],w:[[30,1,32,-2],[34,1,33,-2]]}, pmDead:{a:[[31,25,33,32],[17,25,15,32]],t:[24,20,26,32]},
-  pmJoy:{a:[[30,23,35,21],[18,23,23,21]]}, pmRun:{a:[[30,22,36,17],[18,24,14,30]],t:[25,17,23,31]}, pmHang:{a:[[33,15,38,9],[15,15,10,9]]} };
+  pmJoy:{a:[[30,23,35,21],[18,23,23,21]]}, pmRun:{a:[[30,22,36,17],[18,24,14,30]],t:[25,17,23,31]}, pmHang:{a:[[33,15,38,9],[15,15,10,9]]},
+  pmSword:{a:[[32,15,36,6],[18,24,15,31]],w:[[37,5,44,-4]]}, pmSquirt:{a:[[32,17,41,16],[18,24,15,31]],w:[[44,14,46,16],[45,19,47,21]]}, pmGift:{a:[[30,24,27,28],[18,24,21,28]],w:[[20,28,28,28],[20,34,28,34]]},
+  pmButton:{a:[[32,22,36,30],[18,24,15,31]],w:[[33,33,40,33]]}, pmPogo:{a:[[30,22,26,26],[18,22,22,26]],w:[[24,24,24,46]]}, pmThrone:{a:[[31,24,35,26],[17,24,13,26]],t:[22,17,20,31],w:[[14,6,14,40],[34,6,34,40]]},
+  pmFloat:{a:[[33,17,40,14],[15,17,8,14]],w:[[14,30,34,30]]}, pmBonk:{a:[[31,14,28,8],[18,24,15,31]],w:[[18,4,20,2],[28,2,30,4]]}, pmFire:{a:[[30,28,36,32],[18,28,16,34]],t:[24,22,24,33],w:[[38,40,40,36],[42,40,40,36]]},
+  pmCarpet:{a:[[30,24,32,31],[18,24,16,31]],w:[[10,46,38,46]]}, pmCrystal:{a:[[30,23,27,26],[18,23,21,26]],w:[[22,30,26,30]]}, pmBubble:{a:[[31,24,34,31],[17,24,14,31]],w:[[30,9,34,12],[33,5,37,8]]},
+  pmYoyo:{a:[[31,24,34,28],[17,24,14,31]],w:[[34,28,34,40],[32,40,36,40]]} };
 function emIcon(k){ const d=EM_IC[k]||{a:[[31,24,34,31],[17,24,14,31]]}, t=d.t||[24,17,24,31]; let s='<svg viewBox="0 0 48 48" aria-hidden="true">';
   if(d.ring) return s+'<path d="M37 14a15 15 0 1 0 3.5 11" fill="none"/><path d="M34 7l4 7-8 1" fill="none"/><circle cx="24" cy="23" r="4.4" class="f"/><path d="M18 29q6 7 12 0" fill="none"/></svg>';
   s+=`<circle cx="${(t[0]+(t[0]-t[2])*0.4).toFixed(1)}" cy="${t[1]-8}" r="4.4" class="f"/><path d="M${t[0]} ${t[1]}L${t[2]} ${t[3]}M${t[2]} ${t[3]}L${t[2]-6} 39L${t[2]-6} 46M${t[2]} ${t[3]}L${t[2]+6} 39L${t[2]+6} 46" fill="none"/>`;
@@ -3086,7 +3264,7 @@ function setArmMode(m){
   if(pill){ const v={x:on.offsetLeft-4,width:on.offsetWidth}; if(GS&&!calmUI&&pill.style.width) GS.to(pill,{...v,duration:0.35,ease:'power3.out'}); else { pill.style.width=v.width+'px'; pill.style.transform=`translateX(${v.x}px)`; if(GS) GS.set(pill,v); } }
   $('armSets').hidden=m==='guns'; $('armSets').setAttribute('aria-label',m==='skins'?'Skin theme':m==='emotes'?'Emote page':'Pickaxe set');
   $('armSets').innerHTML=m==='skins'?SK.THEMES.map(t=>`<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join(''):m==='picks'?PX.SETS.map(s=>`<button data-s="${s.id}" aria-pressed="false">${s.n}</button>`).join('')
-    :m==='emotes'?emPages().map((P,i)=>`<button data-s="${i}" aria-pressed="false">${i?'Quaternius & Kenney':'Classic'}</button>`).join(''):'';
+    :m==='emotes'?emPages().map((P,i)=>`<button data-s="${i}" aria-pressed="false">${['Classic','Pack moves','Pack moves II'][i]||'More'}</button>`).join(''):'';
   LK.shown=lkIdx(); buildArmory(); lkRail(); lkFrame(true);
 }
 function armStep(d){ lkGo(LK.center+d,0.4); }
@@ -3125,7 +3303,7 @@ function buildEmoteLab(dir?){
   EL.c=c; EL.e=heroStand(c); EL.t=0; emBegin(EL.e,k); EL.e.emote.w=1;
   LK.ped.visible=LK.ring.visible=LK.blob.visible=true; lkTint(E.clip?'#ffd23f':'#5cf0ff');
   lkPut(h,dir||0); if(LK.kind!=='emotes'||dir==null) lkFrame(true);
-  const src=E.clip?(/RunInPlace|HangTime/.test(E.clip)?'Kenney':'Quaternius')+' · CC0':'Hand-keyed';
+  const src=E.clip?(/RunInPlace|HangTime|YoYo/.test(E.clip)?'Kenney':'Quaternius')+' · CC0':'Hand-keyed';
   lkInfo(E.n,`Emote ${EL.i+1} of ${emAll().length} · ${src}`,null,(E.loop?'Loops':'One-off')+(E.zg?' · zero-g only':'')+` · ${elLen(E).toFixed(1)} s`);
   showEquip(); const pg=emPages().findIndex(P=>P.indexOf(k)>=0); [...$('armSets').children].forEach((b:any)=>b.setAttribute('aria-pressed',String(+b.dataset.s===pg)));
   elUI(); }
@@ -3134,7 +3312,7 @@ function updateEmoteLab(dt){ const c=EL.c, e=EL.e; if(!c||!e) return;
   const E=e.emote.E, L=elLen(E); if(EL.play){ EL.t=(EL.t+dt*EL.speed)%L; elUI(true); }
   e.emote.t=EL.t; e.emote.w=1; e.emote.out=false;
   c.model.position.set(0,0,0); emClip(e,c); c.mixer.update(EL.play?dt*EL.speed:0); swayGear({onGround:true,walkT:0},c,0,dt); c.g.updateMatrixWorld(true); c.model.getWorldQuaternion(_qm);
-  const X:any={e,c,B:c.bones,g:c.g,pitch:0,rightB:new V(1,0,0).applyQuaternion(_qm),fwdB:new V(0,0,-1).applyQuaternion(_qm),upB:new V(0,1,0).applyQuaternion(_qm)};
+  const X:any={e,c,B:c.bones,g:c.g,pitch:0,dt:EL.play?dt*EL.speed:0,rightB:new V(1,0,0).applyQuaternion(_qm),fwdB:new V(0,0,-1).applyQuaternion(_qm),upB:new V(0,1,0).applyQuaternion(_qm)};
   emotePose(e,X); }
 function elUI(timeOnly?){ const e=EL.e, E=e&&e.emote&&e.emote.E; if(!E) return; const L=elLen(E), r=$('elScrub') as HTMLInputElement;
   if(document.activeElement!==r) r.value=String(Math.round(EL.t/L*1000)); $('elTime').textContent=`${EL.t.toFixed(1)} / ${L.toFixed(1)} s`;
@@ -6108,7 +6286,7 @@ const HERO:any={scene:new T.Scene(),cam:new T.PerspectiveCamera(26,1,0.1,60),c:n
   HERO.cam.position.set(0,1.0,8.2); HERO.cam.lookAt(0,0.98,0); }
 // [S4] the hero's life: a stand-in entity so the emote layer works on it, breathing, weight shifts, a head that follows the cursor,
 // a wave when you arrive and now and then a dance (click it to make it dance)
-const HERO_EM=['wave','floss','pump','robot','disco','dab','salute','pmGroove','pmBox','pmSpark','pmChatter'], HM={x:0,y:0,t:-99}, _hl0=new V(), _hl1=new V(), _hl2=new V();
+const HERO_EM=['wave','floss','pump','robot','disco','dab','salute','pmGroove','pmBox','pmSpark','pmChatter','pmSword','pmYoyo','pmBubble','pmCrystal'], HM={x:0,y:0,t:-99}, _hl0=new V(), _hl1=new V(), _hl2=new V();
 addEventListener('pointermove',ev=>{ HM.x=ev.clientX; HM.y=ev.clientY; HM.t=performance.now()/1000; });
 function heroStand(c){ return {etype:'hero',isPlayer:false,alive:true,onGround:true,zgFloat:false,vel:new V(),pos:new V(),yaw:0,sel:0,hp:0,shield:0,fireCd:0,anim:{},ch:c,emote:null}; }
 function heroEmote(k){ const e=HERO.e; if(!e||!EMOTES[k]||(e.emote&&!e.emote.out)) return; emBegin(e,k,{max:EMOTES[k].loop?rnd(4.5,6.5):0}); }

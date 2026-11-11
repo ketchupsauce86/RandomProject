@@ -72,5 +72,86 @@
   "src": "Jump",
   "loop": 1,
   "pack": "kenney"
+ },
+ "Sword": {
+  "src": [
+   "Sword_Idle",
+   "Sword_Attack"
+  ],
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "Squirt": {
+  "src": [
+   "Pistol_Idle_Loop",
+   "Pistol_Shoot",
+   "Pistol_Shoot",
+   "Pistol_Reload"
+  ],
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "Gift": {
+  "src": [
+   "PickUp_Table",
+   "Idle_Talking_Loop"
+  ],
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "Button": {
+  "src": "Interact",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "Pogo": {
+  "src": [
+   "Jump_Start",
+   "Jump_Loop",
+   "Jump_Land"
+  ],
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "Throne": {
+  "src": "Sitting_Talking_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "Float": {
+  "src": "Swim_Idle_Loop",
+  "loop": 1,
+  "pack": "quaternius",
+  "hips_z": 0.98
+ },
+ "Bonk": {
+  "src": "Hit_Head",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "Campfire": {
+  "src": "Crouch_Idle_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "Carpet": {
+  "src": "Walk_Formal_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "Crystal": {
+  "src": "Spell_Simple_Idle_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "Bubble": {
+  "src": "Idle_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "YoYo": {
+  "src": "Idle",
+  "loop": 1,
+  "pack": "kenney"
  }
 }
