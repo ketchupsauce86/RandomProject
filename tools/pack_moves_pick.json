@@ -153,5 +153,90 @@
   "src": "Idle",
   "loop": 1,
   "pack": "kenney"
+ },
+ "Lovestruck": {
+  "src": [
+   "Hit_Chest",
+   "Idle_Loop"
+  ],
+  "loop": 0,
+  "pack": "quaternius",
+  "xfade": 6
+ },
+ "MorningJog": {
+  "src": "Jog_Fwd_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "MovieNight": {
+  "src": [
+   "Sitting_Enter",
+   "Sitting_Idle_Loop",
+   "Sitting_Idle_Loop",
+   "Sitting_Exit"
+  ],
+  "loop": 0,
+  "pack": "quaternius",
+  "xfade": 4
+ },
+ "GhostHunt": {
+  "src": [
+   "Pistol_Aim_Neutral@24",
+   "Pistol_Aim_Up@20",
+   "Pistol_Aim_Neutral@24",
+   "Pistol_Aim_Down@20"
+  ],
+  "loop": 1,
+  "pack": "quaternius",
+  "xfade": 14
+ },
+ "Watering": {
+  "src": [
+   "Pistol_Idle_Loop",
+   "Pistol_Aim_Down@45"
+  ],
+  "loop": 1,
+  "pack": "quaternius",
+  "xfade": 12
+ },
+ "Walkies": {
+  "src": "Walk_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "Detective": {
+  "src": "Crouch_Fwd_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "Turbo": {
+  "src": "Sprint_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "Pinata": {
+  "src": "Sword_Attack",
+  "loop": 1,
+  "pack": "quaternius",
+  "xfade": 6
+ },
+ "Snowball": {
+  "src": [
+   "PickUp_Table",
+   "Spell_Simple_Shoot"
+  ],
+  "loop": 0,
+  "pack": "quaternius",
+  "xfade": 6
+ },
+ "Snowman": {
+  "src": "Fixing_Kneeling",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "Crate": {
+  "src": "Push_Loop",
+  "loop": 1,
+  "pack": "quaternius"
  }
 }
