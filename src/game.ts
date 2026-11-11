@@ -1123,7 +1123,7 @@ function applySkin(c,skin){
   if(!c.glb||!SK||!skin) return;
   if(!c.baseMats){ c.baseMats={}; c.model.traverse(o=>{ if(o.isMesh) c.baseMats[o.name]=o.material; }); }
   for(const o of c.gear||[]){ o.parent&&o.parent.remove(o); o.traverse(m=>{ if(m.isMesh&&!m.geometry.userData.keep) m.geometry.dispose(); }); }
-  c.gear=[]; c.gearFar=false; c.capes=[]; c.flaps=[]; c.bobs=[]; c.skin=skin;
+  c.gear=[]; c.gearFar=false; c.capes=[]; c.flaps=[]; c.bobs=[]; c.spins=[]; c.skin=skin;
   if(c.animeBody){ c.animeBody.parent&&c.animeBody.parent.remove(c.animeBody); c.animeBody=null; }
   let geo=null; c.model.traverse(o=>{ if(o.name==='vanguard_Mesh') geo=o.geometry; });
   const mats=skin.def||skin.body?null:skinMaterials(skin,c.baseMats.vanguard_Mesh,c.baseMats.vanguard_visor,geo);
@@ -1141,7 +1141,7 @@ function applySkin(c,skin){
       const bone=c.bones[bn]; if(!bone) continue; bone.matrixWorld.decompose(tv1,qq,sc);
       const wrap=new T.Group(); wrap.scale.setScalar(ws.x/sc.x); // gear is modelled in metres at the character's own scale
       wrap.add(obj); bone.add(wrap); c.gear.push(wrap);
-      obj.traverse(o=>{ if(o.isMesh) o.frustumCulled=false; if(o.userData.cape) c.capes.push(o); if(o.userData.flap) c.flaps.push(o); if(o.userData.bob) c.bobs.push(o); });
+      obj.traverse(o=>{ if(o.isMesh) o.frustumCulled=false; if(o.userData.cape) c.capes.push(o); if(o.userData.flap) c.flaps.push(o); if(o.userData.bob) c.bobs.push(o); if(o.userData.spin) c.spins.push(o); });
     }
   }
 }
@@ -1151,6 +1151,7 @@ const UPZ=new T.Vector3(0,0,1), _sv=new T.Vector3();
 // [S4] capes, wings and halos ride on springs: flare (how far a cape streams off the back) and sway (side to side) follow the
 // body-frame velocity and the turn rate; in zero-g there is no wind, so they float and undulate instead of hanging
 function swayGear(e,c,speed,dt){
+  if(c.spins&&c.spins.length) for(const o of c.spins) o.rotation[o.userData.spinAxis||'y']+=o.userData.spin*(dt||0); // propellers and pinwheels keep turning
   if(!c.capes||(!c.capes.length&&!c.flaps.length&&!c.bobs.length)) return;
   const t=performance.now()/1000, G=c.sw||(c.sw={}), v=e.vel, wt=e.walkT||0, flt=!!e.zgFloat;
   let vf=0,vu=0,vs=0,yr=0;
@@ -3350,7 +3351,7 @@ $('elViews').addEventListener('click',ev=>{ const b=(ev.target as Element).close
 // a fixed row of skins for screenshots (test hook)
 function updateLineup(t,dt){
   for(const c of skShown){ c.g.rotation.y=c.g.userData.yaw; c.mixer.update(dt); swayGear({onGround:true,walkT:0},c,0,dt); }
-  camera.position.set(0,ARM_Y+1.25,armGroup.userData.dist); camera.lookAt(0,ARM_Y+1.0,0); if(camera.fov!==50){ camera.fov=50; camera.updateProjectionMatrix(); }
+  const W:any=window, D=W.__lineDist||armGroup.userData.dist, LY=W.__lineY||1.0; camera.position.set(0,ARM_Y+LY+0.25*D/armGroup.userData.dist,D); camera.lookAt(0,ARM_Y+LY,0); if(camera.fov!==50){ camera.fov=50; camera.updateProjectionMatrix(); }
 }
 $('armGunsTab').addEventListener('click',()=>setArmMode('guns'));
 lkInitRail();

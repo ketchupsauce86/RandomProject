@@ -6,7 +6,7 @@
 (function(){
 
 const THEMES=[
-  {id:'heroes',n:'Heroes & Villains'},{id:'anime',n:'Anime'},{id:'spooky',n:'Halloween'},{id:'xmas',n:'Christmas'}
+  {id:'heroes',n:'Heroes & Villains'},{id:'anime',n:'Anime'},{id:'fools',n:'April Fools'},{id:'july4',n:'Independence Day'},{id:'august',n:'August'},{id:'fall',n:'Fall'},{id:'spooky',n:'Halloween'},{id:'xmas',n:'Christmas'}
 ];
 
 // p plate · c cloth · s undersuit · k straps · m metal · x stripes · v visor · g which parts glow
@@ -83,6 +83,75 @@ const ITEMS=[
   // ---------- Space
   // ---------- Special Ops
   // ---------- Street & Sports
+  // ---------- April Fools
+  S('Totally Normal Trooper','fools',1,{p:'#e9c39c',c:'#556140',s:'#1d1f22',k:'#4a3a28',m:'#7a8b94',x:'#b0221c',v:'#20262c',def:true,acc:[['disguise','#141414']]}), // nothing to see here
+  S('Topsy Turvy','fools',4,{body:{build:'slim',skin:'#f2c49e',top:'#3fa0ff',pants:'#ffd23f',shoes:'#ff3fa4',shoeTop:12,collar:'#ff3fa4',belt:'#ff3fa4',beltZ:[104,108],gloves:'#ffd23f',legBands:[[40,2,'#3fa0ff'],[70,2,'#3fa0ff']]},
+    p:'#3fa0ff',c:'#ffd23f',s:'#1a3a6a',k:'#ff3fa4',m:'#ffd23f',x:'#ff3fa4',v:'#ffd23f',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#f2c49e',hair:'#7a3aff',hairStyle:'spiky',eye:'#3fa0ff',mouth:'grin',cheeks:'#ff8aa0',flip:1}],['shoeHat','#ff3fa4','#ffffff','#ffd23f']]}), // upside down, with a sneaker for a hat
+  S('Rubber Chicken','fools',3,{body:{build:'slim',skin:'#f2dc5a',top:'#f2dc5a',pants:'#f2dc5a',shoes:'#f2902a',shoeTop:14,collar:'#f2dc5a',gloves:'#f2dc5a'},
+    p:'#f2dc5a',c:'#e8c840',s:'#8a6a10',k:'#e3243b',m:'#f2902a',x:'#e3243b',v:'#f2902a',noVisor:1,cel:1,acc:[['chickenHead','#f2dc5a','#e3243b','#f2902a']]}),
+  S('Pie Face Pat','fools',2,{body:{build:'avg',skin:'#e8b890',top:'#ffffff',pants:'#2a2a3a',shoes:'#e3243b',shoeTop:12,collar:'#e3243b',legBands:[[17,1.5,'#ffffff']],upper:'#e3243b',upperZ:146},
+    p:'#ffffff',c:'#2a2a3a',s:'#141418',k:'#e3243b',m:'#c8ccd4',x:'#e3243b',v:'#ffd0d8',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#e8b890',hair:'#c8702a',hairStyle:'wild',eye:'#3a6a2a',mouth:'grin'}],['pieSplat','#fff8ec','#d01a2a'],['bowtie','#e3243b']]}),
+  S('Prankster Pip','fools',3,{body:{build:'slim',skin:'#f4d0b0',top:'#2fbf6a',pants:'#7a3aff',shoes:'#ffd23f',shoeTop:12,collar:'#ffd23f',cuff:'#ffd23f',cuffFrom:60,belt:'#ff3fa4',beltZ:[104,108]},
+    p:'#2fbf6a',c:'#7a3aff',s:'#1a0e3a',k:'#ff3fa4',m:'#ffd23f',x:'#ffd23f',v:'#ffd23f',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#f4d0b0',hair:'#ff7a1a',eye:'#2fbf6a',mouth:'grin',cheeks:'#ff8aa0',nose:'red'}],['propCap','#e3243b','#ffd23f','#3fa0ff'],['whoopee','#ff5aa8']]}),
+  S('Jack in the Box','fools',4,{body:{build:'slim',skin:'#f8e0d0',top:'#e3243b',pants:'#3fa0ff',shoes:'#ffd23f',shoeTop:12,collar:'#ffffff',cuff:'#ffffff',cuffFrom:60,gloves:'#ffffff'},
+    p:'#e3243b',c:'#3fa0ff',s:'#14284a',k:'#ffd23f',m:'#ffd23f',x:'#ffd23f',v:'#ffd23f',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#f8e0d0',eye:'#3a3aa8',mouth:'grin',cheeks:'#ff5a6a',nose:'red',brow:'#141414'}],['jesterHat','#e3243b','#3fa0ff','#ffd23f'],['jackBox','#3fa0ff','#ffd23f']]}),
+  // ---------- Independence Day
+  S('Star-Spangled Stan','july4',4,{body:{build:'fit',skin:'#f0c8a8',top:'#1c2a6a',pants:'#ffffff',shoes:'#141414',shoeTop:12,collar:'#ffffff',cuff:'#ffffff',cuffFrom:62,gloves:'#ffffff',coat:{hem:72,flare:2},
+    legBands:[[26,2,'#c8202c'],[34,2,'#c8202c'],[42,2,'#c8202c'],[50,2,'#c8202c'],[58,2,'#c8202c'],[66,2,'#c8202c'],[74,2,'#c8202c'],[82,2,'#c8202c'],[90,2,'#c8202c']]},
+    p:'#1c2a6a',c:'#c8202c',s:'#0e1640',k:'#ffffff',m:'#ffffff',x:'#c8202c',v:'#ffffff',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#f0c8a8',hair:'#ffffff',beard:'#ffffff',brow:'#ffffff',eye:'#2a5ad8',mouth:'smile'}],['starHat','#c8202c','#ffffff','#1c2a6a'],['bowtie','#c8202c']]}),
+  S('Firecracker Frankie','july4',3,{p:'#c8202c',c:'#ffffff',s:'#1c2a6a',k:'#1c2a6a',m:'#ffffff',x:'#ffd23f',v:'#ffd23f',hide:1,noVisor:1,cel:1,acc:[['firecrackerBody','#d8202c','#ffffff','#1c3a9a']]}),
+  S('Freedom Eagle','july4',4,{body:{build:'fit',skin:'#f4f2ea',top:'#5a3a1e',pants:'#5a3a1e',shoes:'#f2b230',shoeTop:14,collar:'#f4f2ea',gloves:'#4a2e16'},
+    p:'#5a3a1e',c:'#f4f2ea',s:'#2a1a0c',k:'#f2b230',m:'#f2b230',x:'#f4f2ea',v:'#f2b230',noVisor:1,cel:1,acc:[['eagleHead','#f4f2ea','#f2b230'],['featherWings','#5a3a1e','#3a2410']]}),
+  S('Torchbearer','july4',4,{body:{build:'slim',skin:'#7cc2a6',top:'#5fae96',pants:'#5fae96',shoes:'#4f9a82',shoeTop:12,collar:'#4f9a82',gloves:'#7cc2a6',sleeves:'elbow',coat:{hem:22,flare:5}},
+    p:'#5fae96',c:'#4f9a82',s:'#2a5a4a',k:'#8ad8bc',m:'#8ad8bc',x:'#ffb21a',v:'#ffb21a',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#7cc2a6',hair:'#5fae96',hairStyle:'bun',eye:'#2a6a5a',brow:'#3a7a66',line:'#1a3a30'}],['spikeCrown','#6ab8a0'],['torchBack','#d4a43a','#ff8a1a']]}),
+  S('Sparkler Sky','july4',3,{body:{build:'slim',skin:'#f4d2b6',top:'#c8202c',pants:'#2a4a9a',shoes:'#ffffff',shoeTop:12,collar:'#ffffff',upper:'#1c2a6a',upperZ:140,sleeves:'none',legs:'knee',cuffBand:'#ffffff'},
+    p:'#c8202c',c:'#1c2a6a',s:'#0e1640',k:'#ffffff',m:'#ffd23f',x:'#ffffff',v:'#ffd23f',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#f4d2b6',hair:'#e8401a',hairStyle:'long',eye:'#2a5ad8',mouth:'grin',cheeks:'#ff9ccc'}],['starBopper','#1c2a6a','#ffd23f','#ff3b4a'],['shades','#ffffff','#2a4a9a']]}),
+  S('Grillmaster Gus','july4',2,{body:{build:'jolly',skin:'#d8a070',top:'#c8202c',pants:'#3a5a8a',shoes:'#3a2414',shoeTop:12,collar:'#ffffff',sleeves:'short',check:['#c8202c','#ffffff']},
+    p:'#c8202c',c:'#ffffff',s:'#3a5a8a',k:'#1c2a6a',m:'#c9cfd8',x:'#c8202c',v:'#3a2414',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#d8a070',hair:'#3a2414',beard:'#3a2414',eye:'#3a2a1a',mouth:'grin'}],['chefHat','#ffffff'],['apron','#ffffff','#1c2a6a'],['spatula','#c9cfd8','#3a2414']]}),
+  // ---------- August
+  S('Surf Rider Kai','august',3,{body:{build:'fit',skin:'#c88a5a',top:'#1fbfbf',pants:'#ff7a1a',shoes:'#2a2a2a',sandals:1,sole:'#2a2a2a',strap:'#ffd23f',sleeves:'none',legs:'knee',cuffBand:'#ffd23f',belt:'#ffd23f',beltZ:[103,106]},
+    p:'#1fbfbf',c:'#ff7a1a',s:'#0a3a3a',k:'#ffd23f',m:'#ffd23f',x:'#ff7a1a',v:'#1fbfbf',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#c88a5a',hair:'#f2d06a',hairStyle:'spiky',mouth:'grin'}],['shades','#141414','#3fd8ff'],['surfboard','#ffffff','#ff7a1a']]}),
+  S('Lifeguard Lou','august',3,{body:{build:'fit',skin:'#e8b890',top:'#e3243b',pants:'#e3243b',shoes:'#ffffff',sandals:1,sole:'#ffffff',strap:'#e3243b',sleeves:'short',legs:'knee',cuffBand:'#ffffff',collar:'#ffffff'},
+    p:'#e3243b',c:'#ffffff',s:'#6a0e16',k:'#ffffff',m:'#ffffff',x:'#ffffff',v:'#3fd8ff',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#e8b890',hair:'#5a3a1a',eye:'#2a6a8a',mouth:'smile'}],['visor','#ffffff'],['shades','#e3243b','#141414'],['whistle','#ffffff','#ffd23f'],['rescueTube','#e3243b']]}),
+  S('Melonhead Mel','august',2,{body:{build:'avg',skin:'#e8b890',top:'#4fae3a',pants:'#ff5a6a',shoes:'#ffffff',shoeTop:12,collar:'#e8f4d0',sleeves:'short',legs:'knee',cuffBand:'#ffffff'},
+    p:'#4fae3a',c:'#ff5a6a',s:'#1f6a22',k:'#e8f4d0',m:'#e8f4d0',x:'#ff5a6a',v:'#ff5a6a',noVisor:1,cel:1,acc:[['melonHead']]}),
+  S('Sunny Sol','august',4,{body:{build:'fit',skin:'#ffb21a',top:'#ff8a1a',pants:'#ffd23f',shoes:'#ff5a1a',shoeTop:12,collar:'#ffd23f',gloves:'#ffd23f',belt:'#ff5a1a',beltZ:[104,108]},
+    p:'#ff8a1a',c:'#ffd23f',s:'#8a3a0a',k:'#ff5a1a',m:'#ffd23f',x:'#ffe14a',v:'#ffe14a',noVisor:1,cel:1,acc:[['sunHead','#ffd23f','#ff9a1a'],['shades','#141414','#ff3fa4'],['cape','#ff8a1a','#ffd23f']]}),
+  S('Chomp the Shark','august',4,{body:{build:'fit',skin:'#f2c49e',top:'#6a8098',pants:'#6a8098',shoes:'#4a5a6e',shoeTop:14,collar:'#e8eef4',gloves:'#4a5a6e',belt:'#e8eef4',beltZ:[104,108]},
+    p:'#6a8098',c:'#e8eef4',s:'#2a3a4e',k:'#e8eef4',m:'#e8eef4',x:'#ffffff',v:'#ffffff',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#f2c49e',hair:'#2a1a12',eye:'#2a6a8a',mouth:'grin'}],['sharkHood','#6a8098','#e8eef4']]}),
+  S('Floatie Fran','august',2,{body:{build:'slim',skin:'#c88a5a',top:'#ff5aa8',pants:'#ff5aa8',shoes:'#ffffff',sandals:1,sole:'#ffffff',strap:'#ff5aa8',sleeves:'none',legs:'knee',cuffBand:'#ffffff',collar:'#ffffff'},
+    p:'#ff5aa8',c:'#ffffff',s:'#5b2140',k:'#ffd23f',m:'#ffd23f',x:'#ff5aa8',v:'#3fd8ff',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#c88a5a',hair:'#141414',hairStyle:'bun',mouth:'grin',cheeks:'#ff9ccc'}],['shades','#ffffff','#ff3fa4'],['floatRing','#ff8ac0','#141414']]}),
+  // ---------- Fall
+  S('Scarecrow Sid','fall',3,{body:{build:'avg',skin:'#d8b880',top:'#c8602a',pants:'#3a5a8a',shoes:'#4a2e16',shoeTop:16,collar:'#d8b880',gloves:'#d8b880',check:['#c8602a','#e8b040'],legBands:[[50,3,'#7a5a3a']]},
+    p:'#c8602a',c:'#3a5a8a',s:'#2a1a0c',k:'#e8b040',m:'#e8b040',x:'#e8b040',v:'#141414',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#d8b880',eye:'#141414',mouth:'grin',stitch:1,brow:'#4a2e16',line:'#3a2410',ears:'none'}],['strawHat','#e8c060','#c8602a'],['strawTufts','#e8b428']]}),
+  S('Lumberjack Lars','fall',3,{body:{build:'fit',skin:'#e8b890',top:'#b8202a',pants:'#3a5a8a',shoes:'#5a3a1a',shoeTop:18,collar:'#141414',check:['#b8202a','#1a1a1a'],sleeves:'elbow',roll:'#141414',belt:'#5a3a1a',beltZ:[103,107]},
+    p:'#b8202a',c:'#1a1a1a',s:'#3a5a8a',k:'#5a3a1a',m:'#c9cfd8',x:'#b8202a',v:'#3a5a8a',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#e8b890',hair:'#8a3a14',beard:'#8a3a14',eye:'#2a6a8a',mouth:'smile'}],['beanie','#e8701a','#e8701a','#ffffff'],['axeBack','#8a5a2a','#7a8a9a']]}),
+  S('Maple Spirit','fall',4,{body:{build:'slim',skin:'#f4d2b6',top:'#c8401a',pants:'#6a3a1a',shoes:'#4a2410',shoeTop:12,collar:'#f2a020',cuff:'#f2a020',cuffFrom:60,belt:'#f2a020',beltZ:[104,108]},
+    p:'#c8401a',c:'#f2a020',s:'#4a1a0a',k:'#f2a020',m:'#ffd23f',x:'#f2a020',v:'#f2a020',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#f4d2b6',hair:'#e8601a',hairStyle:'long',eye:'#c8601a',cheeks:'#ff8a6a'}],['leafCrown',['#e8401a','#f2a020','#c8202a','#ffc83a']],['leafCape',['#e8401a','#f2a020','#c8202a','#ffc83a','#8a4a1a']]]}),
+  S('Gobbles the Turkey','fall',3,{body:{build:'jolly',skin:'#7a4a24',top:'#7a4a24',pants:'#5a3418',shoes:'#f2b230',shoeTop:14,collar:'#c8202c',gloves:'#5a3418'},
+    p:'#7a4a24',c:'#c8602a',s:'#3a2410',k:'#c8202c',m:'#f2b230',x:'#c8202c',v:'#f2b230',noVisor:1,cel:1,
+    acc:[['turkeyHead','#c8a888','#d0202c'],['tailFan',['#7a4a24','#c8602a','#a8501e','#e8902a'],'#ffffff','#2a1a0c']]}),
+  S('Pumpkin Spice','fall',2,{body:{build:'avg',skin:'#f2c49e',top:'#c8742a',pants:'#3a2a24',shoes:'#6a4428',shoeTop:20,collar:'#f2e2c4',cuff:'#f2e2c4',cuffFrom:60,legBands:[[20,1.5,'#f2e2c4']]},
+    p:'#c8742a',c:'#f2e2c4',s:'#3a2a24',k:'#6a4428',m:'#f2e2c4',x:'#e8902a',v:'#6a4428',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#f2c49e',hair:'#6a3a1a',hairStyle:'long',eye:'#6a4a2a',cheeks:'#ff9a7a',mouth:'smile'}],['beanie','#f2e2c4','#f2e2c4','#c8742a'],['scarf','#8a2a1a']]}),
+  S('Acorn Knight','fall',4,{body:{build:'fit',skin:'#e8b890',top:'#8a5a2a',pants:'#5a3a1a',shoes:'#3a2410',shoeTop:18,collar:'#c8902a',gloves:'#3a2410',belt:'#c8902a',beltZ:[104,108]},
+    p:'#8a5a2a',c:'#c8902a',s:'#3a2410',k:'#c8902a',m:'#c8902a',x:'#e8902a',v:'#e8902a',noVisor:1,cel:1,
+    acc:[['toonHead',{skin:'#e8b890',hair:'#5a3a1a',eye:'#3a6a2a',mouth:'flat',angry:1}],['acornCap','#7a5028','#4a2e16'],['cape','#c8602a','#8a5a2a']]}),
   // ---------- Spooky
   S('Pumpkin Rider','spooky',3,{body:{build:'fit',skin:'#2a1a0c',top:'#2a1a0c',pants:'#1a1208',shoes:'#120a04',shoeTop:13,collar:'#f27a1a',belt:'#f27a1a',beltZ:[103,108],gloves:'#120a04'},
     p:'#f27a1a',c:'#2a1a0c',s:'#120a04',k:'#3a6b2a',m:'#3a6b2a',x:'#ffb21a',v:'#ffb21a',noVisor:1,cel:1,acc:[['pumpkinHead'],['cape','#2a1a0c','#f27a1a']]}),
@@ -679,6 +748,10 @@ function gear(T,kind,a,mats,opt){
   // anime pieces: toon materials, shared geometry, and an ink line (the mesh again, inside out, pushed out by w)
   const BLD=opt&&opt.build||'avg', TN=(c,o={})=>{ const k='toon'+c+JSON.stringify(o); return mats[k]||(mats[k]=new T.MeshToonMaterial(Object.assign({color:c,gradientMap:ramp(T)},o))); };
   const GEO=(k,f)=>mats['geo:'+k]||(mats['geo:'+k]=f(),mats['geo:'+k].userData.keep=true,mats['geo:'+k]), INKED=(m,w)=>{ const o=new T.Mesh(m.geometry,mats['ink'+w]||(mats['ink'+w]=inkMat(T,w))); m.add(o); return m; };
+  const HC3=(x,y,z)=>[HCN[0]+x,HCN[1]+y,HCN[2]+z]; // a point on the toon head, from its centre
+  const STAR=(k,r)=>GEO('star'+k,()=>{ const s=new T.Shape(); for(let i=0;i<10;i++){ const an=Math.PI/2+i*Math.PI/5, rr=i%2?r*0.42:r; i?s.lineTo(Math.cos(an)*rr,Math.sin(an)*rr):s.moveTo(Math.cos(an)*rr,Math.sin(an)*rr); } return new T.ExtrudeGeometry(s,{depth:r*0.3,bevelEnabled:false}).center(); });
+  const MAPLE=()=>GEO('maple',()=>{ const s=new T.Shape(), P=[[0,0.06],[0.012,0.03],[0.035,0.042],[0.03,0.018],[0.055,0.012],[0.035,-0.002],[0.04,-0.022],[0.012,-0.012],[0.004,-0.03],[-0.004,-0.03],[-0.012,-0.012],[-0.04,-0.022],[-0.035,-0.002],[-0.055,0.012],[-0.03,0.018],[-0.035,0.042],[-0.012,0.03]];
+    P.forEach((p,i)=>i?s.lineTo(p[0],p[1]):s.moveTo(p[0],p[1])); return new T.ShapeGeometry(s); });
   switch(kind){
     case 'cape': { // hangs from the shoulders, flaring out; sways in the run (see swayCape)
       // narrow at the shoulders, flaring and folding toward the hem; the sides wrap toward the body
@@ -941,6 +1014,7 @@ function gear(T,kind,a,mats,opt){
         if(st==='long') g.add(INKED(M(GEO('th_long',()=>new T.SphereGeometry(1,20,12,0,Math.PI*2,0,Math.PI*0.7).scale(0.11,0.17,0.08).rotateX(Math.PI)),hc,...C(0,0.02,-0.06)),0.003)); }
       if(o.beard){ const bm=TN(o.beard); g.add(INKED(M(GEO('th_beard',()=>{ const gg=new T.SphereGeometry(1,24,16), p=gg.attributes.position; for(let i=0;i<p.count;i++){ const y=p.getY(i); p.setY(i,y<0?y*1.5:y); } gg.computeVertexNormals(); return gg.scale(0.09,0.08,0.06); }),bm,...C(0,-0.07,0.06)),0.003));
         for(const sx of [-1,1]){ const s=INKED(M(GEO('th_stache',()=>new T.SphereGeometry(0.022,12,8).scale(1.4,0.7,0.7)),bm,...C(sx*0.022,-0.026,0.1)),0.0025); s.rotation.z=sx*0.35; g.add(s); } }
+      if(o.flip){ g.rotation.z=Math.PI; g.position.set(2*HCN[0],2*HCN[1],0); } // upside down: the chin on top, the hair hanging below
       out.push(['Head',g]); break; }
     case 'pumpkinHead': { // a carved jack-o'-lantern with a candle glowing inside
       const g=G(), C=(x,y,z)=>[HCN[0]+x,HCN[1]+y,HCN[2]+z];
@@ -1051,6 +1125,269 @@ function gear(T,kind,a,mats,opt){
       for(const s of [-1,1]){ const bx=INKED(M(GEO('odmbox',()=>new T.BoxGeometry(0.05,0.1,0.25)),st,s*X,-0.08,0.04),0.003); bx.rotation.x=-0.22; g.add(bx);
         g.add(M(GEO('odmgrip',()=>new T.BoxGeometry(0.04,0.05,0.07)),dk,s*X,-0.03,0.19)); }
       out.push(['Hips',g]); break; }
+    // ---- seasonal gear (Independence Day, April Fools, August and Fall). Heads are fitted to the toon head (HCN, about
+    // 0.095 x 0.11 x 0.1 m): its face is at z≈0.12 and the top of its hair at y≈0.22 in the Head bone's frame
+    case 'shades': { // [frame, lens] sunglasses
+      const g=G(), fr=TN(a[0]), ln=TN(a[1],{emissive:a[1],emissiveIntensity:0.3});
+      for(const sx of [-1,1]){ g.add(INKED(M(GEO('sd_lens',()=>new T.SphereGeometry(0.027,16,10).scale(1.2,0.85,0.3)),ln,...HC3(sx*0.037,0.022,0.106)),0.002));
+        const arm=M(GEO('sd_arm',()=>new T.BoxGeometry(0.006,0.007,0.11)),fr,...HC3(sx*0.093,0.03,0.045)); g.add(arm); }
+      g.add(M(GEO('sd_brg',()=>new T.BoxGeometry(0.03,0.007,0.007)),fr,...HC3(0,0.032,0.112)));
+      g.add(M(GEO('sd_top',()=>new T.BoxGeometry(0.17,0.008,0.008)),fr,...HC3(0,0.044,0.107)));
+      out.push(['Head',g]); break; }
+    case 'starHat': { // [stripe, white, band] a tall striped top hat with a band of stars
+      const g=G(), st=TN(a[0]), wh=TN(a[1]), bd=TN(a[2]);
+      g.add(INKED(M(GEO('sth_brim',()=>new T.CylinderGeometry(0.17,0.17,0.014,32)),bd),0.003));
+      g.add(INKED(M(GEO('sth_crown',()=>new T.CylinderGeometry(0.1,0.1,0.26,32).translate(0,0.13,0)),wh),0.003));
+      for(let i=0;i<3;i++) g.add(M(GEO('sth_red',()=>new T.CylinderGeometry(0.1015,0.1015,0.036,32,1,true)),st,0,0.085+i*0.072,0));
+      g.add(M(GEO('sth_band',()=>new T.CylinderGeometry(0.102,0.102,0.05,32,1,true)),bd,0,0.032,0));
+      for(let i=0;i<7;i++){ const an=(i-3)*0.45, s=M(STAR('hat',0.016),wh,Math.sin(an)*0.104,0.032,Math.cos(an)*0.104); s.rotation.y=an; g.add(s); }
+      g.position.set(...HC3(0,0.088,-0.005)); g.rotation.set(-0.1,0,0.06); out.push(['Head',g]); break; }
+    case 'starBopper': { // [band, star, star 2] a headband with two stars on springs that wobble about
+      const g=G(), bd=TN(a[0]), arc=INKED(M(GEO('sb_arc',()=>new T.TorusGeometry(0.122,0.008,6,28,Math.PI)),bd,...HC3(0,0,0.0)),0.002); g.add(arc);
+      for(const sx of [-1,1]){ const sp=G(); sp.position.set(...HC3(sx*0.05,0.11,0)); sp.rotation.z=-sx*0.35;
+        for(let i=0;i<7;i++){ const c=M(GEO('sb_coil',()=>new T.TorusGeometry(0.012,0.003,4,10)),bd,0,i*0.017,0); c.rotation.x=Math.PI/2+0.3; sp.add(c); }
+        const s=INKED(M(STAR('bop',0.045),TN(sx<0?a[1]:a[2]||a[1],{emissive:sx<0?a[1]:a[2]||a[1],emissiveIntensity:0.6}),0,0.14,0),0.003); sp.add(s); sp.userData.cape=true; g.add(sp); }
+      out.push(['Head',g]); break; }
+    case 'spikeCrown': { // [colour] a band with seven rays fanning out over the forehead
+      const g=G(), m=TN(a[0]);
+      g.add(INKED(M(GEO('sc_band',()=>new T.CylinderGeometry(0.104,0.11,0.04,28,1,true)),TN(a[0],{side:T.DoubleSide}),...HC3(0,0.075,-0.004)),0.003));
+      for(let i=0;i<7;i++){ const an=(i-3)*0.42, r=INKED(M(GEO('sc_ray',()=>new T.ConeGeometry(0.02,0.16,4).translate(0,0.08,0)),m),0.0025);
+        const p=HC3(Math.sin(an)*0.1,0.085,Math.cos(an)*0.1-0.004); r.position.set(...p); r.rotation.set(Math.cos(an)*0.75,0,-Math.sin(an)*0.75); g.add(r); }
+      out.push(['Head',g]); break; }
+    case 'torchBack': { // [metal, flame] a torch strapped across the back, its flame glowing over the shoulder
+      const g=G(), mt=TN(a[0]), fl=TN(a[1],{emissive:a[1],emissiveIntensity:1}), core=TN('#fff3b0',{emissive:'#ffe08a',emissiveIntensity:1});
+      g.add(INKED(M(GEO('tb_h',()=>new T.CylinderGeometry(0.025,0.018,0.5,10)),mt,0,-0.05,0),0.003));
+      g.add(INKED(M(GEO('tb_cup',()=>new T.CylinderGeometry(0.075,0.035,0.09,14)),mt,0,0.23,0),0.003));
+      g.add(INKED(M(GEO('tb_fl',()=>new T.ConeGeometry(0.06,0.2,12).translate(0,0.1,0)),fl,0,0.27,0),0.003));
+      g.add(M(GEO('tb_core',()=>new T.ConeGeometry(0.034,0.12,10).translate(0,0.06,0)),core,0,0.28,0.01));
+      g.position.set(0.02,0.02,SLIM?-0.165:-0.2); g.rotation.z=-0.55; out.push(['Spine2',g]); break; }
+    case 'firecrackerBody': { // [paper, stripe, star] a walking firecracker: a striped tube, a face, stubby legs and a lit fuse
+      const red=TN(a[0]), wh=TN(a[1]), bl=TN(a[2]), dk=TN('#141414'), spark=TN('#ffe08a',{emissive:'#ffb21a',emissiveIntensity:1});
+      const tube=(r,h,y,bone,top)=>{ const g=G(); g.add(INKED(M(GEO('fc_t'+h,()=>new T.CylinderGeometry(r,r,h,28)),red,0,y,0),0.005));
+        for(const yy of top?[y+h*0.32]:[y-h*0.3,y+h*0.05]) g.add(M(GEO('fc_wb',()=>new T.CylinderGeometry(r+0.002,r+0.002,0.06,28,1,true)),wh,0,yy,0));
+        if(!top){ g.add(M(GEO('fc_bb',()=>new T.CylinderGeometry(r+0.003,r+0.003,0.11,28,1,true)),bl,0,y+h*0.28,0));
+          for(let i=0;i<8;i++){ const an=i/8*Math.PI*2, s=M(STAR('fc',0.028),wh,Math.sin(an)*(r+0.006),y+h*0.28,Math.cos(an)*(r+0.006)); s.rotation.y=an; g.add(s); } }
+        out.push([bone,g]); return g; };
+      tube(0.27,0.95,-0.22,'Hips',false); const up=tube(0.27,0.62,0.1,'Spine2',true);
+      up.add(INKED(M(GEO('fc_cap',()=>new T.CylinderGeometry(0.22,0.27,0.06,28)),wh,0,0.44,0),0.004));
+      for(const sx of [-1,1]){ up.add(INKED(M(GEO('fc_eye',()=>new T.SphereGeometry(0.045,14,10).scale(0.85,1.15,0.4)),TN('#ffffff'),sx*0.075,0.2,0.262),0.003));
+        up.add(M(GEO('fc_pup',()=>new T.SphereGeometry(0.022,10,8).scale(1,1.2,0.4)),dk,sx*0.07,0.19,0.282));
+        const br=M(GEO('fc_br',()=>new T.BoxGeometry(0.06,0.012,0.01)),dk,sx*0.075,0.27,0.27); br.rotation.z=sx*-0.25; up.add(br); }
+      const sm=M(GEO('fc_sm',()=>new T.TorusGeometry(0.06,0.01,6,16,Math.PI)),dk,0,0.07,0.268); sm.rotation.z=Math.PI; up.add(sm);
+      const fuse=M(GEO('fc_fuse',()=>new T.TorusGeometry(0.1,0.01,6,14,Math.PI*0.5)),TN('#5a4a32'),-0.1,0.47,0); up.add(fuse);
+      const sp=G(); sp.position.set(0,0.57,0); sp.userData.spin=9; for(let i=0;i<8;i++){ const s=M(GEO('fc_ray',()=>new T.ConeGeometry(0.01,0.09,4).translate(0,0.06,0)),spark); s.rotation.z=i*Math.PI/4; sp.add(s); }
+      sp.add(M(GEO('fc_glow',()=>new T.SphereGeometry(0.03,10,8)),spark)); up.add(sp);
+      for(const sd of ['Left','Right']){ for(const b of ['Arm','ForeArm']){ const s=G(); s.add(INKED(M(GEO('fc_arm',()=>new T.CylinderGeometry(0.055,0.06,0.27,10).translate(0,0.135,0)),red),0.003)); out.push([sd+b,s]); }
+        const mt=G(); mt.add(INKED(M(GEO('fc_mit',()=>new T.SphereGeometry(0.06,14,10).scale(0.85,1.2,0.65).translate(0,0.06,0)),wh),0.003)); out.push([sd+'Hand',mt]);
+        const lg=G(); lg.add(INKED(M(GEO('fc_leg',()=>new T.CylinderGeometry(0.06,0.06,0.42,10).translate(0,0.21,0)),wh),0.003)); out.push([sd+'Leg',lg]);
+        const ft=G(); ft.add(INKED(M(GEO('fc_foot',()=>new T.SphereGeometry(0.075,14,10).scale(0.9,0.6,1.5)),bl,0,0.0,0.05),0.003)); out.push([sd+'Foot',ft]); }
+      break; }
+    case 'eagleHead': { // [feathers, beak] a proud eagle head: white feathers, a hooked beak, a fierce brow
+      const g=G(), wf=TN(a[0]), bk=TN(a[1]), dk=TN('#141414');
+      g.add(INKED(M(GEO('eg_head',()=>new T.SphereGeometry(1,28,20).scale(0.1,0.11,0.115)),wf,...HC3(0,0.01,0)),0.004));
+      for(let i=0;i<4;i++){ const f=INKED(M(GEO('eg_tuft',()=>new T.ConeGeometry(0.035,0.12,8).translate(0,0.06,0)),wf,...HC3((i-1.5)*0.035,-0.04+Math.abs(i-1.5)*0.015,-0.08)),0.003); f.rotation.x=-2.1; g.add(f); }
+      const beak=G(); beak.position.set(...HC3(0,-0.005,0.1));
+      beak.add(INKED(M(GEO('eg_bk',()=>new T.ConeGeometry(0.042,0.13,14).rotateX(Math.PI/2).translate(0,0,0.06)),bk),0.003));
+      const hook=INKED(M(GEO('eg_hook',()=>new T.ConeGeometry(0.018,0.05,10).translate(0,-0.025,0)),bk,0,-0.004,0.12),0.002); hook.rotation.x=0.5; beak.add(hook);
+      beak.add(M(GEO('eg_mouth',()=>new T.BoxGeometry(0.07,0.004,0.08)),dk,0,-0.012,0.05)); g.add(beak);
+      for(const sx of [-1,1]){ g.add(INKED(M(GEO('eg_eye',()=>new T.SphereGeometry(0.019,12,8).scale(1,1,0.5)),TN('#ffd23f'),...HC3(sx*0.048,0.03,0.092)),0.002));
+        g.add(M(GEO('eg_pup',()=>new T.SphereGeometry(0.009,8,6).scale(1,1,0.5)),dk,...HC3(sx*0.05,0.03,0.101)));
+        const br=INKED(M(GEO('eg_brow',()=>new T.BoxGeometry(0.05,0.016,0.03)),wf,...HC3(sx*0.046,0.054,0.09)),0.002); br.rotation.z=sx*0.4; g.add(br); }
+      out.push(['Head',g]); break; }
+    case 'featherWings': for(const s of [-1,1]){ // [feathers, tips] big feathered wings that breathe like the others
+      const g=G(); for(let k=0;k<8;k++){ const f=INKED(M(GEO('fw_f',()=>new T.SphereGeometry(1,12,8).scale(0.05,0.5,0.012).translate(0,0.5,0)),TN(k<3?a[0]:k<6?a[0]:a[1],{side:T.DoubleSide}),s*(0.06+0.045*k),0.02-0.01*k,-0.005*k),0.0025);
+        f.rotation.z=-s*(0.95+k*0.2); f.scale.set(1,0.46-k*0.025,1); g.add(f); }
+      g.add(INKED(M(GEO('fw_cov',()=>new T.SphereGeometry(1,16,10).scale(0.24,0.08,0.03)),TN(a[0]),s*0.2,0.02,0.01),0.003));
+      g.position.set(s*0.08,0.08,-0.19); g.rotation.y=s*0.45; g.userData.flap=s; out.push(['Spine2',g]); } break;
+    case 'apron': { // [cloth, trim] a cook's apron: a bib on the chest and a skirt over the thighs
+      const cl=TN(a[0],{side:T.DoubleSide}), tr=TN(a[1]), t2=torsoAt(BLD,140), t1=torsoAt(BLD,100);
+      const bib=INKED(M(GEO('ap_bib',()=>new T.BoxGeometry(0.2,0.24,0.008)),cl),0.002); bib.position.set(...onBone('Spine2',0,t2.y+t2.ry+0.9,138)); out.push(['Spine2',bib]);
+      const sk=G(), p=onBone('Hips',0,t1.y+t1.ry+1.2,92); sk.position.set(...p); sk.rotation.x=0.08;
+      sk.add(INKED(M(GEO('ap_sk',()=>{ const gg=new T.PlaneGeometry(0.34,0.34,8,1), q=gg.attributes.position; for(let i=0;i<q.count;i++){ const x=q.getX(i); q.setZ(i,-x*x*1.4); } gg.computeVertexNormals(); return gg; }),cl),0.002));
+      sk.add(M(GEO('ap_pk',()=>new T.BoxGeometry(0.16,0.07,0.006)),tr,0,-0.02,0.008));
+      const tie=M(GEO('ap_tie',()=>new T.TorusGeometry(SLIM?t1.rx*CM+0.012:0.2,0.009,6,28)),tr,0,0.18,-(t1.ry*CM*0.0)); tie.rotation.x=Math.PI/2; tie.scale.set(1,(t1.ry+1)/(t1.rx+1),1); tie.position.set(0,p[1]+0.17,0); out.push(['Hips',tie]);
+      out.push(['Hips',sk]); break; }
+    case 'chefHat': { // [white] a puffy chef's hat
+      const g=G(), w=TN(a[0]);
+      g.add(INKED(M(GEO('ch_band',()=>new T.CylinderGeometry(0.108,0.104,0.07,28)),w,0,0.035,0),0.003));
+      for(const [x,y,z,r] of [[0,0.13,0,0.1],[0.06,0.12,0.04,0.07],[-0.06,0.12,0.04,0.07],[0.06,0.12,-0.05,0.07],[-0.06,0.12,-0.05,0.07]]) g.add(INKED(M(GEO('ch_puff'+r,()=>new T.SphereGeometry(r,16,12)),w,x,y,z),0.003));
+      g.position.set(...HC3(0,0.085,-0.005)); g.rotation.x=-0.12; out.push(['Head',g]); break; }
+    case 'spatula': { // [blade, handle] a grill spatula tucked into the apron string
+      const g=G(); g.add(INKED(M(GEO('sp_h',()=>new T.CylinderGeometry(0.012,0.014,0.2,8)),TN(a[1]),0,0.08,0),0.002));
+      g.add(INKED(M(GEO('sp_b',()=>new T.BoxGeometry(0.085,0.1,0.008)),TN(a[0]),0,-0.07,0),0.002));
+      g.position.set(-(torsoAt(BLD,104).rx+2.5)*CM,0.02,0.04); g.rotation.set(0,Math.PI/2,-0.15); out.push(['Hips',g]); break; }
+    case 'disguise': { // [frame] the classic fake glasses, big nose, bushy brows and moustache, sized for the armoured helmet
+      const g=G(), fr=L(a[0],{roughness:0.4}), skin=L('#e8907a',{roughness:0.6}), hair=L('#2a1a10',{roughness:1});
+      for(const sx of [-1,1]){ const r=M(new T.TorusGeometry(0.038,0.008,8,20),fr,sx*0.048,0.13,0.205); g.add(r);
+        const br=M(new T.SphereGeometry(0.03,10,8).scale(1.5,0.6,0.6),hair,sx*0.05,0.185,0.2); br.rotation.z=sx*-0.15; g.add(br);
+        const ms=M(new T.SphereGeometry(0.035,10,8).scale(1.4,0.65,0.6),hair,sx*0.035,0.045,0.215); ms.rotation.z=sx*0.3; g.add(ms); }
+      g.add(M(new T.BoxGeometry(0.03,0.008,0.008),fr,0,0.135,0.215));
+      g.add(M(new T.SphereGeometry(0.035,14,10).scale(0.9,1.1,1.1),skin,0,0.085,0.235));
+      g.position.set(-0.045,-0.01,-0.03); out.push(['Head',g]); break; }
+    case 'shoeHat': { // [shoe, sole, laces] a sneaker worn as a hat
+      const g=G(), sh=TN(a[0]), so=TN(a[1]), la=TN(a[2]);
+      g.add(INKED(M(GEO('sh_sole',()=>new T.BoxGeometry(0.11,0.025,0.27)),so,0,0,0.0),0.003));
+      g.add(INKED(M(GEO('sh_toe',()=>new T.SphereGeometry(0.06,14,10).scale(0.9,0.75,1.4)),sh,0,0.035,0.06),0.003));
+      g.add(INKED(M(GEO('sh_heel',()=>new T.BoxGeometry(0.1,0.1,0.13)),sh,0,0.06,-0.06),0.003));
+      for(let i=0;i<3;i++) g.add(M(GEO('sh_lace',()=>new T.BoxGeometry(0.07,0.008,0.012)),la,0,0.08-i*0.012,0.005+i*0.03));
+      g.position.set(...HC3(0,0.125,0)); g.rotation.set(0.05,0.4,0.15); out.push(['Head',g]); break; }
+    case 'chickenHead': { // [rubber, comb, beak] a squawking rubber chicken: X eyes, a wide-open beak, a floppy comb
+      const g=G(), rb=TN(a[0]), cm=TN(a[1]), bk=TN(a[2]), dk=TN('#141414');
+      g.add(INKED(M(GEO('ck_head',()=>new T.SphereGeometry(1,28,20).scale(0.085,0.12,0.1)),rb,...HC3(0,0.015,0)),0.004));
+      for(let i=0;i<3;i++) g.add(INKED(M(GEO('ck_comb',()=>new T.SphereGeometry(0.03,12,8).scale(0.55,1.1,1)),cm,...HC3(0,0.13-Math.abs(i-1)*0.012,0.04-i*0.04)),0.0025));
+      const up=INKED(M(GEO('ck_bu',()=>new T.ConeGeometry(0.035,0.1,10).rotateX(Math.PI/2).translate(0,0,0.05)),bk,...HC3(0,0.0,0.09)),0.0025); up.rotation.x=-0.35; g.add(up);
+      const lo=INKED(M(GEO('ck_bl',()=>new T.ConeGeometry(0.03,0.08,10).rotateX(Math.PI/2).translate(0,0,0.04)),bk,...HC3(0,-0.02,0.09)),0.0025); lo.rotation.x=0.45; g.add(lo);
+      g.add(INKED(M(GEO('ck_wat',()=>new T.SphereGeometry(0.022,10,8).scale(0.8,1.4,0.8)),cm,...HC3(0,-0.075,0.08)),0.002));
+      for(const sx of [-1,1]) for(const r of [-0.8,0.8]){ const x=M(GEO('ck_x',()=>new T.BoxGeometry(0.03,0.007,0.006)),dk,...HC3(sx*0.04,0.04,0.093)); x.rotation.set(0,sx*0.4,r); g.add(x); }
+      out.push(['Head',g]); break; }
+    case 'pieSplat': { // [cream, filling] a cream pie, right in the face
+      const g=G(), cr=TN(a[0]), fi=TN(a[1]), crust=TN('#d8a060');
+      for(const [x,y,z,r] of [[0,0.0,0.1,0.045],[0.035,0.03,0.095,0.035],[-0.04,0.025,0.094,0.035],[0.02,-0.04,0.096,0.033],[-0.03,-0.035,0.096,0.03],[0.06,-0.01,0.08,0.025],[-0.065,0.0,0.078,0.026]])
+        g.add(INKED(M(GEO('ps_b'+r,()=>new T.SphereGeometry(r,14,10).scale(1,1,0.55)),cr,...HC3(x,y,z)),0.002));
+      for(const [x,l] of [[-0.03,0.05],[0.025,0.07],[0.055,0.04]]){ const d=G(); d.position.set(...HC3(x,-0.05,0.095)); const dr=INKED(M(GEO('ps_d',()=>new T.CylinderGeometry(0.008,0.008,1,8).translate(0,-0.5,0)),cr),0.0015); dr.scale.y=l; d.add(dr); d.add(M(GEO('ps_dt',()=>new T.SphereGeometry(0.01,8,6)),cr,0,-l,0)); g.add(d); }
+      g.add(INKED(M(GEO('ps_cherry',()=>new T.SphereGeometry(0.016,12,10)),TN('#d01a2a',{emissive:'#600010',emissiveIntensity:0.3}),...HC3(0.01,0.03,0.135)),0.002));
+      for(const [x,y] of [[-0.02,0.05],[0.04,-0.03]]) g.add(M(GEO('ps_fill',()=>new T.SphereGeometry(0.012,8,6).scale(1,1,0.4)),fi,...HC3(x,y,0.118)));
+      for(const [x,y,r] of [[0.08,0.05,0.4],[-0.085,0.04,-0.6],[0.07,-0.05,1.1],[-0.06,0.07,2]]){ const k=M(GEO('ps_crumb',()=>new T.BoxGeometry(0.03,0.012,0.012)),crust,...HC3(x,y,0.085)); k.rotation.set(0.3,x>0?0.5:-0.5,r); g.add(k); } // bits of crust
+      out.push(['Head',g]); break; }
+    case 'propCap': { // [panel, panel 2, propeller] a propeller beanie: the propeller spins
+      const g=G();
+      for(let i=0;i<6;i++){ const pn=INKED(M(GEO('pc_pan',()=>new T.SphereGeometry(1,8,10,0,Math.PI/3,0,Math.PI*0.5).scale(0.104,0.08,0.11)),TN(i%2?a[1]:a[0],{side:T.DoubleSide}),0,0,0),0.002); pn.rotation.y=i*Math.PI/3; g.add(pn); }
+      g.add(M(GEO('pc_bill',()=>new T.CylinderGeometry(0.09,0.09,0.008,20,1,false,-Math.PI/2,Math.PI).scale(1,1,0.75)),TN(a[0]),0,0.0,0.07));
+      g.add(M(GEO('pc_post',()=>new T.CylinderGeometry(0.006,0.006,0.05,6)),TN('#c9cfd8'),0,0.1,0));
+      const pr=G(); pr.position.set(0,0.125,0); pr.userData.spin=14;
+      for(const s of [-1,1]){ const b=INKED(M(GEO('pc_blade',()=>new T.BoxGeometry(0.1,0.006,0.03)),TN(a[2]),s*0.055,0,0),0.002); b.rotation.x=s*0.3; pr.add(b); }
+      pr.add(M(GEO('pc_hub',()=>new T.SphereGeometry(0.014,10,8)),TN(a[2]))); g.add(pr);
+      g.position.set(...HC3(0,0.055,-0.005)); g.rotation.x=-0.15; out.push(['Head',g]); break; }
+    case 'whoopee': { // [rubber] a whoopee cushion clipped to the belt
+      const g=G(), m=TN(a[0]); g.add(INKED(M(GEO('wc_b',()=>new T.SphereGeometry(0.075,16,10).scale(1,1,0.35)),m),0.0025));
+      g.add(INKED(M(GEO('wc_n',()=>new T.CylinderGeometry(0.014,0.02,0.05,10)),m,0,-0.09,0),0.002));
+      g.position.set((torsoAt(BLD,104).rx+3)*CM,-0.04,-0.02); g.rotation.set(0,Math.PI/2,0.25); out.push(['Hips',g]); break; }
+    case 'jesterHat': { // [colour, colour 2, bells] three floppy points with bells
+      const g=G();
+      g.add(INKED(M(GEO('jh_cap',()=>new T.SphereGeometry(1,24,12,0,Math.PI*2,0,Math.PI*0.5).scale(0.108,0.07,0.114)),TN(a[0]),0,0,0),0.003));
+      g.add(INKED(M(GEO('jh_band',()=>new T.TorusGeometry(0.108,0.014,8,28).rotateX(Math.PI/2).scale(1,1,1.05)),TN(a[2]),0,0.0,0),0.002));
+      [[-1,a[0]],[0,a[1]],[1,a[0]]].forEach(([s,c],k)=>{ const p=G(); p.position.set(s*0.06,0.04,s===0?-0.03:0); p.rotation.set(s===0?-0.6:0,0,-s*1.0);
+        const cone=INKED(M(GEO('jh_pt',()=>{ const gg=new T.ConeGeometry(0.045,0.2,12,6).translate(0,0.1,0), q=gg.attributes.position; for(let i=0;i<q.count;i++){ const y=q.getY(i); q.setX(i,q.getX(i)+y*y*1.6); } gg.computeVertexNormals(); return gg; }),TN(c)),0.0025);
+        cone.rotation.y=s===0?Math.PI/2:s<0?Math.PI:0; p.add(cone); const tip=new T.Vector3(0.064,0.2,0).applyAxisAngle(new T.Vector3(0,1,0),cone.rotation.y);
+        p.add(INKED(M(GEO('jh_bell',()=>new T.SphereGeometry(0.022,10,8)),TN(a[2],{emissive:a[2],emissiveIntensity:0.25}),tip.x,tip.y,tip.z),0.002)); p.userData.cape=true; g.add(p); });
+      g.position.set(...HC3(0,0.07,-0.004)); g.rotation.x=-0.12; out.push(['Head',g]); break; }
+    case 'jackBox': { // [box, trim] a jack-in-the-box costume round the waist, painted with question marks, with a crank
+      const g=G(), tex=TX('qbox'+a[0],()=>{ const cv=document.createElement('canvas'); cv.width=cv.height=128; const x=cv.getContext('2d'); x.fillStyle=a[0]; x.fillRect(0,0,128,128);
+        x.fillStyle=a[1]; x.font='bold 84px Arial, sans-serif'; x.textAlign='center'; x.textBaseline='middle'; x.fillText('?',64,70); x.strokeStyle=a[1]; x.lineWidth=10; x.strokeRect(5,5,118,118); return cv; });
+      const side=mats['qboxM'+a[0]]||(mats['qboxM'+a[0]]=new T.MeshToonMaterial({map:tex,gradientMap:ramp(T),side:T.DoubleSide})), W=0.27;
+      for(let i=0;i<4;i++){ const w=M(GEO('jb_w',()=>new T.PlaneGeometry(W*2,0.4)),side); const an=i*Math.PI/2; w.position.set(Math.sin(an)*W,0,Math.cos(an)*W); w.rotation.y=an; g.add(w); }
+      for(const y of [-0.2,0.2]) for(let i=0;i<4;i++){ const an=i*Math.PI/2, e=INKED(M(GEO('jb_e',()=>new T.BoxGeometry(W*2+0.03,0.03,0.03)),TN(a[1]),Math.sin(an)*W,y,Math.cos(an)*W),0.002); e.rotation.y=an; g.add(e); }
+      const cr=G(); cr.position.set(W+0.02,0.02,0); cr.userData.spin=3; cr.userData.spinAxis='x';
+      cr.add(M(GEO('jb_ax',()=>new T.CylinderGeometry(0.012,0.012,0.05,8).rotateZ(Math.PI/2)),TN('#c9cfd8')));
+      cr.add(M(GEO('jb_arm',()=>new T.BoxGeometry(0.014,0.12,0.02)),TN('#c9cfd8'),0.025,0.05,0)); cr.add(INKED(M(GEO('jb_knob',()=>new T.SphereGeometry(0.022,10,8)),TN(a[1]),0.045,0.11,0),0.002)); g.add(cr);
+      g.position.set(0,-0.08,0.0); out.push(['Hips',g]); break; }
+    case 'surfboard': { // [board, stripe] a surfboard slung across the back
+      const g=G(); g.add(INKED(M(GEO('sf_b',()=>new T.SphereGeometry(1,24,16).scale(0.19,0.85,0.028)),TN(a[0])),0.004));
+      g.add(M(GEO('sf_s',()=>new T.SphereGeometry(1,16,12).scale(0.03,0.8,0.03)),TN(a[1]),0,0,-0.003));
+      g.add(INKED(M(GEO('sf_fin',()=>new T.BoxGeometry(0.008,0.1,0.08)),TN(a[1]),0,-0.65,-0.05),0.002));
+      g.position.set(0,-0.02,SLIM?-0.2:-0.24); g.rotation.set(0,0,0.5); out.push(['Spine2',g]); break; }
+    case 'whistle': { // [lanyard, whistle] a lifeguard's whistle on a cord
+      const g=G(), t2=torsoAt(BLD,146);
+      const cord=M(GEO('wh_c',()=>new T.TorusGeometry(0.09,0.005,6,24,Math.PI*1.4).rotateZ(-Math.PI*0.2)),TN(a[0]),0,0,0); cord.rotation.x=-1.25; cord.position.set(0,-0.02,0.0); g.add(cord); out.push(['Neck',g]);
+      const w=G(); w.position.set(...onBone('Spine2',0,t2.y+t2.ry+1.2,141)); w.add(INKED(M(GEO('wh_w',()=>new T.CylinderGeometry(0.018,0.018,0.05,12).rotateZ(Math.PI/2)),TN(a[1])),0.002));
+      w.add(M(GEO('wh_m',()=>new T.BoxGeometry(0.03,0.02,0.02)),TN(a[1]),0.03,0.008,0)); out.push(['Spine2',w]); break; }
+    case 'visor': { // [colour] a sun visor: band and peak, no crown
+      const g=G(), m=TN(a[0],{side:T.DoubleSide});
+      g.add(INKED(M(GEO('vs_band',()=>new T.CylinderGeometry(0.106,0.108,0.035,28,1,true)),m),0.002));
+      const bill=INKED(M(GEO('vs_bill',()=>new T.CylinderGeometry(0.1,0.1,0.008,24,1,false,-Math.PI/2,Math.PI).scale(1,1,0.9)),TN(a[0]),0,-0.012,0.07),0.002); bill.rotation.x=0.18; g.add(bill);
+      g.position.set(...HC3(0,0.07,-0.004)); g.rotation.x=-0.1; out.push(['Head',g]); break; }
+    case 'rescueTube': { // [colour] a lifeguard's rescue float across the back
+      const g=G(); g.add(INKED(M(GEO('rt_b',()=>new T.CylinderGeometry(0.06,0.06,0.6,12)),TN(a[0])),0.004));
+      for(const y of [-0.3,0.3]) g.add(INKED(M(GEO('rt_end',()=>new T.SphereGeometry(0.06,12,8)),TN(a[0]),0,y,0),0.004));
+      for(const y of [-0.2,0.2]) g.add(M(GEO('rt_s',()=>new T.CylinderGeometry(0.062,0.062,0.03,12,1,true)),TN('#ffffff'),0,y,0));
+      g.position.set(0,0.0,SLIM?-0.17:-0.22); g.rotation.z=-0.7; out.push(['Spine2',g]); break; }
+    case 'melonHead': { // a watermelon head with a slice-shaped grin
+      const g=G(), tex=TX('melon',()=>{ const cv=document.createElement('canvas'); cv.width=256; cv.height=128; const x=cv.getContext('2d'); x.fillStyle='#4fae3a'; x.fillRect(0,0,256,128);
+        x.fillStyle='#1f6a22'; for(let i=0;i<12;i++){ x.beginPath(); for(let y=0;y<=128;y+=4) x.lineTo(i*21.33+Math.sin(y*0.15+i)*4-5,y); for(let y=128;y>=0;y-=4) x.lineTo(i*21.33+Math.sin(y*0.15+i)*4+5,y); x.fill(); } return cv; });
+      const rind=mats.melonM||(mats.melonM=new T.MeshToonMaterial({map:tex,gradientMap:ramp(T)}));
+      g.add(INKED(M(GEO('ml_head',()=>new T.SphereGeometry(0.13,32,24).scale(1.05,1,1)),rind,...HC3(0,0.02,0)),0.005));
+      const mouth=M(GEO('ml_mouth',()=>{ const s=new T.Shape(); s.moveTo(-0.07,0); s.quadraticCurveTo(0,-0.09,0.07,0); s.lineTo(-0.07,0); return new T.ShapeGeometry(s); }),TN('#ff4a5a'),...HC3(0,-0.02,0.131)); g.add(mouth);
+      const rim=M(GEO('ml_rim',()=>new T.BoxGeometry(0.15,0.008,0.004)),TN('#e8f4d0'),...HC3(0,-0.018,0.131)); g.add(rim);
+      for(const [x,y] of [[-0.035,-0.035],[0,-0.05],[0.035,-0.035]]) g.add(M(GEO('ml_seed',()=>new T.SphereGeometry(0.006,8,6).scale(0.7,1.2,0.3)),TN('#141414'),...HC3(x,y,0.133)));
+      for(const sx of [-1,1]){ g.add(INKED(M(GEO('ml_eye',()=>new T.SphereGeometry(0.022,12,8).scale(1,1.15,0.45)),TN('#ffffff'),...HC3(sx*0.045,0.05,0.12)),0.002)); g.add(M(GEO('ml_pup',()=>new T.SphereGeometry(0.011,10,6).scale(1,1.2,0.4)),TN('#141414'),...HC3(sx*0.045,0.048,0.13))); }
+      g.add(INKED(M(GEO('ml_stem',()=>new T.CylinderGeometry(0.008,0.012,0.04,8)),TN('#6a5a2a'),...HC3(0,0.16,0)),0.002));
+      const lf=INKED(M(GEO('ml_leaf',()=>new T.SphereGeometry(0.03,10,6).scale(1.6,0.25,0.8)),TN('#3d8a2a'),...HC3(0.035,0.155,0)),0.002); lf.rotation.z=0.4; g.add(lf);
+      out.push(['Head',g]); break; }
+    case 'sunHead': { // [face, rays] a beaming sun: a glowing face ringed by turning rays
+      const g=G(), sf=TN(a[0],{emissive:a[0],emissiveIntensity:0.35}), ry=TN(a[1],{emissive:a[1],emissiveIntensity:0.6}), dk=TN('#5a2a0a');
+      g.add(INKED(M(GEO('sn_head',()=>new T.SphereGeometry(0.13,32,24)),sf,...HC3(0,0.02,0)),0.005));
+      const ring=G(); ring.position.set(...HC3(0,0.02,-0.02)); ring.userData.spin=0.8; ring.userData.spinAxis='z';
+      for(let i=0;i<12;i++){ const r=INKED(M(GEO('sn_ray'+(i%2),()=>new T.ConeGeometry(0.035,i%2?0.09:0.13,4).translate(0,0.15+(i%2?0.045:0.065),0)),ry),0.0025); r.rotation.z=i*Math.PI/6; r.scale.z=0.5; ring.add(r); } g.add(ring);
+      const sm=M(GEO('sn_sm',()=>new T.TorusGeometry(0.05,0.008,6,16,Math.PI)),dk,...HC3(0,-0.03,0.12)); sm.rotation.z=Math.PI; sm.rotation.x=-0.3; g.add(sm);
+      for(const sx of [-1,1]){ const ck=M(GEO('sn_ck',()=>new T.CircleGeometry(0.02,14)),TN('#ff7a4a',{transparent:true,opacity:0.7}),...HC3(sx*0.075,-0.01,0.112)); ck.rotation.y=sx*0.6; g.add(ck); }
+      out.push(['Head',g]); break; }
+    case 'sharkHood': { // [skin, belly] a shark costume hood: the face peeks out of the open jaws; a fin on the back
+      const g=G(), sk=TN(a[0],{side:T.DoubleSide}), wh=TN('#ffffff'), dk=TN('#141414');
+      const shell=INKED(M(GEO('sk_shell',()=>new T.SphereGeometry(0.15,28,18,0,Math.PI*2,0,Math.PI*0.72).rotateX(-Math.PI/2).scale(1,1.05,1.15)),sk,...HC3(0,0.01,-0.01)),0.004); g.add(shell);
+      g.add(INKED(M(GEO('sk_snout',()=>new T.SphereGeometry(0.1,20,14).scale(0.9,0.55,1.15)),TN(a[0]),...HC3(0,0.11,0.07)),0.004));
+      g.add(M(GEO('sk_bel',()=>new T.TorusGeometry(0.112,0.016,6,28).scale(1,1.05,1)),TN(a[1]),...HC3(0,0.01,0.1)));
+      for(let i=0;i<14;i++){ const an=i/14*Math.PI*2, t=M(GEO('sk_tooth',()=>new T.ConeGeometry(0.012,0.03,4)),wh,...HC3(Math.sin(an)*0.104,0.01+Math.cos(an)*0.108,0.105)); t.rotation.z=Math.PI-an; g.add(t); }
+      for(const sx of [-1,1]){ g.add(INKED(M(GEO('sk_eye',()=>new T.SphereGeometry(0.018,12,8)),dk,...HC3(sx*0.1,0.1,0.07)),0.002)); g.add(M(GEO('sk_gl',()=>new T.SphereGeometry(0.005,6,4)),wh,...HC3(sx*0.108,0.108,0.083)));
+        for(let i=0;i<3;i++){ const gl=M(GEO('sk_gill',()=>new T.BoxGeometry(0.004,0.05,0.006)),dk,...HC3(sx*0.15,0.0,-0.02-i*0.025)); gl.rotation.y=sx*0.3; g.add(gl); } }
+      out.push(['Head',g]);
+      const fin=G(), sh=new T.Shape(); sh.moveTo(0,0); sh.quadraticCurveTo(0.06,0.14,-0.06,0.24); sh.quadraticCurveTo(-0.08,0.1,-0.16,0); sh.lineTo(0,0);
+      fin.add(INKED(M(GEO('sk_fin',()=>new T.ExtrudeGeometry(sh,{depth:0.025,bevelEnabled:false}).translate(0.08,0,-0.0125).rotateY(Math.PI/2)),TN(a[0])),0.003));
+      const t3=torsoAt(BLD,138); fin.position.set(...onBone('Spine2',0,t3.y-t3.ry-0.5,138)); out.push(['Spine2',fin]); break; }
+    case 'floatRing': { // [ring, bird] a pool float round the waist with a long-necked bird's head at the front
+      const g=G(), rg=TN(a[0]), bd=TN(a[1]), t1=torsoAt(BLD,102);
+      const tor=INKED(M(GEO('fr_ring',()=>new T.TorusGeometry(0.29,0.085,14,32)),rg),0.004); tor.rotation.x=Math.PI/2; tor.scale.set(1,(t1.ry+6)/(t1.rx+6),1); g.add(tor);
+      const nk=INKED(M(GEO('fr_neck',()=>new T.TorusGeometry(0.11,0.032,10,16,Math.PI*1.1)),rg,0,0.12,0.28),0.003); nk.rotation.y=Math.PI/2; nk.rotation.z=-0.2; g.add(nk);
+      g.add(INKED(M(GEO('fr_head',()=>new T.SphereGeometry(0.05,14,10).scale(1,0.9,1.2)),rg,0,0.235,0.32),0.003));
+      const bk=INKED(M(GEO('fr_beak',()=>new T.ConeGeometry(0.022,0.08,10).rotateX(Math.PI/2).translate(0,0,0.04)),bd,0,0.22,0.36),0.002); bk.rotation.x=0.6; g.add(bk);
+      for(const sx of [-1,1]) g.add(M(GEO('fr_eye',()=>new T.SphereGeometry(0.009,8,6)),TN('#141414'),sx*0.04,0.25,0.34));
+      g.position.set(0,0.06,0); out.push(['Hips',g]); break; }
+    case 'strawTufts': { // [straw] straw poking out of the cuffs and collar
+      const st=TN(a[0],{emissive:a[0],emissiveIntensity:0.15}), tuft=(n,len)=>{ const g=G(); for(let i=0;i<n;i++){ const an=i/n*Math.PI*2, c=M(GEO('st_c'+len,()=>new T.ConeGeometry(0.008,len,4).translate(0,len/2,0)),st,Math.cos(an)*0.03,0,Math.sin(an)*0.03); c.rotation.set(Math.sin(an)*0.6,0,-Math.cos(an)*0.6); g.add(c); } return g; };
+      for(const sd of ['Left','Right']){ const h=tuft(8,0.09); h.position.y=-0.01; out.push([sd+'Hand',h]); }
+      const n=tuft(10,0.06); n.position.set(0,0.02,0.04); n.rotation.x=0.4; out.push(['Neck',n]); break; }
+    case 'beanie': { // [knit, cuff, pom] a knitted beanie with a pom-pom
+      const g=G();
+      g.add(INKED(M(GEO('bn_cap',()=>new T.SphereGeometry(1,24,14,0,Math.PI*2,0,Math.PI*0.55).scale(0.108,0.13,0.115)),TN(a[0]),0,0,0),0.003));
+      g.add(INKED(M(GEO('bn_cuff',()=>new T.CylinderGeometry(0.112,0.114,0.045,28)),TN(a[1]),0,0.0,0),0.002));
+      for(let i=0;i<14;i++){ const rb=M(GEO('bn_rib',()=>new T.BoxGeometry(0.008,0.04,0.006)),TN(a[1]==='#ffffff'?'#e4e4e4':a[0]),Math.sin(i/14*Math.PI*2)*0.115,0,Math.cos(i/14*Math.PI*2)*0.117); rb.rotation.y=i/14*Math.PI*2; g.add(rb); }
+      g.add(INKED(M(GEO('bn_pom',()=>new T.SphereGeometry(0.04,14,10)),TN(a[2]),0,0.135,0),0.003));
+      g.position.set(...HC3(0,0.055,-0.006)); g.rotation.x=-0.18; out.push(['Head',g]); break; }
+    case 'axeBack': { // [handle, head] a woodcutter's axe across the back
+      const g=G(); g.add(INKED(M(GEO('ax_h',()=>new T.CylinderGeometry(0.018,0.022,0.8,8)),TN(a[0])),0.003));
+      const hd=INKED(M(GEO('ax_hd',()=>{ const s=new T.Shape(); s.moveTo(0,-0.04); s.lineTo(0.12,-0.08); s.quadraticCurveTo(0.15,0,0.12,0.08); s.lineTo(0,0.04); s.lineTo(-0.04,0.03); s.lineTo(-0.04,-0.03); s.lineTo(0,-0.04); return new T.ExtrudeGeometry(s,{depth:0.02,bevelEnabled:false}).translate(0,0,-0.01); }),TN(a[1]),0,0.34,0),0.003); g.add(hd);
+      g.add(M(GEO('ax_edge',()=>new T.BoxGeometry(0.012,0.15,0.022)),TN('#e8eef4'),0.135,0.34,0));
+      g.position.set(0.02,-0.08,SLIM?-0.17:-0.21); g.rotation.z=Math.PI+0.6; out.push(['Spine2',g]); break; } // head down by the hip, clear of the head
+    case 'leafCrown': { // [colours] a crown of autumn maple leaves
+      const g=G(); for(let i=0;i<9;i++){ const an=(i/9)*Math.PI*2, c=a[0][i%a[0].length], lf=INKED(M(MAPLE(),TN(c,{side:T.DoubleSide}),Math.sin(an)*0.104,0,Math.cos(an)*0.108),0.002);
+        lf.rotation.set(-0.35,an,0); lf.scale.setScalar(0.9+0.25*((i*7)%3)/2); g.add(lf); }
+      g.position.set(...HC3(0,0.085,-0.004)); g.rotation.x=-0.1; out.push(['Head',g]); break; }
+    case 'leafCape': { // [colours] a short cape of falling leaves pinned to the shoulders
+      const g=G(), t3=torsoAt(BLD,146); g.position.set(...onBone('Spine2',0,t3.y-t3.ry-1.5,146)); g.userData.cape=true;
+      for(let i=0;i<16;i++){ const r=Math.floor(i/4), c=a[0][(i+r)%a[0].length], lf=INKED(M(MAPLE(),TN(c,{side:T.DoubleSide}),((i%4)-1.5)*0.075+(r%2)*0.03,-r*0.1,-0.02-r*0.015),0.002); lf.rotation.set(0,Math.PI,(i*1.7)%1-0.5); lf.scale.setScalar(1.3); g.add(lf); }
+      out.push(['Spine2',g]); break; }
+    case 'turkeyHead': { // [feathers, snood] a turkey: a bare head, a beak, a wobbly red snood and wattle
+      const g=G(), hd=TN(a[0]), rd=TN(a[1]), dk=TN('#141414');
+      g.add(INKED(M(GEO('tk_head',()=>new T.SphereGeometry(1,28,20).scale(0.088,0.1,0.098)),hd,...HC3(0,0.01,0)),0.004));
+      const bk=INKED(M(GEO('tk_bk',()=>new T.ConeGeometry(0.025,0.07,10).rotateX(Math.PI/2).translate(0,0,0.035)),TN('#f2b230'),...HC3(0,-0.005,0.095)),0.002); bk.rotation.x=0.25; g.add(bk);
+      const sn=INKED(M(GEO('tk_snood',()=>new T.CylinderGeometry(0.012,0.008,0.09,8).translate(0,-0.045,0)),rd,...HC3(0.012,0.025,0.11)),0.002); sn.rotation.z=0.25; sn.userData.cape=true; g.add(sn);
+      g.add(INKED(M(GEO('tk_wat',()=>new T.SphereGeometry(0.028,12,8).scale(0.8,1.5,0.7)),rd,...HC3(0,-0.07,0.075)),0.002));
+      for(const sx of [-1,1]){ g.add(INKED(M(GEO('tk_eye',()=>new T.SphereGeometry(0.02,12,8).scale(1,1.15,0.5)),TN('#ffffff'),...HC3(sx*0.04,0.035,0.085)),0.002)); g.add(M(GEO('tk_pup',()=>new T.SphereGeometry(0.01,8,6).scale(1,1.1,0.5)),dk,...HC3(sx*0.04,0.033,0.095))); }
+      out.push(['Head',g]); break; }
+    case 'tailFan': { // [colours] a big fan of tail feathers behind the hips
+      const g=G(), t1=torsoAt(BLD,102); g.position.set(...onBone('Hips',0,t1.y-t1.ry-2,104)); g.rotation.x=-0.15; g.scale.setScalar(1.15);
+      for(let i=0;i<11;i++){ const an=(i/10-0.5)*2.6, f=G(); f.rotation.z=an;
+        f.add(INKED(M(GEO('tf_f',()=>new T.SphereGeometry(1,14,10).scale(0.07,0.32,0.015).translate(0,0.3,0)),TN(a[0][i%a[0].length])),0.003));
+        f.add(M(GEO('tf_tip',()=>new T.SphereGeometry(1,12,8).scale(0.05,0.07,0.017).translate(0,0.53,0.004)),TN(a[1])));
+        f.add(M(GEO('tf_band',()=>new T.SphereGeometry(1,12,8).scale(0.06,0.05,0.017).translate(0,0.42,0.004)),TN(a[2]))); f.position.z=-Math.abs(an)*0.02; g.add(f); }
+      g.userData.cape=true; out.push(['Hips',g]); break; }
+    case 'acornCap': { // [cap, stem] an acorn-cap helmet with a scaly pattern and a little stem
+      const g=G(), tex=TX('acorn'+a[0],()=>{ const cv=document.createElement('canvas'); cv.width=cv.height=128; const x=cv.getContext('2d'); x.fillStyle=a[0]; x.fillRect(0,0,128,128);
+        x.strokeStyle='rgba(30,15,5,.55)'; x.lineWidth=3; for(let r=0;r<8;r++) for(let c=0;c<9;c++){ const cx=c*16+(r%2)*8, cy=r*16+8; x.beginPath(); x.arc(cx,cy,8,0,Math.PI); x.stroke(); } return cv; });
+      const cm=mats['acornM'+a[0]]||(mats['acornM'+a[0]]=new T.MeshToonMaterial({map:tex,gradientMap:ramp(T)}));
+      g.add(INKED(M(GEO('ac_cap',()=>new T.SphereGeometry(1,28,14,0,Math.PI*2,0,Math.PI*0.52).scale(0.128,0.11,0.13)),cm),0.004));
+      g.add(INKED(M(GEO('ac_lip',()=>new T.TorusGeometry(0.126,0.016,8,28).rotateX(Math.PI/2).scale(1,1,1.02)),cm,0,0.0,0),0.003));
+      const st=INKED(M(GEO('ac_stem',()=>new T.CylinderGeometry(0.012,0.016,0.06,8).translate(0,0.03,0)),TN(a[1]),0,0.1,0),0.002); st.rotation.z=0.3; g.add(st);
+      g.position.set(...HC3(0,0.05,-0.004)); g.rotation.x=-0.1; out.push(['Head',g]); break; }
     case 'tail': { const g=G(); for(let i=0;i<6;i++){ const r=0.06+Math.sin(i/5*Math.PI)*0.05; g.add(M(new T.SphereGeometry(r,10,8),L(i>3?a[1]:a[0],{roughness:0.9}),0,-i*0.07,-i*0.06-0.02)); }
       g.position.set(0,-0.05,-0.14); g.rotation.x=-0.5; g.userData.cape=true; out.push(['Hips',g]); break; }
   }
