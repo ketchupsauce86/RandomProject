@@ -11,7 +11,8 @@ its own empty scene), or with the `bpy` Python module (pip install bpy):
 
 pick.json: {"<name>": {"src": "<action>" or ["<action>", ...] played back to back, "loop": 0/1, "pack": "...",
 "inplace": 2 for no travel at all (a roll), "trim": [from, to] fractions, "stride": 1 to measure the forward speed from root motion,
-"hips_z": average hips height in hero metres (the swim floats at standing height; the game lowers it to the water)}, ...}.
+"xfade": N eased in-between frames where one action runs into the next (and round the loop), a src entry "Action@N" plays
+that action over N frames (hold a one-pose action), "hips_z": average hips height in hero metres (the swim floats at standing height; the game lowers it to the water)}, ...}.
 For each mapped bone it writes a rest frame whose y axis points down the bone to the next joint (whatever way the pack's
 importer laid its bones), and every frame that frame's world rotation, in the hero's space (z up, facing -y, its left
 at +x). The hips offset is in hero metres (the hips 0.95 m up at rest), in place: no forward travel.
@@ -76,13 +77,39 @@ def end_dir(arm, bone):
     return b.tail_local
 
 
+def _q(m):
+    return Matrix([m[0:3], m[3:6], m[6:9]]).to_quaternion()
+
+
+def mix(a, b, t):
+    """a frame between frames a and b (t 0..1): each bone's rotation slerped, the hips offset lerped"""
+    r = {}
+    for hb in a['r']:
+        q = _q(a['r'][hb]).slerp(_q(b['r'][hb]), t); r[hb] = [v for row in q.to_matrix() for v in row]
+    return {'r': r, 'hp': [x + (y - x) * t for x, y in zip(a['hp'], b['hp'])]}
+
+
+def blend(a, b, n):
+    """n eased in-between frames from a to b (neither end included)"""
+    return [mix(a, b, (lambda u: u * u * (3 - 2 * u))((i + 1) / (n + 1))) for i in range(n)]
+
+
+def stretch(part, n):
+    """the same move over n frames (a short or one-pose action held for longer)"""
+    if len(part) == 1: return [dict(part[0], hp=list(part[0]['hp'])) for _ in range(n)]
+    out = []
+    for i in range(n):
+        x = i / max(1, n - 1) * (len(part) - 1); j = min(int(x), len(part) - 2); out.append(mix(part[j], part[j + 1], x - j))
+    return out
+
+
 def export():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     sc = bpy.context.scene; sc.render.fps = FPS
     out = {'fps': FPS, 'out_fps': OUT_FPS or FPS, 'rest': None, 'clips': {}, 'meta': {}, 'maps': {}}
     need, seqs = {}, {}  # action name -> its rate in the file (None: as imported); action name -> (frames, rest)
     for w in PICK.values():
-        for k in (w['src'] if isinstance(w['src'], list) else [w['src']]): need[k] = w.get('src_fps')
+        for k in (w['src'] if isinstance(w['src'], list) else [w['src']]): need[k.split('@')[0]] = w.get('src_fps')
     for f in FILES:
         before = set(bpy.data.objects); before_a = set(bpy.data.actions)
         if f.lower().endswith(('.glb', '.gltf')): bpy.ops.import_scene.gltf(filepath=f)
@@ -142,11 +169,13 @@ def export():
     # each pick: one action, or several played back to back (src as a list)
     for g, w in PICK.items():
         srcs = w['src'] if isinstance(w['src'], list) else [w['src']]
-        if any(k not in seqs for k in srcs): print('SKIP', g, 'missing', [k for k in srcs if k not in seqs]); continue
-        s = []; travel = 0.0
-        for k in srcs:
-            part = [dict(fr, hp=list(fr['hp'])) for fr in seqs[k][0]]
+        names = [k.split('@')[0] for k in srcs]
+        if any(k not in seqs for k in names): print('SKIP', g, 'missing', [k for k in names if k not in seqs]); continue
+        s = []; travel = 0.0; xf = int(w.get('xfade', 0))
+        for j, k in enumerate(srcs):
+            part = [dict(fr, hp=list(fr['hp'])) for fr in seqs[names[j]][0]]
             if w.get('trim'): part = part[int(w['trim'][0] * len(part)):int(w['trim'][1] * len(part)) or None]
+            if '@' in k: part = stretch(part, int(k.split('@')[1]))  # "Action@N": played over N frames (a held pose)
             # in place: take out each part's drift (root motion) so the move stays on the spot
             d0 = list(part[0]['hp']); d1 = list(part[-1]['hp']); travel += ((d1[0] - d0[0]) ** 2 + (d1[1] - d0[1]) ** 2) ** 0.5
             for i, fr in enumerate(part):
@@ -154,14 +183,16 @@ def export():
                 fr['hp'][0] -= d0[0] + (d1[0] - d0[0]) * u
                 fr['hp'][1] -= d0[1] + (d1[1] - d0[1]) * u
                 if w.get('inplace') == 2: fr['hp'][1] = 0.0  # (a roll or dive: no travel at all, it turns over on the spot)
-            s += part[:-1] if k != srcs[-1] else part
+            if xf and s: s += blend(s[-1], part[0], xf)  # xfade: N eased in-between frames from one part into the next
+            s += part[:-1] if j != len(srcs) - 1 else part
+        if xf and w.get('loop'): s += blend(s[-1], s[0], xf)  # (and from the end back round to the start)
         if w.get('loop'): s = s[:-1]  # (the retargeter closes a loop by repeating the first frame)
         if 'hips_z' in w:  # lift (or drop) the whole move so its hips sit this high on average, in hero metres
             dz = w['hips_z'] - sum(fr['hp'][2] for fr in s) / len(s)
             for fr in s: fr['hp'][2] += dz
         out['clips'][g] = s
-        out.setdefault('rest_of', {})[g] = seqs[srcs[0]][1]  # each pack's rig has its own rest pose
-        if out['rest'] is None: out['rest'] = seqs[srcs[0]][1]
+        out.setdefault('rest_of', {})[g] = seqs[names[0]][1]  # each pack's rig has its own rest pose
+        if out['rest'] is None: out['rest'] = seqs[names[0]][1]
         out['meta'][g] = {'loop': int(bool(w.get('loop'))),
                          # forward speed in hero metres per frame (from the root motion of a pack's _RM file), for the stride
                          'speed': travel / max(1, len(s) - (0 if w.get('loop') else 1)) if w.get('stride') else 0.0, 'pack': w.get('pack', ''), 'src': srcs}
