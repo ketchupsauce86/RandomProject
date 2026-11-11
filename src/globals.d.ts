@@ -13,6 +13,7 @@ declare global {
     PACK_MOVES: any;
     SKINS: any;
     PICKAXES: any;
+    SIDEKICKS: any;
     GAME_VERSION: any;
     SOUND_FILES: Record<string, string[]>;
     webkitAudioContext: typeof AudioContext;

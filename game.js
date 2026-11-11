@@ -7160,6 +7160,7 @@
         if (killer === player) {
           player.bank++;
           sfx("elim");
+          sdCheer();
           banner("Eliminated", t.name + " \xB7 " + aliveCount + " left", 2);
           pwOnKill(t);
         }
@@ -8069,6 +8070,7 @@
     function lkView() {
       if (armMode === "guns") return { t: [0, 1, 0], d: SHOP_GUN(ARM_IDS[armIdx]) || GUNV[ARM_IDS[armIdx]] ? Math.max(4.5, 6 / camera.aspect) : Math.max(6.5, (ARM_IDS[armIdx] === "sniper" ? 13 : 10.5) / camera.aspect), h: 0.6, min: 3, max: 16, az: 1, spin: false };
       if (armMode === "picks") return { t: [0, 1.15, 0], d: Math.max(5, 6 / camera.aspect), h: 0.35, min: 2, max: 9, az: Infinity, spin: true };
+      if (armMode === "sidekicks") return { t: [0, 0.42, 0], d: Math.max(3.6, 4.4 / camera.aspect), h: 0.35, min: 1, max: 7, az: Infinity, spin: true };
       if (armMode === "emotes") return { t: [0, 0.95, 0], d: Math.max(5.4, 6.6 / camera.aspect), h: 0.5, min: 1.1, max: 14, az: Infinity, spin: false, p0: 0.02, p1: Math.PI - 0.02 };
       return { t: [0, 0.9, 0], d: Math.max(5.4, 6.6 / camera.aspect), h: 0.5, min: 1.3, max: 8, az: Infinity, spin: true };
     }
@@ -8101,6 +8103,7 @@
       else camera.clearViewOffset();
     }
     function lkDispose(obj) {
+      if (obj.userData.side) sdFree(obj);
       if (obj.userData.px) disposeObj(obj);
       const c = obj.userData.ch;
       if (c) for (const o of c.gear || []) o.traverse((m) => {
@@ -8144,6 +8147,7 @@
       if (armMode === "picks" && PX) return buildPickStand(dir);
       if (armMode === "skins" && SK) return buildSkinStand(dir);
       if (armMode === "emotes" && SOLDIER) return buildEmoteLab(dir);
+      if (armMode === "sidekicks" && SKD) return buildSideStand(dir);
       const holder = new T.Group();
       armGuns = [];
       const id = ARM_IDS[armIdx], shopIt = SHOP_GUN(id), V2 = GUNV[id];
@@ -8236,6 +8240,7 @@
       }
     }
     function closeArmory() {
+      sdLight(false);
       state = "menu";
       if (world) world.visible = true;
       scene.fog.far = 330;
@@ -8268,6 +8273,7 @@
       if (armMode === "picks" && PX) updatePickStand(t);
       else if (armMode === "skins" && SK) updateSkinStand(t, dt);
       else if (armMode === "emotes") updateEmoteLab(dt);
+      else if (armMode === "sidekicks") updateSideStand(t, dt);
       else armGuns.forEach((h, i) => {
         h.rotation.y = Math.PI / 2 + Math.sin(t * 0.8 + i * 0.5) * 0.55;
         h.position.y = 1 + Math.sin(t * 1.6 + i) * 0.06;
@@ -8299,7 +8305,7 @@
           el.style.top = (1 - tv1.y) / 2 * innerHeight + "px";
         }
       });
-      if (armMode === "skins") lkThumbTick();
+      if (armMode === "skins" || armMode === "sidekicks") lkThumbTick();
     }
     const PX = window.PICKAXES || null;
     const PX_TRAIL = { embers: 16747039, snow: 16777215, bubbles: 12578815, bats: 10181887, sparkles: 16777215, stars: 16769658, spray: 16727972, bolts: 16773754, coins: 16765503, leaves: 5493099, ash: 10132130, wisps: 13172718 };
@@ -8514,6 +8520,7 @@
       const card = (i, col, name, art) => `<button class="lk-card" role="option" aria-selected="false" data-i="${i}" style="--rc:${col}" aria-label="${esc(name)}">${art}<span class="nm">${esc(name)}</span></button>`;
       if (armMode === "skins") return SK.ITEMS.map((it, i) => card(i, RAR[it.r].c, it.n, '<span class="ph"></span><canvas width="160" height="200" hidden></canvas>'));
       if (armMode === "picks") return PX.ITEMS.map((it, i) => card(i, RAR[it.rar].c, it.n, `<span class="art">${PX.pickSVG(it, "lk" + i)}</span>`));
+      if (armMode === "sidekicks") return SKD.ITEMS.map((it, i) => card(i, it.solo ? "#5cf0ff" : RAR[it.r].c, it.n, it.solo ? `<span class="art sd">${SOLO_ICON}</span>` : '<span class="ph"></span><canvas width="160" height="200" hidden></canvas>'));
       if (armMode === "emotes") return emAll().map((k, i) => card(i, EMOTES[k].clip ? "#ffd23f" : "#5cf0ff", EMOTES[k].n, `<span class="art em">${emIcon(k)}</span>`));
       return ARM_IDS.map((id, i) => {
         const V2 = GUNV[id];
@@ -8521,7 +8528,7 @@
       });
     }
     function lkIdx() {
-      return armMode === "skins" ? skIdx : armMode === "picks" ? pxIdx : armMode === "emotes" ? EL.i : armIdx;
+      return armMode === "sidekicks" ? sdIdx : armMode === "skins" ? skIdx : armMode === "picks" ? pxIdx : armMode === "emotes" ? EL.i : armIdx;
     }
     function lkRail() {
       const tr = $("armTrack");
@@ -8530,6 +8537,7 @@
       LK.n = tr.children.length;
       LK.center = -1;
       if (armMode === "skins") for (const [i, cv] of LK.thumbs) lkPaint(i, cv);
+      if (armMode === "sidekicks") for (const [i, cv] of SDT_C) lkPaint(i, cv);
       lkMeasure();
       lkSetX(lkX(lkIdx()));
       lkMoved();
@@ -8579,6 +8587,7 @@
       const d = Math.sign(i - lkIdx()) || 1;
       LK.shown = i;
       if (armMode === "skins") skIdx = i;
+      else if (armMode === "sidekicks") sdIdx = i;
       else if (armMode === "picks") pxIdx = i;
       else if (armMode === "emotes") EL.i = i;
       else armIdx = i;
@@ -8609,6 +8618,9 @@
       if (armMode === "skins") {
         const s = equippedSkin();
         e = s && !skinRandom ? s.i : -1;
+      } else if (armMode === "sidekicks") {
+        const s = equippedSide();
+        e = s && !sideRandom ? s.i : -1;
       } else if (armMode === "picks") {
         const p = equippedPick();
         e = p && !pickRandom ? p.i : -1;
@@ -8718,7 +8730,7 @@
     }
     function lkPaint(i, cv) {
       const el = $("armTrack").children[i];
-      if (!el || LK.kind !== "skins") return;
+      if (!el || LK.kind !== "skins" && LK.kind !== "sidekicks") return;
       const c = el.querySelector("canvas");
       if (!c || !c.hidden) return;
       c.getContext("2d").drawImage(cv, 0, 0);
@@ -8727,23 +8739,24 @@
       if (ph) ph.remove();
     }
     function lkThumbTick() {
-      if (LK.kind !== "skins" || (LK.thumbBusy = (LK.thumbBusy + 1) % 2)) return;
-      const n = LK.n, c = Math.max(0, LK.center);
+      const sd = LK.kind === "sidekicks";
+      if (LK.kind !== "skins" && !sd || (LK.thumbBusy = (LK.thumbBusy + 1) % 2)) return;
+      const n = LK.n, c = Math.max(0, LK.center), have = sd ? SDT_C : LK.thumbs;
       let pick2 = -1;
       for (let d = 0; d < n && pick2 < 0; d++) {
-        for (const i of [c + d, c - d]) if (i >= 0 && i < n && !LK.thumbs.has(i)) {
+        for (const i of [c + d, c - d]) if (i >= 0 && i < n && !have.has(i) && !(sd && SKD.ITEMS[i].solo)) {
           pick2 = i;
           break;
         }
       }
       if (pick2 < 0) return;
-      const cv = lkThumb(pick2);
-      LK.thumbs.set(pick2, cv);
+      const cv = sd ? sdThumb(pick2) : lkThumb(pick2);
+      have.set(pick2, cv);
       lkPaint(pick2, cv);
-      if (pick2 === (equippedSkin() || {}).i) showPickNote();
+      if (pick2 === ((sd ? equippedSide() : equippedSkin()) || {}).i) showPickNote();
     }
     function setArmMode(m) {
-      if (m === "picks" && !PX || m === "skins" && !(SK && SOLDIER) || m === "emotes" && !SOLDIER) return;
+      if (m === "picks" && !PX || m === "skins" && !(SK && SOLDIER) || m === "emotes" && !SOLDIER || m === "sidekicks" && !SKD) return;
       armMode = m;
       $("armEquip").hidden = m === "guns";
       $("armRandom").hidden = m === "guns" || m === "emotes";
@@ -8752,7 +8765,8 @@
       $("armPicksTab").setAttribute("aria-pressed", String(m === "picks"));
       $("armSkinsTab").setAttribute("aria-pressed", String(m === "skins"));
       $("armEmotesTab").setAttribute("aria-pressed", String(m === "emotes"));
-      const on = $(m === "guns" ? "armGunsTab" : m === "picks" ? "armPicksTab" : m === "emotes" ? "armEmotesTab" : "armSkinsTab"), pill = $q(".seg .pill");
+      $("armSideTab").setAttribute("aria-pressed", String(m === "sidekicks"));
+      const on = $(m === "guns" ? "armGunsTab" : m === "picks" ? "armPicksTab" : m === "emotes" ? "armEmotesTab" : m === "sidekicks" ? "armSideTab" : "armSkinsTab"), pill = $q(".seg .pill");
       if (pill) {
         const v = { x: on.offsetLeft - 4, width: on.offsetWidth };
         if (GS && !calmUI && pill.style.width) GS.to(pill, { ...v, duration: 0.35, ease: "power3.out" });
@@ -8763,8 +8777,9 @@
         }
       }
       $("armSets").hidden = m === "guns";
-      $("armSets").setAttribute("aria-label", m === "skins" ? "Skin theme" : m === "emotes" ? "Emote page" : "Pickaxe set");
-      $("armSets").innerHTML = m === "skins" ? SK.THEMES.map((t) => `<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join("") : m === "picks" ? PX.SETS.map((s) => `<button data-s="${s.id}" aria-pressed="false">${s.n}</button>`).join("") : m === "emotes" ? emPages().map((P, i) => `<button data-s="${i}" aria-pressed="false">${["Classic", "Pack moves", "Pack moves II"][i] || "More"}</button>`).join("") : "";
+      $("armSets").setAttribute("aria-label", m === "skins" ? "Skin theme" : m === "emotes" ? "Emote page" : m === "sidekicks" ? "Sidekick theme" : "Pickaxe set");
+      $("armSets").innerHTML = m === "sidekicks" ? SKD.THEMES.map((t) => `<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join("") : m === "skins" ? SK.THEMES.map((t) => `<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join("") : m === "picks" ? PX.SETS.map((s) => `<button data-s="${s.id}" aria-pressed="false">${s.n}</button>`).join("") : m === "emotes" ? emPages().map((P, i) => `<button data-s="${i}" aria-pressed="false">${["Classic", "Pack moves", "Pack moves II"][i] || "More"}</button>`).join("") : "";
+      sdLight(m === "sidekicks");
       LK.shown = lkIdx();
       buildArmory();
       lkRail();
@@ -8777,10 +8792,11 @@
     $("armSets").addEventListener("click", (ev) => {
       const b = ev.target.closest("button");
       if (!b) return;
-      lkGo(armMode === "skins" ? SK.ITEMS.findIndex((i) => i.t === b.dataset.s) : armMode === "emotes" ? emAll().indexOf(emPages()[+b.dataset.s][0]) : PX.ITEMS.findIndex((i) => i.set.id === b.dataset.s), 0.8);
+      lkGo(armMode === "sidekicks" ? SKD.ITEMS.findIndex((i) => !i.solo && i.t === b.dataset.s) : armMode === "skins" ? SK.ITEMS.findIndex((i) => i.t === b.dataset.s) : armMode === "emotes" ? emAll().indexOf(emPages()[+b.dataset.s][0]) : PX.ITEMS.findIndex((i) => i.set.id === b.dataset.s), 0.8);
     });
     $("armEmotesTab").addEventListener("click", () => setArmMode("emotes"));
     $("armSkinsTab").addEventListener("click", () => setArmMode("skins"));
+    $("armSideTab").addEventListener("click", () => setArmMode("sidekicks"));
     var skIdx = 0, skShown = [];
     function studioLights(gr) {
       const k = new T.DirectionalLight(16774374, 0.9);
@@ -8940,6 +8956,184 @@
     }
     $("armGunsTab").addEventListener("click", () => setArmMode("guns"));
     lkInitRail();
+    const SKD = window.SIDEKICKS || null;
+    const SOLO_ICON = '<svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true"><circle cx="20" cy="20" r="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-dasharray="4 4"/><path d="M13 27l14-14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
+    var sdIdx = 1, sideName = null, sideRandom = false;
+    const SDT_C = /* @__PURE__ */ new Map();
+    try {
+      sideRandom = localStorage.getItem("invertedSidekickRandom") === "1";
+    } catch (e) {
+    }
+    function equippedSideName() {
+      if (sideName == null) {
+        sideName = SKD ? SKD.ITEMS[1].n : "Solo";
+        try {
+          const v = localStorage.getItem("invertedSidekick");
+          if (v && SKD && SKD.ITEMS.some((i) => i.n === v)) sideName = v;
+        } catch (e) {
+        }
+      }
+      return sideName;
+    }
+    function equippedSide() {
+      return SKD ? SKD.ITEMS.find((i) => i.n === equippedSideName()) || SKD.ITEMS[0] : null;
+    }
+    function sdLight(on) {
+      hemi.intensity = on ? 0.3 : 0.95;
+      sun.intensity = on ? 0.25 : 0.55;
+    }
+    function sdFree(o) {
+      o.traverse((m) => {
+        if (m.isSprite) m.material.dispose();
+      });
+    }
+    let SDT = null;
+    function sdThumb(i) {
+      if (!SDT) {
+        const W = 160, H = 200, sc = new T.Scene();
+        sc.add(new T.HemisphereLight(15789311, 4864128, 0.55));
+        const k = new T.DirectionalLight(16774374, 0.8);
+        k.position.set(2, 3, 5);
+        const r = new T.DirectionalLight(10479871, 0.45);
+        r.position.set(-3, 2, -4);
+        sc.add(k, r);
+        SDT = { W, H, sc, cam: new T.PerspectiveCamera(24, W / H, 0.05, 20), rt: new T.WebGLRenderTarget(W, H), px: new Uint8Array(W * H * 4) };
+      }
+      const m = SKD.build(T, SKD.ITEMS[i]), sk = m.userData.sk;
+      m.rotation.y = Math.PI - 0.55;
+      sk.tick(1.3, 1 / 60, {});
+      SDT.sc.add(m);
+      m.updateMatrixWorld(true);
+      const bb = new T.Box3().setFromObject(m), cy = (bb.min.y + bb.max.y) / 2, hgt = Math.max(0.3, bb.max.y - bb.min.y, (bb.max.x - bb.min.x) * 0.8);
+      SDT.cam.position.set(0, cy + 0.1, hgt * 2.35 + 0.25);
+      SDT.cam.lookAt(0, cy, 0);
+      const cc = new T.Color();
+      renderer.getClearColor(cc);
+      const ca = renderer.getClearAlpha();
+      renderer.setRenderTarget(SDT.rt);
+      renderer.setClearColor(0, 0);
+      renderer.clear();
+      renderer.render(SDT.sc, SDT.cam);
+      renderer.readRenderTargetPixels(SDT.rt, 0, 0, SDT.W, SDT.H, SDT.px);
+      renderer.setRenderTarget(null);
+      renderer.setClearColor(cc, ca);
+      SDT.sc.remove(m);
+      sdFree(m);
+      const cv = document.createElement("canvas");
+      cv.width = SDT.W;
+      cv.height = SDT.H;
+      const x = cv.getContext("2d"), im = x.createImageData(SDT.W, SDT.H), row = SDT.W * 4;
+      for (let y = 0; y < SDT.H; y++) im.data.set(SDT.px.subarray((SDT.H - 1 - y) * row, (SDT.H - y) * row), y * row);
+      x.putImageData(im, 0, 0);
+      return cv;
+    }
+    const SDS = { m: null, next: 2, cheer: -1, walkT: 0 };
+    function buildSideStand(dir) {
+      const it = SKD.ITEMS[sdIdx], r = RAR[it.r], h = new T.Group();
+      h.userData.side = true;
+      SDS.m = null;
+      if (!it.solo) {
+        const m = SKD.build(T, it), sk = m.userData.sk;
+        m.scale.setScalar(1.45);
+        m.rotation.y = Math.PI;
+        m.position.y = sk.walker ? 0 : 0.2;
+        h.add(m);
+        SDS.m = m;
+      }
+      SDS.next = 2.2;
+      SDS.cheer = -1;
+      SDS.walkT = 0;
+      LK.ped.visible = LK.ring.visible = LK.blob.visible = true;
+      lkTint(it.solo ? "#5cf0ff" : r.c);
+      lkPut(h, dir || 0);
+      if (LK.kind !== "sidekicks" || dir == null) lkFrame(true);
+      lkInfo(it.n, it.solo ? "No sidekick" : `${it.theme.n} \xB7 ${sdIdx} of ${SKD.ITEMS.length - 1}`, it.solo ? null : r, it.solo ? "Just you" : `${it.kn} \xB7 ${it.walker ? "Walks at your side" : "Floats by your shoulder"}`);
+      $("armNote").textContent = it.d || "";
+      $("armLabels").innerHTML = "";
+      showEquip();
+      [...$("armSets").children].forEach((b) => b.setAttribute("aria-pressed", String(!it.solo && b.dataset.s === it.t)));
+    }
+    function updateSideStand(t, dt) {
+      const m = SDS.m;
+      if (!m) return;
+      const sk = m.userData.sk;
+      SDS.next -= dt;
+      if (SDS.next <= 0 && SDS.cheer < 0 && SDS.walkT <= 0) {
+        if (Math.random() < 0.45) SDS.cheer = 0;
+        else SDS.walkT = 2.8;
+        SDS.next = rnd(4, 7);
+      }
+      let mv = 0;
+      if (SDS.walkT > 0) {
+        SDS.walkT -= dt;
+        mv = 0.75 * Math.min(1, SDS.walkT * 2, (2.8 - SDS.walkT) * 2);
+      }
+      if (SDS.cheer >= 0) {
+        SDS.cheer += dt / 1.1;
+        if (SDS.cheer >= 1) SDS.cheer = -1;
+      }
+      sk.tick(t, dt, { mv, cheer: SDS.cheer });
+    }
+    const SD = { m: null, it: null, cheer: -1, snap: true, vel: new V(), tgt: new V(), q: new T.Quaternion(), have: false };
+    const _sdo = new V(), _sdp = new V(), _sdm = new V(), _sdE = new T.Euler(0, 0, 0, "YXZ");
+    function sdSpawn() {
+      if (SD.m) {
+        if (SD.m.parent) SD.m.parent.remove(SD.m);
+        sdFree(SD.m);
+        SD.m = null;
+      }
+      SD.it = null;
+      SD.have = false;
+      const it = equippedSide();
+      if (!SKD || !it || it.solo || !world) return;
+      const m = SKD.build(T, it);
+      m.scale.setScalar(1.15);
+      m.visible = false;
+      world.add(m);
+      SD.m = m;
+      SD.it = it;
+      SD.snap = true;
+      SD.cheer = -1;
+    }
+    function sdCheer() {
+      if (SD.m && SD.cheer < 0) SD.cheer = 0;
+    }
+    function sdUpdate(dt) {
+      const m = SD.m, p = player;
+      if (!m || !p || !p.ch) return;
+      const sk = m.userData.sk;
+      const hide = p.br === "jet" || ads && isScoped();
+      m.visible = !hide;
+      if (hide) {
+        SD.snap = true;
+        return;
+      }
+      if (p.alive || !SD.have) {
+        const g = p.ch.g;
+        g.updateMatrixWorld();
+        g.localToWorld(_sdm.set(0, 0.95, 0));
+        _sdE.set(0, p.yaw, MODE === "br" ? 0 : ZG.camRoll);
+        SD.q.setFromEuler(_sdE);
+        SD.tgt.copy(_sdo.set(sk.walker ? -0.95 : -0.8, sk.walker ? -0.95 : 0.6, sk.walker ? -0.35 : -0.1).applyQuaternion(SD.q)).add(_sdm);
+        SD.have = true;
+      }
+      if (SD.snap || m.position.distanceTo(SD.tgt) > 9) {
+        m.position.copy(SD.tgt);
+        m.quaternion.copy(SD.q);
+        SD.snap = false;
+        SD.vel.set(0, 0, 0);
+      }
+      _sdp.copy(m.position);
+      m.position.lerp(SD.tgt, 1 - Math.exp(-(sk.walker ? 14 : 6) * dt));
+      m.quaternion.slerp(SD.q, 1 - Math.exp(-6 * dt));
+      SD.vel.copy(m.position).sub(_sdp).divideScalar(Math.max(dt, 1e-4));
+      if (p.emote && !p.emote.out && SD.cheer < 0) SD.cheer = 0;
+      if (SD.cheer >= 0) {
+        SD.cheer += dt / 1.1;
+        if (SD.cheer >= 1) SD.cheer = -1;
+      }
+      sk.tick(matchTime, dt, { mv: clamp(SD.vel.length() / 7, 0, 1), air: !p.onGround, cheer: SD.cheer, sad: p.alive ? 0 : 1 });
+    }
     let equippedName = "Standard Issue";
     const PICK_RENAMED = { "Jack's Grin": "Jack-o-Lantern", "Night Wing": "Spooky Shadow", "Reaper's Toll": "Grim Reaper", "Candy Corn Crusher": "Candy Corn", "Witch's Brew": "Witch's Wart", "Ghost Light": "Glossy Ghost" };
     try {
@@ -8963,12 +9157,14 @@
     function rollLoadout() {
       if (pickRandom && PX) equippedName = PX.ITEMS[Math.floor(Math.random() * PX.ITEMS.length)].n;
       if (skinRandom && SK) skinName = SK.ITEMS[Math.floor(Math.random() * SK.ITEMS.length)].n;
+      if (sideRandom && SKD) sideName = SKD.ITEMS[1 + Math.floor(Math.random() * (SKD.ITEMS.length - 1))].n;
     }
     function setRandom(on) {
       if (armMode === "skins") skinRandom = on;
+      else if (armMode === "sidekicks") sideRandom = on;
       else pickRandom = on;
       try {
-        localStorage.setItem(armMode === "skins" ? "stormIslandSkinRandom" : "stormIslandPickRandom", on ? "1" : "0");
+        localStorage.setItem(armMode === "skins" ? "stormIslandSkinRandom" : armMode === "sidekicks" ? "invertedSidekickRandom" : "stormIslandPickRandom", on ? "1" : "0");
       } catch (e) {
       }
     }
@@ -8984,7 +9180,7 @@
         b2.setAttribute("aria-pressed", String(on2));
         return;
       }
-      const rand = armMode === "skins" ? skinRandom : pickRandom, on = !rand && (armMode === "skins" ? SK.ITEMS[skIdx].n === equippedSkinName() : PX && PX.ITEMS[pxIdx].n === equippedName), b = $("armEquip");
+      const rand = armMode === "skins" ? skinRandom : armMode === "sidekicks" ? sideRandom : pickRandom, on = !rand && (armMode === "skins" ? SK.ITEMS[skIdx].n === equippedSkinName() : armMode === "sidekicks" ? SKD.ITEMS[sdIdx].n === equippedSideName() : PX && PX.ITEMS[pxIdx].n === equippedName), b = $("armEquip");
       b.textContent = on ? "Equipped \u2713" : "Equip";
       b.setAttribute("aria-pressed", String(!!on));
       const r = $("armRandom");
@@ -9001,23 +9197,36 @@
           LK.thumbs.set(sk.i, th);
         }
       }
+      const sd = equippedSide();
+      let sdTh = null;
+      if (sd && !sd.solo) {
+        sdTh = SDT_C.get(sd.i);
+        if (!sdTh) {
+          sdTh = sdThumb(sd.i);
+          SDT_C.set(sd.i, sdTh);
+        }
+      }
       const card = (go, k, v, col, art) => `<button class="locard" data-go="${go}" style="--rc:${col}"><span class="lothumb">${art}</span><span class="lotxt"><i>${esc(k)}</i>${esc(v)}</span></button>`;
-      $("pickNote").innerHTML = (SK ? skinRandom ? card("skins", "Skin", "Random", "var(--neon)", DICE) : card("skins", "Skin", sk ? sk.n : "Default Trooper", RAR[sk ? sk.r : 0].c, th ? '<canvas width="160" height="200"></canvas>' : "") : "") + (PX ? pickRandom ? card("picks", "Pickaxe", "Random", "var(--neon)", DICE) : card("picks", "Pickaxe", eq ? eq.n : "Default", RAR[eq ? eq.rar : 0].c, eq ? PX.pickSVG(eq, "lo") : ICONS.pick) : "");
-      const cv = $q("#pickNote canvas");
+      $("pickNote").innerHTML = (SK ? skinRandom ? card("skins", "Skin", "Random", "var(--neon)", DICE) : card("skins", "Skin", sk ? sk.n : "Default Trooper", RAR[sk ? sk.r : 0].c, th ? '<canvas width="160" height="200"></canvas>' : "") : "") + (PX ? pickRandom ? card("picks", "Pickaxe", "Random", "var(--neon)", DICE) : card("picks", "Pickaxe", eq ? eq.n : "Default", RAR[eq ? eq.rar : 0].c, eq ? PX.pickSVG(eq, "lo") : ICONS.pick) : "") + (SKD ? sideRandom ? card("sidekicks", "Sidekick", "Random", "var(--neon)", DICE) : card("sidekicks", "Sidekick", sd ? sd.n : "Solo", sd && !sd.solo ? RAR[sd.r].c : "var(--neon)", sdTh ? '<canvas width="160" height="200"></canvas>' : SOLO_ICON) : "");
+      const cv = $q('#pickNote .locard[data-go="skins"] canvas');
       if (cv && th) cv.getContext("2d").drawImage(th, 0, 0);
+      const cs = $q('#pickNote .locard[data-go="sidekicks"] canvas');
+      if (cs && sdTh) cs.getContext("2d").drawImage(sdTh, 0, 0);
     }
     function openLocker(mode) {
       const eq = equippedPick();
       if (eq) pxIdx = eq.i;
       const sk = equippedSkin();
       if (sk) skIdx = sk.i;
+      const sd = equippedSide();
+      if (sd) sdIdx = sd.i;
       openArmory();
       setArmMode(mode);
       $("armEquip").focus();
     }
     $("pickNote").addEventListener("click", (ev) => {
       const b = ev.target.closest(".locard");
-      if (b) openLocker(b.dataset.go === "skins" && SK && SOLDIER ? "skins" : "picks");
+      if (b) openLocker(b.dataset.go === "sidekicks" && SKD ? "sidekicks" : b.dataset.go === "skins" && SK && SOLDIER ? "skins" : "picks");
     });
     var skinName = null;
     function equippedSkinName() {
@@ -9105,6 +9314,21 @@
         return;
       }
       setRandom(false);
+      if (armMode === "sidekicks") {
+        const it = SKD.ITEMS[sdIdx];
+        sideName = it.n;
+        try {
+          localStorage.setItem("invertedSidekick", it.n);
+        } catch (e) {
+        }
+        showEquip();
+        showPickNote();
+        lkMarkEq();
+        SDS.cheer = 0;
+        if (state === "armory" && world) sdSpawn();
+        sfx("pickup", null, { item: { kind: "gun", r: it.r } });
+        return;
+      }
       if (armMode === "skins") {
         const it = SK.ITEMS[skIdx];
         skinName = it.n;
@@ -9133,7 +9357,7 @@
     }
     $("armEquip").addEventListener("click", equipCurrent);
     $("armRandom").addEventListener("click", () => {
-      const on = !(armMode === "skins" ? skinRandom : pickRandom);
+      const on = !(armMode === "skins" ? skinRandom : armMode === "sidekicks" ? sideRandom : pickRandom);
       setRandom(on);
       showEquip();
       showPickNote();
@@ -17181,6 +17405,7 @@
       } else zgSpawn(player, 0, ZG.BOTS + 1);
       player.pitch = 0;
       applyPickSkin(player);
+      sdSpawn();
       for (let i = 0; i < ZG.BOTS; i++) {
         const b = makeBot(i);
         bots.push(b);
@@ -17581,6 +17806,7 @@
       updateEmote(dt);
       for (const e of combatants) if (e.br !== "jet") animateGLB(e, dt);
       drawPunches(player);
+      sdUpdate(dt);
       updateEffects(dt);
     }
     let lastT = performance.now(), hudAcc = 0, perfStage = 0, perfFrames = 0, perfTime = 0;
@@ -17683,6 +17909,35 @@
       if (e.emote) emotePose(e, X);
       else emIdle(X, S.t, null);
     }
+    function heroSide(dt, t, emo) {
+      const sd = equippedSide(), key = sd && !sd.solo && !sideRandom ? sd.n : "";
+      if (HERO.sdKey !== key) {
+        if (HERO.sd) {
+          HERO.scene.remove(HERO.sd);
+          sdFree(HERO.sd);
+          HERO.sd = null;
+        }
+        HERO.sdKey = key;
+        if (key) {
+          const m2 = SKD.build(T, sd), w = m2.userData.sk.walker;
+          m2.scale.setScalar(1.35);
+          m2.position.set(-1.05, w ? 0 : 1.3, 0.3);
+          m2.rotation.y = Math.PI + 0.3;
+          HERO.scene.add(m2);
+          HERO.sd = m2;
+          HERO.sdCh = 0;
+        }
+      }
+      const m = HERO.sd;
+      if (!m) return;
+      if (emo && !HERO.sdEmo) HERO.sdCh = 0;
+      HERO.sdEmo = emo;
+      if (HERO.sdCh >= 0) {
+        HERO.sdCh += dt / 1.1;
+        if (HERO.sdCh >= 1) HERO.sdCh = -1;
+      }
+      m.userData.sk.tick(t, dt, { cheer: HERO.sdCh });
+    }
     function heroFrame(dt) {
       if (!SOLDIER) return false;
       const W = innerWidth, H = innerHeight;
@@ -17730,6 +17985,7 @@
         c.pick.visible = false;
         if (c.pickL) c.pickL.visible = false;
       } else emIdle(hx, t, heroLook(hx, dt, W, H, t));
+      heroSide(dt, t, !!e.emote);
       if (!e.emote && (eq && !eq.anime || eq && eq.anime === "nichirin" || eq && eq.anime === "kunai")) {
         const P = pickPose({ swingT: 0, guardK: 0, swingSide: 0, ch: c });
         P.h.y += 8e-3 * Math.sin(t * 1.7);
@@ -17918,7 +18174,7 @@
     }, heroEmote: (k) => heroEmote(k), get EL() {
       return EL;
     } });
-    Object.assign(window.__game, { BR, brOpenChest, brHeight, get MODE() {
+    Object.assign(window.__game, { SD, sdCheer, SKD, BR, brOpenChest, brHeight, get MODE() {
       return MODE;
     } });
     Object.assign(window.__game, { pwGo: () => {
