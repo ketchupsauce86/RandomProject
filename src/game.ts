@@ -761,8 +761,8 @@ function solveIK(A,B,C,target,pole){
     const pb=_v1.subVectors(_ikB,_ikA); pb.addScaledVector(ax,-pb.dot(ax)); const pp=_v4.subVectors(pole,_ikA); pp.addScaledVector(ax,-pp.dot(ax));
     if(pb.lengthSq()>1e-6&&pp.lengthSq()>1e-6){ const s=new V().crossVectors(pb,pp).dot(ax)<0?-1:1; rotateBoneWorld(A,ax,pb.angleTo(pp)*s); } }
 }
-// [v1.63] Kash's moves made in Blender (moves.js, from tools/retarget_moves.py): Walk, Sprint, Crouch (walking crouched),
-// Slide and Swim, as extra clips 'HM_<name>' next to the soldier's own. Each carries its stride (soldier units per loop).
+// [v1.63] the hero moves (moves.js, from tools/retarget_moves.py): Walk, Sprint, Crouch (walking crouched) and Swim from the
+// CC0 Quaternius pack since v1.65, and Kash's Slide made in Blender, as extra clips 'HM_<name>' next to the soldier's own. Each carries its stride (soldier units per loop).
 const HM_NAMES=['Walk','Sprint','Crouch','Slide','Swim'];
 function heroMoveClips(){ const H=window.HERO_MOVES; if(!H||!H.clips) return;
   for(const n of HM_NAMES){ const C=H.clips[n]; if(!C) continue; const times=[]; for(let i=0;i<C.n;i++) times.push(i/H.fps);

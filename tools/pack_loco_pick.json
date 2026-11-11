@@ -1,0 +1,7 @@
+{
+ "_fps": 24, "_out_fps": 48,
+ "Walk":   {"src": "Walk_Loop", "loop": 1, "pack": "quaternius", "stride": 1},
+ "Sprint": {"src": "Sprint_Loop", "loop": 1, "pack": "quaternius", "stride": 1},
+ "Crouch": {"src": "Crouch_Fwd_Loop", "loop": 1, "pack": "quaternius", "stride": 1},
+ "Swim":   {"src": "Swim_Fwd_Loop", "loop": 1, "pack": "quaternius", "stride": 1, "hips_z": 0.95}
+}

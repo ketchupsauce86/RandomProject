@@ -130,7 +130,7 @@ def load_soldier():
     return nodes, parent, local, [W(i) for i in range(len(nodes))], names
 
 
-def main(src='hero_moves_export.json', dst='moves.js', var='HERO_MOVES', head=None, only_mapped=False):
+def main(src='hero_moves_export.json', dst='moves.js', var='HERO_MOVES', head=None, only_mapped=False, swap=None):
     import gzip
     ex = json.load(gzip.open(f'{ROOT}/tools/{src}', 'rt') if src.endswith('.gz') else open(f'{ROOT}/tools/{src}'))
     meta = ex.get('meta', {})  # per clip: fps, loop, speed (the CC0 packs carry their own; Kash's moves use the tables above)
@@ -215,16 +215,21 @@ def main(src='hero_moves_export.json', dst='moves.js', var='HERO_MOVES', head=No
         out['clips'][clip] = {'n': n, 'dur': round((len(allf) - 1) / in_fps, 5), 'stride': round(speed * len(frames) * k, 4), 'loop': int(bool(loop)), 'tracks': tracks}
         if not only_mapped: del out['clips'][clip]['loop']  # (moves.js stays exactly as it was)
     out['unit'] = round(float(k), 5)
-    head = head or ('Hero moves made in Blender (RegularJump.blend), retargeted onto the soldier rig by tools/retarget_moves.py.')
+    if swap:  # clips from another export (the CC0 packs' walk, sprint, crouch and swim) take the place of these
+        for c, v in main(swap, None).items(): out['clips'][c] = v
+    if dst is None: return out['clips']
+    head = head or ('Hero moves: Walk, Sprint, Crouch and Swim from the CC0 Quaternius Universal Animation Library (see CREDITS.md),\n'
+                    '   Slide made by Kash in Blender (RegularJump.blend); retargeted onto the soldier rig by tools/retarget_moves.py.')
     js = ('/* ' + head + '\n   Generated: do not edit by hand. */\nwindow.' + var + '=' + json.dumps(out, separators=(',', ':')) + ';\n')
     open(f'{ROOT}/{dst}', 'w').write(js)
     print(dst, len(js), 'bytes;', {c: (v['n'], v['stride']) for c, v in out['clips'].items()}, 'unit', k)
 
 
 if __name__ == '__main__':
-    main()
-    # the CC0 moves from Quaternius and Kenney (see CREDITS.md), exported from Blender by tools/pack_export_blender.py
     import os
+    # Kash's own moves, with the walk, sprint, crouch and swim swapped for the Quaternius ones (tools/pack_loco_pick.json)
+    main(swap='pack_loco_export.json.gz' if os.path.exists(f'{ROOT}/tools/pack_loco_export.json.gz') else None)
+    # the CC0 moves from Quaternius and Kenney (see CREDITS.md), exported from Blender by tools/pack_export_blender.py
     if os.path.exists(f'{ROOT}/tools/pack_moves_export.json.gz'):
         main('pack_moves_export.json.gz', 'packmoves.js', 'PACK_MOVES', only_mapped=True,
              head='CC0 moves from the Quaternius Universal Animation Library and Kenney Animated Characters (see CREDITS.md),\n'

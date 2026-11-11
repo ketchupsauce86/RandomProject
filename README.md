@@ -43,7 +43,7 @@ Other files:
 - `pickaxes.js`: the pickaxes (`window.PICKAXES`).
 - `ui.js`: the home screen polish: version badge, What's new list, a GLSL glitch-light layer and GSAP motion.
 - `soldier.js`: the character rig, packed as base64 glTF.
-- `moves.js`: Kash's walk, sprint, crouch, slide and swim made in Blender, retargeted onto the rig by `tools/retarget_moves.py`.
+- `moves.js`: the walk, sprint, crouch walk and swim (CC0, from Quaternius) and Kash's slide made in Blender, retargeted onto the rig by `tools/retarget_moves.py`.
 - `packmoves.js`: whole-body emotes from the CC0 Quaternius and Kenney animation packs (`tools/pack_export_blender.py`, then `tools/retarget_moves.py`; see `CREDITS.md`).
 - `version.js`: the version badge (see below).
 - `news.js`: the News panel's announcements and the chapters its update log is grouped into.

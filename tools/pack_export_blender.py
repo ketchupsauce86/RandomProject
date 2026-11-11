@@ -10,7 +10,8 @@ its own empty scene), or with the `bpy` Python module (pip install bpy):
     python3 tools/retarget_moves.py          # writes moves.js (Kash's moves) and packmoves.js (these)
 
 pick.json: {"<name>": {"src": "<action>" or ["<action>", ...] played back to back, "loop": 0/1, "pack": "...",
-"inplace": 2 for no travel at all (a roll), "trim": [from, to] fractions}, ...}.
+"inplace": 2 for no travel at all (a roll), "trim": [from, to] fractions, "stride": 1 to measure the forward speed from root motion,
+"hips_z": average hips height in hero metres (the swim floats at standing height; the game lowers it to the water)}, ...}.
 For each mapped bone it writes a rest frame whose y axis points down the bone to the next joint (whatever way the pack's
 importer laid its bones), and every frame that frame's world rotation, in the hero's space (z up, facing -y, its left
 at +x). The hips offset is in hero metres (the hips 0.95 m up at rest), in place: no forward travel.
@@ -21,6 +22,7 @@ from mathutils import Matrix, Vector
 FPS = 30
 argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:]  # (blender -b ... -- args, or python with the bpy module)
 OUT, PICK, FILES = argv[0], json.load(open(argv[1])), argv[2:]
+FPS, OUT_FPS = PICK.pop('_fps', FPS), PICK.pop('_out_fps', None)  # a pick file can set its rate (moves.js runs 24 -> 48)
 
 # hero bone: candidate names in the pack (lowercase, letters and digits only, mixamorig: dropped), best first.
 # {s} is the side letter (l/r) and {S} the side word (left/right).
@@ -77,7 +79,7 @@ def end_dir(arm, bone):
 def export():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     sc = bpy.context.scene; sc.render.fps = FPS
-    out = {'fps': FPS, 'out_fps': FPS, 'rest': None, 'clips': {}, 'meta': {}, 'maps': {}}
+    out = {'fps': FPS, 'out_fps': OUT_FPS or FPS, 'rest': None, 'clips': {}, 'meta': {}, 'maps': {}}
     need, seqs = {}, {}  # action name -> its rate in the file (None: as imported); action name -> (frames, rest)
     for w in PICK.values():
         for k in (w['src'] if isinstance(w['src'], list) else [w['src']]): need[k] = w.get('src_fps')
@@ -141,12 +143,12 @@ def export():
     for g, w in PICK.items():
         srcs = w['src'] if isinstance(w['src'], list) else [w['src']]
         if any(k not in seqs for k in srcs): print('SKIP', g, 'missing', [k for k in srcs if k not in seqs]); continue
-        s = []
+        s = []; travel = 0.0
         for k in srcs:
             part = [dict(fr, hp=list(fr['hp'])) for fr in seqs[k][0]]
             if w.get('trim'): part = part[int(w['trim'][0] * len(part)):int(w['trim'][1] * len(part)) or None]
             # in place: take out each part's drift (root motion) so the move stays on the spot
-            d0 = list(part[0]['hp']); d1 = list(part[-1]['hp'])
+            d0 = list(part[0]['hp']); d1 = list(part[-1]['hp']); travel += ((d1[0] - d0[0]) ** 2 + (d1[1] - d0[1]) ** 2) ** 0.5
             for i, fr in enumerate(part):
                 u = i / max(1, len(part) - 1) if w.get('inplace', 1) else 0
                 fr['hp'][0] -= d0[0] + (d1[0] - d0[0]) * u
@@ -154,10 +156,15 @@ def export():
                 if w.get('inplace') == 2: fr['hp'][1] = 0.0  # (a roll or dive: no travel at all, it turns over on the spot)
             s += part[:-1] if k != srcs[-1] else part
         if w.get('loop'): s = s[:-1]  # (the retargeter closes a loop by repeating the first frame)
+        if 'hips_z' in w:  # lift (or drop) the whole move so its hips sit this high on average, in hero metres
+            dz = w['hips_z'] - sum(fr['hp'][2] for fr in s) / len(s)
+            for fr in s: fr['hp'][2] += dz
         out['clips'][g] = s
         out.setdefault('rest_of', {})[g] = seqs[srcs[0]][1]  # each pack's rig has its own rest pose
         if out['rest'] is None: out['rest'] = seqs[srcs[0]][1]
-        out['meta'][g] = {'loop': int(bool(w.get('loop'))), 'speed': 0.0, 'pack': w.get('pack', ''), 'src': srcs}
+        out['meta'][g] = {'loop': int(bool(w.get('loop'))),
+                         # forward speed in hero metres per frame (from the root motion of a pack's _RM file), for the stride
+                         'speed': travel / max(1, len(s) - (0 if w.get('loop') else 1)) if w.get('stride') else 0.0, 'pack': w.get('pack', ''), 'src': srcs}
         print('CLIP', g, '<-', srcs, len(s), 'frames')
     def rnd(x):
         if isinstance(x, float): return round(x, 5)

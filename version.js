@@ -2,13 +2,13 @@
 window.GAME_VERSION={
  "version": "1.65.0",
  "date": "2026-11-11",
- "build": "be5efdf",
+ "build": "fa46471",
  "season": "Glitched",
  "notes": [
   {
    "v": "1.65.0",
    "date": "2026-11-11",
-   "title": "13 new emotes from Quaternius and Kenney"
+   "title": "New emotes and moves from Quaternius and Kenney"
   },
   {
    "v": "1.64.0",

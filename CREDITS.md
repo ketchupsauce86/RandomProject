@@ -12,7 +12,8 @@ In the game they have their own names (see `PM_EMOTES` in `src/game.ts`).
 - **Universal Animation Library (Standard)** by **Quaternius** (https://quaternius.com, https://www.patreon.com/quaternius). License: CC0 1.0.
 - **Animated Characters: Protagonists** by **Kenney** (https://kenney.nl). License: CC0 1.0.
 
-Kash's own moves (walk, sprint, crouch, slide, swim in `moves.js`) were made by Kash in Blender.
+The walk, sprint, crouch walk and swim in `moves.js` are Quaternius moves too (from the pack's root-motion file, so the
+game knows how far each stride goes; `tools/pack_loco_pick.json`). The slide in `moves.js` was made by Kash in Blender.
 
 ## Sounds (`sounds/`)
 
