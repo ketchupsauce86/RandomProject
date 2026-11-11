@@ -4940,32 +4940,41 @@
       g.children[0].position.set(-0.01, 0.05, 0);
       return w;
     }
+    const GRIP = [-0.035, 0.085, 0];
+    function prHeld(curl) {
+      const g = new T.Group();
+      g.userData.grip = curl;
+      return g;
+    }
     const PROPS = {
       // Shadowbox: a pair of shiny red boxing gloves
-      gloves: () => ({ R: prGlove(14688304), L: prGlove(14688304) }),
+      gloves: () => {
+        const R = prGlove(14688304), L = prGlove(14688304);
+        R.userData.grip = L.userData.grip = 1.45;
+        return { R, L };
+      },
       // Torch Up: a wooden torch with a flickering flame
       torch: () => {
-        const R = new T.Group();
-        R.userData.upright = 1;
-        R.add(prMesh(CYL(0.035, 0.028, 0.6), prM(11565632), 0, 0.12, 0), prMesh(CYL(0.06, 0.04, 0.12), prM(3811866), 0, 0.44, 0));
+        const L = prHeld(1.25), x = GRIP[0], y = GRIP[1];
+        L.add(prMesh(CYL(0.032, 0.026, 0.62), prM(11565632), x, y, -0.14, Math.PI / 2), prMesh(CYL(0.06, 0.04, 0.12), prM(3811866), x, y, -0.48, Math.PI / 2));
         const f1 = prSprite(16742938, 0.42), f2 = prSprite(16769162, 0.24);
-        f1.position.set(0, 0.58, 0);
-        f2.position.set(0, 0.55, 0);
-        R.add(f1, f2);
-        return { R, f: [f1, f2], up: (P, t) => {
+        f1.position.set(x, y, -0.62);
+        f2.position.set(x, y, -0.58);
+        L.add(f1, f2);
+        return { L, f: [f1, f2], up: (P, t) => {
           P.f[0].scale.setScalar(0.38 + 0.08 * Math.sin(t * 23) + 0.05 * Math.sin(t * 37));
           P.f[1].scale.setScalar(0.22 + 0.05 * Math.sin(t * 29 + 1));
-          P.f[0].position.y = 0.6 + 0.02 * Math.sin(t * 17);
+          P.f[0].position.z = -0.64 - 0.02 * Math.sin(t * 17);
         } };
       },
       // Spark Shot: a crackling orb of light in the palm
       orb: () => {
-        const R = new T.Group(), o = prMesh(SPH(0.07, 16), prM(10483455, { emissive: 4184319 })), h = prSprite(6091007, 0.5), r = prMesh(TOR(0.12, 8e-3, 32), prM(16777215, { emissive: 10483455 }));
-        o.position.set(-0.12, 0.09, 0);
+        const L = new T.Group(), o = prMesh(SPH(0.07, 16), prM(10483455, { emissive: 4184319 })), h = prSprite(6091007, 0.5), r = prMesh(TOR(0.12, 8e-3, 32), prM(16777215, { emissive: 10483455 }));
+        o.position.set(-0.15, 0.1, 0);
         h.position.copy(o.position);
         r.position.copy(o.position);
-        R.add(o, h, r);
-        return { R, o, h, r, up: (P, t, u) => {
+        L.add(o, h, r);
+        return { L, o, h, r, up: (P, t, u) => {
           const k = 1 + 0.15 * Math.sin(t * 12) + (u > 0.72 && u < 0.86 ? 0.9 * Math.sin((u - 0.72) / 0.14 * Math.PI) : 0);
           P.o.scale.setScalar(k);
           P.h.scale.setScalar(0.5 * k);
@@ -4974,8 +4983,8 @@
       },
       // Tinker: a wrench in hand and a toolbox at your feet
       wrench: () => {
-        const R = new T.Group();
-        R.add(prMesh(BOX(0.035, 0.03, 0.32), prM(10135224, { shininess: 120 }), -0.02, 0.06, 0.14), prMesh(TOR(0.045, 0.016, 16), prM(10135224, { shininess: 120 }), -0.02, 0.06, 0.33, Math.PI / 2));
+        const R = prHeld(1.3), x = GRIP[0], y = GRIP[1], st = prM(10135224, { shininess: 120 });
+        R.add(prMesh(BOX(0.03, 0.035, 0.34), st, x, y, 0.1), prMesh(TOR(0.045, 0.016, 16), st, x, y, 0.3, 0, Math.PI / 2));
         const root = new T.Group(), tb = new T.Group();
         tb.add(prMesh(BOX(0.5, 0.22, 0.24), prM(14232363), 0, 0.11, 0), prMesh(BOX(0.52, 0.04, 0.26), prM(11542046), 0, 0.24, 0), prMesh(BOX(0.2, 0.04, 0.03), prM(2236962), 0, 0.29, 0));
         tb.position.set(0.55, 0, -0.25);
@@ -4986,8 +4995,8 @@
       // Air Chair: a see-through ghost of the chair you are sitting on
       ghostChair: () => {
         const root = new T.Group(), m = prM(10483455, { transparent: true, opacity: 0.28, emissive: 2788e3, depthWrite: false });
-        root.add(prMesh(BOX(0.55, 0.06, 0.5), m, 0, 0.5, 0.15), prMesh(BOX(0.55, 0.6, 0.06), m, 0, 0.83, 0.42));
-        for (const x of [-0.24, 0.24]) for (const z of [-0.07, 0.37]) root.add(prMesh(BOX(0.05, 0.5, 0.05), m, x, 0.25, z));
+        root.add(prMesh(BOX(0.55, 0.06, 0.5), m, 0, 0.55, 0.03), prMesh(BOX(0.55, 0.6, 0.06), m, 0, 0.88, 0.28));
+        for (const x of [-0.24, 0.24]) for (const z of [-0.19, 0.25]) root.add(prMesh(BOX(0.05, 0.55, 0.05), m, x, 0.275, z));
         return { root, m, up: (P, t) => {
           P.m.opacity = 0.22 + 0.1 * Math.sin(t * 3);
         } };
@@ -5047,10 +5056,13 @@
           prMesh(BOX(0.08, 0.55, 1.3), red, -0.42, 0.42, 0),
           prMesh(BOX(0.08, 0.55, 1.3), red, 0.42, 0.42, 0),
           prMesh(BOX(0.84, 0.75, 0.12), red, 0, 0.5, -0.66),
-          prMesh(BOX(0.84, 0.9, 0.1), red, 0, 0.55, 0.52),
-          prMesh(BOX(0.7, 0.05, 0.05), yel, 0, 0.72, -0.2),
+          prMesh(BOX(0.84, 0.95, 0.1), red, 0, 0.57, 0.36),
+          prMesh(BOX(0.76, 0.3, 0.42), prM(2236986), 0, 0.39, 0.12),
+          prMesh(BOX(0.7, 0.05, 0.05), yel, 0, 1, -0.33),
+          prMesh(BOX(0.05, 0.3, 0.05), yel, -0.34, 0.85, -0.33),
+          prMesh(BOX(0.05, 0.3, 0.05), yel, 0.34, 0.85, -0.33),
           prMesh(BOX(0.86, 0.06, 0.06), yel, 0, 0.7, -0.66),
-          prMesh(BOX(0.86, 0.06, 0.06), yel, 0, 0.7, 0.52)
+          prMesh(BOX(0.86, 0.06, 0.06), yel, 0, 1.05, 0.36)
         );
         for (const x of [-0.36, 0.36]) for (const z of [-0.45, 0.45]) car.add(prMesh(CYL(0.09, 0.09, 0.06, 14), dark, x, 0.06, z, 0, 0, Math.PI / 2));
         const track = new T.Group();
@@ -5126,23 +5138,23 @@
       },
       // Knight Strike: a glowing sword
       sword: () => {
-        const R = new T.Group();
+        const R = prHeld(1.3), x = GRIP[0], y = GRIP[1];
         R.add(
-          prMesh(CYL(0.02, 0.02, 0.18), prM(5913122), -0.02, 0.06, 0.05, Math.PI / 2),
-          prMesh(BOX(0.04, 0.04, 0.3), prM(16765503, { shininess: 120 }), -0.02, 0.06, 0.16, 0, Math.PI / 2),
-          prMesh(BOX(0.015, 0.07, 0.95), prM(13625599, { emissive: 3832575, shininess: 160 }), -0.02, 0.06, 0.65),
-          prMesh(SPH(0.03, 10), prM(16765503), -0.02, 0.06, -0.05)
+          prMesh(CYL(0.022, 0.022, 0.17), prM(5913122), x, y, 0, Math.PI / 2),
+          prMesh(BOX(0.04, 0.3, 0.04), prM(16765503, { shininess: 120 }), x, y, 0.1),
+          prMesh(BOX(0.015, 0.07, 0.95), prM(13625599, { emissive: 3832575, shininess: 160 }), x, y, 0.59),
+          prMesh(SPH(0.03, 10), prM(16765503), x, y, -0.1)
         );
         const gl = prSprite(8042751, 1.3, 0.35);
-        gl.position.set(-0.02, 0.06, 0.65);
+        gl.position.set(x, y, 0.59);
         gl.scale.set(0.3, 1.3, 1);
         R.add(gl);
         return { R };
       },
       // Squirt Gun: a bright toy water gun, and water
       squirt: () => {
-        const R = new T.Group();
-        R.add(prMesh(BOX(0.05, 0.07, 0.14), prM(16747039), -0.02, 0.05, 0.02), prMesh(BOX(0.06, 0.24, 0.07), prM(3116287), -0.02, 0.14, 0.11), prMesh(SPH(0.05, 10), prM(6091007, { transparent: true, opacity: 0.7 }), -0.02, 0.12, 0.17), prMesh(CYL(0.012, 0.012, 0.08), prM(16765503), -0.02, 0.29, 0.11));
+        const R = prHeld(1.2), x = GRIP[0], y = GRIP[1];
+        R.add(prMesh(BOX(0.045, 0.06, 0.14), prM(16747039), x, y, 0), prMesh(BOX(0.06, 0.3, 0.075), prM(3116287), x, y + 0.06, 0.1), prMesh(SPH(0.05, 10), prM(6091007, { transparent: true, opacity: 0.7 }), x, y + 0.02, 0.17), prMesh(CYL(0.013, 0.013, 0.08), prM(16765503), x, y + 0.24, 0.1));
         const root = new T.Group(), drops = [];
         for (let i = 0; i < 14; i++) {
           const d = prMesh(SPH(0.022, 8), prM(9431295, { transparent: true, opacity: 0.8, emissive: 2120304 }));
@@ -5155,11 +5167,11 @@
           P.cd -= dt;
           if (fire && P.cd <= 0) {
             P.cd = 0.03;
-            const d = P.drops.find((x) => x.life <= 0);
+            const d = P.drops.find((x2) => x2.life <= 0);
             if (d) {
-              P.R.updateMatrixWorld(true);
+              P.R.updateMatrix();
               const m = P.R.matrix;
-              const o = new V(-0.02, 0.33, 0.11).applyMatrix4(m), dir = new V(0, 1, 0).transformDirection(m);
+              const o = new V(GRIP[0], GRIP[1] + 0.29, 0.1).applyMatrix4(m), dir = new V(0, 1, 0).transformDirection(m);
               d.m.position.copy(o);
               d.v.copy(dir).multiplyScalar(5).add(new V((Math.random() - 0.5) * 0.4, 0.5, (Math.random() - 0.5) * 0.4));
               d.life = 0.7;
@@ -5230,17 +5242,17 @@
       // Big Red Button: do NOT press it
       button: () => {
         const root = new T.Group(), st = new T.Group();
-        st.add(prMesh(CYL(0.16, 0.2, 0.9, 20), prM(2764090), 0, 0.45, 0), prMesh(CYL(0.2, 0.2, 0.06, 24), prM(16765503), 0, 0.92, 0));
-        const btn = prMesh(CYL(0.13, 0.14, 0.08, 24), prM(16722490, { emissive: 4194304, shininess: 120 }), 0, 0.98, 0);
+        st.add(prMesh(CYL(0.15, 0.2, 1.38, 20), prM(2764090), 0, 0.69, 0), prMesh(CYL(0.2, 0.2, 0.06, 24), prM(16765503), 0, 1.4, 0));
+        const btn = prMesh(CYL(0.12, 0.13, 0.07, 24), prM(16722490, { emissive: 4194304, shininess: 120 }), 0, 1.465, 0);
         st.add(btn);
-        st.position.set(0.12, 0, -0.5);
+        st.position.set(-0.13, 0, -0.6);
         root.add(st);
         const fl = prSprite(16726586, 1.6, 0);
-        fl.position.set(0.12, 1.2, -0.5);
+        fl.position.set(-0.13, 1.7, -0.6);
         root.add(fl);
-        return { root, btn, fl, up: (P, t, u) => {
-          const p = smooth(0.42, 0.5, u) * (1 - smooth(0.62, 0.7, u));
-          P.btn.position.y = 0.98 - 0.045 * p;
+        return { root, btn, fl, up: (P, t, u, c, dt, B, g) => {
+          const h = prLocal(B.LeftHand, g, _prA), p = smooth(1.36, 1.5, h.y) * smooth(0.25, 0, Math.hypot(h.x + 0.13, h.z + 0.55));
+          P.btn.position.y = 1.465 - 0.04 * p;
           P.fl.material.opacity = p * (0.5 + 0.5 * Math.sin(t * 30));
         } };
       },
@@ -5271,6 +5283,10 @@
         );
         for (const x of [-0.3, 0, 0.3]) root.add(prMesh(SPH(0.06, 10), gold, x, 1.62, 0.48));
         root.add(prMesh(SPH(0.05, 10), prM(6091007, { emissive: 1728624 }), 0, 1.35, 0.42));
+        for (const o of root.children) {
+          o.position.z -= 0.15;
+          o.position.y += 0.05;
+        }
         return { root };
       },
       // Pool Party: a pink rubber ring and a puddle of pool
@@ -5332,8 +5348,8 @@
         });
         fire.position.set(0, 0, -0.75);
         root.add(fire);
-        const R = new T.Group();
-        R.add(prMesh(CYL(8e-3, 8e-3, 0.75), prM(9071170), -0.02, 0.06, 0.33, Math.PI / 2), prMesh(CYL(0.035, 0.035, 0.06, 10), prM(16774886), -0.02, 0.06, 0.72, Math.PI / 2));
+        const R = prHeld(1.3);
+        R.add(prMesh(CYL(0.01, 0.01, 0.8), prM(9071170), GRIP[0], GRIP[1], 0.3, Math.PI / 2), prMesh(CYL(0.035, 0.035, 0.06, 10), prM(16774886), GRIP[0], GRIP[1], 0.68, Math.PI / 2));
         return { root, R, f, up: (P, t) => {
           P.f.forEach((s, i) => s.scale.setScalar((0.6 - i * 0.16) * (1 + 0.18 * Math.sin(t * (17 + i * 6) + i))));
         } };
@@ -5361,17 +5377,13 @@
       },
       // Crystal Ball: a glowing ball between your hands, swirling
       crystal: () => {
-        const root = new T.Group(), ball = prMesh(SPH(0.14, 20), prM(13213951, { transparent: true, opacity: 0.55, emissive: 5909152, shininess: 200, specular: 16777215 }));
+        const L = new T.Group(), ball = prMesh(SPH(0.13, 20), prM(13213951, { transparent: true, opacity: 0.55, emissive: 5909152, shininess: 200, specular: 16777215 }));
         const core = prSprite(11566335, 0.45), sw = prMesh(TOR(0.08, 0.01, 24), prM(16777215, { emissive: 13213951 }));
-        root.add(ball, core, sw);
-        return { root, ball, core, sw, up: (P, t, u, c, dt, B, g) => {
-          const a = prLocal(B.RightHand, g, _prA), b = prLocal(B.LeftHand, g, _prB);
-          const m = a.add(b).multiplyScalar(0.5);
-          m.z -= 0.12;
-          m.y += 0.04;
-          P.ball.position.copy(m);
-          P.core.position.copy(m);
-          P.sw.position.copy(m);
+        L.add(ball, core, sw);
+        for (const o of [ball, core, sw]) o.position.set(-0.22, 0.1, 0);
+        return { L, ball, core, sw, up: (P, t) => {
+          const b = 0.015 * Math.sin(t * 2.2);
+          for (const o of [P.ball, P.core, P.sw]) o.position.x = -0.22 + b;
           P.sw.rotation.set(t * 2, t * 3, 0);
           P.core.scale.setScalar(0.4 + 0.1 * Math.sin(t * 4));
         } };
@@ -5390,14 +5402,18 @@
       },
       // Yo-Yo: walk the dog
       yoyo: () => {
+        const R = prHeld(0.9), tip = new T.Object3D();
+        tip.position.set(-0.03, 0.13, 0.02);
+        R.add(tip);
         const root = new T.Group(), yo = new T.Group();
         yo.add(prMesh(CYL(0.06, 0.06, 0.025, 18), prM(16727972), 0, 0, 0.015, Math.PI / 2), prMesh(CYL(0.06, 0.06, 0.025, 18), prM(16727972), 0, 0, -0.015, Math.PI / 2), prMesh(CYL(0.02, 0.02, 0.04, 10), prM(16777215), 0, 0, 0, Math.PI / 2));
         const str = prMesh(CYL(3e-3, 3e-3, 1), prM(16777215));
         root.add(yo, str);
-        return { root, yo, str, up: (P, t, u, c, dt, B, g) => {
-          const h = prLocal(B.RightHand, g, _prA);
-          const p = t * 1.1 % 1, d = 0.08 + 0.7 * Math.sin(p * Math.PI);
-          P.yo.position.set(h.x, h.y - d, h.z);
+        return { R, tip, root, yo, str, up: (P, t, u, c, dt, B, g) => {
+          P.R.updateMatrix();
+          const h = _prA.copy(P.tip.position).applyMatrix4(P.R.matrix);
+          const p = t * 1.1 % 1, d = 0.08 + 0.62 * Math.sin(p * Math.PI);
+          P.yo.position.set(h.x, h.y - d - 0.06, h.z);
           P.yo.rotation.x = t * 25;
           P.str.position.set(h.x, h.y - d / 2, h.z);
           P.str.scale.y = d;
@@ -5432,8 +5448,33 @@
     function propDrop(c) {
       const P = c.prop;
       if (!P) return;
+      if (c.bones) for (const sd of ["Right", "Left"]) prCurl(c.bones, sd, 0);
       for (const s of ["root", "R", "L", "head"]) if (P[s]) c.g.remove(P[s]);
       c.prop = null;
+    }
+    const _pcQ = new T.Quaternion(), _pcZ = new V(), _pcY = new V();
+    function prCurl(B, sd, a) {
+      const h = B[sd + "Hand"];
+      if (!h) return;
+      for (const fg of ["Index", "Middle", "Ring", "Pinky", "Thumb"]) for (const k of [1, 2, 3]) {
+        const b = B[sd + "Hand" + fg + k];
+        if (b && b.userData.q0) b.quaternion.copy(b.userData.q0);
+      }
+      if (!(a > 1e-3)) {
+        h.updateMatrixWorld(true);
+        return;
+      }
+      h.getWorldQuaternion(_pcQ);
+      _pcZ.set(0, 0, 1).applyQuaternion(_pcQ);
+      _pcY.set(0, 1, 0).applyQuaternion(_pcQ);
+      for (const fg of ["Index", "Middle", "Ring", "Pinky"]) for (const k of [1, 2, 3]) {
+        const b = B[sd + "Hand" + fg + k];
+        if (b) rotateBoneWorld(b, _pcZ, a * (k === 1 ? 0.85 : 1));
+      }
+      for (const k of [2, 3]) {
+        const b = B[sd + "HandThumb" + k];
+        if (b) rotateBoneWorld(b, _pcY, (sd === "Right" ? -1 : 1) * a * 0.45);
+      }
     }
     function emProps(e, c, B, dt) {
       const P = c.prop, em = e.emote;
@@ -5444,6 +5485,8 @@
       if (P.L) prOnto(P.L, B.LeftHand, c.g);
       if (P.head) prOnto(P.head, B.Head, c.g, true);
       for (const k of ["root", "R", "L", "head"]) if (P[k]) P[k].scale.setScalar(s);
+      if (P.R && P.R.userData.grip) prCurl(B, "Right", P.R.userData.grip * s);
+      if (P.L && P.L.userData.grip) prCurl(B, "Left", P.L.userData.grip * s);
       P.t = em.t;
       if (P.up) P.up(P, em.t, u, c, dt || 1 / 60, B, c.g);
     }
