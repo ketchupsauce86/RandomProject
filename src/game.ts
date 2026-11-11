@@ -761,8 +761,8 @@ function solveIK(A,B,C,target,pole){
     const pb=_v1.subVectors(_ikB,_ikA); pb.addScaledVector(ax,-pb.dot(ax)); const pp=_v4.subVectors(pole,_ikA); pp.addScaledVector(ax,-pp.dot(ax));
     if(pb.lengthSq()>1e-6&&pp.lengthSq()>1e-6){ const s=new V().crossVectors(pb,pp).dot(ax)<0?-1:1; rotateBoneWorld(A,ax,pb.angleTo(pp)*s); } }
 }
-// [v1.63] Kash's moves made in Blender (moves.js, from tools/retarget_moves.py): Walk, Sprint, Crouch (walking crouched),
-// Slide and Swim, as extra clips 'HM_<name>' next to the soldier's own. Each carries its stride (soldier units per loop).
+// [v1.63] the hero moves (moves.js, from tools/retarget_moves.py): Walk, Sprint, Crouch (walking crouched) and Swim from the
+// CC0 Quaternius pack since v1.65, and Kash's Slide made in Blender, as extra clips 'HM_<name>' next to the soldier's own. Each carries its stride (soldier units per loop).
 const HM_NAMES=['Walk','Sprint','Crouch','Slide','Swim'];
 function heroMoveClips(){ const H=window.HERO_MOVES; if(!H||!H.clips) return;
   for(const n of HM_NAMES){ const C=H.clips[n]; if(!C) continue; const times=[]; for(let i=0;i<C.n;i++) times.push(i/H.fps);
@@ -770,11 +770,29 @@ function heroMoveClips(){ const H=window.HERO_MOVES; if(!H||!H.clips) return;
     const tr=[]; for(const k in C.tracks){ const v=C.tracks[k], i=k.lastIndexOf('.'), nm=T.PropertyBinding.sanitizeNodeName(k.slice(0,i))+k.slice(i);
       tr.push(k.endsWith('.position')?new T.VectorKeyframeTrack(nm,times,v):new T.QuaternionKeyframeTrack(nm,times,v)); }
     const clip=new T.AnimationClip('HM_'+n,C.dur,tr); (clip as any).stride=C.stride; SOLDIER.clips['HM_'+n]=clip; } }
+// [v1.65] CC0 moves from the Quaternius Universal Animation Library and Kenney Animated Characters (packmoves.js, from
+// tools/pack_export_blender.py and tools/retarget_moves.py; credits in CREDITS.md), as clips 'PM_<name>'. They play as
+// whole-body emotes (EMOTES entries with clip:), so a clip emote takes the body from the soldier's clips while it plays.
+function packMoveClips(){ const H=window.PACK_MOVES; if(!H||!H.clips) return;
+  for(const n in H.clips){ const C=H.clips[n], times=[]; for(let i=0;i<C.n;i++) times.push(i/H.fps);
+    const tr=[]; for(const k in C.tracks){ const v=C.tracks[k], i=k.lastIndexOf('.'), nm=T.PropertyBinding.sanitizeNodeName(k.slice(0,i))+k.slice(i);
+      tr.push(k.endsWith('.position')?new T.VectorKeyframeTrack(nm,times,v):new T.QuaternionKeyframeTrack(nm,times,v)); }
+    SOLDIER.clips['PM_'+n]=new T.AnimationClip('PM_'+n,C.dur,tr); }
+  for(const k in EMOTES){ const E=EMOTES[k], cl=E.clip&&SOLDIER.clips[E.clip]; if(cl&&!E.loop) E.dur=cl.duration*(E.speed?1/E.speed:1)+(E.hold||0); } }
+// a clip emote: its clip takes over from whatever the mixer was blending, by the emote's weight (less while moving).
+// The action is made the first time a character plays that move (so 100 bots do not carry every dance around) and stopped after.
+function emClip(e,c){ const em=e&&e.emote, E=em&&em.E, k=E&&E.clip&&SOLDIER.clips[E.clip]?E.clip:null;
+  if(c.pmK&&c.pmK!==k){ c.pmA.stop(); c.pmA=null; c.pmK=null; }
+  if(!k) return;
+  if(!c.pmA){ c.pmA=c.mixer.clipAction(SOLDIER.clips[k]); c.pmA.reset(); c.pmA.play(); c.pmA.setEffectiveTimeScale(0); c.pmK=k; }
+  const cl=c.pmA.getClip(), mv=smooth(0.6,2.5,e.zgFloat?e.vel.length():Math.hypot(e.vel.x,e.vel.z)), w=smooth(0,1,em.w)*(1-mv*0.85), tt=em.t*(E.speed||1);
+  for(const n in c.act) c.act[n].setEffectiveWeight((c.w[n]||0)*(1-w));
+  c.pmA.setEffectiveWeight(w); c.pmA.time=E.loop?tt%cl.duration:Math.min(tt,cl.duration-1e-3); }
 function loadSoldier(done){
   if(!T.GLTFLoader||!T.SkeletonUtils){ done(false); return; }
   let finished=false; const fin=ok=>{ if(!finished){ finished=true; done(ok); } };
   setTimeout(()=>fin(false),15000);
-  const ready=gl=>{ SOLDIER={scene:gl.scene,clips:{}}; gl.animations.forEach(a=>SOLDIER.clips[a.name]=a); heroMoveClips(); fin(true); };
+  const ready=gl=>{ SOLDIER={scene:gl.scene,clips:{}}; gl.animations.forEach(a=>SOLDIER.clips[a.name]=a); heroMoveClips(); packMoveClips(); fin(true); };
   try{ if(!window.SOLDIER_GLB){ fin(false); return; }
     const bin=atob(window.SOLDIER_GLB), buf=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
     new T.GLTFLoader().parse(buf.buffer,'',ready,()=>fin(false)); }
@@ -1669,6 +1687,7 @@ function animClips(e,X){ const {c,A,fwd,speed,aS,dt}=X;
   // and a long blend across the switch
   const nr=!player||e===player||e.pos.distanceTo(camera.position)<(c.lcNear?56:50);
   if(c.lcNear!==undefined&&nr!==c.lcNear) poseSnap(c,0.4); c.lcNear=nr; X.near=nr;
+  emClip(e,c); // [v1.65] a clip emote takes the body
   c.mixer.update(dt);
 }
 // [S0] body-relative axes (they follow the swim tilt and the roll onto the ceiling)
@@ -2130,7 +2149,19 @@ const EMOTES:any={
     head:[[0,0,0,0],[0.2,0,0.28,0],[0.5,0,0.18,0],[0.8,0,0.28,0],[1,0,0,0]], chest:[[0,0,0,0],[0.2,0,0.08,0],[0.8,0,0.08,0],[1,0,0,0]],
     hips:[[0,0,0,0,0,0],[0.3,0,-0.02,0,0.06,0],[0.6,0,-0.02,0,-0.06,0],[1,0,0,0,0,0]], hand:{R:{c:0.75},L:{c:0.75}}}
 };
-const EM_ORDER=['wave','floss','pump','robot','disco','dab','salute','flip','jacks','guitar','bow','clap','shrug','heart'];
+// [v1.65] whole-body moves from the CC0 packs (packmoves.js; credits in CREDITS.md), each with its own name in the game.
+// clip: the clip that moves the body (emClip). Looping ones play until cancelled; the rest last as long as their clip (+hold).
+Object.assign(EMOTES,{
+  pmGroove:{n:'Groove',clip:'PM_Groove',loop:1}, pmChatter:{n:'Chatterbox',clip:'PM_Chatter',loop:1},
+  pmTinker:{n:'Tinker',clip:'PM_Tinker'}, pmChair:{n:'Air Chair',clip:'PM_Chair',loop:1},
+  pmMime:{n:'Mime Wall',clip:'PM_Mime',loop:1}, pmRoll:{n:'Dive Roll',clip:'PM_Roll'},
+  pmSpark:{n:'Spark Shot',clip:'PM_Spark'}, pmBox:{n:'Shadowbox',clip:'PM_ShadowBox',loop:1},
+  pmTorch:{n:'Torch Up',clip:'PM_Torch',loop:1}, pmDead:{n:'Play Dead',clip:'PM_PlayDead',hold:1.6},
+  pmJoy:{n:'Joyride',clip:'PM_Joyride',loop:1}, pmRun:{n:'Treadmill',clip:'PM_RunInPlace',loop:1}, pmHang:{n:'Hang Time',clip:'PM_HangTime',loop:1}});
+const PM_EMOTES=['pmGroove','pmBox','pmSpark','pmRoll','pmChair','pmMime','pmTorch','pmChatter','pmTinker','pmDead','pmJoy','pmRun','pmHang'];
+// [v1.65] the wheel has pages (scroll while it is open): the hand-keyed emotes, then the CC0 pack moves (only the ones whose clip loaded)
+const EM_PAGES=[['wave','floss','pump','robot','disco','dab','salute','flip','jacks','guitar','bow','clap','shrug','heart'],PM_EMOTES];
+let EM_ORDER=EM_PAGES[0];
 try{ const v=localStorage.getItem('stormIslandEmote'); if(v&&EMOTES[v]) EM.last=v; }catch(e){}
 // keyed paths: K=[[u,a,b,..],..]. loop: a closed Catmull-Rom ring through the keys; otherwise open, held at both ends
 function emKey(K,u,loop,o){
@@ -2168,6 +2199,7 @@ function emPlant(B,fw,up,tw){ for(let i=0;i<2;i++){ const sd=i?'Right':'Left'; B
   solveIK(B[sd+'UpLeg'],B[sd+'Leg'],B[sd+'Foot'],_eFeet[i],_eB); if(tw) rotateBoneWorld(B[sd+'Foot'],up,tw); } }
 // the arm layer while emoting, and the whole-body pose (hips, spine, head, planted feet). X needs c, B, g, rightB, upB, fwdB (+pitch)
 function emotePose(e,X){ const em=e.emote, E=em&&em.E; if(!E) return;
+  if(E.clip){ if(X.c.emSpin){ X.c.spin.quaternion.identity(); X.c.emSpin=false; } return; } // [v1.65] the clip moves the whole body (emClip)
   const {c,B}=X, W=smooth(0,1,em.w), t=em.t, loop=!!E.loop;
   const u=loop?((t*E.bpm/(60*E.beats))%1):Math.min(1,t/E.dur), uq=E.step?(Math.floor(u*E.step)+smooth(0,0.22,(u*E.step)%1))/E.step:u;
   const r=_eR.copy(X.rightB), up=_eU.copy(X.upB), fw=_eF.copy(X.fwdB);
@@ -2266,15 +2298,21 @@ function emoteOnKill(killer,victim){
   if(killer.isPlayer||!player||!player.alive||ZG.state==='ceil'||!killer.alive||killer.emote||EM.on.length>4||Math.random()>0.3) return;
   if(killer.pos.distanceTo(camera.position)>28||lockedUp(killer)||killer.bounceT>0||killer.knockT>0) return;
   for(const o of combatants) if(o.alive&&o!==killer&&o!==victim&&!o.isPlayer&&o.pos.distanceToSquared(killer.pos)<625) return; // nobody else close by
-  startEmote(killer,pick(['floss','pump','disco','robot','wave','flip']),{max:2.4,face:camera.position}); }
+  startEmote(killer,pick(['floss','pump','disco','robot','wave','flip','pmGroove','pmBox','pmSpark']),{max:2.4,face:camera.position}); }
 // ---- the emote wheel (DOM in index.html; this fills it). Hold B, move the mouse, release to play; 1-8 pick directly
-const EW:any={built:false,on:0,cx:0,cy:0,step:Math.PI*2/8,R0:78,R1:186};
+const EW:any={built:false,on:0,cx:0,cy:0,step:Math.PI*2/8,R0:78,R1:186,page:0};
+const emPages=()=>EM_PAGES.map(P=>P.filter(k=>EMOTES[k]&&(!EMOTES[k].clip||SOLDIER&&SOLDIER.clips[EMOTES[k].clip]))).filter(P=>P.length);
+function ewPage(d){ const P=emPages(); EW.page=((EW.page+d)%P.length+P.length)%P.length; EM_ORDER=P[EW.page]; EW.built=false; EW.on=Math.min(EW.on,EM_ORDER.length-1); ewBuild(); ewRender(); }
 const EM_IC={ // little stick figures on a 48x48 grid: t=[shoulder x,y,hip x,y], a=[elbow x,y,hand x,y] per arm, w=waving marks
   wave:{a:[[31,15,35,6],[20,24,18,32]],w:[[38,3,41,6],[40,9,43,12]]}, floss:{a:[[31,24,38,31],[29,22,34,13]],t:[26,17,21,31]},
   pump:{a:[[31,14,33,5],[19,25,25,22]]}, robot:{a:[[33,17,33,9],[15,17,15,25]]}, disco:{a:[[31,12,38,5],[14,23,20,30]],t:[26,17,22,31]},
   dab:{a:[[34,11,26,11],[14,12,5,6]]}, salute:{a:[[33,14,26,9],[21,25,20,33]]}, flip:{ring:1},
   jacks:{a:[[33,11,38,4],[15,11,10,4]]}, guitar:{a:[[30,24,26,30],[17,21,9,18]],t:[25,17,24,31]}, bow:{a:[[22,22,20,27],[12,22,6,24]],t:[19,22,26,31]},
-  clap:{a:[[30,22,26,19],[18,22,22,19]],w:[[22,12,22,15],[26,12,27,15]]}, shrug:{a:[[32,22,38,19],[16,22,10,19]]}, heart:{a:[[31,19,26,15],[17,19,22,15]],w:[[22,8,26,8]]} };
+  clap:{a:[[30,22,26,19],[18,22,22,19]],w:[[22,12,22,15],[26,12,27,15]]}, shrug:{a:[[32,22,38,19],[16,22,10,19]]}, heart:{a:[[31,19,26,15],[17,19,22,15]],w:[[22,8,26,8]]},
+  pmGroove:{a:[[32,20,36,12],[16,20,12,12]],t:[25,17,23,31]}, pmChatter:{a:[[31,24,36,22],[17,24,12,22]]}, pmTinker:{a:[[30,28,34,34],[18,28,16,34]],t:[24,22,24,33]},
+  pmChair:{a:[[30,24,34,27],[18,24,14,27]],t:[22,17,20,31]}, pmMime:{a:[[34,18,38,12],[33,23,38,22]]}, pmRoll:{ring:1}, pmSpark:{a:[[34,17,42,15],[18,25,16,32]],w:[[44,11,46,9],[45,16,47,17]]},
+  pmBox:{a:[[31,22,40,18],[22,22,28,17]]}, pmTorch:{a:[[32,12,32,4],[18,25,16,32]],w:[[30,1,32,-2],[34,1,33,-2]]}, pmDead:{a:[[31,25,33,32],[17,25,15,32]],t:[24,20,26,32]},
+  pmJoy:{a:[[30,23,35,21],[18,23,23,21]]}, pmRun:{a:[[30,22,36,17],[18,24,14,30]],t:[25,17,23,31]}, pmHang:{a:[[33,15,38,9],[15,15,10,9]]} };
 function emIcon(k){ const d=EM_IC[k]||{a:[[31,24,34,31],[17,24,14,31]]}, t=d.t||[24,17,24,31]; let s='<svg viewBox="0 0 48 48" aria-hidden="true">';
   if(d.ring) return s+'<path d="M37 14a15 15 0 1 0 3.5 11" fill="none"/><path d="M34 7l4 7-8 1" fill="none"/><circle cx="24" cy="23" r="4.4" class="f"/><path d="M18 29q6 7 12 0" fill="none"/></svg>';
   s+=`<circle cx="${(t[0]+(t[0]-t[2])*0.4).toFixed(1)}" cy="${t[1]-8}" r="4.4" class="f"/><path d="M${t[0]} ${t[1]}L${t[2]} ${t[3]}M${t[2]} ${t[3]}L${t[2]-6} 39L${t[2]-6} 46M${t[2]} ${t[3]}L${t[2]+6} 39L${t[2]+6} 46" fill="none"/>`;
@@ -2282,16 +2320,17 @@ function emIcon(k){ const d=EM_IC[k]||{a:[[31,24,34,31],[17,24,14,31]]}, t=d.t||
   for(const w of d.w||[]) s+=`<path d="M${w[0]} ${w[1]}L${w[2]} ${w[3]}" fill="none" opacity=".7"/>`;
   return s+'</svg>'; }
 function ewArc(r0,r1,a0,a1){ const P=(r,a)=>(Math.cos(a)*r).toFixed(1)+' '+(Math.sin(a)*r).toFixed(1); return `M${P(r1,a0)}A${r1} ${r1} 0 0 1 ${P(r1,a1)}L${P(r0,a1)}A${r0} ${r0} 0 0 0 ${P(r0,a0)}Z`; }
-function ewBuild(){ if(EW.built) return; EW.built=true; const st=$q('#emoteWheel .ew-stage'), n=EM_ORDER.length; EW.step=TAU/n;
+function ewBuild(){ if(EW.built) return; EW.built=true; const P=emPages(); EW.page=Math.min(EW.page,P.length-1); EM_ORDER=P[EW.page];
+  const st=$q('#emoteWheel .ew-stage'), n=EM_ORDER.length; EW.step=TAU/n;
   let svg='<svg class="ew-ring" viewBox="-220 -220 440 440" aria-hidden="true"><defs><linearGradient id="ewg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5cf0ff" stop-opacity=".5"/><stop offset="1" stop-color="#ff3bd4" stop-opacity=".42"/></linearGradient></defs>', sl='';
   for(let i=0;i<n;i++){ const a=-Math.PI/2+i*EW.step, g=0.035; svg+=`<path class="ew-w" data-i="${i}" d="${ewArc(EW.R0,EW.R1,a-EW.step/2+g,a+EW.step/2-g)}"/>`;
     const rm=(EW.R0+EW.R1)/2, E=EMOTES[EM_ORDER[i]];
     sl+=`<div class="ew-slot" data-i="${i}" style="left:${(220+Math.cos(a)*rm).toFixed(1)}px;top:${(220+Math.sin(a)*rm).toFixed(1)}px">${emIcon(EM_ORDER[i])}<span>${E.n}</span><kbd>${i+1}</kbd>${E.zg?'<em>zero-g</em>':''}</div>`; }
-  svg+='</svg>'; st.innerHTML=svg+sl+'<div class="ew-center"><span class="ew-k">Emote</span><b id="ewName"></b><i>Release <kbd>B</kbd> to play</i></div><div class="ew-cursor" id="ewCur"></div>'; }
+  svg+='</svg>'; st.innerHTML=svg+sl+'<div class="ew-center"><span class="ew-k">Emote</span><b id="ewName"></b><i>Release <kbd>B</kbd> to play</i>'+(P.length>1?`<i class="ew-pg">${P.map((_,i)=>i===EW.page?'●':'○').join(' ')} scroll for more</i>`:'')+'</div><div class="ew-cursor" id="ewCur"></div>'; }
 function ewRender(){ const el=$('emoteWheel'); el.querySelectorAll('.ew-w').forEach((w:any)=>w.classList.toggle('on',+w.dataset.i===EW.on));
   el.querySelectorAll('.ew-slot').forEach((s:any)=>{ s.classList.toggle('on',+s.dataset.i===EW.on); s.classList.toggle('lock',!!EMOTES[EM_ORDER[+s.dataset.i]].zg&&!!player&&(!player.zgFloat||ZG.state==='ceil')); });
   $('ewName').textContent=EMOTES[EM_ORDER[EW.on]].n; $('ewCur').style.transform=`translate(${EW.cx.toFixed(1)}px,${EW.cy.toFixed(1)}px)`; }
-function emWheelOpen(){ if(EM.wheel||!player||!player.alive) return; ewBuild(); EM.wheel=true;
+function emWheelOpen(){ if(EM.wheel||!player||!player.alive) return; EW.built=false; const P=emPages(); const pg=P.findIndex(Q=>Q.indexOf(EM.last)>=0); if(pg>=0) EW.page=pg; ewBuild(); EM.wheel=true;
   const i=Math.max(0,EM_ORDER.indexOf(EM.last)), a=-Math.PI/2+i*EW.step; EW.on=i; EW.cx=Math.cos(a)*64; EW.cy=Math.sin(a)*64; ewRender();
   const el=$('emoteWheel'); el.style.setProperty('--s',String(Math.max(0.55,Math.min(1.3,Math.min(innerWidth,innerHeight)*0.78/440)))); el.hidden=false; void el.offsetWidth; el.classList.add('show'); }
 function emWheelClose(){ if(!EM.wheel) return; EM.wheel=false; const el=$('emoteWheel'); el.classList.remove('show'); el.hidden=true; }
@@ -2309,7 +2348,8 @@ addEventListener('keyup',ev=>{ if(keyCode(ev)!=='KeyB') return; const p=player, 
 addEventListener('mousedown',ev=>{ if(state!=='play'||!player) return;
   if(EM.wheel){ ev.stopImmediatePropagation(); ev.preventDefault(); const k=EM_ORDER[EW.on]; emWheelClose(); EM.held=false; if(ev.button===0) playerEmote(k); return; }
   if(player.emote&&!player.emote.out) emStopNow(player); },true);
-addEventListener('wheel',()=>{ if(player&&player.emote&&!player.emote.out&&state==='play') stopEmote(player); },{capture:true,passive:true});
+addEventListener('wheel',ev=>{ if(!EM.wheel||state!=='play') return; ev.stopImmediatePropagation(); const t=performance.now(); if(t-(EW.wt||0)<180) return; EW.wt=t; ewPage(ev.deltaY>0?1:-1); },{capture:true,passive:true});
+addEventListener('wheel',()=>{ if(EM.wheel) return; if(player&&player.emote&&!player.emote.out&&state==='play') stopEmote(player); },{capture:true,passive:true});
 addEventListener('blur',()=>{ EM.held=false; emWheelClose(); });
 document.addEventListener('pointerlockchange',()=>{ if(!document.pointerLockElement){ EM.held=false; emWheelClose(); } });
 // ================= characters =================
@@ -3063,7 +3103,7 @@ function buildSkinStand(dir?){
   showEquip(); [...$('armSets').children].forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.s===it.t)));
 }
 function updateSkinStand(t,dt){
-  for(const c of skShown){ c.mixer.update(dt); swayGear({onGround:true,walkT:0},c,0,dt); standLife(c,dt); } // [S4] idle life and a wave on the pedestal
+  for(const c of skShown){ if(c.sl) emClip(c.sl.e,c); c.mixer.update(dt); swayGear({onGround:true,walkT:0},c,0,dt); standLife(c,dt); } // [S4] idle life and a wave on the pedestal
 }
 // a fixed row of skins for screenshots (test hook)
 function updateLineup(t,dt){
@@ -6020,7 +6060,7 @@ const HERO:any={scene:new T.Scene(),cam:new T.PerspectiveCamera(26,1,0.1,60),c:n
   HERO.cam.position.set(0,1.0,8.2); HERO.cam.lookAt(0,0.98,0); }
 // [S4] the hero's life: a stand-in entity so the emote layer works on it, breathing, weight shifts, a head that follows the cursor,
 // a wave when you arrive and now and then a dance (click it to make it dance)
-const HERO_EM=['wave','floss','pump','robot','disco','dab','salute'], HM={x:0,y:0,t:-99}, _hl0=new V(), _hl1=new V(), _hl2=new V();
+const HERO_EM=['wave','floss','pump','robot','disco','dab','salute','pmGroove','pmBox','pmSpark','pmChatter'], HM={x:0,y:0,t:-99}, _hl0=new V(), _hl1=new V(), _hl2=new V();
 addEventListener('pointermove',ev=>{ HM.x=ev.clientX; HM.y=ev.clientY; HM.t=performance.now()/1000; });
 function heroStand(c){ return {etype:'hero',isPlayer:false,alive:true,onGround:true,zgFloat:false,vel:new V(),pos:new V(),yaw:0,sel:0,hp:0,shield:0,fireCd:0,anim:{},ch:c,emote:null}; }
 function heroEmote(k){ const e=HERO.e; if(!e||!EMOTES[k]||(e.emote&&!e.emote.out)) return; emBegin(e,k,{max:EMOTES[k].loop?rnd(4.5,6.5):0}); }
@@ -6059,7 +6099,7 @@ function heroFrame(dt){
   HERO.next-=dt; if(!e.emote&&HERO.next<=0){ heroEmote(HERO.first===false?pick(HERO_EM):'wave'); HERO.first=false; HERO.next=rnd(9,14); }
   const emOn=!!e.emote&&!e.emote.out; HERO.fy=angLerp(HERO.fy,emOn?Math.PI+0.06*Math.sin(t*0.6):Math.PI-0.45+0.12*Math.sin(t*0.35),1-Math.exp(-5*dt));
   if(HERO.spinT<1.1) HERO.spinT+=dt; g.rotation.y=HERO.fy+(HERO.spinT<1.1?TAU*easeIO(clamp(HERO.spinT/1.1,0,1)):0); // a three-quarter view, turning a touch
-  c.model.position.set(0,0,0); c.mixer.update(dt); swayGear({onGround:true,walkT:0},c,0,dt); g.updateMatrixWorld(true);
+  c.model.position.set(0,0,0); emClip(e,c); c.mixer.update(dt); swayGear({onGround:true,walkT:0},c,0,dt); g.updateMatrixWorld(true);
   c.model.getWorldQuaternion(_qm); const rightB=new V(1,0,0).applyQuaternion(_qm), fwdB=new V(0,0,-1).applyQuaternion(_qm), upB=new V(0,1,0).applyQuaternion(_qm);
   const hx:any={e,c,B,g,pitch:0,rightB,fwdB,upB}; emTick(e,dt,true);
   if(e.emote){ emotePose(e,hx); c.pick.visible=false; if(c.pickL) c.pickL.visible=false; }

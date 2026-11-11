@@ -10,6 +10,7 @@ declare global {
     Draggable: any;
     SOLDIER_GLB: string;
     HERO_MOVES: any;
+    PACK_MOVES: any;
     SKINS: any;
     PICKAXES: any;
     GAME_VERSION: any;

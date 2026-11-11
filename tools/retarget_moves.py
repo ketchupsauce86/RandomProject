@@ -130,8 +130,11 @@ def load_soldier():
     return nodes, parent, local, [W(i) for i in range(len(nodes))], names
 
 
-def main():
-    ex = json.load(open(f'{ROOT}/tools/hero_moves_export.json'))
+def main(src='hero_moves_export.json', dst='moves.js', var='HERO_MOVES', head=None, only_mapped=False, swap=None):
+    import gzip
+    ex = json.load(gzip.open(f'{ROOT}/tools/{src}', 'rt') if src.endswith('.gz') else open(f'{ROOT}/tools/{src}'))
+    meta = ex.get('meta', {})  # per clip: fps, loop, speed (the CC0 packs carry their own; Kash's moves use the tables above)
+    in_fps = ex.get('fps', FPS); out_fps = ex.get('out_fps', OUT_FPS)
     nodes, parent, local, world, idx = load_soldier()
     rot = lambda m: ortho(m[:3, :3])
     pos = lambda m: m[:3, 3]
@@ -140,16 +143,19 @@ def main():
     assert toe[2] < 0 and pos(world[idx['LeftArm']])[0] < 0, 'soldier is not facing -z with its left at -x'
     hips_rest = pos(world[idx['Hips']])
     k = hips_rest[1] / 0.95  # hero hips stand 0.95 m up; soldier units per hero metre
-    rest = {b: np.array(v['m']).reshape(3, 3) for b, v in ((b, v) for b, v in ex['rest'].items())}
-    # per mapped bone: offset O so that soldier world rotation = hero world rotation (glTF space) @ O
-    O = {}
-    for hb, mb in MAP.items():
-        Hr = C @ rest[hb]  # the bone axes in glTF world space (only the world frame changes)
-        Mr = rot(world[idx[mb]])
-        d_m = pos(world[idx[AIM[mb]]]) - pos(world[idx[mb]])
-        d_h = Hr @ np.array([0, 1, 0])
-        A = swing(d_m, d_h) @ Mr
-        O[mb] = Hr.T @ A
+    def offsets(rest_json):
+        rest = {b: np.array(v['m']).reshape(3, 3) for b, v in rest_json.items()}
+        # per mapped bone: offset O so that soldier world rotation = hero world rotation (glTF space) @ O
+        O = {}
+        for hb, mb in MAP.items():
+            Hr = C @ rest[hb]  # the bone axes in glTF world space (only the world frame changes)
+            Mr = rot(world[idx[mb]])
+            d_m = pos(world[idx[AIM[mb]]]) - pos(world[idx[mb]])
+            d_h = Hr @ np.array([0, 1, 0])
+            A = swing(d_m, d_h) @ Mr
+            O[mb] = Hr.T @ A
+        return O
+    O0 = offsets(ex['rest'])
     inv_map = {v: k_ for k_, v in MAP.items()}
     # bones to write, parents before children (everything under Hips except the fingers' ends)
     order = []
@@ -159,11 +165,16 @@ def main():
         for c in nodes[i].get('children', []): walk(c)
     walk(idx['Hips'])
     order = [n for n in order if not n.endswith(('_End', '4'))]
-    out = {'fps': OUT_FPS, 'clips': {}}
+    out = {'fps': out_fps, 'clips': {}}
     for clip, frames in ex['clips'].items():
-        raw = {f'mixamorig:{n}.quaternion': [] for n in order}
+        O = offsets(ex['rest_of'][clip]) if clip in ex.get('rest_of', {}) else O0  # (a pack's rig has its own rest)
+        loop = meta[clip]['loop'] if clip in meta else LOOP[clip]
+        speed = meta[clip].get('speed', 0.0) if clip in meta else SPEED[clip]
+        # a pack clip only writes the bones it moves (plus Spine1, which follows them); the fingers keep their rest
+        keep = [n for n in order if not only_mapped or n in inv_map or n == 'Spine1']
+        raw = {f'mixamorig:{n}.quaternion': [] for n in keep}
         raw['mixamorig:Hips.position'] = []
-        allf = frames + ([frames[0]] if LOOP[clip] else [])
+        allf = frames + ([frames[0]] if loop else [])
         prevq = {}
         for fr in allf:
             Wp = {}
@@ -184,7 +195,7 @@ def main():
                 q = mat_to_quat(pw.T @ Wn)
                 if n in prevq and np.dot(q, prevq[n]) < 0: q = -q
                 prevq[n] = q
-                raw[f'mixamorig:{n}.quaternion'].append(q)
+                if n in keep: raw[f'mixamorig:{n}.quaternion'].append(q)
             hp = C @ np.array(fr['hp']) * k
             P = np.array([hips_rest[0] + hp[0], hp[1], hips_rest[2] + hp[2]])
             pm = world[parent[idx['Hips']]]
@@ -194,20 +205,32 @@ def main():
         tracks = {}
         for name, vals in raw.items():
             V = np.array(vals); quat = name.endswith('quaternion')
-            sm = upsample(V, LOOP[clip], OUT_FPS // FPS)
+            sm = upsample(V, loop, out_fps // in_fps)
             if quat:
                 for j in range(1, len(sm)):
                     if np.dot(sm[j], sm[j - 1]) < 0: sm[j] = -sm[j]
                 sm = sm / np.linalg.norm(sm, axis=1, keepdims=True)
             tracks[name] = [round(float(v), 4 if quat else 3) for v in sm.ravel()]
-        n = (len(allf) - 1) * (OUT_FPS // FPS) + 1
-        out['clips'][clip] = {'n': n, 'dur': round((len(allf) - 1) / FPS, 5), 'stride': round(SPEED[clip] * len(frames) * k, 4), 'tracks': tracks}
+        n = (len(allf) - 1) * (out_fps // in_fps) + 1
+        out['clips'][clip] = {'n': n, 'dur': round((len(allf) - 1) / in_fps, 5), 'stride': round(speed * len(frames) * k, 4), 'loop': int(bool(loop)), 'tracks': tracks}
+        if not only_mapped: del out['clips'][clip]['loop']  # (moves.js stays exactly as it was)
     out['unit'] = round(float(k), 5)
-    js = ('/* Hero moves made in Blender (RegularJump.blend), retargeted onto the soldier rig by tools/retarget_moves.py.\n'
-          '   Generated: do not edit by hand. */\nwindow.HERO_MOVES=' + json.dumps(out, separators=(',', ':')) + ';\n')
-    open(f'{ROOT}/moves.js', 'w').write(js)
-    print('moves.js', len(js), 'bytes;', {c: (v['n'], v['stride']) for c, v in out['clips'].items()}, 'unit', k)
+    if swap:  # clips from another export (the CC0 packs' walk, sprint, crouch and swim) take the place of these
+        for c, v in main(swap, None).items(): out['clips'][c] = v
+    if dst is None: return out['clips']
+    head = head or ('Hero moves: Walk, Sprint, Crouch and Swim from the CC0 Quaternius Universal Animation Library (see CREDITS.md),\n'
+                    '   Slide made by Kash in Blender (RegularJump.blend); retargeted onto the soldier rig by tools/retarget_moves.py.')
+    js = ('/* ' + head + '\n   Generated: do not edit by hand. */\nwindow.' + var + '=' + json.dumps(out, separators=(',', ':')) + ';\n')
+    open(f'{ROOT}/{dst}', 'w').write(js)
+    print(dst, len(js), 'bytes;', {c: (v['n'], v['stride']) for c, v in out['clips'].items()}, 'unit', k)
 
 
 if __name__ == '__main__':
-    main()
+    import os
+    # Kash's own moves, with the walk, sprint, crouch and swim swapped for the Quaternius ones (tools/pack_loco_pick.json)
+    main(swap='pack_loco_export.json.gz' if os.path.exists(f'{ROOT}/tools/pack_loco_export.json.gz') else None)
+    # the CC0 moves from Quaternius and Kenney (see CREDITS.md), exported from Blender by tools/pack_export_blender.py
+    if os.path.exists(f'{ROOT}/tools/pack_moves_export.json.gz'):
+        main('pack_moves_export.json.gz', 'packmoves.js', 'PACK_MOVES', only_mapped=True,
+             head='CC0 moves from the Quaternius Universal Animation Library and Kenney Animated Characters (see CREDITS.md),\n'
+                  '   retargeted onto the soldier rig by tools/retarget_moves.py.')
