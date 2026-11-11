@@ -2835,13 +2835,14 @@ function lkOrbit(){
 function lkView(){
   if(armMode==='guns') return {t:[0,1.0,0],d:SHOP_GUN(ARM_IDS[armIdx])||GUNV[ARM_IDS[armIdx]]?Math.max(4.5,6/camera.aspect):Math.max(6.5,(ARM_IDS[armIdx]==='sniper'?13:10.5)/camera.aspect),h:0.6,min:3,max:16,az:1.0,spin:false};
   if(armMode==='picks') return {t:[0,1.15,0],d:Math.max(5,6/camera.aspect),h:0.35,min:2,max:9,az:Infinity,spin:true};
+  if(armMode==='emotes') return {t:[0,0.95,0],d:Math.max(5.4,6.6/camera.aspect),h:0.5,min:1.1,max:14,az:Infinity,spin:false,p0:0.02,p1:Math.PI-0.02}; // [v1.66] the Emote Lab: any angle, even from below
   return {t:[0,0.9,0],d:Math.max(5.4,6.6/camera.aspect),h:0.5,min:1.3,max:8,az:Infinity,spin:true};
 }
 function lkFrame(anim){
   const v=lkView(), o=lkOrbit(), tg=new V(v.t[0],ARM_Y+v.t[1],v.t[2]), to=new V(tg.x,tg.y+v.h,tg.z+v.d);
   if(camera.fov!==40){ camera.fov=40; camera.updateProjectionMatrix(); } lkOffset();
   if(!o){ camera.position.copy(to); camera.lookAt(tg); return; }
-  Object.assign(o,{minDistance:v.min,maxDistance:v.max,minAzimuthAngle:-v.az,maxAzimuthAngle:v.az,minPolarAngle:0.25,maxPolarAngle:1.72,autoRotate:v.spin}); LK.idle=0;
+  Object.assign(o,{minDistance:v.min,maxDistance:v.max,minAzimuthAngle:-v.az,maxAzimuthAngle:v.az,minPolarAngle:v.p0||0.25,maxPolarAngle:v.p1||1.72,autoRotate:v.spin}); LK.idle=0;
   if(anim&&GS&&!calmUI){ GS.to(o.target,{x:tg.x,y:tg.y,z:tg.z,duration:0.7,ease:'power3.inOut'}); GS.to(camera.position,{x:to.x,y:to.y,z:to.z,duration:0.7,ease:'power3.inOut'}); }
   else { o.target.copy(tg); camera.position.copy(to); o.update(); }
 }
@@ -2859,6 +2860,7 @@ function buildArmory(dir?){
   if(!armGroup){ armGroup=new T.Group(); armGroup.position.set(0,ARM_Y,0); armGroup.add(lkStage()); scene.add(armGroup); }
   if(armMode==='picks'&&PX) return buildPickStand(dir);
   if(armMode==='skins'&&SK) return buildSkinStand(dir);
+  if(armMode==='emotes'&&SOLDIER) return buildEmoteLab(dir);
   const holder=new T.Group(); armGuns=[];
   const id=ARM_IDS[armIdx], shopIt=SHOP_GUN(id), V=GUNV[id];
   if(V){ // an Arsenal gun: one model at its rarity, with its finish and attachments
@@ -2898,6 +2900,7 @@ function updateArmory(dt){ dt=dt||1/60;
   if(armGroup&&armGroup.userData.dist) return updateLineup(t,dt);
   if(armMode==='picks'&&PX) updatePickStand(t);
   else if(armMode==='skins'&&SK) updateSkinStand(t,dt);
+  else if(armMode==='emotes') updateEmoteLab(dt);
   else armGuns.forEach((h,i)=>{ h.rotation.y=Math.PI/2+Math.sin(t*0.8+i*0.5)*0.55; h.position.y=1.0+Math.sin(t*1.6+i)*0.06; });
   if(LK.ring) LK.ring.material.opacity=1, LK.glow.material.opacity=0.75+0.25*Math.sin(t*2.2);
   const o=LK.orbit;
@@ -3006,9 +3009,10 @@ function lkCards(){
   const card=(i,col,name,art)=>`<button class="lk-card" role="option" aria-selected="false" data-i="${i}" style="--rc:${col}" aria-label="${esc(name)}">${art}<span class="nm">${esc(name)}</span></button>`;
   if(armMode==='skins') return SK.ITEMS.map((it,i)=>card(i,RAR[it.r].c,it.n,'<span class="ph"></span><canvas width="160" height="200" hidden></canvas>'));
   if(armMode==='picks') return PX.ITEMS.map((it,i)=>card(i,RAR[it.rar].c,it.n,`<span class="art">${PX.pickSVG(it,'lk'+i)}</span>`));
+  if(armMode==='emotes') return emAll().map((k,i)=>card(i,EMOTES[k].clip?'#ffd23f':'#5cf0ff',EMOTES[k].n,`<span class="art em">${emIcon(k)}</span>`));
   return ARM_IDS.map((id,i)=>{ const V=GUNV[id]; return V?card(i,RAR[V.r].c,V.n,`<span class="art gun" style="color:${V.col}">${ICONS[V.base]}</span>`):card(i,WEAP[id].col||'#5cf0ff',WEAP[id].name,`<span class="art gun">${ICONS[id]}</span>`); });
 }
-function lkIdx(){ return armMode==='skins'?skIdx:armMode==='picks'?pxIdx:armIdx; }
+function lkIdx(){ return armMode==='skins'?skIdx:armMode==='picks'?pxIdx:armMode==='emotes'?EL.i:armIdx; }
 function lkRail(){
   const tr=$('armTrack'); LK.kind=armMode; tr.innerHTML=lkCards().join(''); LK.n=tr.children.length; LK.center=-1;
   if(armMode==='skins') for(const [i,cv] of LK.thumbs) lkPaint(i,cv);
@@ -3031,14 +3035,14 @@ function lkMoved(){
 function lkSelect(i){
   if(i===lkIdx()&&LK.shown===i&&LK.item) return;
   const d=Math.sign(i-lkIdx())||1; LK.shown=i;
-  if(armMode==='skins') skIdx=i; else if(armMode==='picks') pxIdx=i; else armIdx=i;
+  if(armMode==='skins') skIdx=i; else if(armMode==='picks') pxIdx=i; else if(armMode==='emotes') EL.i=i; else armIdx=i;
   buildArmory(LK.item?d:0);
 }
 function lkGo(i,dur?){ i=clamp(i,0,LK.n-1); const tr=$('armTrack');
   if(GS){ GS.killTweensOf(tr); GS.to(tr,{x:lkX(i),duration:dur==null?0.5:dur,ease:'power3.out',onUpdate:()=>{ if(LK.drag) LK.drag.update(); lkMoved(); },onComplete:()=>{ clearTimeout(LK.swapT); lkSelect(i); }}); }
   else { lkSetX(lkX(i)); lkMoved(); clearTimeout(LK.swapT); lkSelect(i); } }
 function lkMarkEq(){ const cards=$('armTrack').children; let e=-1;
-  if(armMode==='skins'){ const s=equippedSkin(); e=s&&!skinRandom?s.i:-1; } else if(armMode==='picks'){ const p=equippedPick(); e=p&&!pickRandom?p.i:-1; }
+  if(armMode==='skins'){ const s=equippedSkin(); e=s&&!skinRandom?s.i:-1; } else if(armMode==='picks'){ const p=equippedPick(); e=p&&!pickRandom?p.i:-1; } else if(armMode==='emotes') e=emAll().indexOf(EM.last);
   for(let i=0;i<cards.length;i++) cards[i].classList.toggle('eq',i===e); }
 function lkInitRail(){
   const rail=$('armRail'), tr=$('armTrack'), D=window.Draggable;
@@ -3076,18 +3080,20 @@ function lkThumbTick(){
   if(pick<0) return; const cv=lkThumb(pick); LK.thumbs.set(pick,cv); lkPaint(pick,cv); if(pick===(equippedSkin()||{}).i) showPickNote();
 }
 function setArmMode(m){
-  if(m==='picks'&&!PX||m==='skins'&&!(SK&&SOLDIER)) return; armMode=m; $('armEquip').hidden=$('armRandom').hidden=m==='guns';
-  $('armGunsTab').setAttribute('aria-pressed',String(m==='guns')); $('armPicksTab').setAttribute('aria-pressed',String(m==='picks')); $('armSkinsTab').setAttribute('aria-pressed',String(m==='skins'));
-  const on=$(m==='guns'?'armGunsTab':m==='picks'?'armPicksTab':'armSkinsTab'), pill=$q('.seg .pill');
+  if(m==='picks'&&!PX||m==='skins'&&!(SK&&SOLDIER)||m==='emotes'&&!SOLDIER) return; armMode=m; $('armEquip').hidden=m==='guns'; $('armRandom').hidden=m==='guns'||m==='emotes'; $('emLab').hidden=m!=='emotes';
+  $('armGunsTab').setAttribute('aria-pressed',String(m==='guns')); $('armPicksTab').setAttribute('aria-pressed',String(m==='picks')); $('armSkinsTab').setAttribute('aria-pressed',String(m==='skins')); $('armEmotesTab').setAttribute('aria-pressed',String(m==='emotes'));
+  const on=$(m==='guns'?'armGunsTab':m==='picks'?'armPicksTab':m==='emotes'?'armEmotesTab':'armSkinsTab'), pill=$q('.seg .pill');
   if(pill){ const v={x:on.offsetLeft-4,width:on.offsetWidth}; if(GS&&!calmUI&&pill.style.width) GS.to(pill,{...v,duration:0.35,ease:'power3.out'}); else { pill.style.width=v.width+'px'; pill.style.transform=`translateX(${v.x}px)`; if(GS) GS.set(pill,v); } }
-  $('armSets').hidden=m==='guns'; $('armSets').setAttribute('aria-label',m==='skins'?'Skin theme':'Pickaxe set');
-  $('armSets').innerHTML=m==='skins'?SK.THEMES.map(t=>`<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join(''):m==='picks'?PX.SETS.map(s=>`<button data-s="${s.id}" aria-pressed="false">${s.n}</button>`).join(''):'';
+  $('armSets').hidden=m==='guns'; $('armSets').setAttribute('aria-label',m==='skins'?'Skin theme':m==='emotes'?'Emote page':'Pickaxe set');
+  $('armSets').innerHTML=m==='skins'?SK.THEMES.map(t=>`<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join(''):m==='picks'?PX.SETS.map(s=>`<button data-s="${s.id}" aria-pressed="false">${s.n}</button>`).join('')
+    :m==='emotes'?emPages().map((P,i)=>`<button data-s="${i}" aria-pressed="false">${i?'Quaternius & Kenney':'Classic'}</button>`).join(''):'';
   LK.shown=lkIdx(); buildArmory(); lkRail(); lkFrame(true);
 }
 function armStep(d){ lkGo(LK.center+d,0.4); }
 if(!PX) $('armPicksTab').hidden=true;
 $('armSets').addEventListener('click',ev=>{ const b=ev.target.closest('button'); if(!b) return;
-  lkGo(armMode==='skins'?SK.ITEMS.findIndex(i=>i.t===b.dataset.s):PX.ITEMS.findIndex(i=>i.set.id===b.dataset.s),0.8); });
+  lkGo(armMode==='skins'?SK.ITEMS.findIndex(i=>i.t===b.dataset.s):armMode==='emotes'?emAll().indexOf(emPages()[+b.dataset.s][0]):PX.ITEMS.findIndex(i=>i.set.id===b.dataset.s),0.8); });
+$('armEmotesTab').addEventListener('click',()=>setArmMode('emotes'));
 $('armSkinsTab').addEventListener('click',()=>setArmMode('skins'));
 // ---- skins in the locker
 var skIdx=0, skShown=[];
@@ -3105,6 +3111,45 @@ function buildSkinStand(dir?){
 function updateSkinStand(t,dt){
   for(const c of skShown){ if(c.sl) emClip(c.sl.e,c); c.mixer.update(dt); swayGear({onGround:true,walkT:0},c,0,dt); standLife(c,dt); } // [S4] idle life and a wave on the pedestal
 }
+// ---- [v1.66] the Emote Lab: every emote on your skin, looping on the pedestal. Orbit to any angle (even from below),
+// zoom right in, pause, scrub through it, slow it down, and jump to a front, side, back or top view.
+const EL:any={i:0,c:null,e:null,t:0,play:true,speed:1};
+const emAll=()=>emPages().flat();
+// one cycle of an emote in seconds: a beat loop, a clip's length, or a one-off's length with a short rest before it repeats
+function elLen(E){ if(E.clip){ const cl=SOLDIER.clips[E.clip]; const d=cl?cl.duration/(E.speed||1):1; return E.loop?d:d+(E.hold||0)+0.6; }
+  return E.loop?60*E.beats/E.bpm:E.dur+0.6; }
+function buildEmoteLab(dir?){
+  const k=emAll()[EL.i], E=EMOTES[k], sk=equippedSkin(), c=sk?standChar(sk):makeCharacterGLB(), h=new T.Group();
+  if(!sk) c.pick.visible=false;
+  c.g.rotation.y=Math.PI; h.add(c.g); h.userData.ch=c; h.userData.chG=c.g; skShown=[c];
+  EL.c=c; EL.e=heroStand(c); EL.t=0; emBegin(EL.e,k); EL.e.emote.w=1;
+  LK.ped.visible=LK.ring.visible=LK.blob.visible=true; lkTint(E.clip?'#ffd23f':'#5cf0ff');
+  lkPut(h,dir||0); if(LK.kind!=='emotes'||dir==null) lkFrame(true);
+  const src=E.clip?(/RunInPlace|HangTime/.test(E.clip)?'Kenney':'Quaternius')+' · CC0':'Hand-keyed';
+  lkInfo(E.n,`Emote ${EL.i+1} of ${emAll().length} · ${src}`,null,(E.loop?'Loops':'One-off')+(E.zg?' · zero-g only':'')+` · ${elLen(E).toFixed(1)} s`);
+  showEquip(); const pg=emPages().findIndex(P=>P.indexOf(k)>=0); [...$('armSets').children].forEach((b:any)=>b.setAttribute('aria-pressed',String(+b.dataset.s===pg)));
+  elUI(); }
+function updateEmoteLab(dt){ const c=EL.c, e=EL.e; if(!c||!e) return;
+  if(!e.emote){ emBegin(e,emAll()[EL.i]); e.emote.w=1; }
+  const E=e.emote.E, L=elLen(E); if(EL.play){ EL.t=(EL.t+dt*EL.speed)%L; elUI(true); }
+  e.emote.t=EL.t; e.emote.w=1; e.emote.out=false;
+  c.model.position.set(0,0,0); emClip(e,c); c.mixer.update(EL.play?dt*EL.speed:0); swayGear({onGround:true,walkT:0},c,0,dt); c.g.updateMatrixWorld(true); c.model.getWorldQuaternion(_qm);
+  const X:any={e,c,B:c.bones,g:c.g,pitch:0,rightB:new V(1,0,0).applyQuaternion(_qm),fwdB:new V(0,0,-1).applyQuaternion(_qm),upB:new V(0,1,0).applyQuaternion(_qm)};
+  emotePose(e,X); }
+function elUI(timeOnly?){ const e=EL.e, E=e&&e.emote&&e.emote.E; if(!E) return; const L=elLen(E), r=$('elScrub') as HTMLInputElement;
+  if(document.activeElement!==r) r.value=String(Math.round(EL.t/L*1000)); $('elTime').textContent=`${EL.t.toFixed(1)} / ${L.toFixed(1)} s`;
+  if(timeOnly) return; $('elPlay').textContent=EL.play?'❚❚ Pause':'▶ Play'; $('elPlay').setAttribute('aria-pressed',String(!EL.play));
+  [...$('elSpeed').children].forEach((b:any)=>b.setAttribute('aria-pressed',String(+b.dataset.v===EL.speed))); }
+// camera presets: where the camera sits round the target (x right, y up, z toward the front of the character)
+const EL_VIEWS={front:[0,0.35,1],side:[1,0.3,0],back:[0,0.35,-1],top:[0.02,1,0.08],low:[0.35,-0.12,0.9]};
+function elView(n){ const o=LK.orbit, v=EL_VIEWS[n]; if(!o||!v) return; o.autoRotate=false; LK.idle=0;
+  const d=Math.max(3.4,camera.position.distanceTo(o.target)), dir=new V(v[0],v[1],v[2]).normalize().multiplyScalar(d), to=o.target.clone().add(dir);
+  if(GS&&!calmUI) GS.to(camera.position,{x:to.x,y:to.y,z:to.z,duration:0.6,ease:'power3.inOut'}); else camera.position.copy(to); }
+$('elPlay').addEventListener('click',()=>{ EL.play=!EL.play; elUI(); });
+$('elRestart').addEventListener('click',()=>{ EL.t=0; EL.play=true; elUI(); });
+$('elScrub').addEventListener('input',ev=>{ const e=EL.e, E=e&&e.emote&&e.emote.E; if(!E) return; EL.play=false; EL.t=+(ev.target as HTMLInputElement).value/1000*elLen(E)*0.9999; elUI(); });
+$('elSpeed').addEventListener('click',ev=>{ const b=(ev.target as Element).closest('button'); if(!b) return; EL.speed=+(b as HTMLElement).dataset.v; elUI(); });
+$('elViews').addEventListener('click',ev=>{ const b=(ev.target as Element).closest('button'); if(b) elView((b as HTMLElement).dataset.v); });
 // a fixed row of skins for screenshots (test hook)
 function updateLineup(t,dt){
   for(const c of skShown){ c.g.rotation.y=c.g.userData.yaw; c.mixer.update(dt); swayGear({onGround:true,walkT:0},c,0,dt); }
@@ -3128,7 +3173,8 @@ function setRandom(on){ if(armMode==='skins') skinRandom=on; else pickRandom=on;
   try{ localStorage.setItem(armMode==='skins'?'stormIslandSkinRandom':'stormIslandPickRandom',on?'1':'0'); }catch(e){} }
 const DICE='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><g fill="currentColor"><circle cx="8" cy="8" r="1.6"/><circle cx="16" cy="8" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="8" cy="16" r="1.6"/><circle cx="16" cy="16" r="1.6"/></g></svg>';
 function pickIcon(ic){ const it=PX&&PX.ITEMS[+ic.slice(2)]; return it?PX.pickSVG(it,'hb').replace('<svg viewBox="0 0 200 200"','<svg viewBox="24 22 152 152" width="30" height="30" aria-hidden="true"'):''; }
-function showEquip(){ const rand=armMode==='skins'?skinRandom:pickRandom, on=!rand&&(armMode==='skins'?SK.ITEMS[skIdx].n===equippedSkinName():PX&&PX.ITEMS[pxIdx].n===equippedName), b=$('armEquip'); b.textContent=on?'Equipped ✓':'Equip'; b.setAttribute('aria-pressed',String(!!on));
+function showEquip(){ if(armMode==='emotes'){ const on=emAll()[EL.i]===EM.last, b=$('armEquip'); b.textContent=on?'Quick emote ✓':'Set as quick emote'; b.setAttribute('aria-pressed',String(on)); return; }
+  const rand=armMode==='skins'?skinRandom:pickRandom, on=!rand&&(armMode==='skins'?SK.ITEMS[skIdx].n===equippedSkinName():PX&&PX.ITEMS[pxIdx].n===equippedName), b=$('armEquip'); b.textContent=on?'Equipped ✓':'Equip'; b.setAttribute('aria-pressed',String(!!on));
   const r=$('armRandom'); r.innerHTML=DICE+(rand?' Random each match ✓':' Random each match'); r.setAttribute('aria-pressed',String(rand)); }
 function showPickNote(){ const eq=equippedPick(), sk=equippedSkin(), esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   // the loadout cards on the home screen: a portrait of your skin and your pickaxe; each opens its tab in the locker
@@ -3166,12 +3212,14 @@ function dressPick(c,eq){
   if(F&&F.dual){ c.pickL=new T.Group(); c.pickL.add(hold()[0]); c.pickL.visible=false; c.g.add(c.pickL); }
 }
 function equipCurrent(){
+  if(armMode==='emotes'){ EM.last=emAll()[EL.i]; try{ localStorage.setItem('stormIslandEmote',EM.last); }catch(e){} showEquip(); lkMarkEq(); sfx('pickup',null,{item:{kind:'gun',r:2}}); return; } // tap B plays it
   setRandom(false);
   if(armMode==='skins'){ const it=SK.ITEMS[skIdx]; skinName=it.n; try{ localStorage.setItem('stormIslandSkin',it.n); }catch(e){} showEquip(); showPickNote(); lkMarkEq(); if(player) applySkin(player.ch,it); sfx('pickup',null,{item:{kind:'gun',r:it.r}}); return; }
   equippedName=PX.ITEMS[pxIdx].n; try{ localStorage.setItem('stormIslandPick',equippedName); }catch(e){} showEquip(); showPickNote(); lkMarkEq(); applyPickSkin(player); refreshHotbar(); sfx('pickup',null,{item:{kind:'gun',r:PX.ITEMS[pxIdx].rar}}); }
 $('armEquip').addEventListener('click',equipCurrent);
 $('armRandom').addEventListener('click',()=>{ const on=!(armMode==='skins'?skinRandom:pickRandom); setRandom(on); showEquip(); showPickNote(); lkMarkEq(); sfx(on?'pickup':'ui',null,{item:{kind:'gun',r:2}}); });
 $('lockerBtn').addEventListener('click',()=>openLocker(SK&&SOLDIER?'skins':'picks'));
+$('emoteLabBtn').addEventListener('click',()=>{ if(!SOLDIER) return; const i=emAll().indexOf(EM.last); if(i>=0) EL.i=i; openArmory(); setArmMode('emotes'); }); // [v1.66]
 if(!PX&&!SK) $('lockerBtn').hidden=true; if(!SK) $('armSkinsTab').hidden=true; showPickNote();
 
 $('armPicksTab').addEventListener('click',()=>setArmMode('picks'));

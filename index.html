@@ -335,6 +335,11 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 #armEquip{margin-top:6px;font-size:26px;padding:12px 18px 8px;border-radius:12px;transform:none;width:100%}
 #armRandom{margin-top:6px;font-size:16px;padding:8px 12px 6px;border-radius:12px;transform:none;width:100%;display:flex;align-items:center;justify-content:center;gap:8px}
 #armRandom svg{width:20px;height:20px;flex:none}
+#emLab{display:flex;flex-direction:column;gap:8px;margin-top:4px}#emLab[hidden]{display:none}
+#emLab .el-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}#emLab .el-row>span{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);min-width:46px}
+#emLab .chip{padding:5px 10px;font-size:13px}#emLab .chip[aria-pressed="true"]{color:#06121f;background:var(--neon);border-color:var(--neon)}
+#elTime{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted)}#elScrub{width:100%;accent-color:var(--neon)}
+.lk-card .art.em svg{width:66%;height:66%;fill:none;stroke:var(--rc);stroke-width:3.1;stroke-linecap:round;stroke-linejoin:round;overflow:visible}.lk-card .art.em svg .f{fill:var(--rc);stroke:none}
 #armRandom[aria-pressed="true"]{background:linear-gradient(180deg,rgba(98,255,154,.25),rgba(98,255,154,.1));color:#b9ffd2;box-shadow:0 0 0 2px rgba(98,255,154,.55) inset}
 #armEquip[aria-pressed="true"]{background:linear-gradient(180deg,rgba(98,255,154,.25),rgba(98,255,154,.1));color:#b9ffd2;box-shadow:0 0 0 2px rgba(98,255,154,.55) inset;cursor:default}
 #armNote{margin:0;font-size:14px;color:var(--muted)}
@@ -456,7 +461,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
     <section class="loadout" aria-label="Your loadout">
       <div class="lohead">Loadout</div>
       <div id="pickNote" class="lochips"></div>
-      <div class="btnrow"><button class="btn2" id="lockerBtn">Locker</button><button class="btn2" id="armoryBtn">Armory</button><button class="btn2" id="profileBtn">Profile</button></div>
+      <div class="btnrow"><button class="btn2" id="lockerBtn">Locker</button><button class="btn2" id="armoryBtn">Armory</button><button class="btn2" id="profileBtn">Profile</button><button class="btn2" id="emoteLabBtn">Emote Lab</button></div>
     </section>
     <section class="playcard" aria-label="Game mode">
       <div class="modepick" role="radiogroup" aria-label="Game mode"><button id="modeZg" role="radio">Zero-G Box</button><button id="modeBr" role="radio">Storm Island</button></div>
@@ -519,7 +524,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
     <header class="lk-top">
       <button class="lk-back" id="armBack">Home</button>
       <div class="lk-title">LOCK<b>ER</b></div>
-      <div class="armtabs seg" role="group" aria-label="Show"><span class="pill" aria-hidden="true"></span><button id="armSkinsTab" aria-pressed="false">Skins</button><button id="armPicksTab" aria-pressed="false">Pickaxes</button><button id="armGunsTab" aria-pressed="true">Guns</button></div>
+      <div class="armtabs seg" role="group" aria-label="Show"><span class="pill" aria-hidden="true"></span><button id="armSkinsTab" aria-pressed="false">Skins</button><button id="armPicksTab" aria-pressed="false">Pickaxes</button><button id="armGunsTab" aria-pressed="true">Guns</button><button id="armEmotesTab" aria-pressed="false">Emotes</button></div>
     </header>
     <div id="armSets" role="group" aria-label="Pickaxe set" hidden></div>
     <aside class="lk-info" aria-live="polite">
@@ -530,6 +535,12 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
       <p id="armPower" hidden></p>
       <button class="btn" id="armEquip" hidden>Equip</button>
       <button class="btn" id="armRandom" hidden aria-pressed="false">Random each match</button>
+      <div id="emLab" hidden>
+        <div class="el-row"><button class="chip" id="elPlay" aria-pressed="false">❚❚ Pause</button><button class="chip" id="elRestart">↺ Restart</button><span id="elTime"></span></div>
+        <input type="range" id="elScrub" min="0" max="1000" value="0" aria-label="Scrub through the emote">
+        <div class="el-row" id="elSpeed" role="group" aria-label="Speed"><span>Speed</span><button class="chip" data-v="0.25">¼×</button><button class="chip" data-v="0.5">½×</button><button class="chip" data-v="1" aria-pressed="true">1×</button><button class="chip" data-v="2">2×</button></div>
+        <div class="el-row" id="elViews" role="group" aria-label="Camera"><span>View</span><button class="chip" data-v="front">Front</button><button class="chip" data-v="side">Side</button><button class="chip" data-v="back">Back</button><button class="chip" data-v="top">Top</button><button class="chip" data-v="low">Low</button></div>
+      </div>
       <p class="note" id="armNote"></p>
     </aside>
     <div class="lk-hint" aria-hidden="true"><span>Drag to spin</span><span>Scroll to zoom</span><span>Double-click to reset</span></div>
