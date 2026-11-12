@@ -9059,20 +9059,22 @@
       const sk = m.userData.sk;
       SDS.next -= dt;
       if (SDS.next <= 0 && SDS.cheer < 0 && SDS.walkT <= 0) {
-        if (Math.random() < 0.45) SDS.cheer = 0;
-        else SDS.walkT = 2.8;
+        if (Math.random() < 0.35) SDS.cheer = 0;
+        else SDS.walkT = 5;
         SDS.next = rnd(4, 7);
       }
-      let mv = 0;
+      let mv = 0, spd = 0;
       if (SDS.walkT > 0) {
         SDS.walkT -= dt;
-        mv = 0.75 * Math.min(1, SDS.walkT * 2, (2.8 - SDS.walkT) * 2);
+        const e = Math.min(1, SDS.walkT * 1.5, (5 - SDS.walkT) * 1.5);
+        spd = (SDS.walkT > 2.5 ? 0.9 : 2.2) * e;
+        mv = Math.min(1, spd / 3);
       }
       if (SDS.cheer >= 0) {
         SDS.cheer += dt / 1.1;
         if (SDS.cheer >= 1) SDS.cheer = -1;
       }
-      sk.tick(t, dt, { mv, cheer: SDS.cheer });
+      sk.tick(t, dt, { mv, spd, cheer: SDS.cheer });
     }
     const SD = { m: null, it: null, cheer: -1, snap: true, vel: new V(), tgt: new V(), q: new T.Quaternion(), have: false };
     const _sdo = new V(), _sdp = new V(), _sdm = new V(), _sdE = new T.Euler(0, 0, 0, "YXZ");
@@ -9132,7 +9134,7 @@
         SD.cheer += dt / 1.1;
         if (SD.cheer >= 1) SD.cheer = -1;
       }
-      sk.tick(matchTime, dt, { mv: clamp(SD.vel.length() / 7, 0, 1), air: !p.onGround, cheer: SD.cheer, sad: p.alive ? 0 : 1 });
+      sk.tick(matchTime, dt, { mv: clamp(SD.vel.length() / 7, 0, 1), spd: SD.vel.length() / m.scale.x, air: !p.onGround, cheer: SD.cheer, sad: p.alive ? 0 : 1 });
     }
     let equippedName = "Standard Issue";
     const PICK_RENAMED = { "Jack's Grin": "Jack-o-Lantern", "Night Wing": "Spooky Shadow", "Reaper's Toll": "Grim Reaper", "Candy Corn Crusher": "Candy Corn", "Witch's Brew": "Witch's Wart", "Ghost Light": "Glossy Ghost" };

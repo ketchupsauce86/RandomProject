@@ -30,7 +30,7 @@ const RAW=[
  // ---------- Pets
  ['Biscuit','pets',0,'quad',['#e8a85a','#fff0d8','#3a2418'],{ears:'flop',tail:'wag',snout:'dog',mouth:'smile',cheeks:1},'A very good pup. The best pup. Follows you everywhere.'],
  ['Pepper','pets',0,'quad',['#2a2630','#f4f2ee','#7ad85a'],{ears:'point',tail:'long',eyeC:'#3a8a2a',mouth:'cat',whisk:1,leg:0.1},'Knocks things off shelves in zero-g. Nobody knows how.'],
- ['Mochi','pets',1,'quad',['#f6f2f4','#ffc8d8','#2a1a20'],{ears:'long',tail:'fluff',mouth:'cat',cheeks:1,leg:0.07,body:'chunky'},'Soft, round and always chewing something.'],
+ ['Mochi','pets',1,'quad',['#f6f2f4','#ffc8d8','#2a1a20'],{ears:'long',tail:'stub',mouth:'cat',cheeks:1,leg:0.07,body:'chunky'},'Soft, round and always chewing something.'],
  ['Waffles','pets',1,'quad',['#e88a3a','#fff4e8','#2a1a10'],{ears:'point',tail:'stub',snout:'dog',mouth:'smile',leg:0.06,body:'long'},'Short legs, big heart, very loud.'],
  ['Truffle','pets',1,'quad',['#ffb0c0','#ff8aa0','#2a1418'],{ears:'point',tail:'curl',snout:'pig',eyes:'dot',cheeks:1,leg:0.08},'Can sniff out a chest from across the island.'],
  ['Sprig','pets',2,'quad',['#f07a2a','#fff4ea','#2a1a10'],{ears:'point',tail:'fluff',snout:'dog',mouth:'smile',tailTip:'#fff4ea',paw:'#2a1a10'},'Quick, clever, and a little bit sneaky.'],
@@ -341,18 +341,66 @@ quad(x,b){ const o=x.o, c=x.c, L=o.leg||0.11, w=o.body==='chunky'?1.15:1, l=o.bo
   if(o.snout==='dog'){ P(hd,sph(14),mt(x,o.headC?c[0]:c[1]),[0,-R*.32,-R*.78],[R*.48,R*.36,R*.45],{ink:inkK(x,0.12)}); P(hd,sph(10),M('#1a1420'),[0,-R*.14,-R*1.18],[R*.15,R*.1,R*.1]); }
   if(o.snout==='pig'){ P(hd,cyl(1,1,14),M(c[1]),[0,-R*.18,-R*.95],[R*.3,R*.15,R*.22],{rot:[Math.PI/2,0,0],ink:0.1}); for(const s of[-1,1]) P(hd,sph(6),M('#5a2a30'),[s*R*.1,-R*.18,-R*1.04],R*.06); }
   if(o.snout==='beak') P(hd,cone(8),M('#ffb21a'),[0,-R*.15,-R*.85],[R*.25,R*.5,R*.2],{rot:[-Math.PI/2,0,0],ink:0.1});
-  // legs
-  const legs=[]; const pm=M(o.paw||c[1]), lm=mt(x,o.legC||c[0]);
-  for(const [sx,sz] of [[-1,-1],[1,-1],[-1,1],[1,1]]){ const p=Gp(b,[sx*0.08*w,L+0.02,sz*0.085*l]); P(p,cylT(1,0.85,8),lm,[0,0,0],[0.034,L+0.005,0.034],{ink:inkK(x,0.12)}); P(p,sph(10),pm,[0,-L,-0.008],[0.04,0.03,0.048],{ink:inkK(x,0.1)}); legs.push(p); }
+  // legs: two segments each (shoulder/elbow in front, hip/knee behind) posed by 2-bone IK onto feet that plant on the
+  // ground and step through a real quadruped gait: a four-beat walk, a diagonal trot, then a rotary gallop with a
+  // moment in the air. The elbows point back and the knees forward like a real dog's, and the paws stay flat.
+  const legs=[]; const pm=M(o.paw||c[1]), lm=mt(x,o.legC||c[0]), l1=(L+0.02)*0.55, l2=(L+0.02)*0.5, HY=(L+0.02)-Y; // hip height relative to the torso centre
+  for(const [sx,sz] of [[-1,-1],[1,-1],[-1,1],[1,1]]){ const hip=[sx*0.08*w,HY+0.0,sz*0.085*l], p=Gp(tor_,hip);
+    P(p,cylT(1,0.85,8),lm,[0,0,0],[0.036,l1,0.036],{ink:inkK(x,0.12)}); const kn=Gp(p,[0,-l1,0]); P(kn,sph(8),lm,[0,0,0],0.03);
+    P(kn,cylT(1,0.8,8),lm,[0,0,0],[0.03,l2,0.03],{ink:inkK(x,0.12)}); const pw=Gp(kn,[0,-l2,0]); P(pw,sph(10),pm,[0,-0.008,-0.01],[0.04,0.026,0.05],{ink:inkK(x,0.1)});
+    legs.push({p,kn,pw,hip,front:sz<0,left:sx<0}); }
   if(o.tail){ const tp=Gp(tor_,[0,0.04,0.135*l]); tail(x,tp,o.tail); }
   if(o.glow) x.halo=halo(tor_,o.glow,0.6,[0,0,0]);
   x.h=Y+0.2+R;
-  x.A.push((t,dt,mv,air)=>{ const ph=x.ph;
-    legs.forEach((p,i)=>{ const d=(i===0||i===3)?0:Math.PI; p.rotation.x=air?0.55*Math.sin(t*7+i*1.4):0.8*mv*Math.sin(ph+d); });
-    tor_.position.y=Y+(air?0:Math.abs(Math.sin(ph))*0.022*mv)+0.004*Math.sin(t*2.6); bm.scale.y=0.12*w*(1+0.03*Math.sin(t*2.6));
-    hp.rotation.y=0.38*Math.sin(t*0.41)*(1-mv)+0.1*Math.sin(t*1.3); hp.rotation.z=0.14*Math.sin(t*0.57); hp.rotation.x=-0.12*mv+0.06*Math.sin(ph*2)*mv;
+  // gait footfall offsets [LF,RF,LH,RH] (fraction of a stride) and the share of the stride each foot is down
+  const GAIT={walk:{off:[0.25,0.75,0,0.5],duty:0.68},trot:{off:[0,0.5,0.5,0],duty:0.5},gallop:{off:[0.5,0.6,0,0.1],duty:0.32},hop:{off:[0.5,0.56,0,0.04],duty:0.34}};
+  const hopper=o.ears==='long', slow=!!o.shell; // bunnies bound with both back feet together; tortoises only ever walk
+  const ik=(lg,tz,ty)=>{ // foot target (tz,ty) from the hip in torso space: upper and lower angles about X
+    const D=Math.min(Math.hypot(tz,ty),l1+l2-0.002), a0=Math.atan2(-tz,-ty), ca=clamp1((l1*l1+D*D-l2*l2)/(2*l1*D)), cb=clamp1((l1*l1+l2*l2-D*D)/(2*l1*l2));
+    const al=Math.acos(ca), be=Math.PI-Math.acos(cb), s=lg.front?-1:1; // front: elbow back, hind: knee forward
+    lg.p.rotation.x=a0+s*al; lg.kn.rotation.x=-s*be; lg.pw.rotation.x=-(lg.p.rotation.x+lg.kn.rotation.x)-tor_.rotation.x; };
+  const st={cyc:0,sit:0,still:0,trot:0,gal:0,sniff:0,sniffT:4};
+  x.A.push((t,dt,mv,air,S)=>{
+    const spd=S&&S.spd!=null?S.spd:mv*5;                          // ground speed in m/s
+    st.trot+=((spd>1.3?1:0)-st.trot)*Math.min(1,dt*4); st.gal+=((spd>3.4?1:0)-st.gal)*Math.min(1,dt*4);
+    if(slow) st.trot=st.gal=0; if(hopper) st.gal=st.trot;
+    const G0=GAIT.walk, G1=GAIT.trot, G2=hopper?GAIT.hop:GAIT.gallop, k1=st.trot*(1-st.gal), k2=st.gal, k0=1-k1-k2;
+    const duty=G0.duty*k0+G1.duty*k1+G2.duty*k2;
+    const f=spd<0.05?0:slow?Math.min(1.6,0.6+spd*0.3):Math.min(4.2,0.9+spd*0.55); st.cyc=(st.cyc+dt*f)%1;       // strides per second
+    const move=Math.min(1,spd/0.4), A=(0.045+Math.min(spd,6)*0.014)*(L/0.11)*move;   // stride length
+    // sitting down after standing still a while, up again the moment it moves
+    st.still=spd<0.05&&!air?st.still+dt:0; st.sit+=((st.still>3.5?1:0)-st.sit)*Math.min(1,dt*(st.still>3.5?2.2:7));
+    const sit=st.sit*(o.fly?0:1);
+    // body: two dips per stride at a walk, a bounce at the trot, a rocking leap at the gallop; a little roll with the hips
+    const c2=TAU*st.cyc, sus=k2*Math.max(0,Math.sin(c2))*0.045*move;
+    tor_.position.y=Y-(k0*0.006*(1+Math.cos(2*c2))+k1*0.01*Math.abs(Math.sin(c2*2)))*move+sus+0.003*Math.sin(t*2.6)-sit*0.05;
+    tor_.position.z=sit*0.03;
+    tor_.rotation.x=air?0.12*Math.sin(t*1.4):k2*0.16*Math.sin(c2+0.6)*move+sit*0.5;           // nose up while sitting
+    tor_.rotation.z=air?0:(k0*0.035+k1*0.02)*Math.sin(c2)*move;
+    bm.scale.y=0.12*w*(1+0.03*Math.sin(t*2.6));
+    // feet
+    for(let i=0;i<4;i++){ const lg=legs[i], off=G0.off[i]*k0+G1.off[i]*k1+G2.off[i]*k2;
+      let fz=0, fy=0;
+      if(air){ fz=0.03*Math.sin(t*7+i*1.6); fy=0.025+0.02*Math.cos(t*7+i*1.6); }
+      else if(move>0.001){ const u=(st.cyc+off)%1;
+        if(u<duty){ fz=-A/2+A*(u/duty); }                                              // planted: the body walks over it
+        else { const s=(u-duty)/(1-duty), e=s*s*(3-2*s); fz=A/2-A*e; fy=(0.025+0.02*k2)*(L/0.11)*Math.sin(Math.PI*s)*move; } } // swing: lift, reach forward
+      // where the hip is now (the torso bobs, pitches and sits), and the foot target from it, in torso space
+      const cp=Math.cos(tor_.rotation.x), sp=Math.sin(tor_.rotation.x), hy=lg.hip[1], hz=lg.hip[2];
+      const hipY=tor_.position.y+hy*cp-hz*sp, hipZ=tor_.position.z+hy*sp+hz*cp;
+      let gz=hz+fz, gy=fy;
+      if(!lg.front&&sit>0){ gz=hz-0.05*sit+fz; }                                         // hind paws tuck forward under the sit
+      const wz=gz-hipZ, wy=gy-hipY;                                                       // world (b) space vector hip -> foot
+      ik(lg, wy*-sp+wz*cp, wy*cp+wz*sp);                                                  // rotate into the torso's frame
+    }
+    // head: nods with the front feet at a walk, steadies at speed, looks around, sniffs the ground now and then
+    st.sniffT-=dt; if(st.sniffT<0&&st.sniff<=0&&!air&&spd<1.2){ st.sniff=2.2; st.sniffT=6+Math.random()*8; }
+    const sn=st.sniff>0?Math.sin(Math.PI*Math.min(1,(2.2-st.sniff)/2.2)):0; if(st.sniff>0) st.sniff-=dt;
+    hp.rotation.y=(0.38*Math.sin(t*0.41)+0.1*Math.sin(t*1.3))*(1-move*0.8)*(1-sn);
+    hp.rotation.z=0.12*Math.sin(t*0.57)*(1-move);
+    hp.rotation.x=k0*0.07*Math.sin(2*c2)*move-0.1*k2*move+sn*(0.55+0.06*Math.sin(t*14))-sit*0.45-tor_.rotation.x*0.5;
     if(x.wings) flap(x.wings,(air||o.fly?0.5:0.15)+(air||o.fly?0.6:0.1)*Math.sin(t*(air||o.fly?9:2)));
-    tor_.rotation.x=air?0.12*Math.sin(t*1.4):0; });
+  });
 },
 blob(x,b){ const o=x.o, c=x.c, bt=o.body, jig=Gp(b,[0,0,0]), R=0.15; let bm, hR=0.185, hy=0.15, fo={ey:0.18,my:-0.1};
   const mm=mt(x,c[0]);
@@ -630,6 +678,7 @@ none(x,b){ x.h=0.3; },
 };
 let GRID=null; function gridMat(a,b2){ if(!GRID){ const cv=document.createElement('canvas'); cv.width=cv.height=64; const g=cv.getContext('2d'); g.fillStyle=a; g.fillRect(0,0,64,64); g.strokeStyle=b2; g.lineWidth=2; for(let i=0;i<=64;i+=16){ g.beginPath(); g.moveTo(i,0); g.lineTo(i,64); g.moveTo(0,i); g.lineTo(64,i); g.stroke(); } g.lineWidth=5; g.strokeRect(0,0,64,64);
   const tx=new T.CanvasTexture(cv); GRID=new T.MeshToonMaterial({map:tx,gradientMap:GRAD}); GRID.userData.keep=true; } return GRID; }
+const clamp1=v=>v<-1?-1:v>1?1:v;
 const easeIO=u=>u<0.5?2*u*u:1-Math.pow(-2*u+2,2)/2;
 
 // build one sidekick: returns a Group; root.userData.sk.tick(t, dt, {mv: 0..1 speed, air: floating, cheer: 0..1 or -1, sad: 0..1})

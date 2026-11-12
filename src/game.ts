@@ -3611,10 +3611,11 @@ function buildSideStand(dir?){
   showEquip(); [...$('armSets').children].forEach(b=>b.setAttribute('aria-pressed',String(!it.solo&&b.dataset.s===it.t)));
 }
 function updateSideStand(t,dt){ const m=SDS.m; if(!m) return; const sk=m.userData.sk;
-  SDS.next-=dt; if(SDS.next<=0&&SDS.cheer<0&&SDS.walkT<=0){ if(Math.random()<0.45) SDS.cheer=0; else SDS.walkT=2.8; SDS.next=rnd(4,7); }
-  let mv=0; if(SDS.walkT>0){ SDS.walkT-=dt; mv=0.75*Math.min(1,SDS.walkT*2,(2.8-SDS.walkT)*2); }
+  SDS.next-=dt; if(SDS.next<=0&&SDS.cheer<0&&SDS.walkT<=0){ if(Math.random()<0.35) SDS.cheer=0; else SDS.walkT=5; SDS.next=rnd(4,7); }
+  // on the spot: a walk, then a trot, easing in and out (pets step through their real gaits)
+  let mv=0, spd=0; if(SDS.walkT>0){ SDS.walkT-=dt; const e=Math.min(1,SDS.walkT*1.5,(5-SDS.walkT)*1.5); spd=(SDS.walkT>2.5?0.9:2.2)*e; mv=Math.min(1,spd/3); }
   if(SDS.cheer>=0){ SDS.cheer+=dt/1.1; if(SDS.cheer>=1) SDS.cheer=-1; }
-  sk.tick(t,dt,{mv,cheer:SDS.cheer});
+  sk.tick(t,dt,{mv,spd,cheer:SDS.cheer});
 }
 // ---- in a match
 const SD:any={m:null,it:null,cheer:-1,snap:true,vel:new V(),tgt:new V(),q:new T.Quaternion(),have:false}; const _sdo=new V(), _sdp=new V(), _sdm=new V(), _sdE=new T.Euler(0,0,0,'YXZ');
@@ -3635,7 +3636,7 @@ function sdUpdate(dt){ const m=SD.m, p=player; if(!m||!p||!p.ch) return; const s
   SD.vel.copy(m.position).sub(_sdp).divideScalar(Math.max(dt,1e-4));
   if(p.emote&&!p.emote.out&&SD.cheer<0) SD.cheer=0; // it dances along while you emote
   if(SD.cheer>=0){ SD.cheer+=dt/1.1; if(SD.cheer>=1) SD.cheer=-1; }
-  sk.tick(matchTime,dt,{mv:clamp(SD.vel.length()/7,0,1),air:!p.onGround,cheer:SD.cheer,sad:p.alive?0:1});
+  sk.tick(matchTime,dt,{mv:clamp(SD.vel.length()/7,0,1),spd:SD.vel.length()/m.scale.x,air:!p.onGround,cheer:SD.cheer,sad:p.alive?0:1});
 }
 // ---- locker: the equipped pickaxe is the one you carry into matches (looks only, every pickaxe plays the same)
 let equippedName='Standard Issue';
