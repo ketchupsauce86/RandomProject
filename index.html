@@ -356,6 +356,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 .lk-card.eq::after{content:"";position:absolute;top:7px;right:7px;width:16px;height:16px;border-radius:50%;background:#62ff9a url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.6 2.5L12 5.5' fill='none' stroke='%23103a22' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100%;box-shadow:0 0 8px #62ff9a}
 .lk-card canvas,.lk-card .art{position:absolute;inset:0 0 26px;width:100%;height:calc(100% - 26px);display:block}
 .lk-card .art{display:flex;align-items:center;justify-content:center}.lk-card .art svg{width:78%;height:78%}
+.lk-card .art.sd{color:var(--rc)}.lk-card .art.sd svg{width:46%;height:46%}
 .lk-card .art.gun svg{width:86%;height:auto;color:var(--rc)}
 .lk-card .nm{position:absolute;left:0;right:0;bottom:0;height:26px;display:flex;align-items:center;justify-content:center;padding:0 6px;font-weight:700;font-size:13px;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:rgba(0,0,0,.35);border-top:2px solid var(--rc)}
 .lk-card .ph{position:absolute;left:50%;top:44%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;border:3px solid rgba(255,255,255,.14);border-top-color:var(--rc);animation:spin 1s linear infinite}
@@ -524,7 +525,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
     <header class="lk-top">
       <button class="lk-back" id="armBack">Home</button>
       <div class="lk-title">LOCK<b>ER</b></div>
-      <div class="armtabs seg" role="group" aria-label="Show"><span class="pill" aria-hidden="true"></span><button id="armSkinsTab" aria-pressed="false">Skins</button><button id="armPicksTab" aria-pressed="false">Pickaxes</button><button id="armGunsTab" aria-pressed="true">Guns</button><button id="armEmotesTab" aria-pressed="false">Emotes</button></div>
+      <div class="armtabs seg" role="group" aria-label="Show"><span class="pill" aria-hidden="true"></span><button id="armSkinsTab" aria-pressed="false">Skins</button><button id="armSideTab" aria-pressed="false">Sidekicks</button><button id="armPicksTab" aria-pressed="false">Pickaxes</button><button id="armGunsTab" aria-pressed="true">Guns</button><button id="armEmotesTab" aria-pressed="false">Emotes</button></div>
     </header>
     <div id="armSets" role="group" aria-label="Pickaxe set" hidden></div>
     <aside class="lk-info" aria-live="polite">
@@ -582,6 +583,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 <script src="packmoves.js"></script>
 <script src="pickaxes.js"></script>
 <script src="skins.js"></script>
+<script src="sidekicks.js"></script>
 <script src="version.js"></script>
 <script src="sounds.js"></script>
 <script src="news.js"></script>

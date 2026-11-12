@@ -2887,7 +2887,7 @@ function eliminate(t,killer,weapon,info?){
   t.alive=false; t.hp=0; t.deadT=0; aliveCount--; startDeath(t,deathKind(weapon,info),info);
   charMeshes=charMeshes.filter(m=>m.userData.ent!==t); targetsDirty=true;
   feed(killer?`${killer.name} eliminated ${t.name}${weapon?' · '+weapon:''}`:weapon?`${t.name} ${t===player?'were':'was'} hit by a ${weapon}`:`${t.name} was eliminated`,killer===player||t===player);
-  if(killer){ killer.kills++; emoteOnKill(killer,t); /* [S4] bots gloat, the death cam frames the killer */ if(killer===player){ player.bank++; sfx('elim'); banner('Eliminated',t.name+' · '+(aliveCount)+' left',2); pwOnKill(t); } }
+  if(killer){ killer.kills++; emoteOnKill(killer,t); /* [S4] bots gloat, the death cam frames the killer */ if(killer===player){ player.bank++; sfx('elim'); sdCheer(); banner('Eliminated',t.name+' · '+(aliveCount)+' left',2); pwOnKill(t); } }
   if(t.curse){ const c=t.curse; t.curse=null; if(c.alive) pwBlast(chest(t),{src:c,r:6,dmg:30,col:0xffc21a,name:'Ancient Curse'}); } // Temple Idol: the curse goes off
   // every elimination heals the winner and tops up their shield
   if(killer&&killer.alive&&killer!==t){ const add=50, hp=Math.min(100-killer.hp,add); killer.hp+=hp; killer.shield=Math.min(100,killer.shield+add-hp); }
@@ -3240,6 +3240,7 @@ function lkOrbit(){
 function lkView(){
   if(armMode==='guns') return {t:[0,1.0,0],d:SHOP_GUN(ARM_IDS[armIdx])||GUNV[ARM_IDS[armIdx]]?Math.max(4.5,6/camera.aspect):Math.max(6.5,(ARM_IDS[armIdx]==='sniper'?13:10.5)/camera.aspect),h:0.6,min:3,max:16,az:1.0,spin:false};
   if(armMode==='picks') return {t:[0,1.15,0],d:Math.max(5,6/camera.aspect),h:0.35,min:2,max:9,az:Infinity,spin:true};
+  if(armMode==='sidekicks') return {t:[0,0.42,0],d:Math.max(3.6,4.4/camera.aspect),h:0.35,min:1.0,max:7,az:Infinity,spin:true}; // [v1.71] a little closer: sidekicks are small
   if(armMode==='emotes') return {t:[0,0.95,0],d:Math.max(5.4,6.6/camera.aspect),h:0.5,min:1.1,max:14,az:Infinity,spin:false,p0:0.02,p1:Math.PI-0.02}; // [v1.66] the Emote Lab: any angle, even from below
   return {t:[0,0.9,0],d:Math.max(5.4,6.6/camera.aspect),h:0.5,min:1.3,max:8,az:Infinity,spin:true};
 }
@@ -3254,7 +3255,7 @@ function lkFrame(anim){
 // the rail covers the bottom of the screen, so the picture is nudged up to centre the model in what is left
 function lkOffset(){ const r=$('armRail'), h=r?r.offsetHeight:0, W=innerWidth, H=innerHeight; if(h) camera.setViewOffset(W,H,0,h*0.5,W,H); else camera.clearViewOffset(); }
 // ---- the item on the pedestal: the old one slides out, the new one slides in
-function lkDispose(obj){ if(obj.userData.px) disposeObj(obj); const c=obj.userData.ch; if(c) for(const o of c.gear||[]) o.traverse(m=>{ if(m.isMesh&&!m.geometry.userData.keep) m.geometry.dispose(); }); }
+function lkDispose(obj){ if(obj.userData.side) sdFree(obj); if(obj.userData.px) disposeObj(obj); const c=obj.userData.ch; if(c) for(const o of c.gear||[]) o.traverse(m=>{ if(m.isMesh&&!m.geometry.userData.keep) m.geometry.dispose(); }); }
 function lkPut(obj,dir){
   const old=LK.item; LK.item=obj; armGroup.add(obj);
   if(old){ if(GS&&!calmUI&&dir){ GS.killTweensOf(old.position); GS.to(old.position,{x:-dir*2.6,duration:0.35,ease:'power2.in'}); GS.to(old.scale,{x:0.5,y:0.5,z:0.5,duration:0.35,ease:'power2.in',onComplete:()=>{ armGroup&&armGroup.remove(old); lkDispose(old); skShown=skShown.filter(c=>c.g!==old.userData.chG); }}); }
@@ -3266,6 +3267,7 @@ function buildArmory(dir?){
   if(armMode==='picks'&&PX) return buildPickStand(dir);
   if(armMode==='skins'&&SK) return buildSkinStand(dir);
   if(armMode==='emotes'&&SOLDIER) return buildEmoteLab(dir);
+  if(armMode==='sidekicks'&&SKD) return buildSideStand(dir);
   const holder=new T.Group(); armGuns=[];
   const id=ARM_IDS[armIdx], shopIt=SHOP_GUN(id), V=GUNV[id];
   if(V){ // an Arsenal gun: one model at its rarity, with its finish and attachments
@@ -3296,7 +3298,7 @@ function openArmory(){ state='armory'; if(world) world.visible=false; (scene.fog
     GS.to('#menu',{opacity:0,duration:0.2,onComplete:()=>{ $('menu').hidden=true; GS.set('#menu',{opacity:1}); }}); }
   else { $('menu').hidden=true; $('armory').hidden=false; }
 }
-function closeArmory(){ state='menu'; if(world) world.visible=true; (scene.fog as any).far=330; const o=LK.orbit; if(o) o.enabled=false; camera.clearViewOffset();
+function closeArmory(){ sdLight(false); state='menu'; if(world) world.visible=true; (scene.fog as any).far=330; const o=LK.orbit; if(o) o.enabled=false; camera.clearViewOffset();
   $('armory').hidden=true; $('menu').hidden=false; if(GS&&!calmUI) GS.fromTo('#menu',{opacity:0},{opacity:1,duration:0.35});
   if(armGroup){ if(LK.item){ lkDispose(LK.item); LK.item=null; } scene.remove(armGroup); armGroup.remove(LK.stage); armGroup=null; } skShown=[]; LK.shown=-1; LK.center=-1; $('armLabels').innerHTML='';
   $('lockerBtn').focus(); showPickNote(); }
@@ -3306,6 +3308,7 @@ function updateArmory(dt){ dt=dt||1/60;
   if(armMode==='picks'&&PX) updatePickStand(t);
   else if(armMode==='skins'&&SK) updateSkinStand(t,dt);
   else if(armMode==='emotes') updateEmoteLab(dt);
+  else if(armMode==='sidekicks') updateSideStand(t,dt);
   else armGuns.forEach((h,i)=>{ h.rotation.y=Math.PI/2+Math.sin(t*0.8+i*0.5)*0.55; h.position.y=1.0+Math.sin(t*1.6+i)*0.06; });
   if(LK.ring) LK.ring.material.opacity=1, LK.glow.material.opacity=0.75+0.25*Math.sin(t*2.2);
   const o=LK.orbit;
@@ -3315,7 +3318,7 @@ function updateArmory(dt){ dt=dt||1/60;
   else lkFrame(false);
   const labels=$('armLabels').children;
   if(armMode==='guns') armGuns.forEach((h,i)=>{ h.getWorldPosition(tv1); tv1.y-=0.75; tv1.project(camera); const el=labels[i]; if(el){ el.style.left=((tv1.x+1)/2*innerWidth)+'px'; el.style.top=((1-tv1.y)/2*innerHeight)+'px'; } });
-  if(armMode==='skins') lkThumbTick();
+  if(armMode==='skins'||armMode==='sidekicks') lkThumbTick();
 }
 // ================= armory: pickaxes in 3D =================
 // Each pickaxe design from pickaxes.js becomes a model: the head outline is extruded into a solid,
@@ -3414,13 +3417,15 @@ function lkCards(){
   const card=(i,col,name,art)=>`<button class="lk-card" role="option" aria-selected="false" data-i="${i}" style="--rc:${col}" aria-label="${esc(name)}">${art}<span class="nm">${esc(name)}</span></button>`;
   if(armMode==='skins') return SK.ITEMS.map((it,i)=>card(i,RAR[it.r].c,it.n,'<span class="ph"></span><canvas width="160" height="200" hidden></canvas>'));
   if(armMode==='picks') return PX.ITEMS.map((it,i)=>card(i,RAR[it.rar].c,it.n,`<span class="art">${PX.pickSVG(it,'lk'+i)}</span>`));
+  if(armMode==='sidekicks') return SKD.ITEMS.map((it,i)=>card(i,it.solo?'#5cf0ff':RAR[it.r].c,it.n,it.solo?`<span class="art sd">${SOLO_ICON}</span>`:'<span class="ph"></span><canvas width="160" height="200" hidden></canvas>'));
   if(armMode==='emotes') return emAll().map((k,i)=>card(i,EMOTES[k].clip?'#ffd23f':'#5cf0ff',EMOTES[k].n,`<span class="art em">${emIcon(k)}</span>`));
   return ARM_IDS.map((id,i)=>{ const V=GUNV[id]; return V?card(i,RAR[V.r].c,V.n,`<span class="art gun" style="color:${V.col}">${ICONS[V.base]}</span>`):card(i,WEAP[id].col||'#5cf0ff',WEAP[id].name,`<span class="art gun">${ICONS[id]}</span>`); });
 }
-function lkIdx(){ return armMode==='skins'?skIdx:armMode==='picks'?pxIdx:armMode==='emotes'?EL.i:armIdx; }
+function lkIdx(){ return armMode==='sidekicks'?sdIdx:armMode==='skins'?skIdx:armMode==='picks'?pxIdx:armMode==='emotes'?EL.i:armIdx; }
 function lkRail(){
   const tr=$('armTrack'); LK.kind=armMode; tr.innerHTML=lkCards().join(''); LK.n=tr.children.length; LK.center=-1;
   if(armMode==='skins') for(const [i,cv] of LK.thumbs) lkPaint(i,cv);
+  if(armMode==='sidekicks') for(const [i,cv] of SDT_C) lkPaint(i,cv);
   lkMeasure(); lkSetX(lkX(lkIdx())); lkMoved(); lkMarkEq();
 }
 function lkMeasure(){ const c=$('armTrack').children; LK.step=c.length>1?c[1].offsetLeft-c[0].offsetLeft:128; LK.cw=c[0]?c[0].offsetWidth:116;
@@ -3440,14 +3445,14 @@ function lkMoved(){
 function lkSelect(i){
   if(i===lkIdx()&&LK.shown===i&&LK.item) return;
   const d=Math.sign(i-lkIdx())||1; LK.shown=i;
-  if(armMode==='skins') skIdx=i; else if(armMode==='picks') pxIdx=i; else if(armMode==='emotes') EL.i=i; else armIdx=i;
+  if(armMode==='skins') skIdx=i; else if(armMode==='sidekicks') sdIdx=i; else if(armMode==='picks') pxIdx=i; else if(armMode==='emotes') EL.i=i; else armIdx=i;
   buildArmory(LK.item?d:0);
 }
 function lkGo(i,dur?){ i=clamp(i,0,LK.n-1); const tr=$('armTrack');
   if(GS){ GS.killTweensOf(tr); GS.to(tr,{x:lkX(i),duration:dur==null?0.5:dur,ease:'power3.out',onUpdate:()=>{ if(LK.drag) LK.drag.update(); lkMoved(); },onComplete:()=>{ clearTimeout(LK.swapT); lkSelect(i); }}); }
   else { lkSetX(lkX(i)); lkMoved(); clearTimeout(LK.swapT); lkSelect(i); } }
 function lkMarkEq(){ const cards=$('armTrack').children; let e=-1;
-  if(armMode==='skins'){ const s=equippedSkin(); e=s&&!skinRandom?s.i:-1; } else if(armMode==='picks'){ const p=equippedPick(); e=p&&!pickRandom?p.i:-1; } else if(armMode==='emotes') e=emAll().indexOf(EM.last);
+  if(armMode==='skins'){ const s=equippedSkin(); e=s&&!skinRandom?s.i:-1; } else if(armMode==='sidekicks'){ const s=equippedSide(); e=s&&!sideRandom?s.i:-1; } else if(armMode==='picks'){ const p=equippedPick(); e=p&&!pickRandom?p.i:-1; } else if(armMode==='emotes') e=emAll().indexOf(EM.last);
   for(let i=0;i<cards.length;i++) cards[i].classList.toggle('eq',i===e); }
 function lkInitRail(){
   const rail=$('armRail'), tr=$('armTrack'), D=window.Draggable;
@@ -3476,30 +3481,31 @@ function lkThumb(i){
   for(let y=0;y<TH.H;y++) im.data.set(TH.px.subarray((TH.H-1-y)*row,(TH.H-y)*row),y*row); x.putImageData(im,0,0);
   return cv;
 }
-function lkPaint(i,cv){ const el=$('armTrack').children[i]; if(!el||LK.kind!=='skins') return; const c=el.querySelector('canvas'); if(!c||!c.hidden) return; c.getContext('2d').drawImage(cv,0,0); c.hidden=false; const ph=el.querySelector('.ph'); if(ph) ph.remove(); }
+function lkPaint(i,cv){ const el=$('armTrack').children[i]; if(!el||(LK.kind!=='skins'&&LK.kind!=='sidekicks')) return; const c=el.querySelector('canvas'); if(!c||!c.hidden) return; c.getContext('2d').drawImage(cv,0,0); c.hidden=false; const ph=el.querySelector('.ph'); if(ph) ph.remove(); }
 // one portrait every other frame, nearest to the middle card first
 function lkThumbTick(){
-  if(LK.kind!=='skins'||(LK.thumbBusy=(LK.thumbBusy+1)%2)) return;
-  const n=LK.n, c=Math.max(0,LK.center); let pick=-1;
-  for(let d=0;d<n&&pick<0;d++){ for(const i of[c+d,c-d]) if(i>=0&&i<n&&!LK.thumbs.has(i)){ pick=i; break; } }
-  if(pick<0) return; const cv=lkThumb(pick); LK.thumbs.set(pick,cv); lkPaint(pick,cv); if(pick===(equippedSkin()||{}).i) showPickNote();
+  const sd=LK.kind==='sidekicks'; if((LK.kind!=='skins'&&!sd)||(LK.thumbBusy=(LK.thumbBusy+1)%2)) return;
+  const n=LK.n, c=Math.max(0,LK.center), have=sd?SDT_C:LK.thumbs; let pick=-1;
+  for(let d=0;d<n&&pick<0;d++){ for(const i of[c+d,c-d]) if(i>=0&&i<n&&!have.has(i)&&!(sd&&SKD.ITEMS[i].solo)){ pick=i; break; } }
+  if(pick<0) return; const cv=sd?sdThumb(pick):lkThumb(pick); have.set(pick,cv); lkPaint(pick,cv); if(pick===((sd?equippedSide():equippedSkin())||{}).i) showPickNote();
 }
 function setArmMode(m){
-  if(m==='picks'&&!PX||m==='skins'&&!(SK&&SOLDIER)||m==='emotes'&&!SOLDIER) return; armMode=m; $('armEquip').hidden=m==='guns'; $('armRandom').hidden=m==='guns'||m==='emotes'; $('emLab').hidden=m!=='emotes';
-  $('armGunsTab').setAttribute('aria-pressed',String(m==='guns')); $('armPicksTab').setAttribute('aria-pressed',String(m==='picks')); $('armSkinsTab').setAttribute('aria-pressed',String(m==='skins')); $('armEmotesTab').setAttribute('aria-pressed',String(m==='emotes'));
-  const on=$(m==='guns'?'armGunsTab':m==='picks'?'armPicksTab':m==='emotes'?'armEmotesTab':'armSkinsTab'), pill=$q('.seg .pill');
+  if(m==='picks'&&!PX||m==='skins'&&!(SK&&SOLDIER)||m==='emotes'&&!SOLDIER||m==='sidekicks'&&!SKD) return; armMode=m; $('armEquip').hidden=m==='guns'; $('armRandom').hidden=m==='guns'||m==='emotes'; $('emLab').hidden=m!=='emotes';
+  $('armGunsTab').setAttribute('aria-pressed',String(m==='guns')); $('armPicksTab').setAttribute('aria-pressed',String(m==='picks')); $('armSkinsTab').setAttribute('aria-pressed',String(m==='skins')); $('armEmotesTab').setAttribute('aria-pressed',String(m==='emotes')); $('armSideTab').setAttribute('aria-pressed',String(m==='sidekicks'));
+  const on=$(m==='guns'?'armGunsTab':m==='picks'?'armPicksTab':m==='emotes'?'armEmotesTab':m==='sidekicks'?'armSideTab':'armSkinsTab'), pill=$q('.seg .pill');
   if(pill){ const v={x:on.offsetLeft-4,width:on.offsetWidth}; if(GS&&!calmUI&&pill.style.width) GS.to(pill,{...v,duration:0.35,ease:'power3.out'}); else { pill.style.width=v.width+'px'; pill.style.transform=`translateX(${v.x}px)`; if(GS) GS.set(pill,v); } }
-  $('armSets').hidden=m==='guns'; $('armSets').setAttribute('aria-label',m==='skins'?'Skin theme':m==='emotes'?'Emote page':'Pickaxe set');
-  $('armSets').innerHTML=m==='skins'?SK.THEMES.map(t=>`<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join(''):m==='picks'?PX.SETS.map(s=>`<button data-s="${s.id}" aria-pressed="false">${s.n}</button>`).join('')
+  $('armSets').hidden=m==='guns'; $('armSets').setAttribute('aria-label',m==='skins'?'Skin theme':m==='emotes'?'Emote page':m==='sidekicks'?'Sidekick theme':'Pickaxe set');
+  $('armSets').innerHTML=m==='sidekicks'?SKD.THEMES.map(t=>`<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join(''):m==='skins'?SK.THEMES.map(t=>`<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join(''):m==='picks'?PX.SETS.map(s=>`<button data-s="${s.id}" aria-pressed="false">${s.n}</button>`).join('')
     :m==='emotes'?emPages().map((P,i)=>`<button data-s="${i}" aria-pressed="false">${['Classic','Pack moves','Pack moves II'][i]||'More'}</button>`).join(''):'';
-  LK.shown=lkIdx(); buildArmory(); lkRail(); lkFrame(true);
+  sdLight(m==='sidekicks'); LK.shown=lkIdx(); buildArmory(); lkRail(); lkFrame(true);
 }
 function armStep(d){ lkGo(LK.center+d,0.4); }
 if(!PX) $('armPicksTab').hidden=true;
 $('armSets').addEventListener('click',ev=>{ const b=ev.target.closest('button'); if(!b) return;
-  lkGo(armMode==='skins'?SK.ITEMS.findIndex(i=>i.t===b.dataset.s):armMode==='emotes'?emAll().indexOf(emPages()[+b.dataset.s][0]):PX.ITEMS.findIndex(i=>i.set.id===b.dataset.s),0.8); });
+  lkGo(armMode==='sidekicks'?SKD.ITEMS.findIndex(i=>!i.solo&&i.t===b.dataset.s):armMode==='skins'?SK.ITEMS.findIndex(i=>i.t===b.dataset.s):armMode==='emotes'?emAll().indexOf(emPages()[+b.dataset.s][0]):PX.ITEMS.findIndex(i=>i.set.id===b.dataset.s),0.8); });
 $('armEmotesTab').addEventListener('click',()=>setArmMode('emotes'));
 $('armSkinsTab').addEventListener('click',()=>setArmMode('skins'));
+$('armSideTab').addEventListener('click',()=>setArmMode('sidekicks'));
 // ---- skins in the locker
 var skIdx=0, skShown=[];
 function studioLights(gr){ const k=new T.DirectionalLight(0xfff4e6,0.9); k.position.set(2,3,5); const r=new T.DirectionalLight(0xbfd8ff,0.6); r.position.set(-3,2,-4); gr.add(k,k.target,r,r.target); }
@@ -3562,6 +3568,76 @@ function updateLineup(t,dt){
 }
 $('armGunsTab').addEventListener('click',()=>setArmMode('guns'));
 lkInitRail();
+// ================= [v1.71] sidekicks: little companions that follow you into both modes =================
+// sidekicks.js builds each one out of three.js shapes and animates it (idle, walk or flap, blinks, a happy spin).
+// Here they stand on the locker pedestal, get portraits on the rail cards, and follow you in a match: walkers trot
+// beside your feet, flyers float by your left shoulder. They ride along in your own frame, so on the ceiling they
+// flip with you, and they do a hop and a spin every time you get an elimination.
+const SKD=window.SIDEKICKS||null;
+const SOLO_ICON='<svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true"><circle cx="20" cy="20" r="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-dasharray="4 4"/><path d="M13 27l14-14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
+var sdIdx=1, sideName=null, sideRandom=false; const SDT_C=new Map();
+try{ sideRandom=localStorage.getItem('invertedSidekickRandom')==='1'; }catch(e){}
+function equippedSideName(){ if(sideName==null){ sideName=SKD?SKD.ITEMS[1].n:'Solo'; try{ const v=localStorage.getItem('invertedSidekick'); if(v&&SKD&&SKD.ITEMS.some(i=>i.n===v)) sideName=v; }catch(e){} } return sideName; }
+function equippedSide(){ return SKD?SKD.ITEMS.find(i=>i.n===equippedSideName())||SKD.ITEMS[0]:null; }
+// models share their geometry and materials; only the glow sprites are their own
+// the box's own sky light also reaches the locker; sidekicks are cartoon-shaded, so it is turned down while they are on show
+function sdLight(on){ hemi.intensity=on?0.3:0.95; sun.intensity=on?0.25:0.55; }
+function sdFree(o){ o.traverse(m=>{ if(m.isSprite) m.material.dispose(); }); }
+// a portrait for the rail card, rendered once off screen like the skin portraits
+let SDT:any=null;
+function sdThumb(i){
+  if(!SDT){ const W=160,H=200, sc=new T.Scene(); sc.add(new T.HemisphereLight(0xf0ecff,0x4a3880,0.55)); const k=new T.DirectionalLight(0xfff4e6,0.8); k.position.set(2,3,5); const r=new T.DirectionalLight(0x9fe8ff,0.45); r.position.set(-3,2,-4); sc.add(k,r);
+    SDT={W,H,sc,cam:new T.PerspectiveCamera(24,W/H,0.05,20),rt:new T.WebGLRenderTarget(W,H),px:new Uint8Array(W*H*4)}; }
+  const m=SKD.build(T,SKD.ITEMS[i]), sk=m.userData.sk; m.rotation.y=Math.PI-0.55; sk.tick(1.3,1/60,{}); SDT.sc.add(m); m.updateMatrixWorld(true);
+  const bb=new T.Box3().setFromObject(m), cy=(bb.min.y+bb.max.y)/2, hgt=Math.max(0.3,bb.max.y-bb.min.y, (bb.max.x-bb.min.x)*0.8);
+  SDT.cam.position.set(0,cy+0.1,hgt*2.35+0.25); SDT.cam.lookAt(0,cy,0);
+  const cc=new T.Color(); renderer.getClearColor(cc); const ca=renderer.getClearAlpha();
+  renderer.setRenderTarget(SDT.rt); renderer.setClearColor(0x000000,0); renderer.clear(); renderer.render(SDT.sc,SDT.cam); renderer.readRenderTargetPixels(SDT.rt,0,0,SDT.W,SDT.H,SDT.px); renderer.setRenderTarget(null); renderer.setClearColor(cc,ca);
+  SDT.sc.remove(m); sdFree(m);
+  const cv=document.createElement('canvas'); cv.width=SDT.W; cv.height=SDT.H; const x=cv.getContext('2d'), im=x.createImageData(SDT.W,SDT.H), row=SDT.W*4;
+  for(let y=0;y<SDT.H;y++) im.data.set(SDT.px.subarray((SDT.H-1-y)*row,(SDT.H-y)*row),y*row); x.putImageData(im,0,0);
+  return cv;
+}
+// ---- the locker pedestal: idles, now and then trots on the spot or does a trick, and cheers when you equip it
+const SDS:any={m:null,next:2,cheer:-1,walkT:0};
+function buildSideStand(dir?){
+  const it=SKD.ITEMS[sdIdx], r=RAR[it.r], h=new T.Group(); h.userData.side=true; SDS.m=null;
+  if(!it.solo){ const m=SKD.build(T,it), sk=m.userData.sk; m.scale.setScalar(1.45); m.rotation.y=Math.PI; m.position.y=sk.walker?0:0.2; h.add(m); SDS.m=m; }
+  SDS.next=2.2; SDS.cheer=-1; SDS.walkT=0;
+  LK.ped.visible=LK.ring.visible=LK.blob.visible=true; lkTint(it.solo?'#5cf0ff':r.c);
+  lkPut(h,dir||0); if(LK.kind!=='sidekicks'||dir==null) lkFrame(true);
+  lkInfo(it.n,it.solo?'No sidekick':`${it.theme.n} · ${sdIdx} of ${SKD.ITEMS.length-1}`,it.solo?null:r,it.solo?'Just you':`${it.kn} · ${it.walker?'Walks at your side':'Floats by your shoulder'}`);
+  $('armNote').textContent=it.d||''; $('armLabels').innerHTML='';
+  showEquip(); [...$('armSets').children].forEach(b=>b.setAttribute('aria-pressed',String(!it.solo&&b.dataset.s===it.t)));
+}
+function updateSideStand(t,dt){ const m=SDS.m; if(!m) return; const sk=m.userData.sk;
+  SDS.next-=dt; if(SDS.next<=0&&SDS.cheer<0&&SDS.walkT<=0){ if(Math.random()<0.35) SDS.cheer=0; else SDS.walkT=5; SDS.next=rnd(4,7); }
+  // on the spot: a walk, then a trot, easing in and out (pets step through their real gaits)
+  let mv=0, spd=0; if(SDS.walkT>0){ SDS.walkT-=dt; const e=Math.min(1,SDS.walkT*1.5,(5-SDS.walkT)*1.5); spd=(SDS.walkT>2.5?0.9:2.2)*e; mv=Math.min(1,spd/3); }
+  if(SDS.cheer>=0){ SDS.cheer+=dt/1.1; if(SDS.cheer>=1) SDS.cheer=-1; }
+  sk.tick(t,dt,{mv,spd,cheer:SDS.cheer});
+}
+// ---- in a match
+const SD:any={m:null,it:null,cheer:-1,snap:true,vel:new V(),tgt:new V(),q:new T.Quaternion(),have:false}; const _sdo=new V(), _sdp=new V(), _sdm=new V(), _sdE=new T.Euler(0,0,0,'YXZ');
+function sdSpawn(){
+  if(SD.m){ if(SD.m.parent) SD.m.parent.remove(SD.m); sdFree(SD.m); SD.m=null; } SD.it=null; SD.have=false;
+  const it=equippedSide(); if(!SKD||!it||it.solo||!world) return;
+  const m=SKD.build(T,it); m.scale.setScalar(1.15); m.visible=false; world.add(m); SD.m=m; SD.it=it; SD.snap=true; SD.cheer=-1;
+}
+function sdCheer(){ if(SD.m&&SD.cheer<0) SD.cheer=0; }
+function sdUpdate(dt){ const m=SD.m, p=player; if(!m||!p||!p.ch) return; const sk=m.userData.sk;
+  const hide=p.br==='jet'||(ads&&isScoped()); m.visible=!hide; if(hide){ SD.snap=true; return; }
+  if(p.alive||!SD.have){ // the spot beside you, turned with you and rolled onto the ceiling with the camera when gravity flips
+    const g=p.ch.g; g.updateMatrixWorld(); g.localToWorld(_sdm.set(0,0.95,0)); // the middle of your body (your feet are on the ceiling when it flips)
+    _sdE.set(0,p.yaw,MODE==='br'?0:ZG.camRoll); SD.q.setFromEuler(_sdE);
+    SD.tgt.copy(_sdo.set(sk.walker?-0.95:-0.8,sk.walker?-0.95:0.6,sk.walker?-0.35:-0.1).applyQuaternion(SD.q)).add(_sdm); SD.have=true; }
+  if(SD.snap||m.position.distanceTo(SD.tgt)>9){ m.position.copy(SD.tgt); m.quaternion.copy(SD.q); SD.snap=false; SD.vel.set(0,0,0); }
+  _sdp.copy(m.position); m.position.lerp(SD.tgt,1-Math.exp(-(sk.walker?14:6)*dt)); m.quaternion.slerp(SD.q,1-Math.exp(-6*dt));
+  SD.vel.copy(m.position).sub(_sdp).divideScalar(Math.max(dt,1e-4));
+  if(p.emote&&!p.emote.out&&SD.cheer<0) SD.cheer=0; // it dances along while you emote
+  if(SD.cheer>=0){ SD.cheer+=dt/1.1; if(SD.cheer>=1) SD.cheer=-1; }
+  sk.tick(matchTime,dt,{mv:clamp(SD.vel.length()/7,0,1),spd:SD.vel.length()/m.scale.x,air:!p.onGround,cheer:SD.cheer,sad:p.alive?0:1});
+}
 // ---- locker: the equipped pickaxe is the one you carry into matches (looks only, every pickaxe plays the same)
 let equippedName='Standard Issue';
 // pickaxes that were renamed: a saved equip under the old name carries over
@@ -3573,23 +3649,27 @@ let pickRandom=false, skinRandom=false;
 try{ pickRandom=localStorage.getItem('stormIslandPickRandom')==='1'; skinRandom=localStorage.getItem('stormIslandSkinRandom')==='1'; }catch(e){}
 function rollLoadout(){
   if(pickRandom&&PX) equippedName=PX.ITEMS[Math.floor(Math.random()*PX.ITEMS.length)].n;
-  if(skinRandom&&SK) skinName=SK.ITEMS[Math.floor(Math.random()*SK.ITEMS.length)].n; }
-function setRandom(on){ if(armMode==='skins') skinRandom=on; else pickRandom=on;
-  try{ localStorage.setItem(armMode==='skins'?'stormIslandSkinRandom':'stormIslandPickRandom',on?'1':'0'); }catch(e){} }
+  if(skinRandom&&SK) skinName=SK.ITEMS[Math.floor(Math.random()*SK.ITEMS.length)].n;
+  if(sideRandom&&SKD) sideName=SKD.ITEMS[1+Math.floor(Math.random()*(SKD.ITEMS.length-1))].n; }
+function setRandom(on){ if(armMode==='skins') skinRandom=on; else if(armMode==='sidekicks') sideRandom=on; else pickRandom=on;
+  try{ localStorage.setItem(armMode==='skins'?'stormIslandSkinRandom':armMode==='sidekicks'?'invertedSidekickRandom':'stormIslandPickRandom',on?'1':'0'); }catch(e){} }
 const DICE='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><g fill="currentColor"><circle cx="8" cy="8" r="1.6"/><circle cx="16" cy="8" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="8" cy="16" r="1.6"/><circle cx="16" cy="16" r="1.6"/></g></svg>';
 function pickIcon(ic){ const it=PX&&PX.ITEMS[+ic.slice(2)]; return it?PX.pickSVG(it,'hb').replace('<svg viewBox="0 0 200 200"','<svg viewBox="24 22 152 152" width="30" height="30" aria-hidden="true"'):''; }
 function showEquip(){ if(armMode==='emotes'){ const on=emAll()[EL.i]===EM.last, b=$('armEquip'); b.textContent=on?'Quick emote ✓':'Set as quick emote'; b.setAttribute('aria-pressed',String(on)); return; }
-  const rand=armMode==='skins'?skinRandom:pickRandom, on=!rand&&(armMode==='skins'?SK.ITEMS[skIdx].n===equippedSkinName():PX&&PX.ITEMS[pxIdx].n===equippedName), b=$('armEquip'); b.textContent=on?'Equipped ✓':'Equip'; b.setAttribute('aria-pressed',String(!!on));
+  const rand=armMode==='skins'?skinRandom:armMode==='sidekicks'?sideRandom:pickRandom, on=!rand&&(armMode==='skins'?SK.ITEMS[skIdx].n===equippedSkinName():armMode==='sidekicks'?SKD.ITEMS[sdIdx].n===equippedSideName():PX&&PX.ITEMS[pxIdx].n===equippedName), b=$('armEquip'); b.textContent=on?'Equipped ✓':'Equip'; b.setAttribute('aria-pressed',String(!!on));
   const r=$('armRandom'); r.innerHTML=DICE+(rand?' Random each match ✓':' Random each match'); r.setAttribute('aria-pressed',String(rand)); }
 function showPickNote(){ const eq=equippedPick(), sk=equippedSkin(), esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   // the loadout cards on the home screen: a portrait of your skin and your pickaxe; each opens its tab in the locker
   let th=null; if(sk&&SOLDIER){ th=LK.thumbs.get(sk.i); if(!th){ th=lkThumb(sk.i); LK.thumbs.set(sk.i,th); } }
+  const sd=equippedSide(); let sdTh=null; if(sd&&!sd.solo){ sdTh=SDT_C.get(sd.i); if(!sdTh){ sdTh=sdThumb(sd.i); SDT_C.set(sd.i,sdTh); } }
   const card=(go,k,v,col,art)=>`<button class="locard" data-go="${go}" style="--rc:${col}"><span class="lothumb">${art}</span><span class="lotxt"><i>${esc(k)}</i>${esc(v)}</span></button>`;
   $('pickNote').innerHTML=(SK?skinRandom?card('skins','Skin','Random','var(--neon)',DICE):card('skins','Skin',sk?sk.n:'Default Trooper',RAR[sk?sk.r:0].c,th?'<canvas width="160" height="200"></canvas>':''):'')
-    +(PX?pickRandom?card('picks','Pickaxe','Random','var(--neon)',DICE):card('picks','Pickaxe',eq?eq.n:'Default',RAR[eq?eq.rar:0].c,eq?PX.pickSVG(eq,'lo'):ICONS.pick):'');
-  const cv=$q('#pickNote canvas'); if(cv&&th) cv.getContext('2d').drawImage(th,0,0); }
-function openLocker(mode){ const eq=equippedPick(); if(eq) pxIdx=eq.i; const sk=equippedSkin(); if(sk) skIdx=sk.i; openArmory(); setArmMode(mode); $('armEquip').focus(); }
-$('pickNote').addEventListener('click',ev=>{ const b=ev.target.closest('.locard'); if(b) openLocker(b.dataset.go==='skins'&&SK&&SOLDIER?'skins':'picks'); });
+    +(PX?pickRandom?card('picks','Pickaxe','Random','var(--neon)',DICE):card('picks','Pickaxe',eq?eq.n:'Default',RAR[eq?eq.rar:0].c,eq?PX.pickSVG(eq,'lo'):ICONS.pick):'')
+    +(SKD?sideRandom?card('sidekicks','Sidekick','Random','var(--neon)',DICE):card('sidekicks','Sidekick',sd?sd.n:'Solo',sd&&!sd.solo?RAR[sd.r].c:'var(--neon)',sdTh?'<canvas width="160" height="200"></canvas>':SOLO_ICON):'');
+  const cv=$q('#pickNote .locard[data-go="skins"] canvas'); if(cv&&th) cv.getContext('2d').drawImage(th,0,0);
+  const cs=$q('#pickNote .locard[data-go="sidekicks"] canvas'); if(cs&&sdTh) cs.getContext('2d').drawImage(sdTh,0,0); }
+function openLocker(mode){ const eq=equippedPick(); if(eq) pxIdx=eq.i; const sk=equippedSkin(); if(sk) skIdx=sk.i; const sd=equippedSide(); if(sd) sdIdx=sd.i; openArmory(); setArmMode(mode); $('armEquip').focus(); }
+$('pickNote').addEventListener('click',ev=>{ const b=ev.target.closest('.locard'); if(b) openLocker(b.dataset.go==='sidekicks'&&SKD?'sidekicks':b.dataset.go==='skins'&&SK&&SOLDIER?'skins':'picks'); });
 // the equipped skin; bots dress up at random (a few stay in the classic armor)
 var skinName=null;
 function equippedSkinName(){ if(skinName==null){ skinName='Default Trooper'; try{ const v=localStorage.getItem('stormIslandSkin'); if(v&&SK&&SK.ITEMS.some(i=>i.n===v)) skinName=v; }catch(e){} } return skinName; }
@@ -3619,10 +3699,11 @@ function dressPick(c,eq){
 function equipCurrent(){
   if(armMode==='emotes'){ EM.last=emAll()[EL.i]; try{ localStorage.setItem('stormIslandEmote',EM.last); }catch(e){} showEquip(); lkMarkEq(); sfx('pickup',null,{item:{kind:'gun',r:2}}); return; } // tap B plays it
   setRandom(false);
+  if(armMode==='sidekicks'){ const it=SKD.ITEMS[sdIdx]; sideName=it.n; try{ localStorage.setItem('invertedSidekick',it.n); }catch(e){} showEquip(); showPickNote(); lkMarkEq(); SDS.cheer=0; if(state==='armory'&&world) sdSpawn(); sfx('pickup',null,{item:{kind:'gun',r:it.r}}); return; }
   if(armMode==='skins'){ const it=SK.ITEMS[skIdx]; skinName=it.n; try{ localStorage.setItem('stormIslandSkin',it.n); }catch(e){} showEquip(); showPickNote(); lkMarkEq(); if(player) applySkin(player.ch,it); sfx('pickup',null,{item:{kind:'gun',r:it.r}}); return; }
   equippedName=PX.ITEMS[pxIdx].n; try{ localStorage.setItem('stormIslandPick',equippedName); }catch(e){} showEquip(); showPickNote(); lkMarkEq(); applyPickSkin(player); refreshHotbar(); sfx('pickup',null,{item:{kind:'gun',r:PX.ITEMS[pxIdx].rar}}); }
 $('armEquip').addEventListener('click',equipCurrent);
-$('armRandom').addEventListener('click',()=>{ const on=!(armMode==='skins'?skinRandom:pickRandom); setRandom(on); showEquip(); showPickNote(); lkMarkEq(); sfx(on?'pickup':'ui',null,{item:{kind:'gun',r:2}}); });
+$('armRandom').addEventListener('click',()=>{ const on=!(armMode==='skins'?skinRandom:armMode==='sidekicks'?sideRandom:pickRandom); setRandom(on); showEquip(); showPickNote(); lkMarkEq(); sfx(on?'pickup':'ui',null,{item:{kind:'gun',r:2}}); });
 $('lockerBtn').addEventListener('click',()=>openLocker(SK&&SOLDIER?'skins':'picks'));
 $('emoteLabBtn').addEventListener('click',()=>{ if(!SOLDIER) return; const i=emAll().indexOf(EM.last); if(i>=0) EL.i=i; openArmory(); setArmMode('emotes'); }); // [v1.66]
 if(!PX&&!SK) $('lockerBtn').hidden=true; if(!SK) $('armSkinsTab').hidden=true; showPickNote();
@@ -6355,7 +6436,7 @@ function newMatch(){
   Object.assign(player,{slots:[null,{kind:'gun',id:'ar',r:3,ammo:WEAP.ar.mag},{kind:'gun',id:'pump',r:3,ammo:WEAP.pump.mag},{kind:'gun',id:'smg',r:2,ammo:WEAP.smg.mag},{kind:'cons',id:'big',count:2},{kind:'cons',id:'mini',count:3},null,null,null],
     sel:1,bank:0,throwA:null,bouncer:{cd:0},bounceT:0,ball:null,ammo:{light:150,medium:240,heavy:12,shells:48},fireCd:0,bloom:0,reloading:null,consuming:null,dmgDealt:0,wantJump:false,shield:50});
   if(MODE==='br'){ player.slots=[null,null,null,null,null,null,null,null,null]; player.sel=0; player.shield=0; brSpawn(player,0); } else zgSpawn(player,0,ZG.BOTS+1);
-  player.pitch=0; applyPickSkin(player);
+  player.pitch=0; applyPickSkin(player); sdSpawn(); // [v1.71] your sidekick comes along
   for(let i=0;i<ZG.BOTS;i++){ const b=makeBot(i); bots.push(b); if(MODE==='br') brSpawn(b,i+1); else zgSpawn(b,i+1,ZG.BOTS+1); armBot(b); b.react=rnd(0.14,0.3); b.wake=SPAWN_GRACE+rnd(0,6); b.skill=rnd(0.5,0.8); b.lastPos=b.pos.clone(); }
   if(MODE==='br') for(const b of bots){ b.wake=1e9; }
   aliveCount=combatants.length;
@@ -6501,6 +6582,7 @@ function update(dt){
   updateEmote(dt);                                    // [S4] emote timers, cancels, the wheel and bots gloating
   for(const e of combatants) if(e.br!=='jet') animateGLB(e,dt); // nobody to pose inside the jet
   drawPunches(player);
+  sdUpdate(dt);                                        // [v1.71] the sidekick follows you
   updateEffects(dt);
 }
 let lastT=performance.now(), hudAcc=0, perfStage=0, perfFrames=0, perfTime=0;
@@ -6542,6 +6624,13 @@ function standLife(c,dt){ let S=c.sl; if(!S) S=c.sl={e:heroStand(c),next:0.9,t:0
   c.model.position.set(0,0,0); emTick(e,dt,true); c.g.updateMatrixWorld(true); c.model.getWorldQuaternion(_qm);
   const X:any={e,c,B:c.bones,g:c.g,pitch:0,rightB:new V(1,0,0).applyQuaternion(_qm),fwdB:new V(0,0,-1).applyQuaternion(_qm),upB:new V(0,1,0).applyQuaternion(_qm)};
   if(e.emote) emotePose(e,X); else emIdle(X,S.t,null); }
+// [v1.71] the equipped sidekick next to the hero on the home screen; it cheers when the hero starts dancing
+function heroSide(dt,t,emo){ const sd=equippedSide(), key=sd&&!sd.solo&&!sideRandom?sd.n:'';
+  if(HERO.sdKey!==key){ if(HERO.sd){ HERO.scene.remove(HERO.sd); sdFree(HERO.sd); HERO.sd=null; } HERO.sdKey=key;
+    if(key){ const m=SKD.build(T,sd), w=m.userData.sk.walker; m.scale.setScalar(1.35); m.position.set(-1.05,w?0:1.3,0.3); m.rotation.y=Math.PI+0.3; HERO.scene.add(m); HERO.sd=m; HERO.sdCh=0; } }
+  const m=HERO.sd; if(!m) return; if(emo&&!HERO.sdEmo) HERO.sdCh=0; HERO.sdEmo=emo;
+  if(HERO.sdCh>=0){ HERO.sdCh+=dt/1.1; if(HERO.sdCh>=1) HERO.sdCh=-1; }
+  m.userData.sk.tick(t,dt,{cheer:HERO.sdCh}); }
 function heroFrame(dt){
   if(!SOLDIER) return false;
   const W=innerWidth, H=innerHeight; if(W<900||H<520) return false;
@@ -6557,6 +6646,7 @@ function heroFrame(dt){
   const hx:any={e,c,B,g,pitch:0,rightB,fwdB,upB}; emTick(e,dt,true);
   if(e.emote){ emotePose(e,hx); c.pick.visible=false; if(c.pickL) c.pickL.visible=false; }
   else emIdle(hx,t,heroLook(hx,dt,W,H,t));
+  heroSide(dt,t,!!e.emote);                            // [v1.71] your sidekick hangs out beside you
   if(!e.emote&&(eq&&!eq.anime||eq&&eq.anime==='nichirin'||eq&&eq.anime==='kunai')){ // [S3] the form's rest pose through pickHold
     const P=pickPose({swingT:0,guardK:0,swingSide:0,ch:c}); P.h.y+=0.008*Math.sin(t*1.7); // [S3] each form's own rest pose and grip, breathing
     c.pick.visible=true; pickHold(c,e,P,rightB,upB,fwdB,1);
@@ -6598,6 +6688,6 @@ window.__game={keys,camera,sfx:(k,o)=>sfx(k,null,o),get audioOk(){return !!(AC&&
   equipPick:n=>{ equippedName=n; applyPickSkin(player); refreshHotbar(); }, get POW(){return POW;}, get pw(){return {shots:pwShots.length,zones:pwZones.length,zd:pwZones.map(z=>{ const e=combatants.find(c=>c!==player&&c.alive); return e?+z.pos.distanceTo(e.pos).toFixed(1):-1; }),pd:+chest(player).distanceTo(camera.position).toFixed(1),walls:pwWalls.map(w=>[w.m.position.toArray().map(Math.round),w.m.scale.x,w.m.visible])};},
   renderer,scene,mouse,shop:()=>openShop(),fire:()=>playerFire(),kill:(e,weapon,info)=>eliminate(e,null,weapon,info),colliderCount:()=>colliders.size,get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},get ZG(){return ZG;},get splats(){return splats.length;},get heartT(){return heartT;},startMatch,update,setState:s=>state=s};
 Object.assign(window.__game,{emote:(k,o)=>startEmote(player,k,o),emoteOn:(e,k,o)=>startEmote(e,k,o),stopEmote:()=>stopEmote(player,true),EM,EMOTES,get HERO(){return HERO;},heroEmote:k=>heroEmote(k),get EL(){ return EL; }}); // [S4] test hooks
-Object.assign((window as any).__game,{BR,brOpenChest,brHeight,get MODE(){ return MODE; }});
+Object.assign((window as any).__game,{SD,sdCheer,SKD,BR,brOpenChest,brHeight,get MODE(){ return MODE; }});
 Object.assign((window as any).__game,{pwGo:()=>{ const H=POW&&POW.hold; if(!H) return false; if(H.kind==='chan'){ for(let i=0;i<20;i++) H.tick(player,0.05,i*0.05); return true; } H.go(player,1); return true; }}); // [v1.47] test hook: fire the held pickaxe's special move
 })();
