@@ -1,0 +1,220 @@
+{
+ "UAL_A_TPose": {
+  "src": "A_TPose",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "UAL_Crouch_Fwd_Loop": {
+  "src": "Crouch_Fwd_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "UAL_Crouch_Idle_Loop": {
+  "src": "Crouch_Idle_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "UAL_Dance_Loop": {
+  "src": "Dance_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "UAL_Death01": {
+  "src": "Death01",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "UAL_Driving_Loop": {
+  "src": "Driving_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "UAL_Fixing_Kneeling": {
+  "src": "Fixing_Kneeling",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "UAL_Hit_Chest": {
+  "src": "Hit_Chest",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "UAL_Hit_Head": {
+  "src": "Hit_Head",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "UAL_Idle_Loop": {
+  "src": "Idle_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "UAL_Idle_Talking_Loop": {
+  "src": "Idle_Talking_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "UAL_Idle_Torch_Loop": {
+  "src": "Idle_Torch_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "UAL_Interact": {
+  "src": "Interact",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "UAL_Jog_Fwd_Loop": {
+  "src": "Jog_Fwd_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "UAL_Jump_Land": {
+  "src": "Jump_Land",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "UAL_Jump_Loop": {
+  "src": "Jump_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "UAL_Jump_Start": {
+  "src": "Jump_Start",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "UAL_PickUp_Table": {
+  "src": "PickUp_Table",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "UAL_Pistol_Aim_Down": {
+  "src": "Pistol_Aim_Down",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "UAL_Pistol_Aim_Neutral": {
+  "src": "Pistol_Aim_Neutral",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "UAL_Pistol_Aim_Up": {
+  "src": "Pistol_Aim_Up",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "UAL_Pistol_Idle_Loop": {
+  "src": "Pistol_Idle_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "UAL_Pistol_Reload": {
+  "src": "Pistol_Reload",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "UAL_Pistol_Shoot": {
+  "src": "Pistol_Shoot",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "UAL_Punch_Cross": {
+  "src": "Punch_Cross",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "UAL_Punch_Jab": {
+  "src": "Punch_Jab",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "UAL_Push_Loop": {
+  "src": "Push_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "UAL_Roll": {
+  "src": "Roll",
+  "loop": 0,
+  "pack": "quaternius",
+  "inplace": 2
+ },
+ "UAL_Sitting_Enter": {
+  "src": "Sitting_Enter",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "UAL_Sitting_Exit": {
+  "src": "Sitting_Exit",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "UAL_Sitting_Idle_Loop": {
+  "src": "Sitting_Idle_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "UAL_Sitting_Talking_Loop": {
+  "src": "Sitting_Talking_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "UAL_Spell_Simple_Enter": {
+  "src": "Spell_Simple_Enter",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "UAL_Spell_Simple_Exit": {
+  "src": "Spell_Simple_Exit",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "UAL_Spell_Simple_Idle_Loop": {
+  "src": "Spell_Simple_Idle_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "UAL_Spell_Simple_Shoot": {
+  "src": "Spell_Simple_Shoot",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "UAL_Sprint_Loop": {
+  "src": "Sprint_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "UAL_Swim_Fwd_Loop": {
+  "src": "Swim_Fwd_Loop",
+  "loop": 1,
+  "pack": "quaternius",
+  "hips_z": 0.95
+ },
+ "UAL_Swim_Idle_Loop": {
+  "src": "Swim_Idle_Loop",
+  "loop": 1,
+  "pack": "quaternius",
+  "hips_z": 0.95
+ },
+ "UAL_Sword_Attack": {
+  "src": "Sword_Attack",
+  "loop": 0,
+  "pack": "quaternius"
+ },
+ "UAL_Sword_Idle": {
+  "src": "Sword_Idle",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "UAL_Walk_Formal_Loop": {
+  "src": "Walk_Formal_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ },
+ "UAL_Walk_Loop": {
+  "src": "Walk_Loop",
+  "loop": 1,
+  "pack": "quaternius"
+ }
+}

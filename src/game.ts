@@ -784,12 +784,18 @@ function heroMoveClips(){ const H=window.HERO_MOVES; if(!H||!H.clips) return;
 // [v1.65] CC0 moves from the Quaternius Universal Animation Library and Kenney Animated Characters (packmoves.js, from
 // tools/pack_export_blender.py and tools/retarget_moves.py; credits in CREDITS.md), as clips 'PM_<name>'. They play as
 // whole-body emotes (EMOTES entries with clip:), so a clip emote takes the body from the soldier's clips while it plays.
-function packMoveClips(){ const H=window.PACK_MOVES; if(!H||!H.clips) return;
+function packMoveClips(){ ualMoveClips(); const H=window.PACK_MOVES; if(!H||!H.clips) return;
   for(const n in H.clips){ const C=H.clips[n], times=[]; for(let i=0;i<C.n;i++) times.push(i/H.fps);
     const tr=[]; for(const k in C.tracks){ const v=C.tracks[k], i=k.lastIndexOf('.'), nm=T.PropertyBinding.sanitizeNodeName(k.slice(0,i))+k.slice(i);
       tr.push(k.endsWith('.position')?new T.VectorKeyframeTrack(nm,times,v):new T.QuaternionKeyframeTrack(nm,times,v)); }
     SOLDIER.clips['PM_'+n]=new T.AnimationClip('PM_'+n,C.dur,tr); }
   for(const k in EMOTES){ const E=EMOTES[k], cl=E.clip&&SOLDIER.clips[E.clip]; if(cl&&!E.loop) E.dur=cl.duration*(E.speed?1/E.speed:1)+(E.hold||0); } }
+// [v1.74] every animation in the Quaternius zip on its own (ualmoves.js), as clips 'UAL_<name>' for the Emote Lab
+function ualMoveClips(){ const H=(window as any).UAL_MOVES; if(!H||!H.clips) return;
+  for(const n in H.clips){ const C=H.clips[n], times=[]; for(let i=0;i<C.n;i++) times.push(i/H.fps);
+    const tr=[]; for(const k in C.tracks){ const v=C.tracks[k], i=k.lastIndexOf('.'), nm=T.PropertyBinding.sanitizeNodeName(k.slice(0,i))+k.slice(i);
+      tr.push(k.endsWith('.position')?new T.VectorKeyframeTrack(nm,times,v):new T.QuaternionKeyframeTrack(nm,times,v)); }
+    SOLDIER.clips[n]=new T.AnimationClip(n,C.dur,tr); (SOLDIER.clips[n] as any).loop=C.loop; } }
 // a clip emote: its clip takes over from whatever the mixer was blending, by the emote's weight (less while moving).
 // The action is made the first time a character plays that move (so 100 bots do not carry every dance around) and stopped after.
 function emClip(e,c){ const em=e&&e.emote, E=em&&em.E, k=E&&E.clip&&SOLDIER.clips[E.clip]?E.clip:null;
@@ -3512,7 +3518,7 @@ function setArmMode(m){
   if(pill){ const v={x:on.offsetLeft-4,width:on.offsetWidth}; if(GS&&!calmUI&&pill.style.width) GS.to(pill,{...v,duration:0.35,ease:'power3.out'}); else { pill.style.width=v.width+'px'; pill.style.transform=`translateX(${v.x}px)`; if(GS) GS.set(pill,v); } }
   $('armSets').hidden=m==='guns'; $('armSets').setAttribute('aria-label',m==='skins'?'Skin theme':m==='emotes'?'Emote page':m==='sidekicks'?'Sidekick theme':'Pickaxe set');
   $('armSets').innerHTML=m==='sidekicks'?SKD.THEMES.map(t=>`<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join(''):m==='skins'?SK.THEMES.map(t=>`<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join(''):m==='picks'?PX.SETS.map(s=>`<button data-s="${s.id}" aria-pressed="false">${s.n}</button>`).join('')
-    :m==='emotes'?labPages().map((P,i,A)=>`<button data-s="${i}" aria-pressed="false">${i===A.length-1&&AN_PAGE&&P===AN_PAGE?'Every animation':['Classic','Pack moves','Pack moves II'][i]||'More'}</button>`).join(''):'';
+    :m==='emotes'?labPages().map((P,i,A)=>`<button data-s="${i}" aria-pressed="false">${i===A.length-1&&AN_PAGE&&P===AN_PAGE?'Every zip animation':['Classic','Pack moves','Pack moves II'][i]||'More'}</button>`).join(''):'';
   sdLight(m==='sidekicks'); LK.shown=lkIdx(); buildArmory(); lkRail(); lkFrame(true);
 }
 function armStep(d){ lkGo(LK.center+d,0.4); }
@@ -3547,9 +3553,9 @@ const AN_NAMES:any={Idle:'Idle (soldier)',Walk:'Walk (soldier)',Run:'Run (soldie
   PM_Roll:'Dodge roll',PM_Chair:'Sit by the fire',PM_Tinker:'Workbench',PM_Spark:'Shrine cast',PM_Joyride:'Hover kart',PM_Float:'Tread water',PM_Campfire:'Crouch idle',PM_Bonk:'Hit flinch',PM_Button:'Build tap'};
 let AN_PAGE:string[]=null;
 function anPage(){ if(AN_PAGE||!SOLDIER) return AN_PAGE||[]; AN_PAGE=[];
-  const ks=Object.keys(SOLDIER.clips).filter(k=>k!=='TPose'&&!/T-?Pose/i.test(k)), ord=k=>k.startsWith('HM_')?1:k.startsWith('PM_')?2:0;
+  const ks=Object.keys(SOLDIER.clips).filter(k=>k.startsWith('UAL_')), ord=k=>0; // [v1.74] the 43 animations in Kash's Quaternius zip
   ks.sort((a,b)=>ord(a)-ord(b)||(AN_NAMES[a]?0:1)-(AN_NAMES[b]?0:1)||a.localeCompare(b));
-  for(const k of ks){ const key='an_'+k; EMOTES[key]={n:AN_NAMES[k]||k.replace(/^(HM|PM)_/,'').replace(/([a-z])([A-Z])/g,'$1 $2'),clip:k,loop:1,lab:1}; AN_PAGE.push(key); }
+  for(const k of ks){ const key='an_'+k; EMOTES[key]={n:AN_NAMES[k]||k.replace(/^(HM|PM|UAL)_/,'').replace(/_Loop$/,'').replace(/_/g,' '),clip:k,loop:1,lab:1}; AN_PAGE.push(key); }
   return AN_PAGE; }
 const labPages=()=>{ const P=emPages(), A=anPage(); return A.length?P.concat([A]):P; };
 const emAll=()=>labPages().flat();

@@ -2414,6 +2414,7 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
       }
     }
     function packMoveClips() {
+      ualMoveClips();
       const H = window.PACK_MOVES;
       if (!H || !H.clips) return;
       for (const n in H.clips) {
@@ -2429,6 +2430,21 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
       for (const k in EMOTES) {
         const E = EMOTES[k], cl = E.clip && SOLDIER.clips[E.clip];
         if (cl && !E.loop) E.dur = cl.duration * (E.speed ? 1 / E.speed : 1) + (E.hold || 0);
+      }
+    }
+    function ualMoveClips() {
+      const H = window.UAL_MOVES;
+      if (!H || !H.clips) return;
+      for (const n in H.clips) {
+        const C = H.clips[n], times = [];
+        for (let i = 0; i < C.n; i++) times.push(i / H.fps);
+        const tr = [];
+        for (const k in C.tracks) {
+          const v = C.tracks[k], i = k.lastIndexOf("."), nm = T.PropertyBinding.sanitizeNodeName(k.slice(0, i)) + k.slice(i);
+          tr.push(k.endsWith(".position") ? new T.VectorKeyframeTrack(nm, times, v) : new T.QuaternionKeyframeTrack(nm, times, v));
+        }
+        SOLDIER.clips[n] = new T.AnimationClip(n, C.dur, tr);
+        SOLDIER.clips[n].loop = C.loop;
       }
     }
     function emClip(e, c) {
@@ -9076,7 +9092,7 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
       }
       $("armSets").hidden = m === "guns";
       $("armSets").setAttribute("aria-label", m === "skins" ? "Skin theme" : m === "emotes" ? "Emote page" : m === "sidekicks" ? "Sidekick theme" : "Pickaxe set");
-      $("armSets").innerHTML = m === "sidekicks" ? SKD.THEMES.map((t) => `<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join("") : m === "skins" ? SK.THEMES.map((t) => `<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join("") : m === "picks" ? PX.SETS.map((s) => `<button data-s="${s.id}" aria-pressed="false">${s.n}</button>`).join("") : m === "emotes" ? labPages().map((P, i, A) => `<button data-s="${i}" aria-pressed="false">${i === A.length - 1 && AN_PAGE && P === AN_PAGE ? "Every animation" : ["Classic", "Pack moves", "Pack moves II"][i] || "More"}</button>`).join("") : "";
+      $("armSets").innerHTML = m === "sidekicks" ? SKD.THEMES.map((t) => `<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join("") : m === "skins" ? SK.THEMES.map((t) => `<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join("") : m === "picks" ? PX.SETS.map((s) => `<button data-s="${s.id}" aria-pressed="false">${s.n}</button>`).join("") : m === "emotes" ? labPages().map((P, i, A) => `<button data-s="${i}" aria-pressed="false">${i === A.length - 1 && AN_PAGE && P === AN_PAGE ? "Every zip animation" : ["Classic", "Pack moves", "Pack moves II"][i] || "More"}</button>`).join("") : "";
       sdLight(m === "sidekicks");
       LK.shown = lkIdx();
       buildArmory();
@@ -9157,11 +9173,11 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
     function anPage() {
       if (AN_PAGE || !SOLDIER) return AN_PAGE || [];
       AN_PAGE = [];
-      const ks = Object.keys(SOLDIER.clips).filter((k) => k !== "TPose" && !/T-?Pose/i.test(k)), ord = (k) => k.startsWith("HM_") ? 1 : k.startsWith("PM_") ? 2 : 0;
+      const ks = Object.keys(SOLDIER.clips).filter((k) => k.startsWith("UAL_")), ord = (k) => 0;
       ks.sort((a, b) => ord(a) - ord(b) || (AN_NAMES[a] ? 0 : 1) - (AN_NAMES[b] ? 0 : 1) || a.localeCompare(b));
       for (const k of ks) {
         const key = "an_" + k;
-        EMOTES[key] = { n: AN_NAMES[k] || k.replace(/^(HM|PM)_/, "").replace(/([a-z])([A-Z])/g, "$1 $2"), clip: k, loop: 1, lab: 1 };
+        EMOTES[key] = { n: AN_NAMES[k] || k.replace(/^(HM|PM|UAL)_/, "").replace(/_Loop$/, "").replace(/_/g, " "), clip: k, loop: 1, lab: 1 };
         AN_PAGE.push(key);
       }
       return AN_PAGE;
