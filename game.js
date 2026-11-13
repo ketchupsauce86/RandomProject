@@ -9076,7 +9076,7 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
       }
       $("armSets").hidden = m === "guns";
       $("armSets").setAttribute("aria-label", m === "skins" ? "Skin theme" : m === "emotes" ? "Emote page" : m === "sidekicks" ? "Sidekick theme" : "Pickaxe set");
-      $("armSets").innerHTML = m === "sidekicks" ? SKD.THEMES.map((t) => `<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join("") : m === "skins" ? SK.THEMES.map((t) => `<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join("") : m === "picks" ? PX.SETS.map((s) => `<button data-s="${s.id}" aria-pressed="false">${s.n}</button>`).join("") : m === "emotes" ? emPages().map((P, i) => `<button data-s="${i}" aria-pressed="false">${["Classic", "Pack moves", "Pack moves II"][i] || "More"}</button>`).join("") : "";
+      $("armSets").innerHTML = m === "sidekicks" ? SKD.THEMES.map((t) => `<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join("") : m === "skins" ? SK.THEMES.map((t) => `<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join("") : m === "picks" ? PX.SETS.map((s) => `<button data-s="${s.id}" aria-pressed="false">${s.n}</button>`).join("") : m === "emotes" ? labPages().map((P, i, A) => `<button data-s="${i}" aria-pressed="false">${i === A.length - 1 && AN_PAGE && P === AN_PAGE ? "Every animation" : ["Classic", "Pack moves", "Pack moves II"][i] || "More"}</button>`).join("") : "";
       sdLight(m === "sidekicks");
       LK.shown = lkIdx();
       buildArmory();
@@ -9090,7 +9090,7 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
     $("armSets").addEventListener("click", (ev) => {
       const b = ev.target.closest("button");
       if (!b) return;
-      lkGo(armMode === "sidekicks" ? SKD.ITEMS.findIndex((i) => !i.solo && i.t === b.dataset.s) : armMode === "skins" ? SK.ITEMS.findIndex((i) => i.t === b.dataset.s) : armMode === "emotes" ? emAll().indexOf(emPages()[+b.dataset.s][0]) : PX.ITEMS.findIndex((i) => i.set.id === b.dataset.s), 0.8);
+      lkGo(armMode === "sidekicks" ? SKD.ITEMS.findIndex((i) => !i.solo && i.t === b.dataset.s) : armMode === "skins" ? SK.ITEMS.findIndex((i) => i.t === b.dataset.s) : armMode === "emotes" ? emAll().indexOf(labPages()[+b.dataset.s][0]) : PX.ITEMS.findIndex((i) => i.set.id === b.dataset.s), 0.8);
     });
     $("armEmotesTab").addEventListener("click", () => setArmMode("emotes"));
     $("armSkinsTab").addEventListener("click", () => setArmMode("skins"));
@@ -9134,7 +9134,43 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
       }
     }
     const EL = { i: 0, c: null, e: null, t: 0, play: true, speed: 1 };
-    const emAll = () => emPages().flat();
+    const AN_NAMES = {
+      Idle: "Idle (soldier)",
+      Walk: "Walk (soldier)",
+      Run: "Run (soldier)",
+      HM_Walk: "Walk",
+      HM_Sprint: "Sprint",
+      HM_Crouch: "Crouch walk",
+      HM_Slide: "Slide",
+      HM_Swim: "Swim",
+      PM_Roll: "Dodge roll",
+      PM_Chair: "Sit by the fire",
+      PM_Tinker: "Workbench",
+      PM_Spark: "Shrine cast",
+      PM_Joyride: "Hover kart",
+      PM_Float: "Tread water",
+      PM_Campfire: "Crouch idle",
+      PM_Bonk: "Hit flinch",
+      PM_Button: "Build tap"
+    };
+    let AN_PAGE = null;
+    function anPage() {
+      if (AN_PAGE || !SOLDIER) return AN_PAGE || [];
+      AN_PAGE = [];
+      const ks = Object.keys(SOLDIER.clips).filter((k) => k !== "TPose" && !/T-?Pose/i.test(k)), ord = (k) => k.startsWith("HM_") ? 1 : k.startsWith("PM_") ? 2 : 0;
+      ks.sort((a, b) => ord(a) - ord(b) || (AN_NAMES[a] ? 0 : 1) - (AN_NAMES[b] ? 0 : 1) || a.localeCompare(b));
+      for (const k of ks) {
+        const key = "an_" + k;
+        EMOTES[key] = { n: AN_NAMES[k] || k.replace(/^(HM|PM)_/, "").replace(/([a-z])([A-Z])/g, "$1 $2"), clip: k, loop: 1, lab: 1 };
+        AN_PAGE.push(key);
+      }
+      return AN_PAGE;
+    }
+    const labPages = () => {
+      const P = emPages(), A = anPage();
+      return A.length ? P.concat([A]) : P;
+    };
+    const emAll = () => labPages().flat();
     function elLen(E) {
       if (E.clip) {
         const cl = SOLDIER.clips[E.clip];
@@ -9160,10 +9196,10 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
       lkTint(E.clip ? "#ffd23f" : "#5cf0ff");
       lkPut(h, dir || 0);
       if (LK.kind !== "emotes" || dir == null) lkFrame(true);
-      const src = E.clip ? (/RunInPlace|HangTime|YoYo/.test(E.clip) ? "Kenney" : "Quaternius") + " \xB7 CC0" : "Hand-keyed";
-      lkInfo(E.n, `Emote ${EL.i + 1} of ${emAll().length} \xB7 ${src}`, null, (E.loop ? "Loops" : "One-off") + (E.zg ? " \xB7 zero-g only" : "") + ` \xB7 ${elLen(E).toFixed(1)} s`);
+      const src = E.clip ? /^(Idle|Walk|Run)$/.test(E.clip) ? "three.js Soldier (Mixamo)" : E.clip === "HM_Slide" ? "Made by Kash in Blender" : (/RunInPlace|HangTime|YoYo/.test(E.clip) ? "Kenney" : "Quaternius") + " \xB7 CC0" : "Hand-keyed";
+      lkInfo(E.n, `${E.lab ? "Animation" : "Emote"} ${EL.i + 1} of ${emAll().length} \xB7 ${src}${E.lab ? " \xB7 " + E.clip : ""}`, null, (E.loop ? "Loops" : "One-off") + (E.zg ? " \xB7 zero-g only" : "") + ` \xB7 ${elLen(E).toFixed(1)} s`);
       showEquip();
-      const pg = emPages().findIndex((P) => P.indexOf(k) >= 0);
+      const pg = labPages().findIndex((P) => P.indexOf(k) >= 0);
       [...$("armSets").children].forEach((b) => b.setAttribute("aria-pressed", String(+b.dataset.s === pg)));
       elUI();
     }
