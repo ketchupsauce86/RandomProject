@@ -3512,13 +3512,13 @@ function setArmMode(m){
   if(pill){ const v={x:on.offsetLeft-4,width:on.offsetWidth}; if(GS&&!calmUI&&pill.style.width) GS.to(pill,{...v,duration:0.35,ease:'power3.out'}); else { pill.style.width=v.width+'px'; pill.style.transform=`translateX(${v.x}px)`; if(GS) GS.set(pill,v); } }
   $('armSets').hidden=m==='guns'; $('armSets').setAttribute('aria-label',m==='skins'?'Skin theme':m==='emotes'?'Emote page':m==='sidekicks'?'Sidekick theme':'Pickaxe set');
   $('armSets').innerHTML=m==='sidekicks'?SKD.THEMES.map(t=>`<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join(''):m==='skins'?SK.THEMES.map(t=>`<button data-s="${t.id}" aria-pressed="false">${t.n}</button>`).join(''):m==='picks'?PX.SETS.map(s=>`<button data-s="${s.id}" aria-pressed="false">${s.n}</button>`).join('')
-    :m==='emotes'?emPages().map((P,i)=>`<button data-s="${i}" aria-pressed="false">${['Classic','Pack moves','Pack moves II'][i]||'More'}</button>`).join(''):'';
+    :m==='emotes'?labPages().map((P,i,A)=>`<button data-s="${i}" aria-pressed="false">${i===A.length-1&&AN_PAGE&&P===AN_PAGE?'Every animation':['Classic','Pack moves','Pack moves II'][i]||'More'}</button>`).join(''):'';
   sdLight(m==='sidekicks'); LK.shown=lkIdx(); buildArmory(); lkRail(); lkFrame(true);
 }
 function armStep(d){ lkGo(LK.center+d,0.4); }
 if(!PX) $('armPicksTab').hidden=true;
 $('armSets').addEventListener('click',ev=>{ const b=ev.target.closest('button'); if(!b) return;
-  lkGo(armMode==='sidekicks'?SKD.ITEMS.findIndex(i=>!i.solo&&i.t===b.dataset.s):armMode==='skins'?SK.ITEMS.findIndex(i=>i.t===b.dataset.s):armMode==='emotes'?emAll().indexOf(emPages()[+b.dataset.s][0]):PX.ITEMS.findIndex(i=>i.set.id===b.dataset.s),0.8); });
+  lkGo(armMode==='sidekicks'?SKD.ITEMS.findIndex(i=>!i.solo&&i.t===b.dataset.s):armMode==='skins'?SK.ITEMS.findIndex(i=>i.t===b.dataset.s):armMode==='emotes'?emAll().indexOf(labPages()[+b.dataset.s][0]):PX.ITEMS.findIndex(i=>i.set.id===b.dataset.s),0.8); });
 $('armEmotesTab').addEventListener('click',()=>setArmMode('emotes'));
 $('armSkinsTab').addEventListener('click',()=>setArmMode('skins'));
 $('armSideTab').addEventListener('click',()=>setArmMode('sidekicks'));
@@ -3541,7 +3541,18 @@ function updateSkinStand(t,dt){
 // ---- [v1.66] the Emote Lab: every emote on your skin, looping on the pedestal. Orbit to any angle (even from below),
 // zoom right in, pause, scrub through it, slow it down, and jump to a front, side, back or top view.
 const EL:any={i:0,c:null,e:null,t:0,play:true,speed:1};
-const emAll=()=>emPages().flat();
+// [v1.73] the lab's last page holds EVERY animation in the game: the soldier's own clips, the walk, sprint, crouch, slide and
+// swim, and every Quaternius and Kenney pack clip on its own (the ones the emotes, roll, stations and kart use)
+const AN_NAMES:any={Idle:'Idle (soldier)',Walk:'Walk (soldier)',Run:'Run (soldier)',HM_Walk:'Walk',HM_Sprint:'Sprint',HM_Crouch:'Crouch walk',HM_Slide:'Slide',HM_Swim:'Swim',
+  PM_Roll:'Dodge roll',PM_Chair:'Sit by the fire',PM_Tinker:'Workbench',PM_Spark:'Shrine cast',PM_Joyride:'Hover kart',PM_Float:'Tread water',PM_Campfire:'Crouch idle',PM_Bonk:'Hit flinch',PM_Button:'Build tap'};
+let AN_PAGE:string[]=null;
+function anPage(){ if(AN_PAGE||!SOLDIER) return AN_PAGE||[]; AN_PAGE=[];
+  const ks=Object.keys(SOLDIER.clips).filter(k=>k!=='TPose'&&!/T-?Pose/i.test(k)), ord=k=>k.startsWith('HM_')?1:k.startsWith('PM_')?2:0;
+  ks.sort((a,b)=>ord(a)-ord(b)||(AN_NAMES[a]?0:1)-(AN_NAMES[b]?0:1)||a.localeCompare(b));
+  for(const k of ks){ const key='an_'+k; EMOTES[key]={n:AN_NAMES[k]||k.replace(/^(HM|PM)_/,'').replace(/([a-z])([A-Z])/g,'$1 $2'),clip:k,loop:1,lab:1}; AN_PAGE.push(key); }
+  return AN_PAGE; }
+const labPages=()=>{ const P=emPages(), A=anPage(); return A.length?P.concat([A]):P; };
+const emAll=()=>labPages().flat();
 // one cycle of an emote in seconds: a beat loop, a clip's length, or a one-off's length with a short rest before it repeats
 function elLen(E){ if(E.clip){ const cl=SOLDIER.clips[E.clip]; const d=cl?cl.duration/(E.speed||1):1; return E.loop?d:d+(E.hold||0)+0.6; }
   return E.loop?60*E.beats/E.bpm:E.dur+0.6; }
@@ -3552,9 +3563,9 @@ function buildEmoteLab(dir?){
   EL.c=c; EL.e=heroStand(c); EL.t=0; emBegin(EL.e,k); EL.e.emote.w=1;
   LK.ped.visible=LK.ring.visible=LK.blob.visible=true; lkTint(E.clip?'#ffd23f':'#5cf0ff');
   lkPut(h,dir||0); if(LK.kind!=='emotes'||dir==null) lkFrame(true);
-  const src=E.clip?(/RunInPlace|HangTime|YoYo/.test(E.clip)?'Kenney':'Quaternius')+' · CC0':'Hand-keyed';
-  lkInfo(E.n,`Emote ${EL.i+1} of ${emAll().length} · ${src}`,null,(E.loop?'Loops':'One-off')+(E.zg?' · zero-g only':'')+` · ${elLen(E).toFixed(1)} s`);
-  showEquip(); const pg=emPages().findIndex(P=>P.indexOf(k)>=0); [...$('armSets').children].forEach((b:any)=>b.setAttribute('aria-pressed',String(+b.dataset.s===pg)));
+  const src=E.clip?(/^(Idle|Walk|Run)$/.test(E.clip)?'three.js Soldier (Mixamo)':E.clip==='HM_Slide'?'Made by Kash in Blender':(/RunInPlace|HangTime|YoYo/.test(E.clip)?'Kenney':'Quaternius')+' · CC0'):'Hand-keyed';
+  lkInfo(E.n,`${E.lab?'Animation':'Emote'} ${EL.i+1} of ${emAll().length} · ${src}${E.lab?' · '+E.clip:''}`,null,(E.loop?'Loops':'One-off')+(E.zg?' · zero-g only':'')+` · ${elLen(E).toFixed(1)} s`);
+  showEquip(); const pg=labPages().findIndex(P=>P.indexOf(k)>=0); [...$('armSets').children].forEach((b:any)=>b.setAttribute('aria-pressed',String(+b.dataset.s===pg)));
   elUI(); }
 function updateEmoteLab(dt){ const c=EL.c, e=EL.e; if(!c||!e) return;
   if(!e.emote){ emBegin(e,emAll()[EL.i]); e.emote.w=1; }
