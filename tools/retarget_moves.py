@@ -234,3 +234,8 @@ if __name__ == '__main__':
         main('pack_moves_export.json.gz', 'packmoves.js', 'PACK_MOVES', only_mapped=True,
              head='CC0 moves from the Quaternius Universal Animation Library and Kenney Animated Characters (see CREDITS.md),\n'
                   '   retargeted onto the soldier rig by tools/retarget_moves.py.')
+    # every animation in the Universal Animation Library zip on its own, for the Emote Lab (tools/pack_ual_pick.json)
+    if os.path.exists(f'{ROOT}/tools/pack_ual_export.json.gz'):
+        main('pack_ual_export.json.gz', 'ualmoves.js', 'UAL_MOVES', only_mapped=True,
+             head='All 43 animations of the Quaternius Universal Animation Library (Standard, CC0; see CREDITS.md),\n'
+                  '   retargeted onto the soldier rig by tools/retarget_moves.py.')

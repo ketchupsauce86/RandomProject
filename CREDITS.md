@@ -19,6 +19,9 @@ game knows how far each stride goes; `tools/pack_loco_pick.json`). The slide in 
 Since v1.72 the pack clips also play during matches: the dodge roll, sitting at a campfire, kneeling at a workbench,
 casting at a shrine, driving a hover kart, treading water, crouching and flinching when hit.
 
+`ualmoves.js` holds all 43 animations of the Universal Animation Library on their own (picked by
+`tools/pack_ual_pick.json`), shown on the Emote Lab's **Every zip animation** page.
+
 ## Sounds (`sounds/`)
 
 A few CC0 sound recordings by **Kenney** (https://kenney.nl). See `sounds/CREDITS.md`.
