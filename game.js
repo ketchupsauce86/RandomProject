@@ -1,4 +1,262 @@
 (() => {
+  // src/gfx.ts
+  var GFX_LEVELS = ["Low", "Medium", "High", "Ultra"];
+  var LV = [
+    { pr: 1, shadow: 1024, msaa: 0, bloom: false, fxaa: false, ao: false, post: false, parts: 0.3 },
+    { pr: 1.25, shadow: 2048, msaa: 0, bloom: true, fxaa: true, ao: false, post: true, parts: 0.6 },
+    { pr: 1.5, shadow: 2048, msaa: 4, bloom: true, fxaa: false, ao: false, post: true, parts: 1 },
+    { pr: 2, shadow: 4096, msaa: 0, bloom: true, fxaa: true, ao: true, post: true, parts: 1 }
+  ];
+  var QUAD_VS = "varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }";
+  var AO_FS = `
+uniform sampler2D tDepth; uniform vec2 px; uniform float near, far, tanH, aspect, radius, strength; varying vec2 vUv;
+float lin(float d){ float z=d*2.0-1.0; return 2.0*near*far/(far+near-z*(far-near)); }
+vec3 pos(vec2 uv){ float z=lin(texture2D(tDepth,uv).x); return vec3((uv*2.0-1.0)*vec2(aspect*tanH,tanH)*z,-z); }
+void main(){
+  float d=texture2D(tDepth,vUv).x; if(d>=0.9999){ gl_FragColor=vec4(1.0); return; }
+  vec3 p=pos(vUv), px1=pos(vUv+vec2(px.x,0.0)), px0=pos(vUv-vec2(px.x,0.0)), py1=pos(vUv+vec2(0.0,px.y)), py0=pos(vUv-vec2(0.0,px.y));
+  vec3 dx=abs(px1.z-p.z)<abs(p.z-px0.z)?px1-p:p-px0, dy=abs(py1.z-p.z)<abs(p.z-py0.z)?py1-p:p-py0;
+  vec3 n=normalize(cross(dx,dy));
+  float z=-p.z, rpx=radius/(z*tanH)*0.5, ang=6.2831853*fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(0.06711056,0.00583715)))), occ=0.0;
+  for(int i=0;i<10;i++){ float fi=(float(i)+0.5)/10.0, a=ang+fi*15.0; vec2 o=vec2(cos(a),sin(a))*rpx*sqrt(fi); o.x/=aspect;
+    vec3 s=pos(vUv+o)-p; float l=length(s); occ+=max(0.0,dot(n,s)/(l+1e-4)-0.2-0.004*z)*smoothstep(radius*1.6,radius*0.4,l); }
+  float ao=1.0-strength*occ/10.0*smoothstep(75.0,35.0,z);
+  gl_FragColor=vec4(vec3(clamp(ao,0.0,1.0)),1.0);
+}`;
+  var FINAL_FS = `
+uniform sampler2D tScene, tAO; uniform vec2 px; uniform float dbg, useAO, useFXAA, vig, sat, con, pulse, time, grain, warm; uniform vec3 pulseCol;
+varying vec2 vUv;
+// highlights roll off softly instead of clipping to flat white; everything below about 0.9 is left as the artist made it
+vec3 film(vec3 c){ vec3 k=max(c-0.88,0.0); return min(c,0.88)+k/(1.0+k*7.5); }
+vec3 tap(vec2 uv){ return film(texture2D(tScene,uv).rgb); }
+float luma(vec3 c){ return dot(c,vec3(0.299,0.587,0.114)); }
+vec3 fxaa(vec2 uv){
+  vec3 rgbM=tap(uv); float lM=luma(rgbM);
+  float lNW=luma(tap(uv+vec2(-1.0,-1.0)*px)), lNE=luma(tap(uv+vec2(1.0,-1.0)*px)), lSW=luma(tap(uv+vec2(-1.0,1.0)*px)), lSE=luma(tap(uv+vec2(1.0,1.0)*px));
+  float lMin=min(lM,min(min(lNW,lNE),min(lSW,lSE))), lMax=max(lM,max(max(lNW,lNE),max(lSW,lSE)));
+  if(lMax-lMin<max(0.04,lMax*0.11)) return rgbM;
+  vec2 dir=vec2(-((lNW+lNE)-(lSW+lSE)),((lNW+lSW)-(lNE+lSE)));
+  float red=max((lNW+lNE+lSW+lSE)*0.03125,0.0078125), rcp=1.0/(min(abs(dir.x),abs(dir.y))+red);
+  dir=clamp(dir*rcp,-8.0,8.0)*px;
+  vec3 a=0.5*(tap(uv+dir*(1.0/3.0-0.5))+tap(uv+dir*(2.0/3.0-0.5)));
+  vec3 b=a*0.5+0.25*(tap(uv-dir*0.5)+tap(uv+dir*0.5)); float lB=luma(b);
+  return (lB<lMin||lB>lMax)?a:b;
+}
+void main(){
+  vec2 uv=vUv, c=uv-0.5; float r2=dot(c,c);
+  vec3 col;
+  if(pulse>0.001){ vec2 o=c*pulse*0.012; col=vec3(tap(uv+o).r,tap(uv).g,tap(uv-o).b); } // a hit splits the colours toward the edges for a moment
+  else col=useFXAA>0.5?fxaa(uv):tap(uv);
+  if(useAO>0.5){ float ao=(texture2D(tAO,uv).r*2.0+texture2D(tAO,uv+vec2(px.x,px.y)*1.5).r+texture2D(tAO,uv-vec2(px.x,px.y)*1.5).r+texture2D(tAO,uv+vec2(px.x,-px.y)*1.5).r+texture2D(tAO,uv+vec2(-px.x,px.y)*1.5).r)/6.0;
+    col*=mix(vec3(0.42,0.36,0.52),vec3(1.0),ao); } // corners shade toward a cool violet, not grey
+  if(dbg>0.5) col=vec3(texture2D(tAO,uv).r);
+  float l=luma(col);
+  col=mix(vec3(l),col,sat);                                   // richer colour
+  col=(col-0.5)*con+0.5;                                      // a touch more contrast
+  col+=warm*vec3(0.012,0.004,-0.014)*smoothstep(0.35,0.9,l);  // warm highlights
+  col+=warm*vec3(-0.008,0.0,0.014)*(1.0-smoothstep(0.0,0.4,l)); // cool shadows
+  col*=1.0-vig*smoothstep(0.12,0.62,r2);                      // darker corners draw the eye to the middle
+  col=mix(col,pulseCol,pulse*0.12*smoothstep(0.05,0.5,r2));
+  float n=fract(sin(dot(gl_FragCoord.xy+time*61.0,vec2(12.9898,78.233)))*43758.5453);
+  col+=(n-0.5)*(grain+1.0/255.0);                             // dither: no banding in the sky
+  gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);
+}`;
+  var BRIGHT_FS = `
+uniform sampler2D tDiffuse; uniform float luminosityThreshold, satK; varying vec2 vUv;
+void main(){ vec3 c=texture2D(tDiffuse,vUv).rgb; float mx=max(c.r,max(c.g,c.b)), mn=min(c.r,min(c.g,c.b)), sat=mx>1e-3?(mx-mn)/mx:0.0;
+  float t=mix(luminosityThreshold,luminosityThreshold*0.74,smoothstep(0.25,0.7,sat)), w=smoothstep(t,t+0.3,mx)*(1.0+satK*sat);
+  gl_FragColor=vec4(min(c,vec3(3.0))*w,1.0); }`;
+  var PART_VS = `
+attribute vec4 pcol; attribute float psize, pglow; uniform float scale; varying vec4 vC; varying float vG;
+void main(){ vec4 mv=modelViewMatrix*vec4(position,1.0); gl_Position=projectionMatrix*mv; gl_PointSize=clamp(psize*scale/max(0.1,-mv.z),1.0,64.0);
+  vC=pcol; vG=pglow; float f=smoothstep(0.6,2.0,-mv.z); vC.a*=f; }`;
+  var PART_FS = `
+varying vec4 vC; varying float vG;
+void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
+  float core=smoothstep(1.0,0.55,r), halo=pow(1.0-r,2.2);
+  float a=mix(core,halo*1.3+core*0.5,vG);
+  gl_FragColor=vec4(vC.rgb*(1.0+vG*1.6),vC.a*a); }`;
+  function makeGfx(T, renderer, scene, camera, sun) {
+    const E = T, gl = renderer.getContext(), gl2 = renderer.capabilities.isWebGL2;
+    const canPost = !!(E.FullScreenQuad && gl2), canBloom = canPost && !!(E.UnrealBloomPass && E.CopyShader && E.LuminosityHighPassShader);
+    const hdr = gl2 && !!renderer.extensions.get("EXT_color_buffer_float");
+    let level = 2, L = LV[level], rt = null, aoRT = null, bloom = null, W = 1, H = 1, time = 0, failed = false;
+    const G = { level, pulse: 0, pulseCol: new T.Color(16722506), bloomStrength: 0.42, bloomThreshold: 0.86, bloomRadius: 0.55, sat: 1.1, con: 1.05, vig: 0.26, warm: 1, ao: 1 };
+    const size = new T.Vector2();
+    const quad = canPost ? new E.FullScreenQuad(null) : null;
+    const aoMat = new T.ShaderMaterial({ uniforms: { tDepth: { value: null }, px: { value: new T.Vector2() }, near: { value: 0.1 }, far: { value: 1e3 }, tanH: { value: 1 }, aspect: { value: 1 }, radius: { value: 1.5 }, strength: { value: 1.5 } }, vertexShader: QUAD_VS, fragmentShader: AO_FS, depthTest: false, depthWrite: false });
+    const finMat = new T.ShaderMaterial({ uniforms: { tScene: { value: null }, tAO: { value: null }, px: { value: new T.Vector2() }, useAO: { value: 0 }, dbg: { value: 0 }, useFXAA: { value: 0 }, vig: { value: 0.26 }, sat: { value: 1.1 }, con: { value: 1.05 }, pulse: { value: 0 }, time: { value: 0 }, grain: { value: 0.012 }, warm: { value: 1 }, pulseCol: { value: G.pulseCol } }, vertexShader: QUAD_VS, fragmentShader: FINAL_FS, depthTest: false, depthWrite: false });
+    function dispose() {
+      if (rt) {
+        if (rt.depthTexture) rt.depthTexture.dispose();
+        rt.dispose();
+        rt = null;
+      }
+      if (aoRT) {
+        aoRT.dispose();
+        aoRT = null;
+      }
+      if (bloom) {
+        bloom.dispose && bloom.dispose();
+        bloom = null;
+      }
+    }
+    function build() {
+      dispose();
+      L = LV[level];
+      renderer.getDrawingBufferSize(size);
+      W = Math.max(2, size.x);
+      H = Math.max(2, size.y);
+      if (!L.post || !canPost || failed) return;
+      try {
+        const opt = { minFilter: T.LinearFilter, magFilter: T.LinearFilter, format: T.RGBAFormat, type: hdr ? T.HalfFloatType : T.UnsignedByteType, depthBuffer: true, stencilBuffer: false };
+        if (L.msaa && T.WebGLMultisampleRenderTarget) {
+          rt = new T.WebGLMultisampleRenderTarget(W, H, opt);
+          rt.samples = Math.min(L.msaa, renderer.capabilities.maxSamples || 4);
+        } else {
+          rt = new T.WebGLRenderTarget(W, H, opt);
+          if (L.ao) {
+            rt.depthTexture = new T.DepthTexture(W, H);
+            rt.depthTexture.type = T.UnsignedIntType;
+          }
+        }
+        if (L.ao) aoRT = new T.WebGLRenderTarget(W, H, { minFilter: T.LinearFilter, magFilter: T.LinearFilter, format: T.RGBAFormat, depthBuffer: false, stencilBuffer: false });
+        if (L.bloom && canBloom && hdr) {
+          bloom = new E.UnrealBloomPass(new T.Vector2(W >> 1, H >> 1), G.bloomStrength, G.bloomRadius, G.bloomThreshold);
+          bloom.highPassUniforms = { tDiffuse: { value: null }, luminosityThreshold: { value: 1 }, satK: { value: 0.3 } };
+          bloom.materialHighPassFilter = new T.ShaderMaterial({ uniforms: bloom.highPassUniforms, vertexShader: QUAD_VS, fragmentShader: BRIGHT_FS, depthTest: false, depthWrite: false });
+        }
+      } catch (err) {
+        failed = true;
+        dispose();
+      }
+    }
+    function shadows() {
+      const s = LV[level].shadow;
+      if (sun.shadow.mapSize.x !== s) {
+        sun.shadow.mapSize.set(s, s);
+        if (sun.shadow.map) {
+          sun.shadow.map.dispose();
+          sun.shadow.map = null;
+        }
+      }
+      sun.shadow.radius = level >= 2 ? 2.2 : 1.2;
+    }
+    G.setLevel = (n) => {
+      level = G.level = Math.max(0, Math.min(3, n | 0));
+      L = LV[level];
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, L.pr));
+      shadows();
+      build();
+      if (G.onLevel) G.onLevel(level);
+    };
+    G.resize = () => build();
+    G.pixelRatio = () => LV[level].pr;
+    G.partScale = () => LV[level].parts;
+    G.render = (dt) => {
+      time += dt;
+      G.pulse = Math.max(0, G.pulse - dt * 2.2);
+      if (!rt) {
+        renderer.setRenderTarget(null);
+        renderer.render(scene, camera);
+        return;
+      }
+      try {
+        renderer.setRenderTarget(rt);
+        renderer.render(scene, camera);
+        const u = finMat.uniforms;
+        u.useAO.value = 0;
+        if (aoRT && rt.depthTexture && G.ao > 0) {
+          const a = aoMat.uniforms;
+          a.tDepth.value = rt.depthTexture;
+          a.px.value.set(1 / W, 1 / H);
+          a.near.value = camera.near;
+          a.far.value = camera.far;
+          a.tanH.value = Math.tan(camera.fov * Math.PI / 360);
+          a.aspect.value = camera.aspect;
+          a.strength.value = 3.4 * G.ao;
+          quad.material = aoMat;
+          renderer.setRenderTarget(aoRT);
+          quad.render(renderer);
+          u.useAO.value = 1;
+          u.tAO.value = aoRT.texture;
+        }
+        if (bloom && G.bloomStrength > 0.01) {
+          bloom.strength = G.bloomStrength;
+          bloom.threshold = G.bloomThreshold;
+          bloom.radius = G.bloomRadius;
+          bloom.render(renderer, null, rt, dt, false);
+        }
+        u.tScene.value = rt.texture;
+        u.px.value.set(1 / W, 1 / H);
+        u.useFXAA.value = L.fxaa ? 1 : 0;
+        u.vig.value = G.vig;
+        u.sat.value = G.sat;
+        u.con.value = G.con;
+        u.warm.value = G.warm;
+        u.pulse.value = Math.min(1.5, G.pulse);
+        u.time.value = time % 100;
+        u.dbg.value = G.debugAO ? 1 : 0;
+        quad.material = finMat;
+        renderer.setRenderTarget(null);
+        quad.render(renderer);
+      } catch (err) {
+        failed = true;
+        dispose();
+        renderer.setRenderTarget(null);
+        renderer.render(scene, camera);
+      }
+    };
+    const P = { ok: false, n: 0 };
+    G.P = P;
+    const b64 = window.PARTICLES_WASM;
+    if (b64 && typeof WebAssembly === "object") {
+      try {
+        const bin = atob(b64), buf = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+        const inst = new WebAssembly.Instance(new WebAssembly.Module(buf), {}), X = inst.exports, N = X.maxParticles(), mem = X.memory.buffer;
+        const geo = new T.BufferGeometry();
+        const aPos = new T.BufferAttribute(new Float32Array(mem, X.posPtr(), N * 3), 3), aCol = new T.BufferAttribute(new Float32Array(mem, X.colPtr(), N * 4), 4), aSize = new T.BufferAttribute(new Float32Array(mem, X.sizePtr(), N), 1), aGlow = new T.BufferAttribute(new Float32Array(mem, X.glowPtr(), N), 1);
+        for (const a of [aPos, aCol, aSize, aGlow]) a.setUsage(T.DynamicDrawUsage);
+        geo.setAttribute("position", aPos);
+        geo.setAttribute("pcol", aCol);
+        geo.setAttribute("psize", aSize);
+        geo.setAttribute("pglow", aGlow);
+        geo.setDrawRange(0, 0);
+        const mat = new T.ShaderMaterial({ uniforms: { scale: { value: 600 } }, vertexShader: PART_VS, fragmentShader: PART_FS, transparent: true, depthWrite: false, fog: false });
+        const pts = new T.Points(geo, mat);
+        pts.frustumCulled = false;
+        pts.renderOrder = 5;
+        pts.userData.keep = true;
+        P.ok = true;
+        P.X = X;
+        P.points = pts;
+        P.max = N;
+        P.reset = () => {
+          X.reset();
+          geo.setDrawRange(0, 0);
+        };
+        P.ambient = (kind, n, c, h, col) => {
+          const k = new T.Color(col);
+          X.ambient(kind, Math.round(n * LV[level].parts), c.x, c.y, c.z, h, k.r, k.g, k.b);
+        };
+        P.burst = (kind, n, at, speed, col, sz) => {
+          const k = new T.Color(col);
+          X.burst(kind, Math.max(1, Math.round(n * (0.4 + 0.6 * LV[level].parts))), at.x, at.y, at.z, speed, k.r, k.g, k.b, sz);
+        };
+        P.step = (dt, cam, h, up, wx, wz, floorY) => {
+          P.n = X.step(dt, cam.x, cam.y, cam.z, h, up.x, up.y, up.z, wx, wz, floorY);
+          geo.setDrawRange(0, P.n);
+          aPos.needsUpdate = aCol.needsUpdate = aSize.needsUpdate = aGlow.needsUpdate = true;
+          mat.uniforms.scale.value = renderer.getDrawingBufferSize(size).y / (2 * Math.tan(camera.fov * Math.PI / 360));
+        };
+      } catch (err) {
+        P.ok = false;
+      }
+    }
+    return G;
+  }
+
   // src/game.ts
   (function() {
     "use strict";
@@ -79,10 +337,12 @@
     scene.fog = new T.Fog(15132908, 70, 330);
     renderer.setClearColor(15132908);
     const camera = new T.PerspectiveCamera(72, 1, 0.1, 2600);
+    let GFX = null;
     function resize() {
       renderer.setSize(innerWidth, innerHeight);
       camera.aspect = innerWidth / innerHeight;
       camera.updateProjectionMatrix();
+      if (GFX) GFX.resize();
     }
     addEventListener("resize", resize);
     resize();
@@ -96,6 +356,26 @@
     scene.add(sun);
     scene.add(sun.target);
     const SUN_DIR = new V(0.5, 1, 0.35).normalize();
+    let gfxChosen = false;
+    GFX = makeGfx(T, renderer, scene, camera, sun);
+    {
+      let lv = 2;
+      try {
+        const v = localStorage.getItem("invertedGfx");
+        if (v != null && +v >= 0 && +v <= 3) {
+          lv = +v;
+          gfxChosen = true;
+        }
+      } catch (e) {
+      }
+      GFX.setLevel(lv);
+      resize();
+    }
+    if (GFX.P.ok) scene.add(GFX.P.points);
+    const PRT = GFX.P, P_UP = new V(0, 1, 0);
+    function pBurst(kind, n, at, speed, col, size) {
+      if (PRT.ok && at.distanceToSquared(camera.position) < 140 * 140) PRT.burst(kind, n, at, speed, col, size);
+    }
     function canvasTex(w, h, draw) {
       const c = document.createElement("canvas");
       c.width = w;
@@ -3713,7 +3993,7 @@
     function animateGLB(e, dt) {
       const c = e.ch, g = c.g;
       g.position.copy(e.pos);
-      g.rotation.y = e.emote ? e.emote.yaw : e.yaw;
+      g.rotation.y = e.emote ? e.emote.yaw : e.faceYaw != null ? e.faceYaw : e.yaw;
       g.scale.setScalar((e.titanS || 1) * (e.tinyT > 0 ? 0.45 : 1));
       const a = 1 - Math.exp(-14 * dt), aS = 1 - Math.exp(-7 * dt);
       if (!e.alive) {
@@ -3772,6 +4052,7 @@
       animLife(e, X);
       animArms(e, X);
       applyArmOverrides(e, X);
+      animParkour(e, X);
       animBR(e, X);
       animProps(e, X);
       animPost(e, X);
@@ -3879,7 +4160,7 @@
         useK = clamp(1 - e.healT / 2.5, 0, 1);
         held = null;
       }
-      if (e.emote) {
+      if (e.emote || gcBusy(e)) {
         held = null;
         pickaxe = false;
         cons = null;
@@ -4003,6 +4284,8 @@
       c.lcNear = nr;
       X.near = nr;
       emClip(e, c);
+      gcAuto(e, X);
+      gcClip(e, c, X);
       c.mixer.update(dt);
     }
     function animAxes(X) {
@@ -7060,6 +7343,7 @@
           hurt(ent, dmg, shooter, { head, point: hit.point, weapon: w.name, dir });
           if (ent !== player && shooter !== player) sfx("impact", end, { mat: "flesh" });
         } else {
+          if (ent.build) bldHurt(ent, dmg);
           puff(end, 14540253);
           sfx("impact", end, { mat: "stone" });
         }
@@ -7121,6 +7405,7 @@
         hurtFlash = Math.min(1, hurtFlash + 0.3 + amt / 90);
         sfx("hurt");
       }
+      if (amt >= 12 && t.alive && !t.gc && !t.emote && t.ch && t.pos.distanceTo(camera.position) < 45) gcPlay(t, "PM_Bonk", { w: 0.55, fin: 0.04, fout: 0.18, body: false, tag: "hit" });
       if (!t.isPlayer && src && src !== t && src.alive) {
         t.healT = 0;
         if (t.enemy !== src) {
@@ -7189,7 +7474,7 @@
     }
     function playerFire() {
       const p = player;
-      if (p.consuming || lockedUp(p) || p.swimming) return;
+      if (p.consuming || lockedUp(p) || p.swimming || BLD.on || gcBusy(p)) return;
       const it = curItem();
       if (it && it.kind === "gun") MS.shots++;
       if (!it) {
@@ -7436,6 +7721,11 @@
     function onPrimaryDown() {
       const p = player;
       if (!p.alive) return;
+      if (BLD.on) {
+        bldPlace();
+        return;
+      }
+      if (p.ride) return;
       const it = curItem();
       if (it && it.kind === "cons") startConsume(it);
       else playerFire();
@@ -7453,6 +7743,8 @@
       } });
     }
     function puff(p, col) {
+      pBurst(4, 7, p, 7, 16769696, 0.06);
+      pBurst(5, 5, p, 5, col, 0.05);
       const mat = new T.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.8 });
       const m = new T.Mesh(GEO.puff, mat);
       m.position.copy(p);
@@ -7686,12 +7978,18 @@
         $("uselabel").textContent = "Reloading";
         $("usefill").style.width = p.reloading.t / p.reloading.dur * 100 + "%";
       } else if (!busy) $("usebar").hidden = true;
-      const vm = p.alive && !shopOpen && nearMachine();
-      $("prompt").hidden = !vm;
-      if (vm && $("prompt").dataset.k !== "shop") {
-        $("prompt").dataset.k = "shop";
-        $("prompt").innerHTML = "<kbd>E</kbd>Shop";
+      const vm = p.alive && !shopOpen && nearMachine(), sn = !vm && p.alive && !shopOpen ? stNear() : null, pk = vm ? "shop" : sn ? sn.key : p.chan ? "chan" : "";
+      $("prompt").hidden = !pk;
+      if (pk && $("prompt").dataset.k !== pk) {
+        $("prompt").dataset.k = pk;
+        $("prompt").innerHTML = vm ? "<kbd>E</kbd>Shop" : sn ? "<kbd>E</kbd>" + sn.label : p.chan.label + "\u2026";
       }
+      if (p.chan) {
+        $("usebar").hidden = false;
+        $("uselabel").textContent = p.chan.label;
+        $("usefill").style.width = p.chan.t / p.chan.dur * 100 + "%";
+      }
+      bldBar();
       if (shopOpen && !p.alive) closeShop();
       updateDmg(dt);
     }
@@ -7836,7 +8134,7 @@
       const cyaw = p.yaw + Math.PI * ek, cp = Math.cos(p.pitch);
       camFwd.set(-Math.sin(cyaw) * cp, Math.sin(p.pitch), -Math.cos(cyaw) * cp);
       camRight.set(Math.cos(cyaw), 0, -Math.sin(cyaw));
-      const pivot = tv1.set(p.pos.x, p.pos.y + 1.7 - 0.5 * Math.max(A.crouch, 0.9 * (A.slide || 0)) - 0.5 * (A.swim || 0), p.pos.z);
+      const pivot = tv1.set(p.pos.x, p.pos.y + 1.7 - 0.5 * Math.max(A.crouch, 0.9 * (A.slide || 0), 2 * (A.prone || 0)) - 0.5 * (A.swim || 0), p.pos.z);
       const gun = !!curItem() && curItem().kind === "gun", dist = lerp(p.bounceT > 0 ? 7.5 : ads ? 2 : gun ? 3.4 : 4.6, 3.6, ek), side = (ads ? 0.8 : gun ? 1.1 : 0.85) * (1 - ek);
       pivot.y += lerp(ads ? 0.05 : gun ? 0.3 : 0.45, -0.45, ek);
       const sp = A.sprint || 0;
@@ -9507,9 +9805,9 @@
       e.yaw = Math.atan2(e.pos.x, e.pos.z);
     }
     function zgMove(e, dt) {
-      const p = e.pos, r = e.radius, h = 2;
+      const p = e.pos, r = e.radius, h = 2, lo = e.prone && ZG.state === "ceil" ? 1.1 : 0;
       let hitY = 0;
-      if (ZG.state === "ceil") {
+      if (ZG.state === "ceil" && !e.pk) {
         e.vel.y = Math.min(38, e.vel.y + GRAV * dt);
       }
       for (const ax of ["x", "z", "y"]) {
@@ -9517,13 +9815,13 @@
         if (!d) continue;
         p[ax] += d;
         for (const b of colliders.near(p.x, p.z, r + 1)) {
-          if (p.x + r <= b.min.x || p.x - r >= b.max.x || p.z + r <= b.min.z || p.z - r >= b.max.z || p.y + h <= b.min.y || p.y >= b.max.y) continue;
+          if (p.x + r <= b.min.x || p.x - r >= b.max.x || p.z + r <= b.min.z || p.z - r >= b.max.z || p.y + h <= b.min.y || p.y + lo >= b.max.y) continue;
           if (ax === "y") {
             if (d > 0) {
               p.y = b.min.y - h;
               hitY = 1;
             } else {
-              p.y = b.max.y;
+              p.y = b.max.y - lo;
               hitY = -1;
             }
             e.vel.y = 0;
@@ -9668,6 +9966,10 @@
       let mx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0), mz = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0);
       if (flip) mx = -mx;
       const my = (keys.Space ? 1 : 0) - (keys.KeyC || keys.ControlLeft ? 1 : 0);
+      if (p.ride && ZG.state !== "ceil") {
+        stDrive(p, dt, mz);
+        return;
+      }
       _zr.set(Math.cos(p.yaw), 0, -Math.sin(p.yaw));
       p.crouch = ZG.state === "ceil" && !!keys.KeyC && p.onGround;
       if (ZG.state !== "ceil") p.slideT = 0;
@@ -9687,14 +9989,34 @@
       } else {
         p.zgPropel = false;
         zgStamina(p, false, dt);
-        const sprint = (keys.ShiftLeft || keys.ShiftRight) && mz > 0 && !ads;
+        if (p.ride) {
+          stDrive(p, dt, mz);
+          return;
+        }
+        if (stPlayer(p, dt, mx, mz)) {
+          p.wantJump = false;
+          zgMove(p, dt);
+          return;
+        }
+        if (pkPlayer(p, dt, mz)) {
+          zgMove(p, dt);
+          return;
+        }
+        if (p.prone) p.crouch = false;
+        const sprint = (keys.ShiftLeft || keys.ShiftRight) && mz > 0 && !ads && !p.prone;
         p.sprinting = sprint && p.onGround;
+        if (p.roll) {
+          pkVel(p, dt);
+          p.wantJump = false;
+          zgMove(p, dt);
+          return;
+        }
         if (!slideTick(p, dt, sprint)) {
-          const sp = (ads ? 4.5 : p.crouch ? 3.8 : sprint ? 11 : 7.5) * slowK(p) * bv(p, "spd", 1), fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), k = 1 - Math.exp(-(p.onGround ? 14 : 3) * dt);
+          const sp = (p.prone ? 2.4 : ads ? 4.5 : p.crouch ? 3.8 : sprint ? 11 : 7.5) * slowK(p) * bv(p, "spd", 1), fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), k = 1 - Math.exp(-(p.onGround ? 14 : 3) * dt);
           p.vel.x = lerp(p.vel.x, (fx * mz + _zr.x * mx) * sp, k);
           p.vel.z = lerp(p.vel.z, (fz * mz + _zr.z * mx) * sp, k);
         }
-        if (p.onGround && p.wantJump) {
+        if (p.onGround && p.wantJump && !p.prone) {
           p.vel.y = -10.5;
           p.onGround = false;
           p.slideT = 0;
@@ -12107,6 +12429,7 @@
     }
     function fxHit(at, col, size) {
       const s = size || 1, M = pwMats(col);
+      pBurst(4, 14, at, 9 * s, col, 0.07);
       const fl = new T.Sprite(M.hot.clone());
       fl.position.copy(at);
       world.add(fl);
@@ -12135,6 +12458,8 @@
     const boomGeo = new T.SphereGeometry(1, 28, 20), fxShard = new T.OctahedronGeometry(0.16).scale(0.7, 1.6, 0.7);
     function fxBoom(at, col, r) {
       const M = pwMats(col);
+      pBurst(4, 50, at, 14 + r, col, 0.09);
+      pBurst(6, 26, at, 5 + r * 0.5, 16756832, 0.1);
       const fl = new T.Sprite(M.hot.clone());
       fl.position.copy(at);
       world.add(fl);
@@ -16848,7 +17173,7 @@
       return g;
     }
     function brMove(e, dt) {
-      const p = e.pos, r = e.radius, h = 2;
+      const p = e.pos, r = e.radius, h = e.prone ? 0.9 : 2;
       if (e.br === "fall") {
         e.vel.y = Math.max(-46, e.vel.y - BR_G * dt);
       } else if (e.br === "glide") {
@@ -16879,7 +17204,7 @@
       const L = BR.W / 2 - 2;
       p.x = clamp(p.x, -L, L);
       p.z = clamp(p.z, -L, L);
-      const fl = brFloor(p.x, p.z), was = e.onGround;
+      const fl = Math.max(brFloor(p.x, p.z), BLD.ramps.length ? bldRampY(p.x, p.z, p.y) : -1e9), was = e.onGround;
       let on = e.brStand && e.vel.y <= 0;
       e.brStand = false;
       if (p.y <= fl + 0.02) {
@@ -16944,6 +17269,7 @@
       }
     }
     function brDust(at, s) {
+      pBurst(5, Math.round(18 * s), at, 6 * s, 9075290, 0.07);
       for (let i = 0; i < Math.round(8 * s); i++) {
         const a = i / (8 * s) * TAU;
         smoke(at.clone().add(new V(Math.cos(a) * 0.6, 0.2, Math.sin(a) * 0.6)), rnd(1.2, 2) * s, rnd(0.6, 1.1), new V(Math.cos(a) * rnd(3, 6) * s, rnd(0.5, 1.5), Math.sin(a) * rnd(3, 6) * s), false);
@@ -17063,15 +17389,31 @@
         brMove(p, dt);
         return;
       }
-      const swim = p.swimming, sprint = (keys.ShiftLeft || keys.ShiftRight) && mz > 0 && !ads && !swim;
+      if (p.ride) {
+        stDrive(p, dt, mz);
+        return;
+      }
+      if (stPlayer(p, dt, mx, mz)) {
+        p.wantJump = false;
+        brMove(p, dt);
+        return;
+      }
+      if (pkPlayer(p, dt, mz)) return;
+      const swim = p.swimming, sprint = (keys.ShiftLeft || keys.ShiftRight) && mz > 0 && !ads && !swim && !p.prone;
       p.sprinting = sprint && p.onGround;
-      p.crouch = !!keys.KeyC && p.onGround && !swim;
+      p.crouch = !!keys.KeyC && p.onGround && !swim && !p.prone;
+      if (p.roll) {
+        pkVel(p, dt);
+        p.wantJump = false;
+        brMove(p, dt);
+        return;
+      }
       if (!slideTick(p, dt, sprint)) {
-        const sp = (swim ? 4.2 : ads ? 4.5 : p.crouch ? 3.5 : sprint ? 10 : 7) * slowK(p) * bv(p, "spd", 1), k = 1 - Math.exp(-(p.onGround ? swim ? 4 : 14 : 2.5) * dt);
+        const sp = (swim ? 4.2 : p.prone ? 2.4 : ads ? 4.5 : p.crouch ? 3.5 : sprint ? 10 : 7) * slowK(p) * bv(p, "spd", 1), k = 1 - Math.exp(-(p.onGround ? swim ? 4 : 14 : 2.5) * dt);
         p.vel.x = lerp(p.vel.x, wx * sp, k);
         p.vel.z = lerp(p.vel.z, wz * sp, k);
       }
-      if (p.onGround && p.wantJump && !swim) {
+      if (p.onGround && p.wantJump && !swim && !p.prone) {
         p.vel.y = 9.5;
         p.onGround = false;
         p.slideT = 0;
@@ -17221,7 +17563,1240 @@
         e.wake = 1e9;
       }
     }
+    function gcPlay(e, clip, o) {
+      const cl = SOLDIER && SOLDIER.clips[clip];
+      if (!cl || !e.ch || !e.alive) return false;
+      o = o || {};
+      const t0 = o.t0 || 0, t1 = o.t1 || cl.duration, sp = o.speed || 1;
+      e.gc = { k: clip, t: 0, t0, t1, speed: sp, loop: !!o.loop, dur: o.dur || (t1 - t0) / sp, w: 0, max: o.w == null ? 1 : o.w, fin: o.fin || 0.15, fout: o.fout || 0.2, out: false, body: o.body !== false, tag: o.tag || "", low: !!o.low };
+      return true;
+    }
+    function gcStop(e, tag) {
+      if (e.gc && (!tag || e.gc.tag === tag)) e.gc.out = true;
+    }
+    function gcClip(e, c, X) {
+      const G = e.gc, dt = X.dt;
+      if (c.gcA && (!G || c.gcK !== G.k)) {
+        c.gcA.stop();
+        c.gcA = null;
+        c.gcK = null;
+      }
+      if (!G) return;
+      G.t += dt;
+      if (!G.loop && G.t >= G.dur - G.fout) G.out = true;
+      G.w = G.out ? G.w - dt / G.fout : Math.min(1, G.w + dt / G.fin);
+      if (G.w <= 0) {
+        e.gc = null;
+        if (c.gcA) {
+          c.gcA.stop();
+          c.gcA = null;
+          c.gcK = null;
+        }
+        return;
+      }
+      if (!c.gcA) {
+        c.gcA = c.mixer.clipAction(SOLDIER.clips[G.k]);
+        c.gcA.reset();
+        c.gcA.play();
+        c.gcA.setEffectiveTimeScale(0);
+        c.gcK = G.k;
+      }
+      const w = smooth(0, 1, G.w) * G.max, span = G.t1 - G.t0, tt = G.t * G.speed;
+      for (const n in c.act) c.act[n].setEffectiveWeight(c.act[n].getEffectiveWeight() * (1 - w));
+      if (c.pmA) c.pmA.setEffectiveWeight(c.pmA.getEffectiveWeight() * (1 - w));
+      c.gcA.setEffectiveWeight(w);
+      c.gcA.time = G.t0 + (G.loop ? tt % span : Math.min(tt, span - 1e-3));
+      X.gcW = w;
+      if (G.low) X.hmCr = Math.max(X.hmCr || 0, w);
+    }
+    function gcAuto(e, X) {
+      if (!X.near && !e.gc) return;
+      const sw = e.swimming && X.speed < 0.7, cr = e.crouch && e.onGround && X.speed < 0.3 && !(e.slideT > 0);
+      if (sw) {
+        if (!e.gc) gcPlay(e, "PM_Float", { loop: true, fin: 0.45, fout: 0.3, tag: "float" });
+      } else gcStop(e, "float");
+      if (cr) {
+        if (!e.gc) gcPlay(e, "PM_Campfire", { loop: true, body: false, fin: 0.3, fout: 0.2, tag: "crouch", low: true });
+      } else gcStop(e, "crouch");
+    }
+    const gcBusy = (e) => !!(e.gc && e.gc.body || e.pk || e.prone || e.ride || e.sit || e.chan);
+    const PKU = () => MODE !== "br" && ZG.state === "ceil" ? -1 : 1;
+    const pkFeet = (e, gs) => gs > 0 ? e.pos.y : e.pos.y + 2;
+    const pkWalking = (e) => e.alive && !e.swimming && (MODE === "br" ? e.br === "ground" : ZG.state === "ceil") && !(e.bounceT > 0) && !lockedUp(e);
+    function pkRay(px, pz, fx, fz, b, pad) {
+      let t0 = -1e9, t1 = 1e9;
+      for (const [o, d, lo, hi] of [[px, fx, b.min.x - pad, b.max.x + pad], [pz, fz, b.min.z - pad, b.max.z + pad]]) {
+        if (Math.abs(d) < 1e-6) {
+          if (o < lo || o > hi) return null;
+          continue;
+        }
+        let a = (lo - o) / d, c = (hi - o) / d;
+        if (a > c) {
+          const s = a;
+          a = c;
+          c = s;
+        }
+        t0 = Math.max(t0, a);
+        t1 = Math.min(t1, c);
+      }
+      return t1 < Math.max(t0, 0) ? null : [t0, t1];
+    }
+    function pkFree(x, F2, z, gs, r, h) {
+      h = h || 2;
+      const y0 = gs > 0 ? F2 + 0.06 : F2 - h, y1 = gs > 0 ? F2 + h : F2 - 0.06;
+      for (const b of colliders.near(x, z, r + 0.5)) {
+        if (x + r <= b.min.x || x - r >= b.max.x || z + r <= b.min.z || z - r >= b.max.z || y1 <= b.min.y || y0 >= b.max.y) continue;
+        return false;
+      }
+      if (MODE === "br") {
+        if (brFloor(x, z) > F2 + 0.9) return false;
+      } else if (Math.abs(x) > ZG.L - r - 0.2 || Math.abs(z) > ZG.L - r - 0.2) return false;
+      return true;
+    }
+    function pkScan(e, fx, fz, reach) {
+      const gs = PKU(), F2 = pkFeet(e, gs), px = e.pos.x, pz = e.pos.z;
+      let best = null;
+      for (const b of colliders.near(px + fx * reach * 0.5, pz + fz * reach * 0.5, reach + 1)) {
+        const top = gs > 0 ? b.max.y : b.min.y, bot = gs > 0 ? b.min.y : b.max.y, hh = (top - F2) * gs, lo = (bot - F2) * gs;
+        if (hh < 0.4 || lo > 1.5) continue;
+        const R = pkRay(px, pz, fx, fz, b, e.radius * 0.5);
+        if (!R || R[0] > reach) continue;
+        if (!best || R[0] < best.t0) best = { b, hh, top, t0: Math.max(0, R[0]), t1: R[1] };
+      }
+      return best;
+    }
+    function pkTry(e, fx, fz, jump) {
+      if (e.pk || !pkWalking(e)) return false;
+      const gs = PKU(), F2 = pkFeet(e, gs), r = e.radius;
+      const S = pkScan(e, fx, fz, 1.25);
+      if (!S) return false;
+      const sp = e.vel.x * fx + e.vel.z * fz, thick = S.t1 - S.t0;
+      if (S.b.climb && S.t0 < 0.8 && S.hh > 1.3) {
+        const ax = Math.abs(fx) > Math.abs(fz), nx = ax ? Math.sign(fx) : 0, nz2 = ax ? 0 : Math.sign(fz);
+        if (ax) e.pos.x = nx > 0 ? S.b.min.x - r - 0.04 : S.b.max.x + r + 0.04;
+        else e.pos.z = nz2 > 0 ? S.b.min.z - r - 0.04 : S.b.max.z + r + 0.04;
+        e.pk = { kind: "climb", b: S.b, fx: nx, fz: nz2, gs, top: S.top, t: 0, ph: 0 };
+        e.vel.set(0, 0, 0);
+        if (e.prone) e.prone = false;
+        return true;
+      }
+      if (e.onGround && S.hh <= 1.3 && thick <= 2.8 && sp > 4.2) {
+        const d = S.t1 + r + 0.45, x = e.pos.x + fx * d, z = e.pos.z + fz * d, m = S.t0 + thick / 2, mx = e.pos.x + fx * m, mz = e.pos.z + fz * m;
+        if (pkFree(x, F2, z, gs, r) && pkFree(mx, S.top + gs * 0.05, mz, gs, r * 0.8, 1.3)) {
+          const toF = MODE === "br" ? Math.max(F2, brFloor(x, z)) : F2;
+          e.pk = {
+            kind: "vault",
+            t: 0,
+            dur: clamp(0.36 + thick * 0.07 + S.hh * 0.08, 0.4, 0.72),
+            from: e.pos.clone(),
+            to: new V(x, e.pos.y + (toF - F2), z),
+            hh: S.hh,
+            fx,
+            fz,
+            gs,
+            sp: Math.max(sp, 6.5),
+            hand: new V(e.pos.x + fx * (S.t0 + 0.3) + fz * 0.24, S.top, e.pos.z + fz * (S.t0 + 0.3) - fx * 0.24)
+          };
+          if (e === player) sfx("whoosh", null, {});
+          return true;
+        }
+      }
+      if ((jump || !e.onGround) && S.hh > 0.9 && S.hh <= 3.4 && S.t0 < 0.9) {
+        const d = S.t0 + r + 0.3, x = e.pos.x + fx * d, z = e.pos.z + fz * d;
+        if (pkFree(x, S.top + gs * 0.02, z, gs, r)) {
+          e.pk = { kind: "mantle", t: 0, dur: 0.4 + 0.2 * Math.max(0.6, S.hh), from: e.pos.clone(), to: new V(x, gs > 0 ? S.top : S.top - 2, z), hh: S.hh, fx, fz, gs, edge: new V(e.pos.x + fx * (S.t0 + 0.14), S.top, e.pos.z + fz * (S.t0 + 0.14)) };
+          e.vel.set(0, 0, 0);
+          if (e === player) sfx("jump");
+          return true;
+        }
+      }
+      return false;
+    }
+    function pkMove(e, dt, up, jump) {
+      const K = e.pk;
+      if (!K) return false;
+      K.t += dt;
+      const gs = K.gs;
+      if (gs !== PKU() || !e.alive || lockedUp(e) || e.bounceT > 0) {
+        e.pk = null;
+        return false;
+      }
+      if (K.kind === "vault") {
+        const k = Math.min(1, K.t / K.dur);
+        e.pos.lerpVectors(K.from, K.to, k);
+        e.pos.y += gs * (K.hh + 0.25) * Math.sin(Math.PI * k);
+        e.vel.set(K.fx * K.sp, 0, K.fz * K.sp);
+        e.onGround = false;
+        if (k >= 1) {
+          e.pk = null;
+          e.onGround = true;
+          e.anim.land = 0.3;
+        }
+        return true;
+      }
+      if (K.kind === "mantle") {
+        const k = Math.min(1, K.t / K.dur), a = easeIO(clamp(k / 0.65, 0, 1)), b2 = easeIO(clamp((k - 0.5) / 0.5, 0, 1));
+        e.pos.x = lerp(K.from.x, K.to.x, b2);
+        e.pos.z = lerp(K.from.z, K.to.z, b2);
+        e.pos.y = lerp(K.from.y, K.to.y, a);
+        e.vel.set(0, 0, 0);
+        e.onGround = false;
+        if (k >= 1) {
+          e.pk = null;
+          e.onGround = true;
+        }
+        return true;
+      }
+      if (K.kind === "climb") {
+        const F2 = pkFeet(e, gs), topH = (K.top - F2) * gs;
+        if (jump) {
+          e.pk = null;
+          e.vel.set(-K.fx * 5.5, gs * 6.5, -K.fz * 5.5);
+          e.onGround = false;
+          return false;
+        }
+        const v = up > 0 ? 3.6 : up < 0 ? -3.6 : 0;
+        e.pos.y += gs * v * dt;
+        K.ph += Math.abs(v) * dt;
+        e.vel.set(0, 0, 0);
+        e.onGround = false;
+        if (topH <= 1.3 && up > 0) {
+          const x = e.pos.x + K.fx * (e.radius * 2 + 0.35), z = e.pos.z + K.fz * (e.radius * 2 + 0.35);
+          e.pk = { kind: "mantle", t: 0, dur: 0.55, from: e.pos.clone(), to: new V(x, gs > 0 ? K.top : K.top - 2, z), hh: topH, fx: K.fx, fz: K.fz, gs, edge: new V(e.pos.x + K.fx * (e.radius + 0.1), K.top, e.pos.z + K.fz * (e.radius + 0.1)) };
+          return true;
+        }
+        if (up < 0) {
+          if (MODE === "br") {
+            const fl = brFloor(e.pos.x, e.pos.z);
+            if (e.pos.y <= fl + 0.03) {
+              e.pos.y = fl;
+              e.pk = null;
+              e.onGround = true;
+            }
+          } else if (e.pos.y + 2 >= ZG.H - 0.06) {
+            e.pos.y = ZG.H - 2.05;
+            e.pk = null;
+          }
+        }
+        return true;
+      }
+      e.pk = null;
+      return false;
+    }
+    function pkStand(p) {
+      if (!p.prone) return true;
+      const gs = PKU();
+      if (MODE === "br" && !pkFree(p.pos.x, p.pos.y - 0.9, p.pos.z, gs, p.radius * 0.9, 2.9)) {
+        if (p === player) toast("No room to stand up");
+        return false;
+      }
+      p.prone = false;
+      return true;
+    }
+    function pkProne(p) {
+      if (p.prone) {
+        pkStand(p);
+        return;
+      }
+      if (!pkWalking(p) || !p.onGround || p.pk || p.ride || p.sit || p.roll) return;
+      p.prone = true;
+      p.slideT = 0;
+      if (p.emote) stopEmote(p);
+    }
+    function pkRoll(p, force) {
+      if (p.roll || p.pk || p.prone || p.ride || p.sit || !pkWalking(p) || !p.onGround || !force && (p.rollCd || 0) > matchTime) return false;
+      const gs = PKU();
+      let mx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0), mz = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0);
+      if (gs < 0) mx = -mx;
+      if (!mx && !mz || force) {
+        mx = 0;
+        mz = 1;
+      }
+      const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
+      let x = fx * mz + rx * mx, z = fz * mz + rz * mx;
+      const l = Math.hypot(x, z) || 1;
+      x /= l;
+      z /= l;
+      p.roll = { t: 0, dur: 0.74, x, z };
+      p.faceYaw = Math.atan2(-x, -z);
+      p.rollCd = matchTime + 1.4;
+      p.slideT = 0;
+      if (p.emote) stopEmote(p, true);
+      gcPlay(p, "PM_Roll", { speed: 1.95, fin: 0.07, fout: 0.18, tag: "roll" });
+      if (p === player) sfx("whoosh", null, {});
+      return true;
+    }
+    function pkPlayer(p, dt, mz) {
+      if (p.pk) {
+        if (pkMove(p, dt, mz, p.wantJump && p.pk.kind === "climb")) {
+          p.wantJump = false;
+          p.slideT = 0;
+          p.sprinting = false;
+          p.crouch = false;
+          return true;
+        }
+      }
+      if (!pkWalking(p)) {
+        p.prone = false;
+        p.roll = null;
+        p.faceYaw = null;
+        p.pkFall = 0;
+        return false;
+      }
+      if (p.prone && p.wantJump) {
+        pkStand(p);
+        p.wantJump = false;
+      }
+      if (MODE === "br") {
+        if (p.onGround && (p.pkFall || 0) > 15 && Math.hypot(p.vel.x, p.vel.z) > 4 && !p.brCrash) pkRoll(p, true);
+        p.pkFall = p.onGround ? 0 : Math.max(0, -p.vel.y);
+      }
+      if (mz > 0 && !p.prone && !p.roll && !p.sit && !p.ride && !p.chan) {
+        const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw);
+        if (pkTry(p, fx, fz, p.wantJump || !!keys.Space)) {
+          p.wantJump = false;
+          if (p.emote) stopEmote(p, true);
+          return true;
+        }
+      }
+      return false;
+    }
+    function pkVel(p, dt) {
+      const R = p.roll;
+      if (!R) return;
+      R.t += dt;
+      const k = R.t / R.dur, s = lerp(13.5, 7, k) * slowK(p);
+      p.vel.x = R.x * s;
+      p.vel.z = R.z * s;
+      p.sprinting = false;
+      p.crouch = false;
+      if (k >= 1 || !p.onGround && R.t > 0.15) {
+        p.roll = null;
+        p.faceYaw = null;
+        gcStop(p, "roll");
+      }
+    }
+    const _pkq = new T.Quaternion(), _pka = new V(), _pkb = new V(), _pkc = new V(), _pkd = new V();
+    function pkAxes(c, X) {
+      c.g.updateMatrixWorld(true);
+      c.model.getWorldQuaternion(_pkq);
+      X.rightB.set(1, 0, 0).applyQuaternion(_pkq);
+      X.fwdB.set(0, 0, -1).applyQuaternion(_pkq);
+      X.upB.set(0, 1, 0).applyQuaternion(_pkq);
+    }
+    function pkTurn(c, X, axis, ang, h) {
+      const g = c.g, mid = _pka.copy(g.position).addScaledVector(X.upB, h);
+      _pkq.setFromAxisAngle(_pkb.copy(axis), ang);
+      g.position.sub(mid).applyQuaternion(_pkq).add(mid);
+      g.quaternion.premultiply(_pkq);
+      pkAxes(c, X);
+    }
+    function animParkour(e, X) {
+      const { c, A, B, dt } = X, K = e.pk;
+      if (A.prone == null) {
+        A.prone = 0;
+        A.crawl = 0;
+      }
+      D(A, "prone", e.prone ? 1 : 0, 1 - Math.exp(-9 * dt));
+      const armIK = (sd, t, pole) => solveIK(B[sd + "Arm"], B[sd + "ForeArm"], B[sd + "Hand"], t, pole);
+      if (A.prone > 0.02) {
+        const k = smooth(0, 1, A.prone), sp = Math.hypot(e.vel.x, e.vel.z);
+        A.crawl += sp * dt * 2.4;
+        pkTurn(c, X, X.rightB, -(Math.PI / 2 - 0.08) * k, 0.2);
+        c.g.position.addScaledVector(X.upB, -0.85 * k);
+        c.g.updateMatrixWorld(true);
+        if (!X.near) return;
+        const R = X.rightB, U = X.upB, F2 = X.fwdB, ph = A.crawl;
+        rotateBoneWorld(B.Spine1, R, 0.2 * k);
+        rotateBoneWorld(B.Neck, R, 0.7 * k);
+        rotateBoneWorld(B.Head, R, 0.35 * k);
+        for (const [sd, sx, off] of [["Left", -1, 0], ["Right", 1, Math.PI]]) {
+          const s = Math.sin(ph + off), cs = Math.cos(ph + off);
+          const sh = B[sd + "Arm"].getWorldPosition(_pkc);
+          const t = _pkd.copy(sh).addScaledVector(U, 0.32 + 0.2 * s).addScaledVector(F2, 0.2 - 0.07 * Math.max(0, cs)).addScaledVector(R, sx * 0.16);
+          armIK(sd, t, new V().copy(sh).addScaledVector(R, sx * 0.9).addScaledVector(U, -0.25).addScaledVector(F2, -0.2));
+          const kn = (0.25 + 0.75 * Math.max(0, -s)) * k;
+          rotateBoneWorld(B[sd + "UpLeg"], F2, -sx * 0.95 * kn);
+          rotateBoneWorld(B[sd + "Leg"], F2, sx * 1.5 * kn);
+        }
+        return;
+      }
+      if (e.ride && X.near) {
+        c.g.position.addScaledVector(X.upB, 0.12);
+        c.g.updateMatrixWorld(true);
+      }
+      if (!K || !X.near) return;
+      if (K.kind === "vault") {
+        const k = Math.min(1, K.t / K.dur), s = Math.sin(Math.PI * k);
+        pkTurn(c, X, X.fwdB, 0.5 * s, 0.95);
+        pkTurn(c, X, X.rightB, -0.3 * s, 0.95);
+        const R = X.rightB, U = X.upB, F2 = X.fwdB;
+        bend(X, "Left", 1.15 * s, -1.35 * s);
+        bend(X, "Right", 0.95 * s, -1.2 * s);
+        rotateBoneWorld(B.LeftUpLeg, F2, 0.5 * s);
+        rotateBoneWorld(B.RightUpLeg, F2, 0.5 * s);
+        if (k < 0.8) {
+          const sh = B.LeftArm.getWorldPosition(_pkc);
+          armIK("Left", K.hand, new V().copy(sh).addScaledVector(R, -0.7).addScaledVector(U, -0.5));
+        }
+        rotateBoneWorld(B.RightArm, F2, -0.9 * s);
+        rotateBoneWorld(B.Neck, R, 0.25 * s);
+        return;
+      }
+      if (K.kind === "mantle") {
+        const k = Math.min(1, K.t / K.dur), over = smooth(0.55, 0.95, k), R = X.rightB, U = X.upB;
+        if (over > 0.01) pkTurn(c, X, X.rightB, -0.55 * Math.sin(Math.PI * over), 0.9);
+        if (k < 0.82) for (const [sd, sx] of [["Left", -1], ["Right", 1]]) {
+          const sh = B[sd + "Arm"].getWorldPosition(_pkc);
+          armIK(sd, _pkd.copy(K.edge).addScaledVector(R, sx * 0.24), new V().copy(sh).addScaledVector(R, sx * 0.8).addScaledVector(U, -0.6));
+        }
+        const t = K.t * 11, w = 1 - over;
+        bend(X, "Left", (0.55 + 0.45 * Math.sin(t)) * w + 0.9 * over * (1 - over) * 4 * 0.5, -(0.9 + 0.4 * Math.sin(t)) * w - 0.8 * over * (1 - over) * 4 * 0.5);
+        bend(X, "Right", (0.55 - 0.45 * Math.sin(t)) * w, -(0.9 - 0.4 * Math.sin(t)) * w);
+        rotateBoneWorld(B.Neck, R, 0.35 * w);
+        return;
+      }
+      if (K.kind === "climb") {
+        const R = X.rightB, U = X.upB, F2 = X.fwdB, ph = K.ph * 2.3;
+        for (const [sd, sx, off] of [["Left", -1, 0], ["Right", 1, Math.PI]]) {
+          const s = Math.sin(ph + off), sh = B[sd + "Arm"].getWorldPosition(_pkc);
+          armIK(sd, _pkd.copy(sh).addScaledVector(U, 0.4 + 0.24 * s).addScaledVector(F2, 0.36).addScaledVector(R, sx * 0.08), new V().copy(sh).addScaledVector(R, sx * 0.8).addScaledVector(U, -0.5));
+          bend(X, sd, 0.6 - 0.45 * s, -(1.05 - 0.5 * s));
+        }
+        rotateBoneWorld(B.Neck, R, 0.3);
+      }
+    }
+    const BLD = { on: false, kind: 0, list: [], ramps: [], ghost: null, cd: 0, C: 4, H: 3.5, max: 48, mat: null, gm: null, gbad: null };
+    const BLD_KINDS = ["Wall", "Floor", "Ramp"];
+    function bldInit() {
+      BLD.list = [];
+      BLD.ramps = [];
+      BLD.on = false;
+      BLD.ghost = null;
+      bldBar();
+      if (!BLD.mat) {
+        const tex = canvasTex(128, 128, (g, w) => {
+          g.fillStyle = "#b98a55";
+          g.fillRect(0, 0, w, w);
+          for (let i = 0; i < 4; i++) {
+            g.fillStyle = i % 2 ? "#c2945c" : "#ae7f4c";
+            g.fillRect(0, i * 32, w, 30);
+            g.fillStyle = "rgba(60,35,15,.5)";
+            g.fillRect(0, i * 32 + 30, w, 2);
+            for (let k = 0; k < 5; k++) {
+              g.fillStyle = "rgba(80,50,20,.18)";
+              g.fillRect(Math.random() * w, i * 32 + 4 + Math.random() * 22, 10 + Math.random() * 30, 1.5);
+            }
+          }
+          g.fillStyle = "#4a2d14";
+          for (const [x, y] of [[8, 8], [120, 8], [8, 120], [120, 120]]) g.fillRect(x - 3, y - 3, 6, 6);
+          g.strokeStyle = "#5cf0ff";
+          g.lineWidth = 3;
+          g.strokeRect(1.5, 1.5, w - 3, w - 3);
+        });
+        BLD.mat = Lam({ map: tex });
+        BLD.gm = new T.MeshBasicMaterial({ color: 6091007, transparent: true, opacity: 0.32, depthWrite: false, side: T.DoubleSide });
+        BLD.gbad = new T.MeshBasicMaterial({ color: 16724807, transparent: true, opacity: 0.3, depthWrite: false, side: T.DoubleSide });
+      }
+    }
+    function bldBar() {
+      const el = $("buildBar");
+      if (!el) return;
+      el.hidden = !BLD.on || state !== "play";
+      if (BLD.on) el.innerHTML = "<b>BUILD</b>" + BLD_KINDS.map((n, i) => `<span class="${i === BLD.kind ? "on" : ""}"><kbd>${i + 1}</kbd>${n}</span>`).join("") + "<span><kbd>G</kbd>Done</span>";
+    }
+    function bldToggle(on) {
+      const p = player;
+      on = on == null ? !BLD.on : on;
+      if (on && (!p.alive || p.ride || p.sit || p.prone || MODE === "br" && p.br !== "ground")) return;
+      BLD.on = on;
+      if (on && p.emote) stopEmote(p, true);
+      if (BLD.ghost) BLD.ghost.visible = on;
+      bldBar();
+      sfx("ui");
+    }
+    function bldSpot() {
+      const p = player, C = BLD.C, H = BLD.H, gs = PKU(), F2 = pkFeet(p, gs), k = BLD.kind;
+      const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), ax = Math.abs(fx) > Math.abs(fz), dx = ax ? Math.sign(fx) : 0, dz = ax ? 0 : Math.sign(fz);
+      const pitch = p.pitch * (ZG.camRoll > Math.PI / 2 ? -1 : 1), up = pitch > 0.45, dn = pitch < -0.6, base = gs > 0 ? Math.floor(F2 * 2 + 0.01) / 2 : Math.ceil(F2 * 2 - 0.01) / 2;
+      const cellC = (v) => (Math.floor(v / C) + 0.5) * C, edge = (v, d, lead) => d > 0 ? Math.ceil((v + lead) / C) * C : Math.floor((v - lead) / C) * C;
+      if (k === 0) {
+        const lv = base + gs * (up ? H : 0);
+        return ax ? { k, x: edge(p.pos.x, dx, 0.9), y: lv + gs * H / 2, z: cellC(p.pos.z), sx: 0.3, sy: H, sz: C, dx, dz } : { k, x: cellC(p.pos.x), y: lv + gs * H / 2, z: edge(p.pos.z, dz, 0.9), sx: C, sy: H, sz: 0.3, dx, dz };
+      }
+      if (k === 1) {
+        const own = up || dn, x2 = cellC(p.pos.x + (own ? 0 : dx * 2.7)), z2 = cellC(p.pos.z + (own ? 0 : dz * 2.7));
+        return { k, x: x2, y: up ? base + gs * (H + 0.125) : base - gs * 0.14, z: z2, sx: C, sy: 0.25, sz: C, dx, dz };
+      }
+      const x = ax ? edge(p.pos.x, dx, 0.45) + dx * C / 2 : cellC(p.pos.x), z = ax ? cellC(p.pos.z) : edge(p.pos.z, dz, 0.45) + dz * C / 2;
+      return { k, x, y: base + gs * H / 2, z, y0: base, dx, dz, gs };
+    }
+    const bldKey = (S) => S.k + ":" + S.x.toFixed(1) + ":" + S.y.toFixed(1) + ":" + S.z.toFixed(1) + (S.k === 2 ? ":" + S.dx + S.dz : "");
+    function bldBlocked(S) {
+      if (BLD.list.some((P) => P.key === bldKey(S))) return true;
+      if (S.k === 2) return false;
+      for (const e of combatants) {
+        if (!e.alive) continue;
+        const r = e.radius || 0.5, p = e.pos;
+        if (p.x + r > S.x - S.sx / 2 && p.x - r < S.x + S.sx / 2 && p.z + r > S.z - S.sz / 2 && p.z - r < S.z + S.sz / 2 && p.y + 2 > S.y - S.sy / 2 && p.y < S.y + S.sy / 2) return true;
+      }
+      return false;
+    }
+    function bldRampSet(m, S) {
+      const L = Math.hypot(BLD.C, BLD.H);
+      m.scale.set(BLD.C, 0.25, L);
+      m.position.set(S.x, S.y, S.z);
+      m.rotation.set(Math.atan2(BLD.H, BLD.C) * S.gs, Math.atan2(-S.dx, -S.dz), 0, "YXZ");
+    }
+    function bldPlace() {
+      const p = player;
+      if (!BLD.on || BLD.cd > 0 || !p.alive) return;
+      const S = bldSpot();
+      if (bldBlocked(S)) {
+        BLD.cd = 0.12;
+        return;
+      }
+      BLD.cd = 0.16;
+      const m = new T.Mesh(pwGeo.box || (pwGeo.box = new T.BoxGeometry(1, 1, 1)), BLD.mat.clone());
+      let P;
+      if (S.k === 2) {
+        bldRampSet(m, S);
+        world.add(m);
+        m.castShadow = m.receiveShadow = true;
+        P = { etype: "piece", kind: "build", build: true, hp: 150, maxHp: 150, obj: m, meshes: [m], ramp: S, key: bldKey(S) };
+        m.userData.ent = P;
+        structMeshes.push(m);
+        BLD.ramps.push(P);
+        targetsDirty = true;
+      } else {
+        m.scale.set(S.sx, S.sy, S.sz);
+        m.position.set(S.x, S.y, S.z);
+        world.add(m);
+        P = registerPiece({ kind: "build", hp: 150, maxHp: 150, obj: m, meshes: [m], box: boxOf(S.x, S.y, S.z, S.sx, S.sy, S.sz) });
+        P.build = true;
+        P.key = bldKey(S);
+      }
+      const tex = m.material.map = BLD.mat.map;
+      void tex;
+      BLD.list.push(P);
+      while (BLD.list.length > BLD.max) bldRemove(BLD.list[0], true);
+      const s0 = m.scale.clone();
+      effects.push({ t: 0, dur: 0.22, obj: null, upd: (ef, k) => {
+        const q = 1 - Math.pow(1 - k, 3);
+        m.scale.copy(s0).multiplyScalar(0.55 + 0.45 * q + 0.08 * Math.sin(Math.PI * k));
+      } });
+      pBurst(5, 14, m.position, 5, 12751964, 0.06);
+      pBurst(4, 6, m.position, 5, 6091007, 0.05);
+      sfx("chop", m.position.clone(), { mat: "stone" });
+      if (!p.gc && Math.hypot(p.vel.x, p.vel.z) < 1) gcPlay(p, "PM_Button", { t0: 0.45, t1: 1.25, speed: 2, w: 0.8, tag: "use" });
+    }
+    function bldHurt(P, dmg) {
+      if (!P.build || P.hp <= 0) return;
+      P.hp -= dmg;
+      const m = P.obj;
+      m.material.color.setScalar(0.55 + 0.45 * Math.max(0, P.hp / P.maxHp));
+      if (P.hp <= 0) bldRemove(P, true);
+    }
+    function bldRemove(P, fx) {
+      const i = BLD.list.indexOf(P);
+      if (i >= 0) BLD.list.splice(i, 1);
+      const m = P.obj;
+      world.remove(m);
+      m.material.dispose();
+      const j = structMeshes.indexOf(m);
+      if (j >= 0) structMeshes.splice(j, 1);
+      if (P.box) colliders.delete(P.box);
+      const r = BLD.ramps.indexOf(P);
+      if (r >= 0) BLD.ramps.splice(r, 1);
+      targetsDirty = true;
+      if (fx) {
+        pBurst(5, 26, m.position, 7, 12159573, 0.08);
+        sfx("chop", m.position.clone(), { mat: "stone" });
+      }
+    }
+    function bldRampY(x, z, y) {
+      let best = -1e9;
+      for (const P of BLD.ramps) {
+        const S = P.ramp, C = BLD.C;
+        if (S.gs < 0) continue;
+        const u = (x - S.x) * S.dx + (z - S.z) * S.dz, v = (x - S.x) * S.dz - (z - S.z) * S.dx;
+        if (Math.abs(u) > C / 2 + 0.3 || Math.abs(v) > C / 2 + 0.2) continue;
+        const h = S.y0 + BLD.H * clamp(u / C + 0.5, 0, 1) + 0.13;
+        if (y >= h - 0.75 && h > best) best = h;
+      }
+      return best;
+    }
+    function bldTick(dt) {
+      BLD.cd = Math.max(0, BLD.cd - dt);
+      const p = player;
+      if (!BLD.on) return;
+      if (!p.alive || p.ride || p.sit || MODE === "br" && p.br !== "ground") {
+        bldToggle(false);
+        return;
+      }
+      if (!BLD.ghost) {
+        const G = BLD.ghost = new T.Group();
+        G.add(new T.Mesh(pwGeo.box || (pwGeo.box = new T.BoxGeometry(1, 1, 1)), BLD.gm));
+        G.children[0].renderOrder = 4;
+        world.add(G);
+      }
+      const S = bldSpot(), m = BLD.ghost.children[0];
+      m.material = bldBlocked(S) ? BLD.gbad : BLD.gm;
+      if (S.k === 2) bldRampSet(m, S);
+      else {
+        m.rotation.set(0, 0, 0);
+        m.scale.set(S.sx + 0.04, S.sy + 0.04, S.sz + 0.04);
+        m.position.set(S.x, S.y, S.z);
+      }
+      if (mouse.l) bldPlace();
+    }
+    const ST = { list: [], karts: [], t: 0 };
+    const stM = {};
+    function stMats() {
+      if (stM.ok) return;
+      stM.ok = true;
+      stM.stone = Lam({ color: 9078676 });
+      stM.log = Lam({ color: 7029795 });
+      stM.bark = Lam({ color: 4861204 });
+      stM.steel = GPh(8226199, 70, 10134712);
+      stM.dark = GPh(2304056, 40);
+      stM.fire = new T.MeshBasicMaterial({ color: 16747050, transparent: true, opacity: 0.9, blending: T.AdditiveBlending, depthWrite: false });
+      stM.fire2 = new T.MeshBasicMaterial({ color: 16769658, transparent: true, opacity: 0.95, blending: T.AdditiveBlending, depthWrite: false });
+      stM.glowO = new T.SpriteMaterial({ map: glowTex, color: 16751162, transparent: true, opacity: 0.7, blending: T.AdditiveBlending, depthWrite: false });
+      stM.glowM = new T.SpriteMaterial({ map: glowTex, color: 16728020, transparent: true, opacity: 0.8, blending: T.AdditiveBlending, depthWrite: false });
+      stM.glowC = new T.SpriteMaterial({ map: glowTex, color: 6091007, transparent: true, opacity: 0.7, blending: T.AdditiveBlending, depthWrite: false });
+      stM.cry = new T.MeshBasicMaterial({ color: 16743144 });
+      stM.cry2 = new T.MeshBasicMaterial({ color: 10286335 });
+      stM.holo = new T.MeshBasicMaterial({ color: 6091007, transparent: true, opacity: 0.55, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide });
+      stM.kart = GPh(16728020, 90, 16777215);
+      stM.kart2 = GPh(2758736, 60);
+      stM.seat = Lam({ color: 1710626 });
+      stM.gold = new T.MeshBasicMaterial({ color: 16765503 });
+      stM.hurdle = Lam({ color: 16053496 });
+      stM.stripe = Lam({ color: 16724807 });
+      stM.grip = Lam({ color: 3820138 });
+      stM.hold = Lam({ color: 16765503 });
+      stM.gCone = new T.ConeGeometry(0.32, 1, 7);
+      stM.gStone = new T.DodecahedronGeometry(0.2, 0);
+      stM.gLog = new T.CylinderGeometry(0.11, 0.13, 1.1, 7);
+      stM.gOct = new T.OctahedronGeometry(1, 0);
+      stM.gBox = new T.BoxGeometry(1, 1, 1);
+      stM.gCyl = new T.CylinderGeometry(1, 1, 1, 18);
+      stM.gTor = new T.TorusGeometry(0.7, 0.09, 8, 28);
+      stM.gSph = new T.SphereGeometry(1, 14, 10);
+    }
+    function stAdd(kind, x, y, z, yaw, gs) {
+      const g = new T.Group();
+      g.position.set(x, y, z);
+      g.rotation.set(0, yaw, gs < 0 ? Math.PI : 0, "YXZ");
+      world.add(g);
+      const add = (geo, mat, px, py, pz, sx, sy, sz) => {
+        const m = new T.Mesh(geo, mat);
+        m.position.set(px, py, pz);
+        if (sx != null) m.scale.set(sx, sy == null ? sx : sy, sz == null ? sx : sz);
+        m.castShadow = !mat.transparent;
+        m.receiveShadow = !mat.transparent;
+        g.add(m);
+        return m;
+      };
+      const s = { kind, x, y, z, yaw, gs, g, cd: 0, add, P: {} };
+      ST.list.push(s);
+      return s;
+    }
+    function stAt(s, lx, ly, lz) {
+      return s.g.localToWorld(new V(lx, ly, lz));
+    }
+    function stCampfire(x, y, z, yaw, gs) {
+      const s = stAdd("fire", x, y, z, yaw, gs), a = s.add;
+      for (let i = 0; i < 9; i++) {
+        const t = i / 9 * TAU;
+        a(stM.gStone, stM.stone, Math.cos(t) * 0.62, 0.1, Math.sin(t) * 0.62, rnd(0.8, 1.25)).rotation.set(rnd(0, 3), rnd(0, 3), 0);
+      }
+      for (let i = 0; i < 4; i++) {
+        const m = a(stM.gLog, i % 2 ? stM.log : stM.bark, 0, 0.3, 0);
+        m.rotation.set(0.95, i / 4 * TAU, 0, "YXZ");
+        m.position.set(Math.sin(i / 4 * TAU) * 0.2, 0.3, Math.cos(i / 4 * TAU) * 0.2);
+      }
+      s.P.fl = [a(stM.gCone, stM.fire, 0, 0.75, 0, 1.25, 1.3, 1.25), a(stM.gCone, stM.fire2, 0.05, 0.62, 0.04, 0.8, 0.9, 0.8), a(stM.gCone, stM.fire, -0.12, 0.6, 0.1, 0.7, 0.75, 0.7)];
+      const gl = new T.Sprite(stM.glowO);
+      gl.position.set(0, 0.8, 0);
+      gl.scale.setScalar(4.2);
+      s.g.add(gl);
+      s.P.gl = gl;
+      for (const [lx, lz, ry] of [[0, 1.55, Math.PI / 2], [1.5, -0.5, 0.5], [-1.5, -0.5, -0.5]]) {
+        const m = a(stM.gCyl, stM.log, lx, 0.24, lz, 0.24, 1.5, 0.24);
+        m.rotation.set(0, ry, Math.PI / 2, "YXZ");
+        a(stM.gCyl, stM.bark, lx, 0.24, lz, 0.245, 1.3, 0.245).rotation.copy(m.rotation);
+      }
+      s.seats = [[0, 1.55], [1.5, -0.5], [-1.5, -0.5]];
+      return s;
+    }
+    function stBench(x, y, z, yaw, gs) {
+      const s = stAdd("bench", x, y, z, yaw, gs), a = s.add;
+      a(stM.gBox, stM.log, 0, 0.92, 0, 2.2, 0.14, 1);
+      for (const [lx, lz] of [[-0.95, -0.4], [0.95, -0.4], [-0.95, 0.4], [0.95, 0.4]]) a(stM.gBox, stM.bark, lx, 0.43, lz, 0.14, 0.86, 0.14);
+      a(stM.gBox, stM.bark, 0, 0.3, 0, 1.9, 0.08, 0.8);
+      a(stM.gBox, stM.steel, -0.6, 1.12, 0, 0.5, 0.26, 0.36);
+      a(stM.gBox, stM.dark, -0.6, 1.3, 0, 0.62, 0.1, 0.44);
+      a(stM.gBox, stM.stripe, 0.55, 1.1, 0.1, 0.6, 0.24, 0.34);
+      a(stM.gCyl, stM.steel, 0.55, 1.26, 0.1, 0.03, 0.5, 0.03).rotation.z = Math.PI / 2;
+      a(stM.gCyl, stM.log, 0.05, 1.03, -0.25, 0.03, 0.42, 0.03).rotation.set(0, 0.6, Math.PI / 2, "YXZ");
+      a(stM.gBox, stM.steel, 0.22, 1.03, -0.37, 0.16, 0.09, 0.09);
+      const h = a(stM.gOct, stM.holo, 0, 2.1, 0, 0.34, 0.44, 0.34);
+      s.P.holo = h;
+      const gl = new T.Sprite(stM.glowC);
+      gl.position.set(0, 2.1, 0);
+      gl.scale.setScalar(1.8);
+      s.g.add(gl);
+      s.P.gl = gl;
+      const c = stAt(s, 0, 0.5, 0), w = Math.abs(Math.sin(yaw)) > 0.7;
+      zgSolid(a(stM.gBox, stM.dark, 0, 0.5, 0, 0.01), boxOf(c.x, c.y, c.z, w ? 1 : 2.2, 1, w ? 2.2 : 1));
+      return s;
+    }
+    function stShrine(x, y, z, yaw, gs) {
+      const s = stAdd("shrine", x, y, z, yaw, gs), a = s.add;
+      a(stM.gCyl, stM.stone, 0, 0.15, 0, 1.25, 0.3, 1.25);
+      a(stM.gCyl, stM.dark, 0, 0.42, 0, 0.9, 0.24, 0.9);
+      a(stM.gCyl, stM.cry, 0, 0.56, 0, 0.7, 0.04, 0.7);
+      s.P.cry = a(stM.gOct, stM.cry, 0, 2, 0, 0.42, 0.78, 0.42);
+      s.P.orb = [0, 1, 2, 3].map((i) => a(stM.gOct, i % 2 ? stM.cry2 : stM.cry, 0, 1.6, 0, 0.12, 0.2, 0.12));
+      for (let i = 0; i < 4; i++) {
+        const t = i / 4 * TAU + 0.4;
+        a(stM.gBox, stM.stone, Math.cos(t) * 1.05, 0.75, Math.sin(t) * 1.05, 0.22, 1.2 + 0.3 * (i % 2), 0.22).rotation.y = -t;
+      }
+      const gl = new T.Sprite(stM.glowM);
+      gl.position.set(0, 2, 0);
+      gl.scale.setScalar(3.4);
+      s.g.add(gl);
+      s.P.gl = gl;
+      const c = stAt(s, 0, 0.3, 0);
+      zgSolid(a(stM.gBox, stM.dark, 0, 0.3, 0, 0.01), boxOf(c.x, c.y, c.z, 1.5, 0.6, 1.5));
+      return s;
+    }
+    function stKart(x, y, z, yaw, gs) {
+      const s = stAdd("kart", x, y, z, yaw, gs), a = s.add;
+      a(stM.gBox, stM.kart, 0, 0.42, 0.1, 1.25, 0.3, 2.3);
+      a(stM.gBox, stM.kart2, 0, 0.36, -1.2, 0.95, 0.2, 0.5);
+      a(stM.gBox, stM.kart, 0, 0.62, -0.95, 1.05, 0.16, 0.7).rotation.x = 0.35;
+      a(stM.gBox, stM.seat, 0, 0.72, 0.75, 0.7, 0.62, 0.16).rotation.x = -0.18;
+      a(stM.gBox, stM.seat, 0, 0.5, 0.4, 0.7, 0.12, 0.6);
+      a(stM.gTor, stM.dark, 0, 0.98, -0.38, 0.26).rotation.x = -1;
+      a(stM.gCyl, stM.dark, 0, 0.8, -0.5, 0.03, 0.4, 0.03).rotation.x = 0.55;
+      a(stM.gBox, stM.kart2, 0, 1.12, 1.22, 1.5, 0.06, 0.34);
+      for (const sx of [-0.6, 0.6]) a(stM.gBox, stM.kart2, sx, 0.85, 1.2, 0.06, 0.5, 0.2);
+      s.P.pods = [];
+      for (const [lx, lz] of [[-0.8, -0.8], [0.8, -0.8], [-0.8, 0.9], [0.8, 0.9]]) {
+        a(stM.gCyl, stM.kart2, lx, 0.3, lz, 0.36, 0.2, 0.36);
+        const r = a(stM.gCyl, stM.cry2, lx, 0.19, lz, 0.28, 0.04, 0.28);
+        s.P.pods.push(r);
+        const gl = new T.Sprite(stM.glowC);
+        gl.position.set(lx, 0.08, lz);
+        gl.scale.setScalar(1.3);
+        s.g.add(gl);
+      }
+      for (const sx of [-0.42, 0.42]) a(stM.gSph, stM.fire2, sx, 0.5, -1.47, 0.09);
+      s.sp = 0;
+      s.rider = null;
+      s.boostT = 0;
+      s.boostCd = 0;
+      s.pitch = 0;
+      s.rollA = 0;
+      ST.karts.push(s);
+      return s;
+    }
+    function stCourse(x0, z0, ax, gs) {
+      const s = stAdd("course", x0, 0, z0, 0, 1);
+      s.g.visible = true;
+      s.gs = gs;
+      const P = (d, w) => ax ? [x0 + d, z0 + w] : [x0 + w, z0 + d];
+      const gy = (d, w) => {
+        const [x, z] = P(d, w);
+        return gs > 0 ? MODE === "br" ? brHeight(x, z) : 0 : ZG.H;
+      };
+      const box = (d, w, up, ld, lw, lh, mat, o) => {
+        const [x, z] = P(d, w), y = gy(d, w) + gs * (up + lh / 2), sx = ax ? ld : lw, sz = ax ? lw : ld, m = new T.Mesh(stM.gBox, mat);
+        m.scale.set(sx, lh, sz);
+        m.position.set(x, y, z);
+        m.castShadow = m.receiveShadow = true;
+        world.add(m);
+        if (!(o && o.ghost)) {
+          const pc = zgSolid(m, boxOf(x, y, z, sx, lh, sz));
+          if (o && o.climb) pc.box.climb = true;
+        }
+        return m;
+      };
+      box(0, -2.3, 0, 0.3, 0.3, 3.4, stM.stripe);
+      box(0, 2.3, 0, 0.3, 0.3, 3.4, stM.stripe);
+      box(0, 0, 3.4, 0.3, 4.9, 0.4, stM.hurdle, { ghost: true });
+      for (let i = 0; i < 4; i++) {
+        const d = 6 + i * 5.5, h = 0.85 + 0.1 * (i % 2);
+        box(d, 0, h - 0.16, 0.3, 3.8, 0.16, i % 2 ? stM.stripe : stM.hurdle);
+        box(d, -1.8, 0, 0.3, 0.2, h, stM.hurdle);
+        box(d, 1.8, 0, 0.3, 0.2, h, stM.hurdle);
+      }
+      box(31.5, -1.3, 0, 7, 0.3, 1.5, stM.grip);
+      box(31.5, 1.3, 0, 7, 0.3, 1.5, stM.grip);
+      box(31.5, 0, 1.08, 7, 2.9, 0.42, stM.hurdle);
+      for (let i = 0; i < 4; i++) box(28.6 + i * 1.95, 0, 1.5, 0.5, 2.9, 0.06, stM.stripe, { ghost: true });
+      const TH2 = 8;
+      box(41, 0, 0, 4, 4, TH2, stM.grip, { climb: true });
+      for (let i = 0; i < 46; i++) {
+        const side = i % 4, u = rnd(-1.7, 1.7), v = rnd(0.5, TH2 - 0.4), o = 2.06;
+        const [d, w] = side === 0 ? [41 - o, u] : side === 1 ? [41 + o, u] : side === 2 ? [41 + u, -o] : [41 + u, o];
+        const [hx, hz] = P(d, w);
+        const m = new T.Mesh(stM.gStone, i % 3 ? stM.hold : stM.stripe);
+        m.position.set(hx, gy(41, 0) + gs * v, hz);
+        m.scale.setScalar(rnd(0.5, 0.85));
+        world.add(m);
+      }
+      const [px, pz] = P(41, 0), ring = new T.Mesh(stM.gTor, stM.gold);
+      ring.position.set(px, gy(41, 0) + gs * (TH2 + 1.3), pz);
+      world.add(ring);
+      const gl = new T.Sprite(new T.SpriteMaterial({ map: glowTex, color: 16765503, transparent: true, opacity: 0.8, blending: T.AdditiveBlending, depthWrite: false }));
+      gl.scale.setScalar(3);
+      ring.add(gl);
+      s.P.ring = ring;
+      s.x = px;
+      s.z = pz;
+      s.y = ring.position.y;
+      return s;
+    }
+    function stSpotBR(R, flat) {
+      for (let k = 0; k < 400; k++) {
+        const a = Math.random() * TAU, r = Math.sqrt(Math.random()) * BR.R * 0.72, x = Math.cos(a) * r, z = Math.sin(a) * r, h = brHeight(x, z);
+        if (h < BR_SEA + 2 || h > 26) continue;
+        let ok = true;
+        for (const [ox, oz] of [[R, 0], [-R, 0], [0, R], [0, -R]]) if (Math.abs(brHeight(x + ox, z + oz) - h) > flat) {
+          ok = false;
+          break;
+        }
+        if (!ok) continue;
+        if (BR.houses.some((o) => Math.hypot(o.x - x, o.z - z) < R + 10) || ST.list.some((o) => Math.hypot(o.x - x, o.z - z) < R + 16) || BR.chests.some((o) => Math.hypot(o.x - x, o.z - z) < R + 2)) continue;
+        let hit = false;
+        for (const b of colliders.near(x, z, R + 2)) {
+          if (b.max.x > x - R && b.min.x < x + R && b.max.z > z - R && b.min.z < z + R) {
+            hit = true;
+            break;
+          }
+        }
+        if (hit) continue;
+        return [x, h, z];
+      }
+      return null;
+    }
+    function stSpotZG(R, ceil) {
+      const L = ZG.L, H = ZG.H;
+      for (let k = 0; k < 400; k++) {
+        const x = rnd(-L * 0.7, L * 0.7), z = rnd(-L * 0.7, L * 0.7), cy = ceil ? H - 2 : 2;
+        if (ZG.blocks.some((b) => Math.abs(b.x - x) < b.sx / 2 + R + 1 && Math.abs(b.z - z) < b.sz / 2 + R + 1 && Math.abs(b.y - cy) < b.sy / 2 + 6)) continue;
+        if (ST.list.some((o) => Math.hypot(o.x - x, o.z - z) < R + 12) || ZG.vend.some((v) => Math.hypot(v.use.x - x, v.use.z - z) < R + 6)) continue;
+        return [x, ceil ? H : 0, z];
+      }
+      return null;
+    }
+    function stBuild() {
+      stMats();
+      ST.list = [];
+      ST.karts = [];
+      ST.t = 0;
+      const br = MODE === "br";
+      const put = (n, R, flat, f) => {
+        for (let i = 0; i < n; i++) {
+          const sp = br ? stSpotBR(R, flat) : stSpotZG(R, false);
+          if (sp) f(sp[0], sp[1], sp[2], rnd(0, TAU), 1);
+        }
+      };
+      for (let i = 0; i < (br ? 3 : 1); i++) {
+        for (let k = 0; k < (br ? 500 : 200); k++) {
+          const ax = Math.random() < 0.5;
+          if (br) {
+            const a = Math.random() * TAU, r = Math.sqrt(Math.random()) * BR.R * 0.6, x = Math.cos(a) * r, z = Math.sin(a) * r;
+            let lo = 1e9, hi = -1e9, tl = 1e9, th = -1e9, ok = true;
+            for (let d = -2; d <= 45 && ok; d += 1.5) for (const w of [-2.2, 0, 2.2]) {
+              const px = ax ? x + d : x + w, pz = ax ? z + w : z + d, h = brHeight(px, pz);
+              lo = Math.min(lo, h);
+              hi = Math.max(hi, h);
+              if (d > 27 && d < 36) {
+                tl = Math.min(tl, h);
+                th = Math.max(th, h);
+              }
+              if (h < BR_SEA + 1.5) ok = false;
+            }
+            if (!ok || hi - lo > 3.2 || th - tl > 0.28) continue;
+            const cx = ax ? x + 21 : x, cz = ax ? z : z + 21;
+            if (BR.houses.some((o) => Math.hypot(o.x - cx, o.z - cz) < 34) || ST.list.some((o) => o.kind === "course" && Math.hypot(o.x - cx, o.z - cz) < 120)) continue;
+            let hit = false;
+            for (let d = 0; d <= 44 && !hit; d += 4) {
+              const px = ax ? x + d : x, pz = ax ? z : z + d;
+              for (const b of colliders.near(px, pz, 4)) if (b.max.x > px - 3 && b.min.x < px + 3 && b.max.z > pz - 3 && b.min.z < pz + 3) {
+                hit = true;
+                break;
+              }
+            }
+            if (hit) continue;
+            stCourse(x, z, ax, 1);
+            break;
+          } else {
+            const L = ZG.L, H = ZG.H, x = rnd(-L * 0.6, L * 0.4), z = rnd(-L * 0.6, L * 0.4);
+            let ok = true;
+            for (let d = -2; d <= 45 && ok; d += 3) {
+              const px = ax ? x + d : x, pz = ax ? z : z + d;
+              if (Math.abs(px) > L - 6 || Math.abs(pz) > L - 6 || ZG.blocks.some((b) => Math.abs(b.x - px) < b.sx / 2 + 4 && Math.abs(b.z - pz) < b.sz / 2 + 4 && b.y + b.sy / 2 > H - 13)) ok = false;
+            }
+            if (!ok) continue;
+            stCourse(x, z, ax, -1);
+            break;
+          }
+        }
+      }
+      put(br ? 10 : 3, 3, 0.8, stCampfire);
+      put(br ? 6 : 2, 2.4, 0.7, stBench);
+      put(br ? 6 : 2, 2.4, 0.7, stShrine);
+      put(br ? 9 : 4, 3, 0.9, stKart);
+    }
+    function stNear() {
+      const p = player;
+      if (!p || !p.alive) return null;
+      if (p.ride) return { s: p.ride, key: "kartOut", label: "Hop out" };
+      if (p.sit || p.chan) return null;
+      let best = null, bd = 3.6;
+      for (const s of ST.list) {
+        if (s.kind === "course" || s.cd > 0 || s.kind === "kart" && s.rider) continue;
+        const c = s.kind === "kart" ? s.g.position : s.g.position, d = Math.hypot(c.x - p.pos.x, c.y - (p.pos.y + (s.gs < 0 ? 2 : 0)), c.z - p.pos.z);
+        if (d < bd) {
+          bd = d;
+          best = s;
+        }
+      }
+      if (!best) return null;
+      const k = best.kind;
+      return { s: best, key: k, label: k === "fire" ? "Rest by the fire" : k === "bench" ? "Bolt on armour" : k === "shrine" ? "Speed blessing" : "Drive" };
+    }
+    function stUse() {
+      const p = player, N = stNear();
+      if (!N) return false;
+      const s = N.s;
+      if (BLD.on) bldToggle(false);
+      if (p.emote) stopEmote(p, true);
+      if (p.prone) p.prone = false;
+      if (p.ride) {
+        stKartOut(p);
+        return true;
+      }
+      if (s.kind === "kart") {
+        if (MODE === "br" && p.br !== "ground") return false;
+        s.rider = p;
+        p.ride = s;
+        s.sp = 0;
+        p.pos.copy(s.g.position);
+        if (s.gs < 0 || PKU() < 0) p.pos.y -= 2;
+        p.vel.set(0, 0, 0);
+        p.pk = null;
+        p.roll = null;
+        p.faceYaw = null;
+        gcPlay(p, "PM_Joyride", { loop: true, fin: 0.2, tag: "ride" });
+        sfx("propel");
+        toast("W drive \xB7 click for a boost \xB7 E hop out");
+        return true;
+      }
+      if (s.kind === "fire") {
+        if (MODE === "br" && !p.onGround) return false;
+        let b = null, bd = 1e9;
+        for (const [lx, lz] of s.seats) {
+          const w = stAt(s, lx, 0, lz), d = Math.hypot(w.x - p.pos.x, w.z - p.pos.z);
+          if (d < bd) {
+            bd = d;
+            b = w;
+          }
+        }
+        p.sit = { s, hp: p.hp + p.shield, t: 0 };
+        p.pos.x = b.x;
+        p.pos.z = b.z;
+        if (MODE !== "br") p.pos.y = 0.3;
+        p.vel.set(0, 0, 0);
+        p.faceYaw = Math.atan2(-(s.x - b.x), -(s.z - b.z));
+        p.pk = null;
+        p.roll = null;
+        gcPlay(p, "PM_Chair", { loop: true, fin: 0.35, tag: "sit" });
+        sfx("pickup", null, { item: { kind: "cons" } });
+        return true;
+      }
+      const bench = s.kind === "bench";
+      p.chan = { s, t: 0, dur: bench ? 2.6 : 1.9, label: bench ? "Bolting on armour" : "Casting", hp: p.hp + p.shield };
+      p.faceYaw = Math.atan2(-(s.x - p.pos.x), -(s.z - p.pos.z));
+      p.vel.x = p.vel.z = 0;
+      gcPlay(p, bench ? "PM_Tinker" : "PM_Spark", bench ? { t0: 0.5, t1: 3.4, tag: "chan" } : { t0: 0, t1: 2.2, speed: 1.1, tag: "chan" });
+      return true;
+    }
+    function stKartOut(p) {
+      const s = p.ride;
+      if (!s) return;
+      s.rider = null;
+      p.ride = null;
+      s.sp = 0;
+      gcStop(p, "ride");
+      p.vel.multiplyScalar(0.3);
+      const rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
+      if (pkFree(p.pos.x + rx * 1.5, pkFeet(p, PKU()), p.pos.z + rz * 1.5, PKU(), p.radius)) {
+        p.pos.x += rx * 1.5;
+        p.pos.z += rz * 1.5;
+      }
+    }
+    function stStand(p) {
+      if (p.sit) {
+        p.sit = null;
+        p.faceYaw = null;
+        gcStop(p, "sit");
+      }
+      if (p.chan) {
+        p.chan = null;
+        p.faceYaw = null;
+        gcStop(p, "chan");
+      }
+    }
+    function stPlayer(p, dt, mx, mz) {
+      const moved = !!(mx || mz || p.wantJump);
+      if (p.sit) {
+        const S = p.sit;
+        S.t += dt;
+        if (moved || p.hp + p.shield < S.hp - 0.01 || S.s.gs !== PKU() && MODE !== "br" && ZG.state === "ceil" || S.t > 0.5 && !p.gc) {
+          stStand(p);
+          return false;
+        }
+        S.hp = p.hp + p.shield;
+        p.vel.set(0, 0, 0);
+        if (p.hp < 100) {
+          p.hp = Math.min(100, p.hp + 11 * dt);
+          S.hp = p.hp + p.shield;
+          S.fx = (S.fx || 0) - dt;
+          if (S.fx <= 0) {
+            S.fx = 0.5;
+            healFx(p, 8257434, 3, 1.2);
+          }
+        }
+        return true;
+      }
+      if (p.chan) {
+        const C = p.chan;
+        C.t += dt;
+        if (moved || p.hp + p.shield < C.hp - 0.01) {
+          stStand(p);
+          return false;
+        }
+        p.vel.x *= Math.exp(-10 * dt);
+        p.vel.z *= Math.exp(-10 * dt);
+        if (C.t >= C.dur) {
+          const s = C.s, at = new V(p.pos.x, p.pos.y + 1.2, p.pos.z);
+          stStand(p);
+          if (s.kind === "bench") {
+            p.shield = Math.min(100, p.shield + 50);
+            s.cd = 35;
+            toast("Armour bolted on \xB7 +50 shield");
+            pBurst(4, 40, at, 8, 6091007, 0.07);
+            sfx("shield");
+          } else {
+            buff(p, "spd", 25, 1.35);
+            s.cd = 45;
+            toast("Speed blessing \xB7 25 s");
+            pBurst(4, 50, at, 9, 16743144, 0.08);
+            pBurst(6, 24, at, 4, 10286335, 0.09);
+            sfx("pickup", null, { item: { kind: "gun", r: 4 } });
+          }
+        }
+        return false;
+      }
+      return false;
+    }
+    function stDrive(p, dt, mz) {
+      const s = p.ride, br = MODE === "br", gs = PKU();
+      s.boostT = Math.max(0, s.boostT - dt);
+      s.boostCd = Math.max(0, s.boostCd - dt);
+      if (mouse.l && s.boostCd <= 0) {
+        s.boostT = 1.4;
+        s.boostCd = 4.5;
+        sfx("propel");
+        camShake = Math.max(camShake, 0.3);
+      }
+      const want = mz > 0 ? s.boostT > 0 ? 40 : 27 : mz < 0 ? -9 : 0;
+      s.sp = lerp(s.sp, want, 1 - Math.exp(-(want === 0 ? 1.2 : Math.abs(want) < Math.abs(s.sp) ? 3 : 1.5) * dt));
+      const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), cp = Math.cos(p.pitch);
+      if (br || gs < 0) {
+        p.vel.x = fx * s.sp;
+        p.vel.z = fz * s.sp;
+        if (p.wantJump && p.onGround) {
+          p.vel.y = gs * 8.5;
+          p.onGround = false;
+          sfx("jump");
+        }
+      } else {
+        p.vel.set(fx * cp * s.sp, Math.sin(p.pitch) * s.sp + ((keys.Space ? 1 : 0) - (keys.KeyC ? 1 : 0)) * 9, fz * cp * s.sp);
+      }
+      p.wantJump = false;
+      p.sprinting = false;
+      p.crouch = false;
+      p.zgPropel = false;
+      p.zgTx = 0;
+      if (br) {
+        brMove(p, dt);
+        if (p.swimming) {
+          toast("Karts can't swim!");
+          stKartOut(p);
+          return;
+        }
+      } else zgMove(p, dt);
+      if (Math.abs(s.sp) > 12) for (const b of bots) {
+        if (!b.alive || b.br === "jet" || (b.kartT || 0) > matchTime) continue;
+        if (Math.hypot(b.pos.x - p.pos.x, b.pos.y - p.pos.y, b.pos.z - p.pos.z) < 2.3) {
+          b.kartT = matchTime + 0.8;
+          hurt(b, 34, p, { weapon: "Hover Kart", soft: true });
+          b.vel.x += fx * 15;
+          b.vel.z += fz * 15;
+          b.vel.y += gs * 7;
+          b.onGround = false;
+          b.knockT = 0.6;
+          s.sp *= 0.75;
+          camShake = Math.max(camShake, 0.5);
+          sfx("slam", null, { v: 0.5 });
+        }
+      }
+      s.ex = (s.ex || 0) - dt;
+      if (s.ex <= 0 && Math.abs(s.sp) > 3) {
+        s.ex = 0.04;
+        const at = stAt(s, rnd(-0.5, 0.5), 0.3, 1.4);
+        pBurst(s.boostT > 0 ? 4 : 6, s.boostT > 0 ? 4 : 1, at, s.boostT > 0 ? 5 : 1.5, s.boostT > 0 ? 16765503 : 6091007, 0.08);
+      }
+    }
+    function stTick(dt) {
+      ST.t += dt;
+      const t = ST.t, p = player;
+      if (p && !p.alive) {
+        if (p.ride) {
+          p.ride.rider = null;
+          p.ride = null;
+        }
+        p.sit = null;
+        p.chan = null;
+        p.pk = null;
+        p.prone = false;
+        p.roll = null;
+        p.faceYaw = null;
+        if (BLD.on) bldToggle(false);
+      }
+      for (const s of ST.list) {
+        if (s.cd > 0) s.cd -= dt;
+        const near = Math.abs(s.x - camera.position.x) + Math.abs(s.z - camera.position.z) < 170;
+        if (!near && s.kind !== "kart") continue;
+        if (s.kind === "fire") {
+          for (let i = 0; i < 3; i++) {
+            const f = s.P.fl[i], w = 1 + 0.16 * Math.sin(t * (9 + i * 3.1) + i * 2 + s.x);
+            f.scale.y = (i ? 0.85 : 1.3) * w;
+            f.rotation.y += dt * (2 + i);
+            f.position.y = (i ? 0.6 : 0.72) + 0.06 * Math.sin(t * 7 + i);
+          }
+          s.P.gl.scale.setScalar(4 + 0.5 * Math.sin(t * 11 + s.z));
+          s.em = (s.em || 0) - dt;
+          if (s.em <= 0) {
+            s.em = 0.12;
+            pBurst(6, 1, stAt(s, rnd(-0.2, 0.2), 0.9, rnd(-0.2, 0.2)), 1.6, 16752704, 0.07);
+          }
+        } else if (s.kind === "bench") {
+          const on = s.cd <= 0;
+          s.P.holo.visible = s.P.gl.visible = on;
+          s.P.holo.rotation.y = t * 1.5;
+          s.P.holo.position.y = 2.1 + 0.1 * Math.sin(t * 2);
+        } else if (s.kind === "shrine") {
+          const on = s.cd <= 0, k = on ? 1 : 0.35;
+          s.P.cry.rotation.y = t * 0.9;
+          s.P.cry.position.y = 2 + 0.14 * Math.sin(t * 1.7);
+          s.P.cry.scale.set(0.42 * k + 0.1, 0.78 * k + 0.1, 0.42 * k + 0.1);
+          s.P.gl.material.opacity = on ? 0.8 : 0.2;
+          s.P.orb.forEach((o, i) => {
+            const a = t * 1.6 + i * TAU / 4;
+            o.position.set(Math.cos(a) * 0.95, 1.7 + 0.3 * Math.sin(t * 2 + i), Math.sin(a) * 0.95);
+            o.rotation.y = t * 3;
+            o.visible = on;
+          });
+        } else if (s.kind === "kart") {
+          const r = s.rider;
+          if (r) {
+            const gs = PKU(), br = MODE === "br", g = s.g;
+            g.position.copy(r.pos);
+            if (gs < 0) g.position.y += 2;
+            s.x = r.pos.x;
+            s.z = r.pos.z;
+            let pt = 0, rl = 0;
+            if (br && r.onGround) {
+              const fx = -Math.sin(r.yaw), fz = -Math.cos(r.yaw);
+              pt = Math.atan2(brFloor(r.pos.x + fx * 1.3, r.pos.z + fz * 1.3) - brFloor(r.pos.x - fx * 1.3, r.pos.z - fz * 1.3), 2.6);
+              rl = Math.atan2(brFloor(r.pos.x - fz * 0.8, r.pos.z + fx * 0.8) - brFloor(r.pos.x + fz * 0.8, r.pos.z - fx * 0.8), 1.6);
+            } else if (!br && gs > 0) pt = r.pitch * 0.8;
+            s.pitch = lerp(s.pitch, pt, 1 - Math.exp(-8 * dt));
+            s.rollA = lerp(s.rollA, rl, 1 - Math.exp(-8 * dt));
+            g.rotation.set(s.pitch, r.yaw, (gs < 0 ? Math.PI : 0) + s.rollA, "YXZ");
+            g.position.y += gs * (0.12 + 0.04 * Math.sin(t * 9));
+          } else if (near) {
+            s.g.position.y = s.y + s.gs * (0.1 + 0.05 * Math.sin(t * 2 + s.x));
+          }
+          for (const pd of s.P.pods) pd.rotation.y = t * (6 + Math.abs(s.sp));
+        } else if (s.kind === "course") {
+          const R = s.P.ring;
+          R.visible = s.cd <= 0;
+          R.rotation.y = t * 2;
+          R.rotation.x = 0.5 * Math.sin(t);
+          if (s.cd <= 0 && p && p.alive && Math.hypot(p.pos.x - s.x, p.pos.y + 1 - s.y, p.pos.z - s.z) < 2.2) {
+            s.cd = 45;
+            p.shield = Math.min(100, p.shield + 25);
+            p.hp = Math.min(100, p.hp + 25);
+            toast("Course complete! +25 health and shield");
+            const at = R.position.clone();
+            for (const col of [16765503, 16728020, 6091007]) pBurst(4, 30, at, 10, col, 0.08);
+            sfx("pickup", null, { item: { kind: "gun", r: 4 } });
+          }
+        }
+      }
+    }
+    function gfxScene() {
+      if (MODE === "br") {
+        GFX.bloomStrength = 0.42;
+        GFX.bloomThreshold = 1.3;
+        GFX.bloomRadius = 0.7;
+        GFX.sat = 1.14;
+        GFX.con = 1.06;
+        GFX.vig = 0.24;
+        GFX.warm = 1;
+      } else {
+        GFX.bloomStrength = 0.5;
+        GFX.bloomThreshold = 1.5;
+        GFX.bloomRadius = 0.5;
+        GFX.sat = 1.1;
+        GFX.con = 1.07;
+        GFX.vig = 0.3;
+        GFX.warm = 0.6;
+      }
+      if (!PRT.ok) return;
+      PRT.reset();
+      const c = camera.position;
+      if (MODE === "br") {
+        PRT.ambient(2, 700, c, 34, 16774084);
+        PRT.ambient(3, 140, c, 34, 16751856);
+        PRT.ambient(3, 140, c, 34, 10286335);
+      } else {
+        PRT.ambient(1, 1100, c, 26, 8160422);
+        PRT.ambient(3, 60, c, 26, 6091007);
+      }
+    }
+    let gfxHF = 0;
+    function gfxFrame(dt) {
+      if (hurtFlash > gfxHF + 0.05) GFX.pulse = Math.min(1.3, GFX.pulse + 0.8);
+      gfxHF = hurtFlash;
+      if (!PRT.ok) return;
+      const br = MODE === "br", armory = state === "armory";
+      P_UP.set(0, br ? 1 : ZG.state === "ceil" ? -1 : 0, 0);
+      PRT.points.visible = !armory;
+      PRT.step(dt, camera.position, br ? 34 : 26, P_UP, br ? 1.6 : 0, br ? 0.7 : 0, br && player ? brFloor(player.pos.x, player.pos.z) + 0.03 : 0.06);
+    }
     function brScene() {
+      gfxScene();
       const f = scene.fog;
       if (MODE === "br") {
         f.color.setHex(13220082);
@@ -17379,6 +18954,8 @@
         ZG.flash = 0;
       }
       brScene();
+      bldInit();
+      stBuild();
       rollLoadout();
       player = makeCombatant(profName(), true);
       MS.shots = MS.hits = MS.heads = 0;
@@ -17609,6 +19186,24 @@
         }
       });
     });
+    const gfxInputs = [$("gfx"), $("gfx2")];
+    GFX.onLevel = (lv) => gfxInputs.forEach((o) => {
+      if (o) o.value = String(lv);
+    });
+    gfxInputs.forEach((inp) => {
+      if (!inp) return;
+      inp.value = String(GFX.level);
+      inp.addEventListener("change", () => {
+        gfxChosen = true;
+        sun.castShadow = true;
+        GFX.setLevel(+inp.value);
+        resize();
+        try {
+          localStorage.setItem("invertedGfx", String(GFX.level));
+        } catch (e) {
+        }
+      });
+    });
     const volInputs = [$("vol"), $("vol2")];
     volInputs.forEach((inp) => {
       inp.value = volume;
@@ -17720,6 +19315,25 @@
         } else if (c === "KeyE" || c === "Escape") closeShop();
         return;
       }
+      if (BLD.on && /^Digit[1-3]$/.test(c)) {
+        BLD.kind = +c.slice(5) - 1;
+        bldBar();
+        sfx("ui");
+        return;
+      }
+      if (c === "KeyG" && p.alive) {
+        bldToggle();
+        return;
+      }
+      if (c === "KeyZ" && p.alive) {
+        pkProne(p);
+        return;
+      }
+      if (c === "KeyV" && p.alive) {
+        pkRoll(p);
+        return;
+      }
+      if (c === "KeyE" && p.alive && stUse()) return;
       if (c === "KeyE" && p.alive && (MODE === "zg" || p.br === "ground") && brOpenChest()) return;
       if (c === "KeyE" && p.alive && nearMachine()) {
         arsCat = 5;
@@ -17809,6 +19423,8 @@
       for (const e of combatants) if (e.br !== "jet") animateGLB(e, dt);
       drawPunches(player);
       sdUpdate(dt);
+      bldTick(dt);
+      stTick(dt);
       updateEffects(dt);
     }
     let lastT = performance.now(), hudAcc = 0, perfStage = 0, perfFrames = 0, perfTime = 0;
@@ -18028,20 +19644,13 @@
           perfFrames = 0;
           perfTime = 0;
           if (f >= 45) perfStage = 3;
-          else if (perfStage === 0) {
-            perfStage = 1;
-            renderer.setPixelRatio(1);
+          else if (!gfxChosen && GFX.level > 0) {
+            GFX.setLevel(GFX.level - 1);
             resize();
-          } else if (perfStage === 1) {
-            perfStage = 2;
-            sun.shadow.mapSize.set(1024, 1024);
-            if (sun.shadow.map) {
-              sun.shadow.map.dispose();
-              sun.shadow.map = null;
-            }
+            toast("Graphics set to " + GFX_LEVELS[GFX.level] + " to keep things smooth");
           } else {
             perfStage = 3;
-            if (f < 30) sun.castShadow = false;
+            if (f < 30 && !gfxChosen) sun.castShadow = false;
           }
         }
       }
@@ -18058,7 +19667,8 @@
         hudFrame(dt);
         drawMap();
       }
-      renderer.render(scene, camera);
+      gfxFrame(dt);
+      GFX.render(dt);
       if (state === "menu" && !$("menu").hidden && heroFrame(dt)) {
         renderer.autoClear = false;
         renderer.clearDepth();
@@ -18178,6 +19788,11 @@
     } });
     Object.assign(window.__game, { SD, sdCheer, SKD, BR, brOpenChest, brHeight, get MODE() {
       return MODE;
+    } });
+    Object.assign(window.__game, { BLD, ST, pkRoll, pkProne, stUse, bldToggle, bldPlace, gcPlay, GFX, gfx: (n) => {
+      gfxChosen = true;
+      GFX.setLevel(n);
+      resize();
     } });
     Object.assign(window.__game, { pwGo: () => {
       const H = POW && POW.hold;

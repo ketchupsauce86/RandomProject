@@ -16,6 +16,9 @@ In the game they have their own names (see `PM_EMOTES`, `PM_EMOTES2` and `PM_EMO
 The walk, sprint, crouch walk and swim in `moves.js` are Quaternius moves too (from the pack's root-motion file, so the
 game knows how far each stride goes; `tools/pack_loco_pick.json`). The slide in `moves.js` was made by Kash in Blender.
 
+Since v1.72 the pack clips also play during matches: the dodge roll, sitting at a campfire, kneeling at a workbench,
+casting at a shrine, driving a hover kart, treading water, crouching and flinching when hit.
+
 ## Sounds (`sounds/`)
 
 A few CC0 sound recordings by **Kenney** (https://kenney.nl). See `sounds/CREDITS.md`.

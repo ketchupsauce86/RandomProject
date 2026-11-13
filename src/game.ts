@@ -1,3 +1,4 @@
+import {makeGfx,GFX_LEVELS} from './gfx';
 (function(){
 'use strict';
 // $ looks up an element by id (typed loosely: it can be a canvas, an input or a plain element)
@@ -57,7 +58,8 @@ renderer.shadowMap.enabled=true; renderer.shadowMap.type=T.PCFSoftShadowMap;
 const scene=new T.Scene();
 scene.fog=new T.Fog(0xe6e8ec,70,330); renderer.setClearColor(0xe6e8ec);
 const camera=new T.PerspectiveCamera(72,1,0.1,2600);
-function resize(){ renderer.setSize(innerWidth,innerHeight); camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); }
+let GFX:any=null; // [v1.72] post-processing, quality levels and the C particles (src/gfx.ts)
+function resize(){ renderer.setSize(innerWidth,innerHeight); camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); if(GFX) GFX.resize(); }
 addEventListener('resize',resize); resize();
 
 // a clean white studio light inside the box
@@ -67,6 +69,15 @@ sun.castShadow=true; sun.shadow.mapSize.set(2048,2048);
 Object.assign(sun.shadow.camera,{left:-70,right:70,top:70,bottom:-70,near:10,far:420});
 sun.shadow.bias=-0.0008; scene.add(sun); scene.add(sun.target);
 const SUN_DIR=new V(0.5,1,0.35).normalize();
+// [v1.72] graphics level: Low, Medium, High (the default) or Ultra, remembered in this browser. Until you pick one yourself the
+// game may step it down on a slow machine (see the main loop)
+let gfxChosen=false;
+GFX=makeGfx(T,renderer,scene,camera,sun);
+{ let lv=2; try{ const v=localStorage.getItem('invertedGfx'); if(v!=null&&+v>=0&&+v<=3){ lv=+v; gfxChosen=true; } }catch(e){} GFX.setLevel(lv); resize(); }
+if(GFX.P.ok) scene.add(GFX.P.points);
+const PRT=GFX.P, P_UP=new V(0,1,0);
+// particle bursts (they do nothing when WebAssembly is missing): 4 sparks, 5 chips, 6 embers
+function pBurst(kind,n,at,speed,col,size){ if(PRT.ok&&at.distanceToSquared(camera.position)<140*140) PRT.burst(kind,n,at,speed,col,size); }
 
 // ================= textures, materials, geometry =================
 function canvasTex(w,h,draw){ const c=document.createElement('canvas'); c.width=w; c.height=h; draw(c.getContext('2d'),w,h); const t=new T.CanvasTexture(c); t.anisotropy=4; return t; }
@@ -1532,7 +1543,7 @@ function blPropsFollow(c){ const L=c.blPL, R=c.blRel; for(let i=0;i<L.length;i+=
 // [S2] zero-g and the gravity flip, [S3] combat, [S4] emotes, hero and camera. They share one context object X (animCtx),
 // run in this order, and each stream edits only its own layers.
 function animateGLB(e,dt){
-  const c=e.ch, g=c.g; g.position.copy(e.pos); g.rotation.y=e.emote?e.emote.yaw:e.yaw; g.scale.setScalar((e.titanS||1)*(e.tinyT>0?0.45:1));
+  const c=e.ch, g=c.g; g.position.copy(e.pos); g.rotation.y=e.emote?e.emote.yaw:e.faceYaw!=null?e.faceYaw:e.yaw; g.scale.setScalar((e.titanS||1)*(e.tinyT>0?0.45:1));
   const a=1-Math.exp(-14*dt), aS=1-Math.exp(-7*dt);
   if(!e.alive){ c.flash.visible=false; deathPose(e,g,c,dt); return; }
   c.lcDead=false;
@@ -1559,6 +1570,7 @@ function animateGLB(e,dt){
   animLife(e,X);                // [v1.64] the Blender moves loosened up: steady eyes, a breathing chest, no two strides alike
   animArms(e,X);                // [S0] the hands: one arm layer per frame
   applyArmOverrides(e,X);       // [S0] X.armOv pulls a hand toward a target on top of that layer
+  animParkour(e,X);             // [v1.72] vault, mantle, climb, crawl
   animBR(e,X);                  // [v1.50] Storm Island: skydive arch, hanging off the glider, crash tumble
   animProps(e,X);               // [S3] moving parts of the held gun
   animPost(e,X);                // [S1] pose blend, then store the final pose
@@ -1617,7 +1629,7 @@ function animCtx(e,dt,a,aS){
   let cons=null, useK=-1;
   if(e.isPlayer){ const it=curItem(); if(it&&it.kind==='cons'){ cons=it.id; if(e.consuming&&e.consuming.it===it) useK=e.consuming.t/e.consuming.dur; } }
   else if(e.healT>0){ cons='big'; useK=clamp(1-e.healT/2.5,0,1); held=null; }
-  if(e.emote){ held=null; pickaxe=false; cons=null; } // [S4] an emote puts everything away
+  if(e.emote||gcBusy(e)){ held=null; pickaxe=false; cons=null; } // [S4] (and [v1.72] a station, a roll or a climb) an emote puts everything away
   if(e.swimming){ held=null; pickaxe=false; cons=null; } // [v1.63] both arms swim
   setHeld(e,held); setConsHeld(c,cons);
   D(A,'crouch',e.crouch?1:0,a*0.7); D(A,'air',!e.onGround&&!e.zgFloat?1:0,a);
@@ -1690,6 +1702,7 @@ function animClips(e,X){ const {c,A,fwd,speed,aS,dt}=X;
   const nr=!player||e===player||e.pos.distanceTo(camera.position)<(c.lcNear?56:50);
   if(c.lcNear!==undefined&&nr!==c.lcNear) poseSnap(c,0.4); c.lcNear=nr; X.near=nr;
   emClip(e,c); // [v1.65] a clip emote takes the body
+  gcAuto(e,X); gcClip(e,c,X); // [v1.72] gameplay clips (roll, sitting, driving, treading water)
   c.mixer.update(dt);
 }
 // [S0] body-relative axes (they follow the swim tilt and the roll onto the ceiling)
@@ -2857,7 +2870,7 @@ function fireRay(shooter,origin,dir,w,rar,mult,muzzle,near){
     let dmg=w.dmg*rar.m*mult; if(w.falloff) dmg*=clamp(1-(hit.distance-8)/30,0.25,1);
     if(ent===player&&blocks(player,dir)){ end.copy(swordPoint(player)); deflect(player,shooter,end,dir,dmg); }
     else if(ent.etype==='char'){ const head=hit.object.userData.part==='head'; if(head) dmg*=w.head; hurt(ent,dmg,shooter,{head,point:hit.point,weapon:w.name,dir}); if(ent!==player&&shooter!==player) sfx('impact',end,{mat:'flesh'}); }
-    else { puff(end,0xdddddd); sfx('impact',end,{mat:'stone'}); }
+    else { if(ent.build) bldHurt(ent,dmg); puff(end,0xdddddd); sfx('impact',end,{mat:'stone'}); }
   } else end.copy(origin).addScaledVector(dir,Math.min(w.range,250));
   // bullets that just miss your head whiz past
   if(shooter!==player&&player.alive&&!(hit&&hit.object.userData.ent===player)){
@@ -2878,6 +2891,7 @@ function hurt(t,amt,src,info){
   t.hp-=left; t.anim.hit=Math.min(1,(t.anim.hit||0)+0.35+amt/50);
   if(src===player&&t!==player){ player.dmgDealt+=amt; MS.hits++; if(info.head) MS.heads++; showDmg(info.point||t.pos.clone().add(new V(0,1.4,0)),amt,info.head?'head':(sh>0?'shield':'')); hitMarker(info.head); if(!info.soft||sh>0&&t.shield<=0) sfx(sh>0&&t.shield<=0?'shieldBreak':info.head?'head':(sh>0?'shield':'hit')); }
   if(t===player){ hurtFlash=Math.min(1,hurtFlash+0.3+amt/90); sfx('hurt'); }
+  if(amt>=12&&t.alive&&!t.gc&&!t.emote&&t.ch&&t.pos.distanceTo(camera.position)<45) gcPlay(t,'PM_Bonk',{w:0.55,fin:0.04,fout:0.18,body:false,tag:'hit'}); // [v1.72] a flinch from the pack
   if(!t.isPlayer&&src&&src!==t&&src.alive){ t.healT=0; if(t.enemy!==src){ t.enemy=src; t.seenAt=matchTime-0.2; } t.lastSeen=src.pos.clone(); t.lastSeenT=matchTime; }
   if(t.hp<=0&&t===player&&t.pwLives>0){ t.pwLives--; t.hp=30; buff(t,'ghost',1.5); pwBlast(chest(t),{r:7,dmg:20,fire:true}); banner('Back again','',1.5); return; } // Phoenix Feather and Pixel Pick extra lives
   if(t.hp<=0){ if(t.frozen>0) info.frozen=true; eliminate(t,src,info.weapon,info); }
@@ -2897,7 +2911,7 @@ function eliminate(t,killer,weapon,info?){
 function curItem(){ const p=player; return p.sel===0?null:p.slots[p.sel]; }
 function cancelActions(){ player.consuming=null; player.reloading=null; if(player.throwA&&!player.throwA.released) player.throwA=null; }
 function playerFire(){
-  const p=player; if(p.consuming||lockedUp(p)||p.swimming) return; // (both arms are swimming)
+  const p=player; if(p.consuming||lockedUp(p)||p.swimming||BLD.on||gcBusy(p)) return; // (both arms are swimming)
   const it=curItem(); if(it&&it.kind==='gun') MS.shots++;
   if(!it){
     if(animeSt){ animeTap(p); return; }
@@ -2987,13 +3001,13 @@ function updateActions(dt){
   else if(mouse.l&&(!it&&!POW||(it&&it.kind==='gun'&&WI(it).auto))) playerFire(); // a held pickaxe does its power-up instead (pwInput)
 }
 function onPrimaryDown(){
-  const p=player; if(!p.alive) return;
+  const p=player; if(!p.alive) return; if(BLD.on){ bldPlace(); return; } if(p.ride) return;
   const it=curItem(); if(it&&it.kind==='cons') startConsume(it); else playerFire();
 }
 
 // ================= effects =================
 function tracer(a,b){ const geo=new T.BufferGeometry().setFromPoints([a.clone(),b.clone()]); const mat=tracerMat.clone(); const l=new T.Line(geo,mat); world.add(l); effects.push({t:0,dur:0.07,obj:l,upd:(e,k)=>{ mat.opacity=0.9*(1-k); },done:()=>{ geo.dispose(); mat.dispose(); }}); }
-function puff(p,col){ const mat=new T.MeshBasicMaterial({color:col,transparent:true,opacity:0.8}); const m=new T.Mesh(GEO.puff,mat); m.position.copy(p); world.add(m); effects.push({t:0,dur:0.3,obj:m,upd:(e,k)=>{ m.scale.setScalar(1+k*2.5); mat.opacity=0.8*(1-k); },done:()=>mat.dispose()}); }
+function puff(p,col){ pBurst(4,7,p,7,0xffe2a0,0.06); pBurst(5,5,p,5,col,0.05); const mat=new T.MeshBasicMaterial({color:col,transparent:true,opacity:0.8}); const m=new T.Mesh(GEO.puff,mat); m.position.copy(p); world.add(m); effects.push({t:0,dur:0.3,obj:m,upd:(e,k)=>{ m.scale.setScalar(1+k*2.5); mat.opacity=0.8*(1-k); },done:()=>mat.dispose()}); }
 function updateEffects(dt){
   for(let i=effects.length-1;i>=0;i--){ const e=effects[i]; e.t+=dt; const k=Math.min(1,e.t/e.dur); e.upd(e,k,dt); if(k>=1){ world.remove(e.obj); if(e.done) e.done(); effects.splice(i,1); } }
 
@@ -3081,7 +3095,9 @@ function hudFrame(dt){
   if(p.consuming){ $('usebar').hidden=false; $('uselabel').textContent='Drinking '+CONS[p.consuming.it.id].name; $('usefill').style.width=(p.consuming.t/p.consuming.dur*100)+'%'; }
   else if(p.reloading){ $('usebar').hidden=false; $('uselabel').textContent='Reloading'; $('usefill').style.width=(p.reloading.t/p.reloading.dur*100)+'%'; }
   else if(!busy) $('usebar').hidden=true;
-  const vm=p.alive&&!shopOpen&&nearMachine(); $('prompt').hidden=!vm; if(vm&&$('prompt').dataset.k!=='shop'){ $('prompt').dataset.k='shop'; $('prompt').innerHTML='<kbd>E</kbd>Shop'; }
+  const vm=p.alive&&!shopOpen&&nearMachine(), sn=!vm&&p.alive&&!shopOpen?stNear():null, pk=vm?'shop':sn?sn.key:p.chan?'chan':''; $('prompt').hidden=!pk;
+  if(pk&&$('prompt').dataset.k!==pk){ $('prompt').dataset.k=pk; $('prompt').innerHTML=vm?'<kbd>E</kbd>Shop':sn?'<kbd>E</kbd>'+sn.label:p.chan.label+'…'; }
+  if(p.chan){ $('usebar').hidden=false; $('uselabel').textContent=p.chan.label; $('usefill').style.width=(p.chan.t/p.chan.dur*100)+'%'; } bldBar();
   if(shopOpen&&!p.alive) closeShop();
   updateDmg(dt);
 }
@@ -3132,7 +3148,7 @@ function updateCamera(dt){
   CAM.dead=false;
   const ek=0; // emoting keeps the usual camera behind you
   const cyaw=p.yaw+Math.PI*ek, cp=Math.cos(p.pitch); camFwd.set(-Math.sin(cyaw)*cp,Math.sin(p.pitch),-Math.cos(cyaw)*cp); camRight.set(Math.cos(cyaw),0,-Math.sin(cyaw));
-  const pivot=tv1.set(p.pos.x,p.pos.y+1.7-0.5*Math.max(A.crouch,0.9*(A.slide||0))-0.5*(A.swim||0),p.pos.z);
+  const pivot=tv1.set(p.pos.x,p.pos.y+1.7-0.5*Math.max(A.crouch,0.9*(A.slide||0),2.0*(A.prone||0))-0.5*(A.swim||0),p.pos.z);
   const gun=!!curItem()&&curItem().kind==='gun', dist=lerp(p.bounceT>0?7.5:ads?2.0:gun?3.4:4.6,3.6,ek), side=(ads?0.8:gun?1.1:0.85)*(1-ek); pivot.y+=lerp(ads?0.05:gun?0.3:0.45,-0.45,ek);
   // sprinting on the ceiling: a little head bob and the camera eases back
   const sp=A.sprint||0;
@@ -3755,12 +3771,12 @@ function zgSpawn(e,i,n){ for(let k=0;k<400;k++){ const a=(i/n)*Math.PI*2+rnd(-0.
   e.vel.set(0,0,0); e.onGround=false; e.zgFloat=true; e.zgRoll=0; e.stam=100; e.yaw=Math.atan2(e.pos.x,e.pos.z); }
 // moves someone through the box: no gravity while floating, pulled up onto the ceiling after a flip
 function zgMove(e,dt){
-  const p=e.pos, r=e.radius, h=2.0; let hitY=0;
-  if(ZG.state==='ceil'){ e.vel.y=Math.min(38,e.vel.y+GRAV*dt); }
+  const p=e.pos, r=e.radius, h=2.0, lo=e.prone&&ZG.state==='ceil'?1.1:0; let hitY=0; // [v1.72] crawling on the ceiling: only the 0.9 m by the surface collides
+  if(ZG.state==='ceil'&&!e.pk){ e.vel.y=Math.min(38,e.vel.y+GRAV*dt); }
   for(const ax of ['x','z','y']){ const d=e.vel[ax]*dt; if(!d) continue; p[ax]+=d;
     for(const b of colliders.near(p.x,p.z,r+1)){
-      if(p.x+r<=b.min.x||p.x-r>=b.max.x||p.z+r<=b.min.z||p.z-r>=b.max.z||p.y+h<=b.min.y||p.y>=b.max.y) continue;
-      if(ax==='y'){ if(d>0){ p.y=b.min.y-h; hitY=1; } else { p.y=b.max.y; hitY=-1; } e.vel.y=0; }
+      if(p.x+r<=b.min.x||p.x-r>=b.max.x||p.z+r<=b.min.z||p.z-r>=b.max.z||p.y+h<=b.min.y||p.y+lo>=b.max.y) continue;
+      if(ax==='y'){ if(d>0){ p.y=b.min.y-h; hitY=1; } else { p.y=b.max.y-lo; hitY=-1; } e.vel.y=0; }
       else { p[ax]=d>0?b.min[ax]-r:b.max[ax]+r; e.vel[ax]*=-0.2; } } }
   const L=ZG.L-r-0.1;
   if(p.x<-L){ p.x=-L; e.vel.x=0; } else if(p.x>L){ p.x=L; e.vel.x=0; }
@@ -3811,6 +3827,7 @@ function updatePlayerZG(dt){
   const flip=ZG.camRoll>Math.PI/2, cp=Math.cos(p.pitch);
   let mx=(keys.KeyD?1:0)-(keys.KeyA?1:0), mz=(keys.KeyW?1:0)-(keys.KeyS?1:0); if(flip) mx=-mx;
   const my=(keys.Space?1:0)-(keys.KeyC||keys.ControlLeft?1:0);
+  if(p.ride&&ZG.state!=='ceil'){ stDrive(p,dt,mz); return; }
   _zr.set(Math.cos(p.yaw),0,-Math.sin(p.yaw)); p.crouch=ZG.state==='ceil'&&!!keys.KeyC&&p.onGround; if(ZG.state!=='ceil') p.slideT=0;
   if(ZG.state!=='ceil'){
     // swim toward where you look; Shift kicks you forward fast
@@ -3823,11 +3840,16 @@ function updatePlayerZG(dt){
     p.zgTx=prop?-1.25:-0.75*clamp(mz,0,1)*(curItem()&&curItem().kind==='gun'?0.2:1);
   } else {
     p.zgPropel=false; zgStamina(p,false,dt);
-    const sprint=(keys.ShiftLeft||keys.ShiftRight)&&mz>0&&!ads; p.sprinting=sprint&&p.onGround;
+    if(p.ride){ stDrive(p,dt,mz); return; } // [v1.72]
+    if(stPlayer(p,dt,mx,mz)){ p.wantJump=false; zgMove(p,dt); return; }
+    if(pkPlayer(p,dt,mz)){ zgMove(p,dt); return; }
+    if(p.prone) p.crouch=false;
+    const sprint=(keys.ShiftLeft||keys.ShiftRight)&&mz>0&&!ads&&!p.prone; p.sprinting=sprint&&p.onGround;
+    if(p.roll){ pkVel(p,dt); p.wantJump=false; zgMove(p,dt); return; }
     if(!slideTick(p,dt,sprint)){ // [v1.63] on the ceiling too: C crouches, Ctrl while sprinting slides
-      const sp=(ads?4.5:p.crouch?3.8:sprint?11:7.5)*slowK(p)*bv(p,'spd',1), fx=-Math.sin(p.yaw), fz=-Math.cos(p.yaw), k=1-Math.exp(-(p.onGround?14:3)*dt);
+      const sp=(p.prone?2.4:ads?4.5:p.crouch?3.8:sprint?11:7.5)*slowK(p)*bv(p,'spd',1), fx=-Math.sin(p.yaw), fz=-Math.cos(p.yaw), k=1-Math.exp(-(p.onGround?14:3)*dt);
       p.vel.x=lerp(p.vel.x,(fx*mz+_zr.x*mx)*sp,k); p.vel.z=lerp(p.vel.z,(fz*mz+_zr.z*mx)*sp,k); }
-    if(p.onGround&&p.wantJump){ p.vel.y=-10.5; p.onGround=false; p.slideT=0; sfx('jump'); }
+    if(p.onGround&&p.wantJump&&!p.prone){ p.vel.y=-10.5; p.onGround=false; p.slideT=0; sfx('jump'); }
     p.zgTx=0;
   }
   p.wantJump=false; zgMove(p,dt);
@@ -4741,14 +4763,14 @@ function fxSmoke(at,col,n,r){ const c=new T.Color(col).multiplyScalar(0.35);
   for(let i=0;i<n;i++){ const m=new T.SpriteMaterial({map:glowTex,color:c,transparent:true,depthWrite:false,opacity:0.55}), s=new T.Sprite(m), v=rv(1).normalize().multiplyScalar(rnd(1,3)*r).add(_ft1.set(0,rnd(0.5,1.5),0)), sz=rnd(1.2,2.2)*r;
     s.position.copy(at).add(rv(r*0.4)); world.add(s); effects.push({t:0,dur:rnd(0.8,1.4),obj:s,upd:(e,k,dt)=>{ s.position.addScaledVector(v,dt); v.multiplyScalar(Math.exp(-2.5*dt)); s.scale.setScalar(sz*(0.5+k)); m.opacity=0.55*(1-k); },done:()=>m.dispose()}); } }
 // an impact: flash, a spinning star, a ring and sparks
-function fxHit(at,col,size?){ const s=size||1, M=pwMats(col);
+function fxHit(at,col,size?){ const s=size||1, M=pwMats(col); pBurst(4,14,at,9*s,col,0.07);
   const fl=new T.Sprite(M.hot.clone()); fl.position.copy(at); world.add(fl); effects.push({t:0,dur:0.16,obj:fl,upd:(e,k)=>{ fl.scale.setScalar(s*(1.2+2*k)); fl.material.opacity=1-k; },done:()=>fl.material.dispose()});
   const st=new T.Sprite(M.zap.clone()); st.position.copy(at); world.add(st); effects.push({t:0,dur:0.28,obj:st,upd:(e,k)=>{ st.scale.setScalar(s*2.4*Math.sin(Math.PI*Math.min(1,k*1.3))); st.material.rotation+=0.15; st.material.opacity=1-k; },done:()=>st.material.dispose()});
   const rg=new T.Mesh(shockRing,M.flat.clone()); rg.position.copy(at); rg.lookAt(camera.position); world.add(rg); effects.push({t:0,dur:0.3,obj:rg,upd:(e,k)=>{ rg.scale.setScalar(s*(0.3+1.6*k)); rg.material.opacity=0.9*(1-k); },done:()=>rg.material.dispose()});
   for(let i=0;i<7;i++) mote(M.zap,at.clone(),rnd(0.25,0.45)*s,rnd(0.25,0.4),rv(1).normalize().multiplyScalar(rnd(5,11)*s),rnd(-10,10)); }
 // the energy explosion: flash, a dissolving fireball in the colour, a shock shell, two rings, crystal debris, sparks and smoke
 const boomGeo=new T.SphereGeometry(1,28,20), fxShard=new T.OctahedronGeometry(0.16).scale(0.7,1.6,0.7);
-function fxBoom(at,col,r){ const M=pwMats(col);
+function fxBoom(at,col,r){ const M=pwMats(col); pBurst(4,50,at,14+r,col,0.09); pBurst(6,26,at,5+r*0.5,0xffb060,0.1);
   const fl=new T.Sprite(M.hot.clone()); fl.position.copy(at); world.add(fl); effects.push({t:0,dur:0.22,obj:fl,upd:(e,k)=>{ fl.scale.setScalar(r*(1+2.2*k)); fl.material.opacity=1-k; },done:()=>fl.material.dispose()});
   const ball=new T.Mesh(boomGeo,new T.ShaderMaterial({uniforms:{t:PW_U.t,c:{value:new T.Color(col)},k:{value:0}},vertexShader:PW_VS,transparent:true,depthWrite:false,
     fragmentShader:'uniform float t; uniform vec3 c; uniform float k; varying vec3 vN; varying vec3 vV; varying vec3 vP; float nz(vec3 p){ return sin(p.x*5.1+t*3.0)*sin(p.y*6.3-t*2.0)*sin(p.z*5.7+t*2.5)*0.5+0.5; } void main(){ float f=1.0-abs(dot(normalize(vN),normalize(vV))); float n=nz(vP*1.7)*0.6+nz(vP*4.1)*0.4; if(n<k*1.15-0.1) discard; vec3 col=mix(vec3(1.0),c,smoothstep(0.0,0.5,k+f*0.6)); col=mix(col,c*0.35,smoothstep(0.75,1.0,f)+k*0.4); gl_FragColor=vec4(col,(1.0-k*k)*0.95); }'}));
@@ -6297,7 +6319,7 @@ function brGlider(){ const g=new T.Group(), sh=new T.Shape(); sh.moveTo(0,1.6); 
   g.add(sail,edge,bar); g.position.set(0,3.25,0.1); g.visible=false; return g; }
 // ---- movement on the island: gravity, the ground under you, the ruins' walls, a shallow sea
 function brMove(e,dt){
-  const p=e.pos, r=e.radius, h=2.0;
+  const p=e.pos, r=e.radius, h=e.prone?0.9:2.0; // [v1.72] crawling fits under 1 m
   if(e.br==='fall'){ e.vel.y=Math.max(-46,e.vel.y-BR_G*dt); } else if(e.br==='glide'){ e.vel.y=lerp(e.vel.y,-8.5,1-Math.exp(-3*dt)); } else e.vel.y-=BR_G*dt;
   for(const ax of ['x','z','y']){ const d=e.vel[ax]*dt; if(!d) continue; p[ax]+=d;
     for(const b of colliders.near(p.x,p.z,r+1)){
@@ -6305,7 +6327,7 @@ function brMove(e,dt){
       if(ax==='y'){ if(d<0){ p.y=b.max.y; e.vel.y=0; e.brStand=true; } else { p.y=b.min.y-h; e.vel.y=0; } }
       else { if(e.br==='glide'&&Math.hypot(e.vel.x,e.vel.z)>11&&!e.brNoGlide) brGliderBreak(e); p[ax]=d>0?b.min[ax]-r:b.max[ax]+r; e.vel[ax]*=-0.1; } } }
   const L=BR.W/2-2; p.x=clamp(p.x,-L,L); p.z=clamp(p.z,-L,L);
-  const fl=brFloor(p.x,p.z), was=e.onGround; let on=e.brStand&&e.vel.y<=0; e.brStand=false;
+  const fl=Math.max(brFloor(p.x,p.z),BLD.ramps.length?bldRampY(p.x,p.z,p.y):-1e9), was=e.onGround; let on=e.brStand&&e.vel.y<=0; e.brStand=false;
   if(p.y<=fl+0.02){ p.y=fl; if(e.vel.y<0) e.vel.y=0; on=true; }
   else if(was&&e.br==='ground'&&p.y-fl<0.5&&e.vel.y<=0){ p.y=fl; on=true; } // walking downhill keeps your feet on the slope
   e.onGround=on; e.swimming=on&&e.br==='ground'&&brHeight(p.x,p.z)<BR_SEA-1.0; // [v1.63] deep water: swim (the sea floor there is the flat BR_SEA-0.9)
@@ -6322,7 +6344,7 @@ function brGliderBreak(e){ const G=e.ch&&e.ch.glider; e.br='fall'; e.brNoGlide=t
     fxHit(at,0xff3fd4,2); }
   if(e===player){ sfx('chop',null,{mat:'metal'}); camShake=Math.max(camShake,0.6); banner('Glider broke!','Brace for impact',1.5); } }
 // dust kicked up where someone lands
-function brDust(at,s){ for(let i=0;i<Math.round(8*s);i++){ const a=i/(8*s)*TAU; smoke(at.clone().add(new V(Math.cos(a)*0.6,0.2,Math.sin(a)*0.6)),rnd(1.2,2)*s,rnd(0.6,1.1),new V(Math.cos(a)*rnd(3,6)*s,rnd(0.5,1.5),Math.sin(a)*rnd(3,6)*s),false); } }
+function brDust(at,s){ pBurst(5,Math.round(18*s),at,6*s,0x8a7a5a,0.07); for(let i=0;i<Math.round(8*s);i++){ const a=i/(8*s)*TAU; smoke(at.clone().add(new V(Math.cos(a)*0.6,0.2,Math.sin(a)*0.6)),rnd(1.2,2)*s,rnd(0.6,1.1),new V(Math.cos(a)*rnd(3,6)*s,rnd(0.5,1.5),Math.sin(a)*rnd(3,6)*s),false); } }
 // hitting the ground still skydiving: tumble, face-plant, get up (about 1.5 s); hurts a little if it was fast
 function brCrash(e,fall){ e.brCrash={t:0}; e.vel.x*=0.5; e.vel.z*=0.5; brDust(e.pos,1.8); if(e.ch) poseSnap(e.ch,0.15);
   for(let i=0;i<10;i++){ const m=new T.Mesh(shardGeo,colorMat(pick([0x8a7a5a,0x6a5a3a,0x9a9080]))), v=new V(rnd(-6,6),rnd(5,11),rnd(-6,6)); m.position.copy(e.pos); world.add(m);
@@ -6350,11 +6372,15 @@ function updatePlayerBR(dt){
   let wx=fx*mz+rx*mx, wz=fz*mz+rz*mx; const wl=Math.hypot(wx,wz); if(wl>1){ wx/=wl; wz/=wl; }
   if(p.br==='fall'||p.br==='glide'){ if(p.wantJump&&p.br==='fall') p.brOpen=true; brAir(p,wx,wz,dt); p.wantJump=false; brMove(p,dt); return; }
   if(lockedUp(p)){ p.wantJump=false; p.vel.x*=Math.exp(-6*dt); p.vel.z*=Math.exp(-6*dt); brMove(p,dt); return; }
-  const swim=p.swimming, sprint=(keys.ShiftLeft||keys.ShiftRight)&&mz>0&&!ads&&!swim; p.sprinting=sprint&&p.onGround; p.crouch=!!keys.KeyC&&p.onGround&&!swim;
+  if(p.ride){ stDrive(p,dt,mz); return; } // [v1.72] stations and parkour
+  if(stPlayer(p,dt,mx,mz)){ p.wantJump=false; brMove(p,dt); return; }
+  if(pkPlayer(p,dt,mz)) return;
+  const swim=p.swimming, sprint=(keys.ShiftLeft||keys.ShiftRight)&&mz>0&&!ads&&!swim&&!p.prone; p.sprinting=sprint&&p.onGround; p.crouch=!!keys.KeyC&&p.onGround&&!swim&&!p.prone;
+  if(p.roll){ pkVel(p,dt); p.wantJump=false; brMove(p,dt); return; }
   if(!slideTick(p,dt,sprint)){ // [v1.63] C crouches, Ctrl while sprinting slides; in deep water you swim (slower, no jumping)
-    const sp=(swim?4.2:ads?4.5:p.crouch?3.5:sprint?10:7)*slowK(p)*bv(p,'spd',1), k=1-Math.exp(-(p.onGround?(swim?4:14):2.5)*dt);
+    const sp=(swim?4.2:p.prone?2.4:ads?4.5:p.crouch?3.5:sprint?10:7)*slowK(p)*bv(p,'spd',1), k=1-Math.exp(-(p.onGround?(swim?4:14):2.5)*dt);
     p.vel.x=lerp(p.vel.x,wx*sp,k); p.vel.z=lerp(p.vel.z,wz*sp,k); }
-  if(p.onGround&&p.wantJump&&!swim){ p.vel.y=9.5; p.onGround=false; p.slideT=0; sfx('jump'); }
+  if(p.onGround&&p.wantJump&&!swim&&!p.prone){ p.vel.y=9.5; p.onGround=false; p.slideT=0; sfx('jump'); }
   p.wantJump=false; p.zgTx=0; brMove(p,dt);
 }
 // bots: ride the jet to a random point, skydive and glide toward a landing spot, then fight on foot and keep inside the storm
@@ -6393,7 +6419,362 @@ function brSpawn(e,i){ e.br='jet'; e.pos.copy(BR.jet.from); e.vel.set(0,0,0); e.
   if(!e.isPlayer){ e.dropAt=rnd(3,BR.jet.dur-2); const k=e.dropAt/BR.jet.dur, j=brJetPos(k,new V()); let x=j.x+rnd(-90,90), z=j.z+rnd(-90,90); const rr=Math.hypot(x,z); if(rr>BR.R*0.8){ x*=BR.R*0.8/rr; z*=BR.R*0.8/rr; }
     e.land=new V(x,0,z); e.openAt=rnd(42,60); e.wake=1e9; } }
 // fog, clear colour and sunlight for whichever world is built
-function brScene(){ const f=scene.fog as any;
+// ================= [v1.72] gameplay clips, parkour, building and stations =================
+// ---- gameplay clips: a pack move (packmoves.js, CC0 Quaternius) played on the body during play: the dodge roll, sitting by a
+// campfire, kneeling at a workbench, casting at a shrine, driving, treading water, a flinch. Like emClip, but gameplay owns it.
+//   gcPlay(e,'PM_Roll',{speed,loop,t0,t1,w,body,tag}); body:false leaves the arms to the gun
+function gcPlay(e,clip,o?){ const cl=SOLDIER&&SOLDIER.clips[clip]; if(!cl||!e.ch||!e.alive) return false; o=o||{};
+  const t0=o.t0||0, t1=o.t1||cl.duration, sp=o.speed||1;
+  e.gc={k:clip,t:0,t0,t1,speed:sp,loop:!!o.loop,dur:o.dur||(t1-t0)/sp,w:0,max:o.w==null?1:o.w,fin:o.fin||0.15,fout:o.fout||0.2,out:false,body:o.body!==false,tag:o.tag||'',low:!!o.low}; return true; }
+function gcStop(e,tag?){ if(e.gc&&(!tag||e.gc.tag===tag)) e.gc.out=true; }
+function gcClip(e,c,X){ const G=e.gc, dt=X.dt;
+  if(c.gcA&&(!G||c.gcK!==G.k)){ c.gcA.stop(); c.gcA=null; c.gcK=null; }
+  if(!G) return;
+  G.t+=dt; if(!G.loop&&G.t>=G.dur-G.fout) G.out=true;
+  G.w=G.out?G.w-dt/G.fout:Math.min(1,G.w+dt/G.fin);
+  if(G.w<=0){ e.gc=null; if(c.gcA){ c.gcA.stop(); c.gcA=null; c.gcK=null; } return; }
+  if(!c.gcA){ c.gcA=c.mixer.clipAction(SOLDIER.clips[G.k]); c.gcA.reset(); c.gcA.play(); c.gcA.setEffectiveTimeScale(0); c.gcK=G.k; }
+  const w=smooth(0,1,G.w)*G.max, span=G.t1-G.t0, tt=G.t*G.speed;
+  for(const n in c.act) c.act[n].setEffectiveWeight(c.act[n].getEffectiveWeight()*(1-w));
+  if(c.pmA) c.pmA.setEffectiveWeight(c.pmA.getEffectiveWeight()*(1-w));
+  c.gcA.setEffectiveWeight(w); c.gcA.time=G.t0+(G.loop?tt%span:Math.min(tt,span-1e-3));
+  X.gcW=w; if(G.low) X.hmCr=Math.max(X.hmCr||0,w); }
+// moves that start by themselves: treading water when you stop swimming, a crouched idle
+function gcAuto(e,X){ if(!X.near&&!e.gc) return;
+  const sw=e.swimming&&X.speed<0.7, cr=e.crouch&&e.onGround&&X.speed<0.3&&!(e.slideT>0);
+  if(sw){ if(!e.gc) gcPlay(e,'PM_Float',{loop:true,fin:0.45,fout:0.3,tag:'float'}); } else gcStop(e,'float');
+  if(cr){ if(!e.gc) gcPlay(e,'PM_Campfire',{loop:true,body:false,fin:0.3,fout:0.2,tag:'crouch',low:true}); } else gcStop(e,'crouch'); }
+// is the body busy with something that puts the weapon away?
+const gcBusy=e=>!!(e.gc&&e.gc.body||e.pk||e.prone||e.ride||e.sit||e.chan);
+
+// ---- parkour: hurdling (run into something low and you go over it), climbing (jump at a ledge and you pull yourself up; some
+// walls can be climbed like a ladder), crawling (Z) and the dodge roll (V). All of it works on the island and on the ceiling of
+// the box; "up" is gs (+1 on the ground, -1 on the ceiling) and F is where the feet are.
+const PKU=()=>MODE!=='br'&&ZG.state==='ceil'?-1:1;
+const pkFeet=(e,gs)=>gs>0?e.pos.y:e.pos.y+2;
+const pkWalking=e=>e.alive&&!e.swimming&&(MODE==='br'?e.br==='ground':ZG.state==='ceil')&&!(e.bounceT>0)&&!lockedUp(e);
+// where a ray along (fx,fz) from (px,pz) enters and leaves a box seen from above (grown by pad); null when it misses
+function pkRay(px,pz,fx,fz,b,pad){ let t0=-1e9, t1=1e9;
+  for(const [o,d,lo,hi] of [[px,fx,b.min.x-pad,b.max.x+pad],[pz,fz,b.min.z-pad,b.max.z+pad]]){
+    if(Math.abs(d)<1e-6){ if(o<lo||o>hi) return null; continue; }
+    let a=(lo-o)/d, c=(hi-o)/d; if(a>c){ const s=a; a=c; c=s; } t0=Math.max(t0,a); t1=Math.min(t1,c); }
+  return t1<Math.max(t0,0)?null:[t0,t1]; }
+// is there room for a body h tall with its feet at F?
+function pkFree(x,F,z,gs,r,h?){ h=h||2; const y0=gs>0?F+0.06:F-h, y1=gs>0?F+h:F-0.06;
+  for(const b of colliders.near(x,z,r+0.5)){ if(x+r<=b.min.x||x-r>=b.max.x||z+r<=b.min.z||z-r>=b.max.z||y1<=b.min.y||y0>=b.max.y) continue; return false; }
+  if(MODE==='br'){ if(brFloor(x,z)>F+0.9) return false; } else if(Math.abs(x)>ZG.L-r-0.2||Math.abs(z)>ZG.L-r-0.2) return false;
+  return true; }
+// the nearest thing straight ahead that the legs would hit: {b, hh: its top above the feet, t0/t1: where the path enters and leaves it}
+function pkScan(e,fx,fz,reach){ const gs=PKU(), F=pkFeet(e,gs), px=e.pos.x, pz=e.pos.z; let best=null;
+  for(const b of colliders.near(px+fx*reach*0.5,pz+fz*reach*0.5,reach+1)){
+    const top=gs>0?b.max.y:b.min.y, bot=gs>0?b.min.y:b.max.y, hh=(top-F)*gs, lo=(bot-F)*gs; if(hh<0.4||lo>1.5) continue;
+    const R=pkRay(px,pz,fx,fz,b,e.radius*0.5); if(!R||R[0]>reach) continue;
+    if(!best||R[0]<best.t0) best={b,hh,top,t0:Math.max(0,R[0]),t1:R[1]}; }
+  return best; }
+function pkTry(e,fx,fz,jump){ if(e.pk||!pkWalking(e)) return false; const gs=PKU(), F=pkFeet(e,gs), r=e.radius;
+  const S=pkScan(e,fx,fz,1.25); if(!S) return false;
+  const sp=e.vel.x*fx+e.vel.z*fz, thick=S.t1-S.t0;
+  if(S.b.climb&&S.t0<0.8&&S.hh>1.3){ // a climbing wall: hold forward to go up, back to come down, jump to let go
+    const ax=Math.abs(fx)>Math.abs(fz), nx=ax?Math.sign(fx):0, nz=ax?0:Math.sign(fz);
+    if(ax) e.pos.x=nx>0?S.b.min.x-r-0.04:S.b.max.x+r+0.04; else e.pos.z=nz>0?S.b.min.z-r-0.04:S.b.max.z+r+0.04;
+    e.pk={kind:'climb',b:S.b,fx:nx,fz:nz,gs,top:S.top,t:0,ph:0}; e.vel.set(0,0,0); if(e.prone) e.prone=false; return true; }
+  if(e.onGround&&S.hh<=1.3&&thick<=2.8&&sp>4.2){ // a hurdle: over it without breaking stride
+    const d=S.t1+r+0.45, x=e.pos.x+fx*d, z=e.pos.z+fz*d, m=S.t0+thick/2, mx=e.pos.x+fx*m, mz=e.pos.z+fz*m;
+    if(pkFree(x,F,z,gs,r)&&pkFree(mx,S.top+gs*0.05,mz,gs,r*0.8,1.3)){
+      const toF=MODE==='br'?Math.max(F,brFloor(x,z)):F;
+      e.pk={kind:'vault',t:0,dur:clamp(0.36+thick*0.07+S.hh*0.08,0.4,0.72),from:e.pos.clone(),to:new V(x,e.pos.y+(toF-F),z),hh:S.hh,fx,fz,gs,sp:Math.max(sp,6.5),
+        hand:new V(e.pos.x+fx*(S.t0+0.3)+fz*0.24,S.top,e.pos.z+fz*(S.t0+0.3)-fx*0.24)};
+      if(e===player) sfx('whoosh',null,{}); return true; } }
+  if((jump||!e.onGround)&&S.hh>0.9&&S.hh<=3.4&&S.t0<0.9){ // a ledge within reach: grab it and pull up
+    const d=S.t0+r+0.3, x=e.pos.x+fx*d, z=e.pos.z+fz*d;
+    if(pkFree(x,S.top+gs*0.02,z,gs,r)){
+      e.pk={kind:'mantle',t:0,dur:0.4+0.2*Math.max(0.6,S.hh),from:e.pos.clone(),to:new V(x,gs>0?S.top:S.top-2,z),hh:S.hh,fx,fz,gs,edge:new V(e.pos.x+fx*(S.t0+0.14),S.top,e.pos.z+fz*(S.t0+0.14))};
+      e.vel.set(0,0,0); if(e===player) sfx('jump'); return true; } }
+  return false; }
+// run the move in progress; true while it has the body
+function pkMove(e,dt,up,jump){ const K=e.pk; if(!K) return false; K.t+=dt; const gs=K.gs;
+  if(gs!==PKU()||!e.alive||lockedUp(e)||e.bounceT>0){ e.pk=null; return false; }
+  if(K.kind==='vault'){ const k=Math.min(1,K.t/K.dur); e.pos.lerpVectors(K.from,K.to,k); e.pos.y+=gs*(K.hh+0.25)*Math.sin(Math.PI*k);
+    e.vel.set(K.fx*K.sp,0,K.fz*K.sp); e.onGround=false;
+    if(k>=1){ e.pk=null; e.onGround=true; e.anim.land=0.3; } return true; }
+  if(K.kind==='mantle'){ const k=Math.min(1,K.t/K.dur), a=easeIO(clamp(k/0.65,0,1)), b2=easeIO(clamp((k-0.5)/0.5,0,1));
+    e.pos.x=lerp(K.from.x,K.to.x,b2); e.pos.z=lerp(K.from.z,K.to.z,b2); e.pos.y=lerp(K.from.y,K.to.y,a); e.vel.set(0,0,0); e.onGround=false;
+    if(k>=1){ e.pk=null; e.onGround=true; } return true; }
+  if(K.kind==='climb'){ const F=pkFeet(e,gs), topH=(K.top-F)*gs;
+    if(jump){ e.pk=null; e.vel.set(-K.fx*5.5,gs*6.5,-K.fz*5.5); e.onGround=false; return false; }
+    const v=up>0?3.6:up<0?-3.6:0; e.pos.y+=gs*v*dt; K.ph+=Math.abs(v)*dt; e.vel.set(0,0,0); e.onGround=false;
+    if(topH<=1.3&&up>0){ const x=e.pos.x+K.fx*(e.radius*2+0.35), z=e.pos.z+K.fz*(e.radius*2+0.35);
+      e.pk={kind:'mantle',t:0,dur:0.55,from:e.pos.clone(),to:new V(x,gs>0?K.top:K.top-2,z),hh:topH,fx:K.fx,fz:K.fz,gs,edge:new V(e.pos.x+K.fx*(e.radius+0.1),K.top,e.pos.z+K.fz*(e.radius+0.1))}; return true; }
+    if(up<0){ if(MODE==='br'){ const fl=brFloor(e.pos.x,e.pos.z); if(e.pos.y<=fl+0.03){ e.pos.y=fl; e.pk=null; e.onGround=true; } } else if(e.pos.y+2>=ZG.H-0.06){ e.pos.y=ZG.H-2.05; e.pk=null; } }
+    return true; }
+  e.pk=null; return false; }
+function pkStand(p){ if(!p.prone) return true; const gs=PKU();
+  if(MODE==='br'&&!pkFree(p.pos.x,p.pos.y-0.9,p.pos.z,gs,p.radius*0.9,2.9)){ if(p===player) toast('No room to stand up'); return false; }
+  p.prone=false; return true; }
+function pkProne(p){ if(p.prone){ pkStand(p); return; } if(!pkWalking(p)||!p.onGround||p.pk||p.ride||p.sit||p.roll) return; p.prone=true; p.slideT=0; if(p.emote) stopEmote(p); }
+// V: a dodge roll the way you are moving (the Quaternius Roll)
+function pkRoll(p,force?){ if(p.roll||p.pk||p.prone||p.ride||p.sit||!pkWalking(p)||!p.onGround||!force&&(p.rollCd||0)>matchTime) return false;
+  const gs=PKU(); let mx=(keys.KeyD?1:0)-(keys.KeyA?1:0), mz=(keys.KeyW?1:0)-(keys.KeyS?1:0); if(gs<0) mx=-mx; if(!mx&&!mz||force) { mx=0; mz=1; }
+  const fx=-Math.sin(p.yaw), fz=-Math.cos(p.yaw), rx=Math.cos(p.yaw), rz=-Math.sin(p.yaw); let x=fx*mz+rx*mx, z=fz*mz+rz*mx; const l=Math.hypot(x,z)||1; x/=l; z/=l;
+  p.roll={t:0,dur:0.74,x,z}; p.faceYaw=Math.atan2(-x,-z); p.rollCd=matchTime+1.4; p.slideT=0; if(p.emote) stopEmote(p,true);
+  gcPlay(p,'PM_Roll',{speed:1.95,fin:0.07,fout:0.18,tag:'roll'}); if(p===player) sfx('whoosh',null,{}); return true; }
+// the player's parkour, called before the normal movement; true when a move has the body this frame
+function pkPlayer(p,dt,mz){
+  if(p.pk){ if(pkMove(p,dt,mz,p.wantJump&&p.pk.kind==='climb')){ p.wantJump=false; p.slideT=0; p.sprinting=false; p.crouch=false; return true; } }
+  if(!pkWalking(p)){ p.prone=false; p.roll=null; p.faceYaw=null; p.pkFall=0; return false; }
+  if(p.prone&&p.wantJump){ pkStand(p); p.wantJump=false; }
+  // a fast landing while running turns into a roll
+  if(MODE==='br'){ if(p.onGround&&(p.pkFall||0)>15&&Math.hypot(p.vel.x,p.vel.z)>4&&!p.brCrash) pkRoll(p,true); p.pkFall=p.onGround?0:Math.max(0,-p.vel.y); }
+  if(mz>0&&!p.prone&&!p.roll&&!p.sit&&!p.ride&&!p.chan){ const fx=-Math.sin(p.yaw), fz=-Math.cos(p.yaw); if(pkTry(p,fx,fz,p.wantJump||!!keys.Space)){ p.wantJump=false; if(p.emote) stopEmote(p,true); return true; } }
+  return false; }
+// the roll sets the ground speed (called just before the move is resolved)
+function pkVel(p,dt){ const R=p.roll; if(!R) return; R.t+=dt; const k=R.t/R.dur, s=lerp(13.5,7,k)*slowK(p);
+  p.vel.x=R.x*s; p.vel.z=R.z*s; p.sprinting=false; p.crouch=false; if(k>=1||!p.onGround&&R.t>0.15){ p.roll=null; p.faceYaw=null; gcStop(p,'roll'); } }
+
+// ---- parkour poses, on top of everything else the animator did
+const _pkq=new T.Quaternion(), _pka=new V(), _pkb=new V(), _pkc=new V(), _pkd=new V();
+function pkAxes(c,X){ c.g.updateMatrixWorld(true); c.model.getWorldQuaternion(_pkq); X.rightB.set(1,0,0).applyQuaternion(_pkq); X.fwdB.set(0,0,-1).applyQuaternion(_pkq); X.upB.set(0,1,0).applyQuaternion(_pkq); }
+// turn the whole body about a point h up its own axis
+function pkTurn(c,X,axis,ang,h){ const g=c.g, mid=_pka.copy(g.position).addScaledVector(X.upB,h); _pkq.setFromAxisAngle(_pkb.copy(axis),ang);
+  g.position.sub(mid).applyQuaternion(_pkq).add(mid); g.quaternion.premultiply(_pkq); pkAxes(c,X); }
+function animParkour(e,X){ const {c,A,B,dt}=X, K=e.pk; if(A.prone==null){ A.prone=0; A.crawl=0; }
+  D(A,'prone',e.prone?1:0,1-Math.exp(-9*dt));
+  const armIK=(sd,t,pole)=>solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],t,pole);
+  if(A.prone>0.02){ const k=smooth(0,1,A.prone), sp=Math.hypot(e.vel.x,e.vel.z); A.crawl+=sp*dt*2.4;
+    pkTurn(c,X,X.rightB,-(Math.PI/2-0.08)*k,0.2); c.g.position.addScaledVector(X.upB,-0.85*k); c.g.updateMatrixWorld(true); // flat on the front, centred on where you are
+    if(!X.near) return;
+    const R=X.rightB, U=X.upB, F=X.fwdB, ph=A.crawl; // U now points the way you crawl and F at the ground
+    rotateBoneWorld(B.Spine1,R,0.2*k); rotateBoneWorld(B.Neck,R,0.7*k); rotateBoneWorld(B.Head,R,0.35*k); // chest and eyes up
+    for(const [sd,sx,off] of [['Left',-1,0],['Right',1,Math.PI]] as [string,number,number][]){ const s=Math.sin(ph+off), cs=Math.cos(ph+off);
+      const sh=B[sd+'Arm'].getWorldPosition(_pkc);
+      const t=_pkd.copy(sh).addScaledVector(U,0.32+0.2*s).addScaledVector(F,0.2-0.07*Math.max(0,cs)).addScaledVector(R,sx*0.16);
+      armIK(sd,t,new V().copy(sh).addScaledVector(R,sx*0.9).addScaledVector(U,-0.25).addScaledVector(F,-0.2));
+      const kn=(0.25+0.75*Math.max(0,-s))*k; // the knee comes up along the ground as the arm on that side reaches
+      rotateBoneWorld(B[sd+'UpLeg'],F,-sx*0.95*kn); rotateBoneWorld(B[sd+'Leg'],F,sx*1.5*kn); }
+    return; }
+  if(e.ride&&X.near){ c.g.position.addScaledVector(X.upB,0.12); c.g.updateMatrixWorld(true); }
+  if(!K||!X.near) return;
+  if(K.kind==='vault'){ const k=Math.min(1,K.t/K.dur), s=Math.sin(Math.PI*k);
+    pkTurn(c,X,X.fwdB,0.5*s,0.95); pkTurn(c,X,X.rightB,-0.3*s,0.95);
+    const R=X.rightB, U=X.upB, F=X.fwdB;
+    bend(X,'Left',1.15*s,-1.35*s); bend(X,'Right',0.95*s,-1.2*s); rotateBoneWorld(B.LeftUpLeg,F,0.5*s); rotateBoneWorld(B.RightUpLeg,F,0.5*s); // both legs swing through to one side
+    if(k<0.8){ const sh=B.LeftArm.getWorldPosition(_pkc); armIK('Left',K.hand,new V().copy(sh).addScaledVector(R,-0.7).addScaledVector(U,-0.5)); } // the left hand plants on top
+    rotateBoneWorld(B.RightArm,F,-0.9*s); rotateBoneWorld(B.Neck,R,0.25*s); return; }
+  if(K.kind==='mantle'){ const k=Math.min(1,K.t/K.dur), over=smooth(0.55,0.95,k), R=X.rightB, U=X.upB;
+    if(over>0.01) pkTurn(c,X,X.rightB,-0.55*Math.sin(Math.PI*over),0.9);
+    if(k<0.82) for(const [sd,sx] of [['Left',-1],['Right',1]] as [string,number][]){ const sh=B[sd+'Arm'].getWorldPosition(_pkc); // both hands hold the edge while the body comes up past them
+      armIK(sd,_pkd.copy(K.edge).addScaledVector(R,sx*0.24),new V().copy(sh).addScaledVector(R,sx*0.8).addScaledVector(U,-0.6)); }
+    const t=K.t*11, w=1-over; bend(X,'Left',(0.55+0.45*Math.sin(t))*w+0.9*over*(1-over)*4*0.5,-(0.9+0.4*Math.sin(t))*w-0.8*over*(1-over)*4*0.5); bend(X,'Right',(0.55-0.45*Math.sin(t))*w,-(0.9-0.4*Math.sin(t))*w);
+    rotateBoneWorld(B.Neck,R,0.35*w); return; }
+  if(K.kind==='climb'){ const R=X.rightB, U=X.upB, F=X.fwdB, ph=K.ph*2.3;
+    for(const [sd,sx,off] of [['Left',-1,0],['Right',1,Math.PI]] as [string,number,number][]){ const s=Math.sin(ph+off), sh=B[sd+'Arm'].getWorldPosition(_pkc);
+      armIK(sd,_pkd.copy(sh).addScaledVector(U,0.4+0.24*s).addScaledVector(F,0.36).addScaledVector(R,sx*0.08),new V().copy(sh).addScaledVector(R,sx*0.8).addScaledVector(U,-0.5));
+      bend(X,sd,0.6-0.45*s,-(1.05-0.5*s)); }
+    rotateBoneWorld(B.Neck,R,0.3); } }
+
+// ---- building: G opens the builder; 1 wall, 2 floor, 3 ramp; click (or hold) to place on a 4 m grid. Pieces block people
+// and bullets, can be shot down, and the oldest crumble once you have more than BLD.max standing.
+const BLD:any={on:false,kind:0,list:[],ramps:[],ghost:null,cd:0,C:4,H:3.5,max:48,mat:null,gm:null,gbad:null};
+const BLD_KINDS=['Wall','Floor','Ramp'];
+function bldInit(){ BLD.list=[]; BLD.ramps=[]; BLD.on=false; BLD.ghost=null; bldBar();
+  if(!BLD.mat){ const tex=canvasTex(128,128,(g,w)=>{ g.fillStyle='#b98a55'; g.fillRect(0,0,w,w); for(let i=0;i<4;i++){ g.fillStyle=i%2?'#c2945c':'#ae7f4c'; g.fillRect(0,i*32,w,30); g.fillStyle='rgba(60,35,15,.5)'; g.fillRect(0,i*32+30,w,2); for(let k=0;k<5;k++){ g.fillStyle='rgba(80,50,20,.18)'; g.fillRect(Math.random()*w,i*32+4+Math.random()*22,10+Math.random()*30,1.5); } } g.fillStyle='#4a2d14'; for(const [x,y] of [[8,8],[120,8],[8,120],[120,120]]) g.fillRect(x-3,y-3,6,6); g.strokeStyle='#5cf0ff'; g.lineWidth=3; g.strokeRect(1.5,1.5,w-3,w-3); });
+    BLD.mat=Lam({map:tex}); BLD.gm=new T.MeshBasicMaterial({color:0x5cf0ff,transparent:true,opacity:0.32,depthWrite:false,side:T.DoubleSide}); BLD.gbad=new T.MeshBasicMaterial({color:0xff3347,transparent:true,opacity:0.3,depthWrite:false,side:T.DoubleSide}); } }
+function bldBar(){ const el=$('buildBar'); if(!el) return; el.hidden=!BLD.on||state!=='play'; if(BLD.on) el.innerHTML='<b>BUILD</b>'+BLD_KINDS.map((n,i)=>`<span class="${i===BLD.kind?'on':''}"><kbd>${i+1}</kbd>${n}</span>`).join('')+'<span><kbd>G</kbd>Done</span>'; }
+function bldToggle(on?){ const p=player; on=on==null?!BLD.on:on; if(on&&(!p.alive||p.ride||p.sit||p.prone||MODE==='br'&&p.br!=='ground')) return; BLD.on=on; if(on&&p.emote) stopEmote(p,true); if(BLD.ghost) BLD.ghost.visible=on; bldBar(); sfx('ui'); }
+// where the piece in hand would go
+function bldSpot(){ const p=player, C=BLD.C, H=BLD.H, gs=PKU(), F=pkFeet(p,gs), k=BLD.kind;
+  const fx=-Math.sin(p.yaw), fz=-Math.cos(p.yaw), ax=Math.abs(fx)>Math.abs(fz), dx=ax?Math.sign(fx):0, dz=ax?0:Math.sign(fz);
+  const pitch=p.pitch*(ZG.camRoll>Math.PI/2?-1:1), up=pitch>0.45, dn=pitch<-0.6, base=gs>0?Math.floor(F*2+0.01)/2:Math.ceil(F*2-0.01)/2;
+  const cellC=v=>(Math.floor(v/C)+0.5)*C, edge=(v,d,lead)=>d>0?Math.ceil((v+lead)/C)*C:Math.floor((v-lead)/C)*C;
+  if(k===0){ const lv=base+gs*(up?H:0); return ax?{k,x:edge(p.pos.x,dx,0.9),y:lv+gs*H/2,z:cellC(p.pos.z),sx:0.3,sy:H,sz:C,dx,dz}:{k,x:cellC(p.pos.x),y:lv+gs*H/2,z:edge(p.pos.z,dz,0.9),sx:C,sy:H,sz:0.3,dx,dz}; }
+  if(k===1){ const own=up||dn, x=cellC(p.pos.x+(own?0:dx*2.7)), z=cellC(p.pos.z+(own?0:dz*2.7)); return {k,x,y:up?base+gs*(H+0.125):base-gs*0.14,z,sx:C,sy:0.25,sz:C,dx,dz}; }
+  const x=ax?edge(p.pos.x,dx,0.45)+dx*C/2:cellC(p.pos.x), z=ax?cellC(p.pos.z):edge(p.pos.z,dz,0.45)+dz*C/2;
+  return {k,x,y:base+gs*H/2,z,y0:base,dx,dz,gs}; }
+const bldKey=S=>S.k+':'+S.x.toFixed(1)+':'+S.y.toFixed(1)+':'+S.z.toFixed(1)+(S.k===2?':'+S.dx+S.dz:'');
+function bldBlocked(S){ if(BLD.list.some(P=>P.key===bldKey(S))) return true;
+  if(S.k===2) return false;
+  for(const e of combatants){ if(!e.alive) continue; const r=e.radius||0.5, p=e.pos; if(p.x+r>S.x-S.sx/2&&p.x-r<S.x+S.sx/2&&p.z+r>S.z-S.sz/2&&p.z-r<S.z+S.sz/2&&p.y+2>S.y-S.sy/2&&p.y<S.y+S.sy/2) return true; }
+  return false; }
+function bldRampSet(m,S){ const L=Math.hypot(BLD.C,BLD.H); m.scale.set(BLD.C,0.25,L); m.position.set(S.x,S.y,S.z); m.rotation.set(Math.atan2(BLD.H,BLD.C)*S.gs,Math.atan2(-S.dx,-S.dz),0,'YXZ'); }
+function bldPlace(){ const p=player; if(!BLD.on||BLD.cd>0||!p.alive) return; const S=bldSpot(); if(bldBlocked(S)){ BLD.cd=0.12; return; } BLD.cd=0.16;
+  const m=new T.Mesh(pwGeo.box||(pwGeo.box=new T.BoxGeometry(1,1,1)),BLD.mat.clone()); let P:any;
+  if(S.k===2){ bldRampSet(m,S); world.add(m); m.castShadow=m.receiveShadow=true; P={etype:'piece',kind:'build',build:true,hp:150,maxHp:150,obj:m,meshes:[m],ramp:S,key:bldKey(S)}; m.userData.ent=P; structMeshes.push(m); BLD.ramps.push(P); targetsDirty=true; }
+  else { m.scale.set(S.sx,S.sy,S.sz); m.position.set(S.x,S.y,S.z); world.add(m); P=registerPiece({kind:'build',hp:150,maxHp:150,obj:m,meshes:[m],box:boxOf(S.x,S.y,S.z,S.sx,S.sy,S.sz)}); P.build=true; P.key=bldKey(S); }
+  const tex=m.material.map=BLD.mat.map; void tex; BLD.list.push(P); while(BLD.list.length>BLD.max) bldRemove(BLD.list[0],true);
+  const s0=m.scale.clone(); effects.push({t:0,dur:0.22,obj:null,upd:(ef,k)=>{ const q=1-Math.pow(1-k,3); m.scale.copy(s0).multiplyScalar(0.55+0.45*q+0.08*Math.sin(Math.PI*k)); }});
+  pBurst(5,14,m.position,5,0xc2945c,0.06); pBurst(4,6,m.position,5,0x5cf0ff,0.05); sfx('chop',m.position.clone(),{mat:'stone'});
+  if(!p.gc&&Math.hypot(p.vel.x,p.vel.z)<1) gcPlay(p,'PM_Button',{t0:0.45,t1:1.25,speed:2,w:0.8,tag:'use'}); }
+function bldHurt(P,dmg){ if(!P.build||P.hp<=0) return; P.hp-=dmg; const m=P.obj; m.material.color.setScalar(0.55+0.45*Math.max(0,P.hp/P.maxHp)); if(P.hp<=0) bldRemove(P,true); }
+function bldRemove(P,fx?){ const i=BLD.list.indexOf(P); if(i>=0) BLD.list.splice(i,1); const m=P.obj; world.remove(m); m.material.dispose();
+  const j=structMeshes.indexOf(m); if(j>=0) structMeshes.splice(j,1); if(P.box) colliders.delete(P.box); const r=BLD.ramps.indexOf(P); if(r>=0) BLD.ramps.splice(r,1); targetsDirty=true;
+  if(fx){ pBurst(5,26,m.position,7,0xb98a55,0.08); sfx('chop',m.position.clone(),{mat:'stone'}); } }
+// the height of a ramp's surface under (x,z), for feet at about y; -1e9 when there is none (the island only)
+function bldRampY(x,z,y){ let best=-1e9; for(const P of BLD.ramps){ const S=P.ramp, C=BLD.C; if(S.gs<0) continue;
+    const u=(x-S.x)*S.dx+(z-S.z)*S.dz, v=(x-S.x)*S.dz-(z-S.z)*S.dx; if(Math.abs(u)>C/2+0.3||Math.abs(v)>C/2+0.2) continue;
+    const h=S.y0+BLD.H*clamp(u/C+0.5,0,1)+0.13; if(y>=h-0.75&&h>best) best=h; }
+  return best; }
+function bldTick(dt){ BLD.cd=Math.max(0,BLD.cd-dt); const p=player; if(!BLD.on) return;
+  if(!p.alive||p.ride||p.sit||MODE==='br'&&p.br!=='ground'){ bldToggle(false); return; }
+  if(!BLD.ghost){ const G=BLD.ghost=new T.Group(); G.add(new T.Mesh(pwGeo.box||(pwGeo.box=new T.BoxGeometry(1,1,1)),BLD.gm)); G.children[0].renderOrder=4; world.add(G); }
+  const S=bldSpot(), m=BLD.ghost.children[0]; m.material=bldBlocked(S)?BLD.gbad:BLD.gm;
+  if(S.k===2) bldRampSet(m,S); else { m.rotation.set(0,0,0); m.scale.set(S.sx+0.04,S.sy+0.04,S.sz+0.04); m.position.set(S.x,S.y,S.z); }
+  if(mouse.l) bldPlace(); }
+
+// ---- stations: campfires (sit and heal), workbenches (kneel and bolt on 50 shield), spell shrines (cast a speed blessing),
+// hover karts (drive!) and a parkour course (hurdles, a crawl tunnel and a climbing tower with a prize on top). E uses them.
+const ST:any={list:[],karts:[],t:0};
+const stM:any={};
+function stMats(){ if(stM.ok) return; stM.ok=true;
+  stM.stone=Lam({color:0x8a8794}); stM.log=Lam({color:0x6b4423}); stM.bark=Lam({color:0x4a2d14}); stM.steel=GPh(0x7d8597,70,0x9aa4b8); stM.dark=GPh(0x232838,40);
+  stM.fire=new T.MeshBasicMaterial({color:0xff8a2a,transparent:true,opacity:0.9,blending:T.AdditiveBlending,depthWrite:false}); stM.fire2=new T.MeshBasicMaterial({color:0xffe27a,transparent:true,opacity:0.95,blending:T.AdditiveBlending,depthWrite:false});
+  stM.glowO=new T.SpriteMaterial({map:glowTex,color:0xff9a3a,transparent:true,opacity:0.7,blending:T.AdditiveBlending,depthWrite:false}); stM.glowM=new T.SpriteMaterial({map:glowTex,color:0xff3fd4,transparent:true,opacity:0.8,blending:T.AdditiveBlending,depthWrite:false}); stM.glowC=new T.SpriteMaterial({map:glowTex,color:0x5cf0ff,transparent:true,opacity:0.7,blending:T.AdditiveBlending,depthWrite:false});
+  stM.cry=new T.MeshBasicMaterial({color:0xff7ae8}); stM.cry2=new T.MeshBasicMaterial({color:0x9cf4ff}); stM.holo=new T.MeshBasicMaterial({color:0x5cf0ff,transparent:true,opacity:0.55,blending:T.AdditiveBlending,depthWrite:false,side:T.DoubleSide});
+  stM.kart=GPh(0xff3fd4,90,0xffffff); stM.kart2=GPh(0x2a1850,60); stM.seat=Lam({color:0x1a1a22}); stM.gold=new T.MeshBasicMaterial({color:0xffd23f}); stM.hurdle=Lam({color:0xf4f4f8}); stM.stripe=Lam({color:0xff3347}); stM.grip=Lam({color:0x3a4a6a}); stM.hold=Lam({color:0xffd23f});
+  stM.gCone=new T.ConeGeometry(0.32,1,7); stM.gStone=new T.DodecahedronGeometry(0.2,0); stM.gLog=new T.CylinderGeometry(0.11,0.13,1.1,7); stM.gOct=new T.OctahedronGeometry(1,0); stM.gBox=new T.BoxGeometry(1,1,1); stM.gCyl=new T.CylinderGeometry(1,1,1,18); stM.gTor=new T.TorusGeometry(0.7,0.09,8,28); stM.gSph=new T.SphereGeometry(1,14,10); }
+function stAdd(kind,x,y,z,yaw,gs){ const g=new T.Group(); g.position.set(x,y,z); g.rotation.set(0,yaw,gs<0?Math.PI:0,'YXZ'); world.add(g);
+  const add=(geo,mat,px,py,pz,sx?,sy?,sz?)=>{ const m=new T.Mesh(geo,mat); m.position.set(px,py,pz); if(sx!=null) m.scale.set(sx,sy==null?sx:sy,sz==null?sx:sz); m.castShadow=!(mat.transparent); m.receiveShadow=!(mat.transparent); g.add(m); return m; };
+  const s:any={kind,x,y,z,yaw,gs,g,cd:0,add,P:{}}; ST.list.push(s); return s; }
+// a point given in a station's own frame, in the world
+function stAt(s,lx,ly,lz){ return s.g.localToWorld(new V(lx,ly,lz)); }
+function stCampfire(x,y,z,yaw,gs){ const s=stAdd('fire',x,y,z,yaw,gs), a=s.add;
+  for(let i=0;i<9;i++){ const t=i/9*TAU; a(stM.gStone,stM.stone,Math.cos(t)*0.62,0.1,Math.sin(t)*0.62,rnd(0.8,1.25)).rotation.set(rnd(0,3),rnd(0,3),0); }
+  for(let i=0;i<4;i++){ const m=a(stM.gLog,i%2?stM.log:stM.bark,0,0.3,0); m.rotation.set(0.95,i/4*TAU,0,'YXZ'); m.position.set(Math.sin(i/4*TAU)*0.2,0.3,Math.cos(i/4*TAU)*0.2); }
+  s.P.fl=[a(stM.gCone,stM.fire,0,0.75,0,1.25,1.3,1.25),a(stM.gCone,stM.fire2,0.05,0.62,0.04,0.8,0.9,0.8),a(stM.gCone,stM.fire,-0.12,0.6,0.1,0.7,0.75,0.7)];
+  const gl=new T.Sprite(stM.glowO); gl.position.set(0,0.8,0); gl.scale.setScalar(4.2); s.g.add(gl); s.P.gl=gl;
+  for(const [lx,lz,ry] of [[0,1.55,Math.PI/2],[1.5,-0.5,0.5],[-1.5,-0.5,-0.5]]){ const m=a(stM.gCyl,stM.log,lx,0.24,lz,0.24,1.5,0.24); m.rotation.set(0,ry,Math.PI/2,'YXZ'); a(stM.gCyl,stM.bark,lx,0.24,lz,0.245,1.3,0.245).rotation.copy(m.rotation); }
+  s.seats=[[0,1.55],[1.5,-0.5],[-1.5,-0.5]]; return s; }
+function stBench(x,y,z,yaw,gs){ const s=stAdd('bench',x,y,z,yaw,gs), a=s.add;
+  a(stM.gBox,stM.log,0,0.92,0,2.2,0.14,1); for(const [lx,lz] of [[-0.95,-0.4],[0.95,-0.4],[-0.95,0.4],[0.95,0.4]]) a(stM.gBox,stM.bark,lx,0.43,lz,0.14,0.86,0.14);
+  a(stM.gBox,stM.bark,0,0.3,0,1.9,0.08,0.8); a(stM.gBox,stM.steel,-0.6,1.12,0,0.5,0.26,0.36); a(stM.gBox,stM.dark,-0.6,1.3,0,0.62,0.1,0.44); // an anvil
+  a(stM.gBox,stM.stripe,0.55,1.1,0.1,0.6,0.24,0.34); a(stM.gCyl,stM.steel,0.55,1.26,0.1,0.03,0.5,0.03).rotation.z=Math.PI/2; // a toolbox with a handle
+  a(stM.gCyl,stM.log,0.05,1.03,-0.25,0.03,0.42,0.03).rotation.set(0,0.6,Math.PI/2,'YXZ'); a(stM.gBox,stM.steel,0.22,1.03,-0.37,0.16,0.09,0.09); // a hammer
+  const h=a(stM.gOct,stM.holo,0,2.1,0,0.34,0.44,0.34); s.P.holo=h; const gl=new T.Sprite(stM.glowC); gl.position.set(0,2.1,0); gl.scale.setScalar(1.8); s.g.add(gl); s.P.gl=gl;
+  const c=stAt(s,0,0.5,0), w=Math.abs(Math.sin(yaw))>0.7; zgSolid(a(stM.gBox,stM.dark,0,0.5,0,0.01),boxOf(c.x,c.y,c.z,w?1:2.2,1,w?2.2:1)); return s; }
+function stShrine(x,y,z,yaw,gs){ const s=stAdd('shrine',x,y,z,yaw,gs), a=s.add;
+  a(stM.gCyl,stM.stone,0,0.15,0,1.25,0.3,1.25); a(stM.gCyl,stM.dark,0,0.42,0,0.9,0.24,0.9); a(stM.gCyl,stM.cry,0,0.56,0,0.7,0.04,0.7);
+  s.P.cry=a(stM.gOct,stM.cry,0,2,0,0.42,0.78,0.42); s.P.orb=[0,1,2,3].map(i=>a(stM.gOct,i%2?stM.cry2:stM.cry,0,1.6,0,0.12,0.2,0.12));
+  for(let i=0;i<4;i++){ const t=i/4*TAU+0.4; a(stM.gBox,stM.stone,Math.cos(t)*1.05,0.75,Math.sin(t)*1.05,0.22,1.2+0.3*(i%2),0.22).rotation.y=-t; }
+  const gl=new T.Sprite(stM.glowM); gl.position.set(0,2,0); gl.scale.setScalar(3.4); s.g.add(gl); s.P.gl=gl;
+  const c=stAt(s,0,0.3,0); zgSolid(a(stM.gBox,stM.dark,0,0.3,0,0.01),boxOf(c.x,c.y,c.z,1.5,0.6,1.5)); return s; }
+function stKart(x,y,z,yaw,gs){ const s=stAdd('kart',x,y,z,yaw,gs), a=s.add;
+  a(stM.gBox,stM.kart,0,0.42,0.1,1.25,0.3,2.3); a(stM.gBox,stM.kart2,0,0.36,-1.2,0.95,0.2,0.5); a(stM.gBox,stM.kart,0,0.62,-0.95,1.05,0.16,0.7).rotation.x=0.35; // body, nose, hood
+  a(stM.gBox,stM.seat,0,0.72,0.75,0.7,0.62,0.16).rotation.x=-0.18; a(stM.gBox,stM.seat,0,0.5,0.4,0.7,0.12,0.6); // the seat
+  a(stM.gTor,stM.dark,0,0.98,-0.38,0.26).rotation.x=-1.0; a(stM.gCyl,stM.dark,0,0.8,-0.5,0.03,0.4,0.03).rotation.x=0.55; // the wheel on its column
+  a(stM.gBox,stM.kart2,0,1.12,1.22,1.5,0.06,0.34); for(const sx of [-0.6,0.6]) a(stM.gBox,stM.kart2,sx,0.85,1.2,0.06,0.5,0.2); // a spoiler
+  s.P.pods=[]; for(const [lx,lz] of [[-0.8,-0.8],[0.8,-0.8],[-0.8,0.9],[0.8,0.9]]){ a(stM.gCyl,stM.kart2,lx,0.3,lz,0.36,0.2,0.36); const r=a(stM.gCyl,stM.cry2,lx,0.19,lz,0.28,0.04,0.28); s.P.pods.push(r); const gl=new T.Sprite(stM.glowC); gl.position.set(lx,0.08,lz); gl.scale.setScalar(1.3); s.g.add(gl); }
+  for(const sx of [-0.42,0.42]) a(stM.gSph,stM.fire2,sx,0.5,-1.47,0.09); // headlights
+  s.sp=0; s.rider=null; s.boostT=0; s.boostCd=0; s.pitch=0; s.rollA=0; ST.karts.push(s); return s; }
+// the parkour course runs along +x (ax) or +z from (x,z); every piece stands on the ground where it is
+function stCourse(x0,z0,ax,gs){ const s=stAdd('course',x0,0,z0,0,1); s.g.visible=true; s.gs=gs; const P=(d,w)=>ax?[x0+d,z0+w]:[x0+w,z0+d];
+  const gy=(d,w)=>{ const [x,z]=P(d,w); return gs>0?(MODE==='br'?brHeight(x,z):0):ZG.H; };
+  const box=(d,w,up,ld,lw,lh,mat,o?)=>{ const [x,z]=P(d,w), y=gy(d,w)+gs*(up+lh/2), sx=ax?ld:lw, sz=ax?lw:ld, m=new T.Mesh(stM.gBox,mat); m.scale.set(sx,lh,sz); m.position.set(x,y,z); m.castShadow=m.receiveShadow=true; world.add(m);
+    if(!(o&&o.ghost)){ const pc=zgSolid(m,boxOf(x,y,z,sx,lh,sz)); if(o&&o.climb) pc.box.climb=true; } return m; };
+  // a start arch
+  box(0,-2.3,0,0.3,0.3,3.4,stM.stripe); box(0,2.3,0,0.3,0.3,3.4,stM.stripe); box(0,0,3.4,0.3,4.9,0.4,stM.hurdle,{ghost:true});
+  // four hurdles
+  for(let i=0;i<4;i++){ const d=6+i*5.5, h=0.85+0.1*(i%2); box(d,0,h-0.16,0.3,3.8,0.16,i%2?stM.stripe:stM.hurdle); box(d,-1.8,0,0.3,0.2,h,stM.hurdle); box(d,1.8,0,0.3,0.2,h,stM.hurdle); }
+  // a crawl tunnel: too low to walk or crouch through
+  box(31.5,-1.3,0,7,0.3,1.5,stM.grip); box(31.5,1.3,0,7,0.3,1.5,stM.grip); box(31.5,0,1.08,7,2.9,0.42,stM.hurdle);
+  for(let i=0;i<4;i++) box(28.6+i*1.95,0,1.5,0.5,2.9,0.06,stM.stripe,{ghost:true});
+  // the climbing tower, with handholds on every side
+  const TH=8; box(41,0,0,4,4,TH,stM.grip,{climb:true});
+  for(let i=0;i<46;i++){ const side=i%4, u=rnd(-1.7,1.7), v=rnd(0.5,TH-0.4), o=2.06; const [d,w]=side===0?[41-o,u]:side===1?[41+o,u]:side===2?[41+u,-o]:[41+u,o]; const [hx,hz]=P(d,w); const m=new T.Mesh(stM.gStone,i%3?stM.hold:stM.stripe); m.position.set(hx,gy(41,0)+gs*v,hz); m.scale.setScalar(rnd(0.5,0.85)); world.add(m); }
+  // the prize on top
+  const [px,pz]=P(41,0), ring=new T.Mesh(stM.gTor,stM.gold); ring.position.set(px,gy(41,0)+gs*(TH+1.3),pz); world.add(ring); const gl=new T.Sprite(new T.SpriteMaterial({map:glowTex,color:0xffd23f,transparent:true,opacity:0.8,blending:T.AdditiveBlending,depthWrite:false})); gl.scale.setScalar(3); ring.add(gl);
+  s.P.ring=ring; s.x=px; s.z=pz; s.y=ring.position.y; return s; }
+// can a station stand here? (the island: land that is fairly level and clear; the box: clear of the blocks)
+function stSpotBR(R,flat){ for(let k=0;k<400;k++){ const a=Math.random()*TAU, r=Math.sqrt(Math.random())*BR.R*0.72, x=Math.cos(a)*r, z=Math.sin(a)*r, h=brHeight(x,z); if(h<BR_SEA+2||h>26) continue;
+    let ok=true; for(const [ox,oz] of [[R,0],[-R,0],[0,R],[0,-R]]) if(Math.abs(brHeight(x+ox,z+oz)-h)>flat){ ok=false; break; } if(!ok) continue;
+    if(BR.houses.some(o=>Math.hypot(o.x-x,o.z-z)<R+10)||ST.list.some(o=>Math.hypot(o.x-x,o.z-z)<R+16)||BR.chests.some(o=>Math.hypot(o.x-x,o.z-z)<R+2)) continue;
+    let hit=false; for(const b of colliders.near(x,z,R+2)){ if(b.max.x>x-R&&b.min.x<x+R&&b.max.z>z-R&&b.min.z<z+R){ hit=true; break; } } if(hit) continue;
+    return [x,h,z]; } return null; }
+function stSpotZG(R,ceil){ const L=ZG.L, H=ZG.H; for(let k=0;k<400;k++){ const x=rnd(-L*0.7,L*0.7), z=rnd(-L*0.7,L*0.7), cy=ceil?H-2:2;
+    if(ZG.blocks.some(b=>Math.abs(b.x-x)<b.sx/2+R+1&&Math.abs(b.z-z)<b.sz/2+R+1&&Math.abs(b.y-cy)<b.sy/2+6)) continue;
+    if(ST.list.some(o=>Math.hypot(o.x-x,o.z-z)<R+12)||ZG.vend.some(v=>Math.hypot(v.use.x-x,v.use.z-z)<R+6)) continue;
+    return [x,ceil?H:0,z]; } return null; }
+function stBuild(){ stMats(); ST.list=[]; ST.karts=[]; ST.t=0; const br=MODE==='br';
+  const put=(n,R,flat,f)=>{ for(let i=0;i<n;i++){ const sp=br?stSpotBR(R,flat):stSpotZG(R,false); if(sp) f(sp[0],sp[1],sp[2],rnd(0,TAU),1); } };
+  // the course first: it needs the longest level stretch
+  for(let i=0;i<(br?3:1);i++){ for(let k=0;k<(br?500:200);k++){ const ax=Math.random()<0.5;
+      if(br){ const a=Math.random()*TAU, r=Math.sqrt(Math.random())*BR.R*0.6, x=Math.cos(a)*r, z=Math.sin(a)*r; let lo=1e9, hi=-1e9, tl=1e9, th=-1e9, ok=true;
+        for(let d=-2;d<=45&&ok;d+=1.5) for(const w of [-2.2,0,2.2]){ const px=ax?x+d:x+w, pz=ax?z+w:z+d, h=brHeight(px,pz); lo=Math.min(lo,h); hi=Math.max(hi,h); if(d>27&&d<36){ tl=Math.min(tl,h); th=Math.max(th,h); } if(h<BR_SEA+1.5) ok=false; }
+        if(!ok||hi-lo>3.2||th-tl>0.28) continue; const cx=ax?x+21:x, cz=ax?z:z+21;
+        if(BR.houses.some(o=>Math.hypot(o.x-cx,o.z-cz)<34)||ST.list.some(o=>o.kind==='course'&&Math.hypot(o.x-cx,o.z-cz)<120)) continue;
+        let hit=false; for(let d=0;d<=44&&!hit;d+=4){ const px=ax?x+d:x, pz=ax?z:z+d; for(const b of colliders.near(px,pz,4)) if(b.max.x>px-3&&b.min.x<px+3&&b.max.z>pz-3&&b.min.z<pz+3){ hit=true; break; } } if(hit) continue;
+        stCourse(x,z,ax,1); break; }
+      else { const L=ZG.L, H=ZG.H, x=rnd(-L*0.6,L*0.4), z=rnd(-L*0.6,L*0.4); let ok=true;
+        for(let d=-2;d<=45&&ok;d+=3){ const px=ax?x+d:x, pz=ax?z:z+d; if(Math.abs(px)>L-6||Math.abs(pz)>L-6||ZG.blocks.some(b=>Math.abs(b.x-px)<b.sx/2+4&&Math.abs(b.z-pz)<b.sz/2+4&&b.y+b.sy/2>H-13)) ok=false; }
+        if(!ok) continue; stCourse(x,z,ax,-1); break; } } }
+  put(br?10:3,3,0.8,stCampfire); put(br?6:2,2.4,0.7,stBench); put(br?6:2,2.4,0.7,stShrine); put(br?9:4,3,0.9,stKart); }
+function stNear(){ const p=player; if(!p||!p.alive) return null; if(p.ride) return {s:p.ride,key:'kartOut',label:'Hop out'}; if(p.sit||p.chan) return null;
+  let best=null, bd=3.6; for(const s of ST.list){ if(s.kind==='course'||s.cd>0||s.kind==='kart'&&s.rider) continue; const c=s.kind==='kart'?s.g.position:s.g.position, d=Math.hypot(c.x-p.pos.x,c.y-(p.pos.y+(s.gs<0?2:0)),c.z-p.pos.z); if(d<bd){ bd=d; best=s; } }
+  if(!best) return null; const k=best.kind; return {s:best,key:k,label:k==='fire'?'Rest by the fire':k==='bench'?'Bolt on armour':k==='shrine'?'Speed blessing':'Drive'}; }
+function stUse(){ const p=player, N=stNear(); if(!N) return false; const s=N.s; if(BLD.on) bldToggle(false); if(p.emote) stopEmote(p,true); if(p.prone) p.prone=false;
+  if(p.ride){ stKartOut(p); return true; }
+  if(s.kind==='kart'){ if(MODE==='br'&&p.br!=='ground') return false; s.rider=p; p.ride=s; s.sp=0; p.pos.copy(s.g.position); if(s.gs<0||PKU()<0) p.pos.y-=2; p.vel.set(0,0,0); p.pk=null; p.roll=null; p.faceYaw=null;
+    gcPlay(p,'PM_Joyride',{loop:true,fin:0.2,tag:'ride'}); sfx('propel'); toast('W drive · click for a boost · E hop out'); return true; }
+  if(s.kind==='fire'){ if(MODE==='br'&&!p.onGround) return false; let b=null, bd=1e9; for(const [lx,lz] of s.seats){ const w=stAt(s,lx,0,lz), d=Math.hypot(w.x-p.pos.x,w.z-p.pos.z); if(d<bd){ bd=d; b=w; } }
+    p.sit={s,hp:p.hp+p.shield,t:0}; p.pos.x=b.x; p.pos.z=b.z; if(MODE!=='br') p.pos.y=0.3; p.vel.set(0,0,0); p.faceYaw=Math.atan2(-(s.x-b.x),-(s.z-b.z)); p.pk=null; p.roll=null;
+    gcPlay(p,'PM_Chair',{loop:true,fin:0.35,tag:'sit'}); sfx('pickup',null,{item:{kind:'cons'}}); return true; }
+  const bench=s.kind==='bench'; p.chan={s,t:0,dur:bench?2.6:1.9,label:bench?'Bolting on armour':'Casting',hp:p.hp+p.shield}; p.faceYaw=Math.atan2(-(s.x-p.pos.x),-(s.z-p.pos.z)); p.vel.x=p.vel.z=0;
+  gcPlay(p,bench?'PM_Tinker':'PM_Spark',bench?{t0:0.5,t1:3.4,tag:'chan'}:{t0:0,t1:2.2,speed:1.1,tag:'chan'}); return true; }
+function stKartOut(p){ const s=p.ride; if(!s) return; s.rider=null; p.ride=null; s.sp=0; gcStop(p,'ride'); p.vel.multiplyScalar(0.3); const rx=Math.cos(p.yaw), rz=-Math.sin(p.yaw); if(pkFree(p.pos.x+rx*1.5,pkFeet(p,PKU()),p.pos.z+rz*1.5,PKU(),p.radius)){ p.pos.x+=rx*1.5; p.pos.z+=rz*1.5; } }
+function stStand(p){ if(p.sit){ p.sit=null; p.faceYaw=null; gcStop(p,'sit'); } if(p.chan){ p.chan=null; p.faceYaw=null; gcStop(p,'chan'); } }
+// sitting, channelling and driving take over the player's movement; true when they did
+function stPlayer(p,dt,mx,mz){ const moved=!!(mx||mz||p.wantJump);
+  if(p.sit){ const S=p.sit; S.t+=dt; if(moved||p.hp+p.shield<S.hp-0.01||S.s.gs!==PKU()&&MODE!=='br'&&ZG.state==='ceil'||S.t>0.5&&!p.gc){ stStand(p); return false; }
+    S.hp=p.hp+p.shield; p.vel.set(0,0,0); if(p.hp<100){ p.hp=Math.min(100,p.hp+11*dt); S.hp=p.hp+p.shield; S.fx=(S.fx||0)-dt; if(S.fx<=0){ S.fx=0.5; healFx(p,0x7dff9a,3,1.2); } } return true; }
+  if(p.chan){ const C=p.chan; C.t+=dt; if(moved||p.hp+p.shield<C.hp-0.01){ stStand(p); return false; } p.vel.x*=Math.exp(-10*dt); p.vel.z*=Math.exp(-10*dt);
+    if(C.t>=C.dur){ const s=C.s, at=new V(p.pos.x,p.pos.y+1.2,p.pos.z); stStand(p);
+      if(s.kind==='bench'){ p.shield=Math.min(100,p.shield+50); s.cd=35; toast('Armour bolted on · +50 shield'); pBurst(4,40,at,8,0x5cf0ff,0.07); sfx('shield'); }
+      else { buff(p,'spd',25,1.35); s.cd=45; toast('Speed blessing · 25 s'); pBurst(4,50,at,9,0xff7ae8,0.08); pBurst(6,24,at,4,0x9cf4ff,0.09); sfx('pickup',null,{item:{kind:'gun',r:4}}); } }
+    return false; }
+  return false; }
+// driving. On the island the kart hugs the ground; in the box it flies where you look and drives along the ceiling
+function stDrive(p,dt,mz){ const s=p.ride, br=MODE==='br', gs=PKU(); s.boostT=Math.max(0,s.boostT-dt); s.boostCd=Math.max(0,s.boostCd-dt);
+  if(mouse.l&&s.boostCd<=0){ s.boostT=1.4; s.boostCd=4.5; sfx('propel'); camShake=Math.max(camShake,0.3); }
+  const want=mz>0?(s.boostT>0?40:27):mz<0?-9:0; s.sp=lerp(s.sp,want,1-Math.exp(-(want===0?1.2:Math.abs(want)<Math.abs(s.sp)?3:1.5)*dt));
+  const fx=-Math.sin(p.yaw), fz=-Math.cos(p.yaw), cp=Math.cos(p.pitch);
+  if(br||gs<0){ p.vel.x=fx*s.sp; p.vel.z=fz*s.sp; if(p.wantJump&&p.onGround){ p.vel.y=gs*8.5; p.onGround=false; sfx('jump'); } }
+  else { p.vel.set(fx*cp*s.sp,Math.sin(p.pitch)*s.sp+((keys.Space?1:0)-(keys.KeyC?1:0))*9,fz*cp*s.sp); }
+  p.wantJump=false; p.sprinting=false; p.crouch=false; p.zgPropel=false; p.zgTx=0;
+  if(br){ brMove(p,dt); if(p.swimming){ toast('Karts can\'t swim!'); stKartOut(p); return; } } else zgMove(p,dt);
+  // run people over
+  if(Math.abs(s.sp)>12) for(const b of bots){ if(!b.alive||b.br==='jet'||(b.kartT||0)>matchTime) continue; if(Math.hypot(b.pos.x-p.pos.x,b.pos.y-p.pos.y,b.pos.z-p.pos.z)<2.3){ b.kartT=matchTime+0.8; hurt(b,34,p,{weapon:'Hover Kart',soft:true}); b.vel.x+=fx*15; b.vel.z+=fz*15; b.vel.y+=gs*7; b.onGround=false; b.knockT=0.6; s.sp*=0.75; camShake=Math.max(camShake,0.5); sfx('slam',null,{v:0.5}); } }
+  // exhaust
+  s.ex=(s.ex||0)-dt; if(s.ex<=0&&Math.abs(s.sp)>3){ s.ex=0.04; const at=stAt(s,rnd(-0.5,0.5),0.3,1.4); pBurst(s.boostT>0?4:6,s.boostT>0?4:1,at,s.boostT>0?5:1.5,s.boostT>0?0xffd23f:0x5cf0ff,0.08); } }
+function stTick(dt){ ST.t+=dt; const t=ST.t, p=player;
+  if(p&&!p.alive){ if(p.ride){ p.ride.rider=null; p.ride=null; } p.sit=null; p.chan=null; p.pk=null; p.prone=false; p.roll=null; p.faceYaw=null; if(BLD.on) bldToggle(false); }
+  for(const s of ST.list){ if(s.cd>0) s.cd-=dt; const near=Math.abs(s.x-camera.position.x)+Math.abs(s.z-camera.position.z)<170; if(!near&&s.kind!=='kart') continue;
+    if(s.kind==='fire'){ for(let i=0;i<3;i++){ const f=s.P.fl[i], w=1+0.16*Math.sin(t*(9+i*3.1)+i*2+s.x); f.scale.y=(i?0.85:1.3)*w; f.rotation.y+=dt*(2+i); f.position.y=(i?0.6:0.72)+0.06*Math.sin(t*7+i); }
+      s.P.gl.scale.setScalar(4+0.5*Math.sin(t*11+s.z)); s.em=(s.em||0)-dt; if(s.em<=0){ s.em=0.12; pBurst(6,1,stAt(s,rnd(-0.2,0.2),0.9,rnd(-0.2,0.2)),1.6,0xffa040,0.07); } }
+    else if(s.kind==='bench'){ const on=s.cd<=0; s.P.holo.visible=s.P.gl.visible=on; s.P.holo.rotation.y=t*1.5; s.P.holo.position.y=2.1+0.1*Math.sin(t*2); }
+    else if(s.kind==='shrine'){ const on=s.cd<=0, k=on?1:0.35; s.P.cry.rotation.y=t*0.9; s.P.cry.position.y=2+0.14*Math.sin(t*1.7); s.P.cry.scale.set(0.42*k+0.1,0.78*k+0.1,0.42*k+0.1); s.P.gl.material.opacity=on?0.8:0.2;
+      s.P.orb.forEach((o,i)=>{ const a=t*1.6+i*TAU/4; o.position.set(Math.cos(a)*0.95,1.7+0.3*Math.sin(t*2+i),Math.sin(a)*0.95); o.rotation.y=t*3; o.visible=on; }); }
+    else if(s.kind==='kart'){ const r=s.rider;
+      if(r){ const gs=PKU(), br=MODE==='br', g=s.g; g.position.copy(r.pos); if(gs<0) g.position.y+=2; s.x=r.pos.x; s.z=r.pos.z;
+        let pt=0, rl=0; if(br&&r.onGround){ const fx=-Math.sin(r.yaw), fz=-Math.cos(r.yaw); pt=Math.atan2(brFloor(r.pos.x+fx*1.3,r.pos.z+fz*1.3)-brFloor(r.pos.x-fx*1.3,r.pos.z-fz*1.3),2.6); rl=Math.atan2(brFloor(r.pos.x-fz*0.8,r.pos.z+fx*0.8)-brFloor(r.pos.x+fz*0.8,r.pos.z-fx*0.8),1.6); } else if(!br&&gs>0) pt=r.pitch*0.8;
+        s.pitch=lerp(s.pitch,pt,1-Math.exp(-8*dt)); s.rollA=lerp(s.rollA,rl,1-Math.exp(-8*dt)); g.rotation.set(s.pitch,r.yaw,(gs<0?Math.PI:0)+s.rollA,'YXZ'); g.position.y+=gs*(0.12+0.04*Math.sin(t*9)); }
+      else if(near){ s.g.position.y=s.y+s.gs*(0.1+0.05*Math.sin(t*2+s.x)); }
+      for(const pd of s.P.pods) pd.rotation.y=t*(6+Math.abs(s.sp)); }
+    else if(s.kind==='course'){ const R=s.P.ring; R.visible=s.cd<=0; R.rotation.y=t*2; R.rotation.x=0.5*Math.sin(t);
+      if(s.cd<=0&&p&&p.alive&&Math.hypot(p.pos.x-s.x,p.pos.y+1-s.y,p.pos.z-s.z)<2.2){ s.cd=45; p.shield=Math.min(100,p.shield+25); p.hp=Math.min(100,p.hp+25); toast('Course complete! +25 health and shield'); const at=R.position.clone(); for(const col of [0xffd23f,0xff3fd4,0x5cf0ff]) pBurst(4,30,at,10,col,0.08); sfx('pickup',null,{item:{kind:'gun',r:4}}); } } } }
+
+// [v1.72] each world gets its own look (glow, colour) and its own air: dust in the box, pollen and sparkles on the island
+function gfxScene(){
+  if(MODE==='br'){ GFX.bloomStrength=0.42; GFX.bloomThreshold=1.3; GFX.bloomRadius=0.7; GFX.sat=1.14; GFX.con=1.06; GFX.vig=0.24; GFX.warm=1; }
+  else { GFX.bloomStrength=0.5; GFX.bloomThreshold=1.5; GFX.bloomRadius=0.5; GFX.sat=1.1; GFX.con=1.07; GFX.vig=0.3; GFX.warm=0.6; }
+  if(!PRT.ok) return; PRT.reset(); const c=camera.position;
+  if(MODE==='br'){ PRT.ambient(2,700,c,34,0xfff3c4); PRT.ambient(3,140,c,34,0xff9cf0); PRT.ambient(3,140,c,34,0x9cf4ff); }
+  else { PRT.ambient(1,1100,c,26,0x7c84a6); PRT.ambient(3,60,c,26,0x5cf0ff); } }
+let gfxHF=0;
+function gfxFrame(dt){
+  if(hurtFlash>gfxHF+0.05) GFX.pulse=Math.min(1.3,GFX.pulse+0.8); gfxHF=hurtFlash; // a hit pulses the edges of the screen
+  if(!PRT.ok) return; const br=MODE==='br', armory=state==='armory';
+  P_UP.set(0,br?1:ZG.state==='ceil'?-1:0,0);
+  PRT.points.visible=!armory;
+  PRT.step(dt,camera.position,br?34:26,P_UP,br?1.6:0,br?0.7:0,br&&player?brFloor(player.pos.x,player.pos.z)+0.03:0.06); }
+function brScene(){ gfxScene(); const f=scene.fog as any;
   if(MODE==='br'){ f.color.setHex(0xc9b8f2); f.near=160; f.far=1300; renderer.setClearColor(0xc9b8f2); }
   else { f.color.setHex(0xe6e8ec); f.near=70; f.far=330; renderer.setClearColor(0xe6e8ec); } }
 function updateBR(dt){
@@ -6431,7 +6812,7 @@ function newMatch(){
   matchTime=0; targetsDirty=true; hurtFlash=0;
   if(MODE==='br') buildIsland(); else { ZG.L=180; ZG.H=130; buildZeroG(); buildVending(); buildHalls(); } projs=[]; splats=[]; bolts=[]; fires=[]; drones=[]; kunais=[]; pwShots=[]; pwZones=[]; pwWalls=[]; pwLaters=[]; shopOpen=false; $('shop').hidden=true;
   if(MODE!=='br'){ ZG.state='float'; ZG.t=rnd(20,26); ZG.camRoll=0; ZG.flash=0; }
-  brScene();
+  brScene(); bldInit(); stBuild(); // [v1.72] building and the stations
   rollLoadout(); player=makeCombatant(profName(),true); MS.shots=MS.hits=MS.heads=0;
   Object.assign(player,{slots:[null,{kind:'gun',id:'ar',r:3,ammo:WEAP.ar.mag},{kind:'gun',id:'pump',r:3,ammo:WEAP.pump.mag},{kind:'gun',id:'smg',r:2,ammo:WEAP.smg.mag},{kind:'cons',id:'big',count:2},{kind:'cons',id:'mini',count:3},null,null,null],
     sel:1,bank:0,throwA:null,bouncer:{cd:0},bounceT:0,ball:null,ammo:{light:150,medium:240,heavy:12,shells:48},fireCd:0,bloom:0,reloading:null,consuming:null,dmgDealt:0,wantJump:false,shield:50});
@@ -6507,6 +6888,10 @@ function requestLock(){
 const sensInputs=[$('sens'),$('sens2')];
 try{ const s=parseFloat(localStorage.getItem('stormIslandSens')); if(s>0){ sens=s; } }catch(e){}
 sensInputs.forEach(inp=>{ inp.value=sens; inp.addEventListener('input',()=>{ sens=parseFloat(inp.value)||1; sensInputs.forEach(o=>{ if(o!==inp) o.value=sens; }); try{ localStorage.setItem('stormIslandSens',String(sens)); }catch(e){} }); });
+// [v1.72] the Graphics setting (home screen drawer and the pause menu)
+const gfxInputs=[$('gfx'),$('gfx2')];
+GFX.onLevel=lv=>gfxInputs.forEach(o=>{ if(o) o.value=String(lv); });
+gfxInputs.forEach(inp=>{ if(!inp) return; inp.value=String(GFX.level); inp.addEventListener('change',()=>{ gfxChosen=true; sun.castShadow=true; GFX.setLevel(+inp.value); resize(); try{ localStorage.setItem('invertedGfx',String(GFX.level)); }catch(e){} }); });
 const volInputs=[$('vol'),$('vol2')];
 volInputs.forEach(inp=>{ inp.value=volume; inp.addEventListener('input',()=>{ initAudio(); setVolume(parseFloat(inp.value)); volInputs.forEach(o=>{ if(o!==inp) o.value=volume; }); }); inp.addEventListener('change',()=>sfx('ui')); });
 // audio can only start after a click; menu buttons also get a soft click
@@ -6545,6 +6930,11 @@ document.addEventListener('keydown',ev=>{
 
   if(arsOpen){ if(c.startsWith('Digit')){ const n=+c.slice(5); buyArsenal(n===0?9:n-1); } else if(c==='KeyA'||c==='ArrowLeft'){ arsCat=(arsCat+5)%6; renderArsenal(); sfx('ui'); } else if(c==='KeyD'||c==='ArrowRight'){ arsCat=(arsCat+1)%6; renderArsenal(); sfx('ui'); } else if(c==='KeyK'||c==='Escape') closeShop(); return; }
   if(shopOpen){ if(c.startsWith('Digit')){ const n=+c.slice(5); if(n>=1&&n<=SHOP.length) buyItem(n-1); } else if(c==='KeyE'||c==='Escape') closeShop(); return; }
+  if(BLD.on&&/^Digit[1-3]$/.test(c)){ BLD.kind=+c.slice(5)-1; bldBar(); sfx('ui'); return; } // [v1.72] building, stations and parkour
+  if(c==='KeyG'&&p.alive){ bldToggle(); return; }
+  if(c==='KeyZ'&&p.alive){ pkProne(p); return; }
+  if(c==='KeyV'&&p.alive){ pkRoll(p); return; }
+  if(c==='KeyE'&&p.alive&&stUse()) return;
   if(c==='KeyE'&&p.alive&&(MODE==='zg'||p.br==='ground')&&brOpenChest()) return;
   if(c==='KeyE'&&p.alive&&nearMachine()){ arsCat=5; openArsenal(); return; }
   if(c==='KeyK'&&p.alive) openArsenal();
@@ -6583,6 +6973,7 @@ function update(dt){
   for(const e of combatants) if(e.br!=='jet') animateGLB(e,dt); // nobody to pose inside the jet
   drawPunches(player);
   sdUpdate(dt);                                        // [v1.71] the sidekick follows you
+  bldTick(dt); stTick(dt);                             // [v1.72] building and stations
   updateEffects(dt);
 }
 let lastT=performance.now(), hudAcc=0, perfStage=0, perfFrames=0, perfTime=0;
@@ -6668,12 +7059,11 @@ function loop(now){
   // slow machine: drop the pixel ratio (measured after the opening seconds, so loading hiccups don't count), then shadow quality, then shadows
   if(state==='play'&&perfStage<3&&matchTime>2.5){ perfFrames++; perfTime+=dt; if(perfTime>4){ const f=perfFrames/perfTime; perfFrames=0; perfTime=0;
     if(f>=45) perfStage=3;
-    else if(perfStage===0){ perfStage=1; renderer.setPixelRatio(1); resize(); }
-    else if(perfStage===1){ perfStage=2; sun.shadow.mapSize.set(1024,1024); if(sun.shadow.map){ (sun.shadow.map as any).dispose(); sun.shadow.map=null; } }
-    else { perfStage=3; if(f<30) sun.castShadow=false; } } }
+    else if(!gfxChosen&&GFX.level>0){ GFX.setLevel(GFX.level-1); resize(); toast('Graphics set to '+GFX_LEVELS[GFX.level]+' to keep things smooth'); } // [v1.72] step the level down
+    else { perfStage=3; if(f<30&&!gfxChosen) sun.castShadow=false; } } }
   updateCamera(dt); updateSun(); updateAudio(dt); if(state!=='armory') cullChars();
   if(state!=='menu'&&state!=='armory'&&player){ hudAcc+=dt; if(hudAcc>0.1){ hudAcc=0; hudTick(); } hudFrame(dt); drawMap(); }
-  renderer.render(scene,camera);
+  gfxFrame(dt); GFX.render(dt);
   if(state==='menu'&&!$('menu').hidden&&heroFrame(dt)){ renderer.autoClear=false; renderer.clearDepth(); renderer.render(HERO.scene,HERO.cam); renderer.autoClear=true; }
 }
 $('playBtn').disabled=true; $('playBtn').textContent='Loading…';
@@ -6689,5 +7079,6 @@ window.__game={keys,camera,sfx:(k,o)=>sfx(k,null,o),get audioOk(){return !!(AC&&
   renderer,scene,mouse,shop:()=>openShop(),fire:()=>playerFire(),kill:(e,weapon,info)=>eliminate(e,null,weapon,info),colliderCount:()=>colliders.size,get state(){return state;},get player(){return player;},get bots(){return bots;},get alive(){return aliveCount;},get ZG(){return ZG;},get splats(){return splats.length;},get heartT(){return heartT;},startMatch,update,setState:s=>state=s};
 Object.assign(window.__game,{emote:(k,o)=>startEmote(player,k,o),emoteOn:(e,k,o)=>startEmote(e,k,o),stopEmote:()=>stopEmote(player,true),EM,EMOTES,get HERO(){return HERO;},heroEmote:k=>heroEmote(k),get EL(){ return EL; }}); // [S4] test hooks
 Object.assign((window as any).__game,{SD,sdCheer,SKD,BR,brOpenChest,brHeight,get MODE(){ return MODE; }});
+Object.assign((window as any).__game,{BLD,ST,pkRoll,pkProne,stUse,bldToggle,bldPlace,gcPlay,GFX,gfx:n=>{ gfxChosen=true; GFX.setLevel(n); resize(); }}); // [v1.72] test hook: pick the graphics level
 Object.assign((window as any).__game,{pwGo:()=>{ const H=POW&&POW.hold; if(!H) return false; if(H.kind==='chan'){ for(let i=0;i<20;i++) H.tick(player,0.05,i*0.05); return true; } H.go(player,1); return true; }}); // [v1.47] test hook: fire the held pickaxe's special move
 })();

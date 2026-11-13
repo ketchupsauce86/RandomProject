@@ -115,6 +115,10 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 
 .sens{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:16px;color:var(--muted)}
 .sens input{flex:1;accent-color:var(--sun)}
+#buildBar{position:fixed;left:50%;bottom:112px;transform:translateX(-50%);display:flex;gap:10px;align-items:center;padding:8px 14px;border-radius:14px;background:rgba(12,20,36,.72);color:#dfe8ff;font:600 15px var(--ui,system-ui);z-index:5;pointer-events:none}
+#buildBar b{color:#5cf0ff;letter-spacing:.12em}#buildBar span{opacity:.6}#buildBar span.on{opacity:1;color:#ffd23f}#buildBar kbd{margin-right:4px}
+.sens select{flex:1;font:inherit;color:var(--ink,#fff);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:6px 10px}
+.sens select option{color:#111}
 #pause .card,#over .card{padding:28px 32px;text-align:center;max-width:440px;width:100%;box-sizing:border-box}
 #pause h2{font-family:var(--display);font-weight:400;font-size:44px;margin:0 0 6px}
 #overPlace{font-family:var(--display);font-size:clamp(70px,12vw,120px);line-height:1;color:var(--sun);text-shadow:0 5px 0 #b3471f,0 10px 0 #1b2440}
@@ -488,6 +492,11 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
         <dt>R</dt><dd>Reload MF Guns</dd>
         <dt>B</dt><dd>Emote (hold for the wheel)</dd>
         <dt>K</dt><dd>Arsenal store (both modes)</dd>
+        <dt>G</dt><dd>Build (1 wall, 2 floor, 3 ramp, click to place)</dd>
+        <dt>V</dt><dd>Dodge roll</dd>
+        <dt>Z</dt><dd>Crawl</dd>
+        <dt>Run / jump at things</dt><dd>Hurdle and climb</dd>
+        <dt>E</dt><dd>Campfires, workbenches, shrines, hover karts</dd>
         <dt>Blue pads</dt><dd>Launch you</dd>
         <dt>Red blocks</dt><dd>Don't touch</dd>
         <dt>Red lights</dt><dd>Gravity flips</dd>
@@ -495,6 +504,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
       <h2>Settings</h2>
       <label class="sens" for="sens">Mouse speed <input type="range" id="sens" min="0.4" max="3" step="0.1" value="1"></label>
       <label class="sens" for="vol">Volume <input type="range" id="vol" min="0" max="1" step="0.05" value="0.8"></label>
+      <label class="sens" for="gfx">Graphics <select id="gfx"><option value="0">Low</option><option value="1">Medium</option><option value="2">High</option><option value="3">Ultra</option></select></label>
     </aside>
     <div class="modal" id="profile" hidden role="dialog" aria-modal="true" aria-labelledby="profTitle">
       <div class="card panel prof">
@@ -521,6 +531,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
     </div>
   </div>
 
+  <div id="buildBar" hidden></div>
   <div id="armory" hidden aria-label="Locker">
     <header class="lk-top">
       <button class="lk-back" id="armBack">Home</button>
@@ -555,6 +566,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
       <div class="btnrow center"><button class="btn" id="resumeBtn">Resume</button><button class="btn2" id="quitBtn">Home</button></div>
       <label class="sens" for="sens2">Mouse speed <input type="range" id="sens2" min="0.4" max="3" step="0.1" value="1"></label>
       <label class="sens" for="vol2">Volume <input type="range" id="vol2" min="0" max="1" step="0.05" value="0.8"></label>
+      <label class="sens" for="gfx2">Graphics <select id="gfx2"><option value="0">Low</option><option value="1">Medium</option><option value="2">High</option><option value="3">Ultra</option></select></label>
     </div>
   </div>
 
@@ -578,12 +590,17 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/Pass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 <script src="soldier.js"></script>
 <script src="moves.js"></script>
 <script src="packmoves.js"></script>
 <script src="pickaxes.js"></script>
 <script src="skins.js"></script>
 <script src="sidekicks.js"></script>
+<script src="particles.wasm.js"></script>
 <script src="version.js"></script>
 <script src="sounds.js"></script>
 <script src="news.js"></script>
