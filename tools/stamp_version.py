@@ -22,6 +22,13 @@ def releases(base):
         m = re.match(r'Merge pull request #(\d+)', subject)
         if m:
             out.append({'pr': int(m.group(1)), 'date': date, 'sha': sha, 'title': body.strip().splitlines()[0] if body.strip() else subject})
+    # squash merges are plain commits on main whose subject ends in (#N)
+    seen = {r['pr'] for r in out}
+    for rec in filter(str.strip, git('log', '--no-merges', '--first-parent', '--date=short', '--format=%h%x1f%ad%x1f%s%x1e', base).split('\x1e')):
+        sha, date, subject = (rec.strip('\n').split('\x1f') + ['', ''])[:3]
+        m = re.search(r'\(#(\d+)\)$', subject)
+        if m and int(m.group(1)) not in seen:
+            out.append({'pr': int(m.group(1)), 'date': date, 'sha': sha, 'title': re.sub(r'\s*\(#\d+\)$', '', subject)})
     out.sort(key=lambda r: r['pr'])
     for i, r in enumerate(out, 1):
         r['v'] = f'1.{i}.0'
