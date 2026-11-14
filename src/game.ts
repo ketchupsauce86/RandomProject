@@ -2277,27 +2277,6 @@ Object.assign(EMOTES,{
 const PM_EMOTES=['pmGroove','pmBox','pmSpark','pmRoll','pmChair','pmMime','pmTorch','pmChatter','pmTinker','pmDead','pmJoy','pmRun','pmHang'];
 const PM_EMOTES3=['pmLove','pmJog','pmMovie','pmGhost','pmWater','pmWalkies','pmSleuth','pmTurbo','pmPinata','pmSnowball','pmSnowman','pmCrate','kiss','laugh'];
 const PM_EMOTES2=['pmSword','pmSquirt','pmGift','pmButton','pmPogo','pmThrone','pmFloat','pmBonk','pmFire','pmCarpet','pmCrystal','pmBubble','pmYoyo'];
-// [v1.75] all 43 zip moves (ualmoves.js) as emotes for matches too, each with its own prop. fist: how far the bare hands close
-Object.assign(EMOTES,{
-  uaTpose:{n:'Scarecrow',clip:'UAL_A_TPose',loop:1,prop:'birds'}, uaSneak:{n:'Tiptoe',clip:'UAL_Crouch_Fwd_Loop',loop:1,prop:'lantern'}, uaHide:{n:'Hide & Seek',clip:'UAL_Crouch_Idle_Loop',loop:1,prop:'bush'},
-  uaDance:{n:'Party Time',clip:'UAL_Dance_Loop',loop:1,prop:'boombox'}, uaFaint:{n:'Dramatic Faint',clip:'UAL_Death01',hold:1.4,prop:'rose'}, uaDrive:{n:'Road Trip',clip:'UAL_Driving_Loop',loop:1,prop:'kart',fist:1.2},
-  uaFix:{n:'Fix It',clip:'UAL_Fixing_Kneeling',loop:1,prop:'toolbox'}, uaOof:{n:'Oof!',clip:'UAL_Hit_Chest',hold:0.3,prop:'dodgeball'}, uaBonked:{n:'Bonked',clip:'UAL_Hit_Head',hold:0.6,prop:'stars'},
-  uaChill:{n:'Chill',clip:'UAL_Idle_Loop',loop:1,prop:'soda'}, uaTalk:{n:'Small Talk',clip:'UAL_Idle_Talking_Loop',loop:1,prop:'speech'}, uaTorch:{n:'Torchbearer',clip:'UAL_Idle_Torch_Loop',loop:1,prop:'torch'},
-  uaPress:{n:'Press Start',clip:'UAL_Interact',hold:0.4,prop:'button'}, uaJog:{n:'Jog On',clip:'UAL_Jog_Fwd_Loop',loop:1,prop:'bottle',fist:0.9}, uaLand:{n:'Stuck the Landing',clip:'UAL_Jump_Land',hold:1,prop:'tenCard'},
-  uaAir:{n:'Sky High',clip:'UAL_Jump_Loop',loop:1,prop:'trampoline'}, uaLift:{n:'Lift Off',clip:'UAL_Jump_Start',hold:0.3,prop:'spring'}, uaSnack:{n:'Snack Grab',clip:'UAL_PickUp_Table',hold:0.8,prop:'snackTable'},
-  uaAimLow:{n:'Bubble Blast',clip:'UAL_Pistol_Aim_Down',loop:1,prop:'bubbleGun'}, uaAim:{n:'Take Aim',clip:'UAL_Pistol_Aim_Neutral',loop:1,prop:'blaster'}, uaAimUp:{n:'Confetti Pop',clip:'UAL_Pistol_Aim_Up',loop:1,prop:'confetti'},
-  uaReady:{n:'Water Fight',clip:'UAL_Pistol_Idle_Loop',loop:1,prop:'squirt'}, uaReload:{n:'Reload',clip:'UAL_Pistol_Reload',hold:0.3,prop:'blaster'}, uaPew:{n:'Pew Pew',clip:'UAL_Pistol_Shoot',loop:1,prop:'blasterFire'},
-  uaCross:{n:'Haymaker',clip:'UAL_Punch_Cross',loop:1,prop:'punchBag',fist:1.5}, uaJab:{n:'Quick Jab',clip:'UAL_Punch_Jab',loop:1,prop:'wristbands'}, uaPush:{n:'Heave Ho',clip:'UAL_Push_Loop',loop:1,prop:'crate'},
-  uaRoll:{n:'Tumble',clip:'UAL_Roll',hold:0.2,prop:'mat'}, uaSit:{n:'Take a Seat',clip:'UAL_Sitting_Enter',hold:0.8,prop:'chair'}, uaStand:{n:'Up We Go',clip:'UAL_Sitting_Exit',hold:0.3,prop:'chair'},
-  uaCouch:{n:'Couch Potato',clip:'UAL_Sitting_Idle_Loop',loop:1,prop:'beanbag'}, uaChat:{n:'Fireside Chat',clip:'UAL_Sitting_Talking_Loop',loop:1,prop:'chairTea'},
-  uaSpell:{n:'Spell Prep',clip:'UAL_Spell_Simple_Enter',hold:0.5,prop:'wand'}, uaSpellEnd:{n:'Spell Done',clip:'UAL_Spell_Simple_Exit',hold:0.3,prop:'spellbook'}, uaCharge:{n:'Charge Up',clip:'UAL_Spell_Simple_Idle_Loop',loop:1,prop:'orb'},
-  uaZap:{n:'Zap!',clip:'UAL_Spell_Simple_Shoot',loop:1,prop:'wandZap'}, uaSprint:{n:'Full Speed',clip:'UAL_Sprint_Loop',loop:1,prop:'turbo',fist:1}, uaSwim:{n:'Freestyle',clip:'UAL_Swim_Fwd_Loop',loop:1,prop:'snorkel'},
-  uaTread:{n:'Tread Water',clip:'UAL_Swim_Idle_Loop',loop:1,prop:'floatie'}, uaSlash:{n:'Slash',clip:'UAL_Sword_Attack',loop:1,prop:'sword'}, uaGuard:{n:'En Garde',clip:'UAL_Sword_Idle',loop:1,prop:'knight'},
-  uaFancy:{n:'Fancy Stroll',clip:'UAL_Walk_Formal_Loop',loop:1,prop:'gentleman'}, uaStroll:{n:'Stroll',clip:'UAL_Walk_Loop',loop:1,prop:'balloon'}});
-const UA_EMOTES=['uaTpose','uaSneak','uaHide','uaDance','uaFaint','uaDrive','uaFix','uaOof','uaBonked','uaChill','uaTalk'];
-const UA_EMOTES2=['uaTorch','uaPress','uaJog','uaLand','uaAir','uaLift','uaSnack','uaCross','uaJab','uaPush','uaRoll'];
-const UA_EMOTES3=['uaAimLow','uaAim','uaAimUp','uaReady','uaReload','uaPew','uaSit','uaStand','uaCouch','uaChat','uaSprint'];
-const UA_EMOTES4=['uaSpell','uaSpellEnd','uaCharge','uaZap','uaSwim','uaTread','uaSlash','uaGuard','uaFancy','uaStroll'];
 // [v1.75] the pack clips carry no finger keys, so the hands would hang wide open: close them a little always, and into
 // real fists for punches, sprints and the like (a held prop still closes its own hand round its grip afterwards)
 function clipFist(E){ if(E.fist!=null) return E.fist; const k=E.clip||''; if(!/^(UAL|PM|HM)_/.test(k)) return 0;
@@ -2561,164 +2540,6 @@ const _prA=new V(), _prB=new V(), _prM=new T.Matrix4(), _prI=new T.Matrix4(), _p
 // a bone's position in the character root's frame
 function prLocal(bone,g,out){ bone.getWorldPosition(out); return g.worldToLocal(out); }
 // a bone's position and turn in the character root's frame (its scale dropped)
-// ---- [v1.75] props for the 43 zip moves. Built with more care than the first ones: rounder parts, trims and bevels,
-// shiny and matte materials, little glows and moving bits. Same spaces as above (held: GRIP; root: feet, forward -z; head: up y)
-const prShiny=(c,o?)=>prM(c,Object.assign({shininess:110,specular:0x9a9a9a},o||{}));
-const prMatte=(c)=>prM(c,{shininess:8,specular:0x111111});
-function prChair(){ const g=new T.Group(), wd=prMatte(0xa8652f), dk=prMatte(0x6e3d1a), cu=prM(0x2f6bff,{shininess:12});
-  g.add(prMesh(BOX(0.58,0.06,0.54),wd,0,0.44,0.02),prMesh(BOX(0.52,0.07,0.48),cu,0,0.5,0.02),prMesh(BOX(0.6,0.03,0.04),dk,0,0.45,-0.25));
-  for(const x of[-0.25,0.25]) for(const z of[-0.22,0.25]) g.add(prMesh(CYL(0.028,0.02,0.44,12),wd,x,0.22,z));
-  for(const x of[-0.25,0.25]){ g.add(prMesh(CYL(0.028,0.028,0.62,12),wd,x,0.76,0.27),prMesh(SPH(0.04,12),dk,x,1.08,0.27)); }
-  g.add(prMesh(BOX(0.5,0.12,0.04),wd,0,0.98,0.27),prMesh(BOX(0.44,0.3,0.06),cu,0,0.74,0.24)); return g; }
-// a dart that flies out of a toy blaster or wand along +y of the hand, the same way the squirt gun's water does
-function prShots(n,mk){ const root=new T.Group(), sh=[]; for(let i=0;i<n;i++){ const m=mk(); m.visible=false; root.add(m); sh.push({m,v:new V(),life:0}); } return {root,sh}; }
-function prFire(P,dt,fire,o,speed,grav?){ P.cd-=dt;
-  if(fire&&P.cd<=0){ P.cd=o.cd||0.25; const d=P.sh.find(x=>x.life<=0); if(d){ P.R.updateMatrix(); const m=P.R.matrix, p=new V(o.x,o.y,o.z).applyMatrix4(m), dir=new V(0,1,0).transformDirection(m);
-    d.m.position.copy(p); d.v.copy(dir).multiplyScalar(speed); d.life=o.life||0.8; d.m.visible=true; d.m.quaternion.setFromUnitVectors(new V(0,1,0),dir); } }
-  for(const d of P.sh) if(d.life>0){ d.life-=dt; d.v.y-=(grav||0)*dt; d.m.position.addScaledVector(d.v,dt); if(d.life<=0) d.m.visible=false; } }
-const prDart=()=>{ const g=new T.Group(); g.add(prMesh(CYL(0.018,0.018,0.09,14),prM(0x2f8cff,{shininess:20})),prMesh(SPH(0.022,14),prM(0xff8a1f,{shininess:30}),0,0.05,0)); return g; };
-function prBlaster(){ const R=prHeld(1.3), x=GRIP[0], y=GRIP[1], bo=prShiny(0x2f8cff), or=prShiny(0xff8a1f), yl=prShiny(0xffd23f), dk=prMatte(0x1d2133);
-  R.add(prMesh(BOX(0.05,0.06,0.15),dk,x,y,0.0),prMesh(BOX(0.065,0.24,0.09),bo,x,y+0.04,0.1),prMesh(CYL(0.026,0.026,0.2,16),or,x,y+0.2,0.11),
-    prMesh(TOR(0.03,0.008,16),yl,x,y+0.3,0.11,Math.PI/2),prMesh(CYL(0.034,0.034,0.07,16),yl,x,y+0.02,0.17,0,0,Math.PI/2),prMesh(BOX(0.015,0.05,0.02),dk,x-0.02,y-0.03,0.07),
-    prMesh(BOX(0.02,0.06,0.03),or,x,y+0.1,0.17),prMesh(SPH(0.012,10),prM(0x8fffb0,{emissive:0x22aa55}),x+0.034,y+0.08,0.11)); return R; }
-const prLeaf=(c)=>prMatte(c);
-Object.assign(PROPS,{
-  // Scarecrow (T-pose): two little birds hop onto the outstretched hands
-  birds:()=>{ const mk=(col)=>{ const b=new T.Group(), m=prM(col,{shininess:40}); const bd=prMesh(SPH(0.05,16),m,0,0.05,0); bd.scale.set(1,0.9,1.35); b.add(bd,prMesh(SPH(0.035,14),m,0,0.1,0.04),
-      prMesh(CYL(0,0.012,0.03,8),prM(0xffa21f),0,0.1,0.085,Math.PI/2),prMesh(SPH(0.008,8),prM(0x111111),0.022,0.11,0.06),prMesh(SPH(0.008,8),prM(0x111111),-0.022,0.11,0.06),prMesh(BOX(0.06,0.01,0.05),m,0,0.07,-0.07,-0.4));
-      const wl=prMesh(BOX(0.012,0.04,0.06),m,0.05,0.06,0), wr=prMesh(BOX(0.012,0.04,0.06),m,-0.05,0.06,0); b.add(wl,wr); b.userData.w=[wl,wr]; return b; };
-    const R=new T.Group(), L=new T.Group(), b1=mk(0xe83a3a), b2=mk(0x2f8cff); b1.position.set(0.06,0.06,0); b2.position.set(0.06,0.06,0); R.add(b1); L.add(b2);
-    return {R,L,b:[b1,b2],up:(P,t)=>{ P.b.forEach((b,i)=>{ const h=Math.max(0,Math.sin(t*5+i*2)); b.position.x=0.06+0.04*h; b.rotation.y=0.6*Math.sin(t*1.3+i); b.userData.w.forEach((w,j)=>w.rotation.z=(j?-1:1)*h*1.2); }); }}; },
-  // Tiptoe: a swinging paper lantern
-  lantern:()=>{ const R=prHeld(1.25), x=GRIP[0], y=GRIP[1], wd=prMatte(0x4a2a12), sw=new T.Group();
-    R.add(prMesh(CYL(0.016,0.016,0.18,12),wd,x,y,0,Math.PI/2)); sw.position.set(x,y,0.09); R.add(sw);
-    sw.add(prMesh(CYL(0.004,0.004,0.12,6),prM(0x222222),0,0,0.0),prMesh(SPH(0.09,20),prM(0xff5a3a,{emissive:0xff4010,emissiveIntensity:0.6,shininess:20}),0,-0.16,0),prMesh(CYL(0.05,0.05,0.025,16),prMatte(0x222222),0,-0.075,0),prMesh(CYL(0.05,0.05,0.025,16),prMatte(0x222222),0,-0.245,0));
-    sw.children[1].scale.set(1,1.15,1); const gl=prSprite(0xffa040,0.7,0.8); gl.position.y=-0.16; sw.add(gl);
-    return {R,sw,up:(P,t)=>{ P.sw.rotation.x=0.35*Math.sin(t*3.2); P.sw.rotation.z=0.2*Math.sin(t*2.1); }}; },
-  // Hide & Seek: a leafy bush worn as a hat
-  bush:()=>{ const head=new T.Group(), cols=[0x2e9e3a,0x3cba48,0x24803a,0x4ad05a]; for(let i=0;i<14;i++){ const a=i/14*TAU*2.3, r=i<8?0.17:0.08, l=prMesh(SPH(0.11-(i%3)*0.015,14),prLeaf(cols[i%4]),Math.cos(a)*r,0.18+(i<8?0:0.12)+(i%2)*0.03,Math.sin(a)*r); head.add(l); }
-    for(let i=0;i<4;i++){ const f=prMesh(SPH(0.025,10),prM(0xff5ab0,{emissive:0x401028}),Math.cos(i*1.7)*0.18,0.3,Math.sin(i*1.7)*0.18); head.add(f); }
-    return {head,up:(P,t)=>{ P.head.rotation.z=0.04*Math.sin(t*7); }}; },
-  // Party Time: a boombox on the floor, bass cones pumping, notes rising
-  boombox:()=>{ const root=new T.Group(), bx=new T.Group(), bo=prShiny(0x2a2d3a), sl=prShiny(0xc8d0dc), cones=[]; bx.add(prMesh(BOX(0.7,0.36,0.2),bo,0,0.18,0),prMesh(BOX(0.66,0.06,0.02),prM(0x5cf0ff,{emissive:0x0a5060}),0,0.3,-0.105));
-    for(const xx of[-0.21,0.21]){ bx.add(prMesh(CYL(0.12,0.12,0.03,24),sl,xx,0.15,-0.1,Math.PI/2)); const c=prMesh(CYL(0.06,0.09,0.03,24),prMatte(0x111118),xx,0.15,-0.12,Math.PI/2); bx.add(c); cones.push(c); }
-    bx.add(prMesh(TOR(0.22,0.018,24),sl,0,0.36,0,0,0,0)); bx.children[bx.children.length-1].scale.set(1.2,0.6,1); bx.add(prMesh(BOX(0.16,0.07,0.02),prMatte(0x111118),0,0.13,-0.105));
-    bx.position.set(0.55,0,-0.65); bx.rotation.y=-0.4; root.add(bx); const notes=[0,1,2].map(i=>{ const n=new T.Group(), m=prM([0xffd23f,0x5cf0ff,0xff3fa4][i],{emissive:0x303030}); n.add(prMesh(SPH(0.04,10),m),prMesh(BOX(0.01,0.13,0.01),m,0.035,0.065,0)); root.add(n); return n; });
-    return {root,bx,cones,notes,up:(P,t)=>{ const b=1+0.25*Math.max(0,Math.sin(t*TAU*2)); P.cones.forEach(c=>c.scale.set(b,1,b)); P.bx.scale.y=1+0.03*(b-1);
-      P.notes.forEach((n,i)=>{ const p=(t*0.6+i/3)%1; n.position.set(0.55+(i-1)*0.15,0.45+0.9*p,-0.65); n.scale.setScalar(Math.sin(p*Math.PI)*1.2); n.rotation.z=0.4*Math.sin(t*3+i); }); }}; },
-  // Dramatic Faint: a long-stemmed rose, and petals drifting down
-  rose:()=>{ const R=prHeld(1.15), x=GRIP[0], y=GRIP[1], st=prM(0x2a8a3a,{shininess:30}), rd=prM(0xd0122a,{shininess:60});
-    R.add(prMesh(CYL(0.008,0.008,0.4,8),st,x,y,0.12,Math.PI/2),prMesh(SPH(0.04,16),rd,x,y,0.34),prMesh(CYL(0.05,0.02,0.04,12),rd,x,y,0.36,Math.PI/2),prMesh(SPH(0.025,10),st,x,y+0.03,0.18));
-    R.children[3].scale.set(0.4,1,1.4); const root=new T.Group(), pet=[]; for(let i=0;i<8;i++){ const p=prMesh(SPH(0.03,8),rd); p.scale.set(1,0.25,0.7); root.add(p); pet.push(p); }
-    return {R,root,pet,up:(P,t)=>{ P.pet.forEach((p,i)=>{ const k=(t*0.35+i/8)%1; p.position.set(Math.sin(i*2.4+t)*0.5,1.9-1.9*k,Math.cos(i*1.7)*0.5); p.rotation.set(t*2+i,i,t*3); }); }}; },
-  // Road Trip: a little go-kart round the hips, and a steering wheel
-  kart:()=>{ const root=new T.Group(), k=new T.Group(), rd=prShiny(0xe83a3a), dk=prMatte(0x1d1d24), ch=prShiny(0xc8d0dc), wheels=[];
-    k.add(prMesh(BOX(0.9,0.16,1.5),rd,0,0.2,-0.1),prMesh(BOX(0.7,0.4,0.18),rd,0,0.42,0.42),prMesh(BOX(0.84,0.1,0.32),rd,0,0.32,-0.78),prMesh(BOX(0.94,0.04,0.12),ch,0,0.22,-0.9));
-    k.add(prMesh(BOX(0.56,0.08,0.5),prMatte(0x202432),0,0.3,0.12),prMesh(BOX(0.56,0.4,0.08),prMatte(0x202432),0,0.5,0.34));
-    for(const x of[-0.5,0.5]) for(const z of[-0.62,0.45]){ const w=new T.Group(); w.add(prMesh(CYL(0.17,0.17,0.14,24),dk,0,0,0,0,0,Math.PI/2),prMesh(CYL(0.08,0.08,0.15,16),ch,0,0,0,0,0,Math.PI/2)); w.position.set(x,0.17,z); k.add(w); wheels.push(w); }
-    k.add(prMesh(CYL(0.03,0.03,0.4,12),dk,0,0.5,-0.45,-0.9)); const sw=new T.Group(); sw.add(prMesh(TOR(0.15,0.022,28),dk),prMesh(BOX(0.28,0.02,0.02),ch),prMesh(CYL(0.035,0.035,0.03,16),rd,0,0,0,Math.PI/2)); sw.position.set(0,0.95,-0.42); sw.rotation.x=-0.6; k.add(sw);
-    for(const x of[-0.3,0.3]) k.add(prMesh(CYL(0.045,0.035,0.1,14),ch,x,0.28,0.66,Math.PI/2));
-    root.add(k); const pf=[0,1,2,3].map(()=>{ const s=prSprite(0xc8c8c8,0.2,0.5); root.add(s); return s; });
-    return {root,k,sw,wheels,pf,up:(P,t)=>{ P.k.position.y=0.015*Math.sin(t*19); P.sw.rotation.z=0.35*Math.sin(t*1.1); P.wheels.forEach(w=>w.rotation.x=-t*10);
-      P.pf.forEach((s,i)=>{ const p=(t*1.5+i/4)%1; s.position.set((i%2?0.3:-0.3)+0.1*p,0.3+0.3*p,0.75+0.8*p); s.material.opacity=0.5*(1-p); s.scale.setScalar(0.15+0.4*p); }); }}; },
-  // Fix It: a red toolbox on the floor and a spanner in the hand
-  toolbox:()=>{ const W=PROPS.wrench(), root=new T.Group(), tb=new T.Group(), rd=prShiny(0xd0202a), st=prShiny(0x9aa6b8);
-    tb.add(prMesh(BOX(0.5,0.22,0.24),rd,0,0.11,0),prMesh(BOX(0.52,0.03,0.26),prShiny(0xa01820),0,0.23,0),prMesh(BOX(0.1,0.04,0.06),st,0,0.12,-0.125));
-    tb.add(prMesh(TOR(0.08,0.012,16,),st,0,0.28,0,0,0,0)); tb.children[3].scale.set(1.4,0.8,1); for(const xx of[-0.18,-0.08,0.14]) tb.add(prMesh(CYL(0.01,0.01,0.12,8),[st,prMatte(0xffd23f),prMatte(0x2f8cff)][Math.abs(Math.round(xx*10))%3],xx,0.28,0.05,0.2,0,0.3));
-    tb.position.set(0.45,0,-0.55); tb.rotation.y=0.5; root.add(tb); W.root=root; return W; },
-  // Oof!: a dodgeball bonks off the chest and bounces away
-  dodgeball:()=>{ const root=new T.Group(), b=new T.Group(); b.add(prMesh(SPH(0.15,24),prM(0xe83a3a,{shininess:35})),prMesh(TOR(0.151,0.008,32),prMatte(0xffffff)),prMesh(TOR(0.151,0.008,32),prMatte(0xffffff),0,0,0,0,Math.PI/2));
-    root.add(b); const st=prSprite(0xfff2a0,0.6,0); root.add(st);
-    return {root,b,st,up:(P,t,u)=>{ const k=u; let p; if(k<0.2){ const q=k/0.2; p=new V(0,1.25,-2.4+2.1*q); } else { const q=(k-0.2)/0.8; p=new V(0.4*q,1.25+1.6*q-2.6*q*q,-0.3-1.4*q); if(p.y<0.15) p.y=0.15+Math.abs(p.y-0.15)*0.3; }
-      P.b.position.copy(p); P.b.rotation.x=t*9; P.st.position.set(0,1.25,-0.3); P.st.material.opacity=k>0.18&&k<0.3?1-Math.abs(k-0.22)*10:0; }}; },
-  // Chill: a fizzy soda can with bubbles
-  soda:()=>{ const R=prHeld(1.1), x=GRIP[0], y=GRIP[1], can=new T.Group(); can.add(prMesh(CYL(0.035,0.035,0.12,20),prShiny(0x2fc8ff)),prMesh(CYL(0.03,0.035,0.012,20),prShiny(0xd8dee8),0,0.066,0),prMesh(CYL(0.035,0.03,0.012,20),prShiny(0xd8dee8),0,-0.066,0),
-      prMesh(CYL(0.0355,0.0355,0.03,20),prMatte(0xffffff),0,0.01,0),prMesh(BOX(0.012,0.004,0.02),prShiny(0xd8dee8),0,0.073,0.012)); can.position.set(x-0.005,y,0.03); can.rotation.x=Math.PI/2; R.add(can);
-    const bub=[0,1,2,3,4].map(()=>{ const b=prMesh(SPH(0.008,8),prM(0xffffff,{transparent:true,opacity:0.7})); R.add(b); return b; });
-    return {R,bub,up:(P,t)=>{ P.bub.forEach((b,i)=>{ const p=(t*0.9+i/5)%1; b.position.set(GRIP[0]+0.01*Math.sin(t*5+i),GRIP[1]+0.006*Math.cos(i*3),0.11+0.15*p); b.scale.setScalar(1-p); }); }}; },
-  // Jog On: a sports bottle and a sweatband
-  bottle:()=>{ const R=prHeld(1.2), x=GRIP[0], y=GRIP[1]; R.add(prMesh(CYL(0.042,0.042,0.22,20),prM(0x5cf0ff,{transparent:true,opacity:0.75,shininess:120}),x,y,0.02,Math.PI/2),prMesh(CYL(0.035,0.035,0.17,20),prM(0x2f8cff),x,y,0.0,Math.PI/2),
-      prMesh(CYL(0.03,0.042,0.04,20),prShiny(0xff3fa4),x,y,0.15,Math.PI/2),prMesh(CYL(0.012,0.012,0.04,12),prShiny(0xffffff),x,y,0.19,Math.PI/2),prMesh(CYL(0.043,0.043,0.02,20),prShiny(0xff3fa4),x,y,-0.09,Math.PI/2));
-    const head=new T.Group(); head.add(prMesh(prG('swb2',()=>new T.CylinderGeometry(0.15,0.152,0.05,24,1,true)),prM(0xffd23f,{side:T.DoubleSide,shininess:10}),0,0.15,0)); return {R,head}; },
-  // Stuck the Landing: judges' 10 cards pop up round the landing, with a dust ring
-  tenCard:()=>{ const root=new T.Group(), cards=[]; const tx=prText(['10'],{col:'#1b1240',fs:96}); for(let i=0;i<3;i++){ const c=new T.Group(); c.add(prMesh(BOX(0.4,0.3,0.02),prMatte(0xffffff)),prMesh(CYL(0.015,0.015,0.6,8),prMatte(0x8a5a2a),0,-0.42,0));
-      const f=new T.Mesh(prG('tcP',()=>new T.PlaneGeometry(0.36,0.26)),new T.MeshBasicMaterial({map:tx,transparent:true})); f.position.z=0.012; c.add(f); const a=(i-1)*0.7; c.position.set(Math.sin(a)*1.6,0,-Math.cos(a)*1.6); c.rotation.y=-a+Math.PI; root.add(c); cards.push(c); }
-    const ring=prMesh(prG('dust',()=>new T.RingGeometry(0.3,0.42,32)),prM(0xd8c8a8,{transparent:true,opacity:0.6,side:T.DoubleSide}),0,0.02,0,-Math.PI/2); root.add(ring);
-    return {root,cards,ring,up:(P,t,u)=>{ P.cards.forEach((c,i)=>{ c.position.y=0.4+0.6*smooth(0.25+i*0.1,0.5+i*0.1,u)+0.04*Math.sin(t*6+i); }); const r=smooth(0,0.5,u); P.ring.scale.setScalar(0.5+2.5*r); P.ring.material.opacity=0.6*(1-r); }}; },
-  // Lift Off: a big coiled spring pad under the feet
-  spring:()=>{ const root=new T.Group(), sp=new T.Group(), co=prShiny(0xc8d0dc), pad=prShiny(0xff8a1f); for(let i=0;i<6;i++) sp.add(prMesh(TOR(0.28,0.03,28),co,0,0.06+i*0.07,0,Math.PI/2));
-    sp.add(prMesh(CYL(0.4,0.42,0.06,28),prMatte(0x2a2d3a),0,0.03,0)); const top=prMesh(CYL(0.38,0.38,0.06,28),pad,0,0.46,0); root.add(sp,top);
-    return {root,sp,top,up:(P,t,u)=>{ const s=u<0.4?1-0.55*smooth(0,0.4,u):0.45+0.55*smooth(0.4,0.5,u)+0.15*Math.sin((u-0.4)*30)*Math.exp(-(u-0.4)*8); P.sp.scale.y=s; P.top.position.y=0.06+0.4*s; }}; },
-  // Snack Grab: a table with a cupcake to pick up
-  snackTable:()=>{ const root=new T.Group(), tb=new T.Group(), wd=prMatte(0xb07040), cl=prM(0xffffff,{shininess:20});
-    tb.add(prMesh(CYL(0.42,0.42,0.05,32),wd,0,0.74,0),prMesh(CYL(0.43,0.43,0.012,32),prM(0xe83a3a,{shininess:10}),0,0.77,0),prMesh(CYL(0.04,0.06,0.72,14),wd,0,0.36,0),prMesh(CYL(0.25,0.27,0.03,24),wd,0,0.015,0));
-    tb.add(prMesh(CYL(0.18,0.16,0.02,24),cl,0.1,0.785,0.05)); tb.position.set(0,0,-0.6); root.add(tb);
-    const ck=new T.Group(); ck.add(prMesh(CYL(0.045,0.035,0.05,16),prM(0xff8ac0),0,0.025,0),prMesh(SPH(0.05,16),prM(0xfff3f8,{shininess:50}),0,0.065,0),prMesh(SPH(0.015,10),prShiny(0xe8283c),0,0.11,0)); ck.children[1].scale.y=0.8;
-    const R=prHeld(0.9); R.add(ck); ck.position.set(GRIP[0]-0.05,GRIP[1]+0.02,0); ck.rotation.z=Math.PI/2; const ck2=ck.clone(); ck2.position.set(-0.05,0.79,0.05); ck2.rotation.set(0,0,0); tb.add(ck2);
-    return {root,R,ck,ck2,up:(P,t,u)=>{ const g=u>0.45; P.ck.visible=g; P.ck2.visible=!g; }}; },
-  // Aim: a chunky foam-dart blaster
-  blaster:()=>({R:prBlaster()}),
-  // Pew Pew: the blaster, firing foam darts
-  blasterFire:()=>{ const R=prBlaster(), S=prShots(8,prDart); return {R,root:S.root,sh:S.sh,cd:0,up:(P,t,u,c,dt)=>prFire(P,dt,true,{x:GRIP[0],y:GRIP[1]+0.3,z:0.11,cd:0.22,life:0.7},9,3)}; },
-  // Aim High: a confetti popper that bursts upward
-  confetti:()=>{ const R=prHeld(1.25), x=GRIP[0], y=GRIP[1]; R.add(prMesh(CYL(0.05,0.03,0.22,20),prShiny(0xff3fa4),x,y+0.07,0.03),prMesh(TOR(0.05,0.008,20),prShiny(0xffd23f),x,y+0.18,0.03,Math.PI/2),prMesh(CYL(0.012,0.012,0.06,8),prShiny(0xffd23f),x,y-0.06,0.03));
-    const cols=[0xffd23f,0x5cf0ff,0xff3fa4,0x8fff6a,0xffffff], S=prShots(24,()=>prMesh(BOX(0.03,0.006,0.02),prM(cols[(Math.random()*5)|0],{side:T.DoubleSide})));
-    return {R,root:S.root,sh:S.sh,cd:0,up:(P,t,u,c,dt)=>{ prFire(P,dt,true,{x:GRIP[0],y:GRIP[1]+0.2,z:0.03,cd:0.04,life:1.4},3.5+Math.random()*2,4); for(const d of P.sh) if(d.life>0){ d.m.rotation.x+=dt*9; d.v.x+=(Math.random()-0.5)*dt*4; d.v.z+=(Math.random()-0.5)*dt*4; } }}; },
-  // Aim Low: a bubble wand-gun that blows bubbles
-  bubbleGun:()=>{ const R=prHeld(1.25), x=GRIP[0], y=GRIP[1]; R.add(prMesh(BOX(0.05,0.06,0.15),prShiny(0x8fff6a),x,y,0),prMesh(SPH(0.07,20),prShiny(0x8fff6a),x,y+0.08,0.1),prMesh(CYL(0.03,0.04,0.12,16),prShiny(0xffd23f),x,y+0.18,0.1),prMesh(TOR(0.05,0.008,20),prShiny(0xff3fa4),x,y+0.25,0.1,Math.PI/2),prMesh(CYL(0.04,0.04,0.06,16),prM(0x5cf0ff,{transparent:true,opacity:0.6}),x,y+0.02,0.17,0,0,Math.PI/2));
-    const S=prShots(14,()=>prMesh(SPH(0.05,16),prM(0xc8f8ff,{transparent:true,opacity:0.35,shininess:200,specular:0xffffff})));
-    return {R,root:S.root,sh:S.sh,cd:0,up:(P,t,u,c,dt)=>{ prFire(P,dt,true,{x:GRIP[0],y:GRIP[1]+0.26,z:0.1,cd:0.15,life:2.2},1.2,-0.3); for(const d of P.sh) if(d.life>0){ d.v.multiplyScalar(1-dt*1.2); d.m.position.x+=Math.sin(t*3+d.life*5)*dt*0.2; d.m.scale.setScalar(0.6+0.6*Math.min(1,(2.2-d.life)*2)); } }}; },
-  // Haymaker: a heavy punching bag that swings when hit
-  punchBag:()=>{ const root=new T.Group(), pv=new T.Group(), bg=new T.Group(); pv.position.set(0,2.5,-0.75); root.add(pv); pv.add(bg);
-    bg.add(prMesh(CYL(0.006,0.006,0.5,6),prShiny(0x9aa6b8),0,-0.25,0),prMesh(CYL(0.22,0.22,0.95,28),prM(0xc0182a,{shininess:25}),0,-0.98,0),prMesh(SPH(0.22,28),prM(0xc0182a,{shininess:25}),0,-1.45,0),prMesh(CYL(0.12,0.22,0.08,28),prMatte(0x1d1d24),0,-0.48,0),
-      prMesh(CYL(0.225,0.225,0.12,28),prMatte(0xffffff),0,-0.9,0)); bg.children[2].scale.y=0.4; root.add(prMesh(CYL(0.05,0.05,0.04,12),prShiny(0x9aa6b8),0,2.5,-0.75));
-    return {root,bg,up:(P,t,u)=>{ const hit=Math.max(0,Math.sin((u-0.35)*TAU))*Math.exp(-Math.max(0,u-0.35)*4); P.bg.rotation.x=-0.25*hit*(u>0.35?1:0)+0.02*Math.sin(t*2); }}; },
-  // Quick Jab: bright sweatbands on bare fists, and a speed blur
-  wristbands:()=>{ const mk=(c)=>{ const g=new T.Group(); g.add(prMesh(prG('wb',()=>new T.CylinderGeometry(0.052,0.052,0.07,24,1,true)),prM(c,{side:T.DoubleSide,shininess:8}),0,-0.03,0),prMesh(TOR(0.052,0.006,24),prMatte(0xffffff),0,0.005,0,Math.PI/2),prMesh(TOR(0.052,0.006,24),prMatte(0xffffff),0,-0.065,0,Math.PI/2)); return g; };
-    const R=mk(0xff3fa4), L=mk(0x5cf0ff); R.userData.grip=L.userData.grip=1.5; return {R,L}; },
-  // Take a Seat / Up We Go: a wooden chair with a blue cushion
-  chair:()=>{ const root=new T.Group(); root.add(prChair()); return {root}; },
-  // Fireside Chat: the chair, and a steaming mug
-  chairTea:()=>{ const root=new T.Group(); root.add(prChair()); const R=prHeld(1.0), mug=new T.Group(); mug.add(prMesh(CYL(0.045,0.04,0.1,20),prShiny(0xffffff)),prMesh(CYL(0.04,0.04,0.005,20),prMatte(0x6a3a1a),0,0.045,0),prMesh(TOR(0.03,0.008,14),prShiny(0xffffff),0.05,0,0,0,0,0)); mug.children[2].rotation.x=Math.PI/2;
-    mug.position.set(GRIP[0]-0.06,GRIP[1]+0.02,0); mug.rotation.z=Math.PI/2; R.add(mug); const steam=[0,1,2].map(()=>{ const s=prSprite(0xffffff,0.08,0.4); mug.add(s); return s; });
-    return {root,R,steam,up:(P,t)=>{ P.steam.forEach((s,i)=>{ const p=(t*0.6+i/3)%1; s.position.set(0.02*Math.sin(t*3+i),0.07+0.2*p,0); s.material.opacity=0.4*(1-p); s.scale.setScalar(0.05+0.1*p); }); }}; },
-  // Spell Prep: a star-tipped wand with sparkles
-  wand:()=>{ const R=prHeld(1.25), x=GRIP[0], y=GRIP[1]; R.add(prMesh(CYL(0.012,0.016,0.4,12),prShiny(0x3a1d5a),x,y,0.13,Math.PI/2),prMesh(CYL(0.019,0.019,0.08,12),prShiny(0xffd23f),x,y,0,Math.PI/2));
-    const st=new T.Mesh(PROPS.stars().ring.children[0].geometry,prM(0xffd23f,{emissive:0xa07000,shininess:120})); st.position.set(x,y,0.35); st.rotation.y=Math.PI/2; R.add(st); const gl=prSprite(0xffe08a,0.3,0.9); gl.position.set(x,y,0.35); R.add(gl);
-    const sp=[0,1,2,3,4,5].map(()=>{ const s=prSprite([0xffd23f,0xd08aff,0x5cf0ff][(Math.random()*3)|0],0.05); R.add(s); return s; });
-    return {R,st,sp,up:(P,t)=>{ P.st.rotation.x=t*3; P.sp.forEach((s,i)=>{ const p=(t*0.8+i/6)%1, a=i*1.7+t; s.position.set(GRIP[0]+Math.cos(a)*0.1*p,GRIP[1]+Math.sin(a)*0.1*p,0.35+0.08*p); s.material.opacity=1-p; }); }}; },
-  // Spell Done: a floating spellbook that closes
-  spellbook:()=>{ const L=new T.Group(), bk=new T.Group(), cv=prM(0x6a1d8a,{shininess:40}), gd=prShiny(0xffd23f), pg=prMatte(0xfff3d8);
-    const c1=new T.Group(), c2=new T.Group(); c1.add(prMesh(BOX(0.18,0.24,0.012),cv,0.09,0,0),prMesh(BOX(0.16,0.22,0.03),pg,0.085,0,0.02)); c2.add(prMesh(BOX(0.18,0.24,0.012),cv,0.09,0,0),prMesh(BOX(0.16,0.22,0.03),pg,0.085,0,-0.02),prMesh(SPH(0.025,12),gd,0.1,0,-0.01));
-    bk.add(c1,c2,prMesh(CYL(0.02,0.02,0.24,12),gd,0,0,0)); bk.position.set(-0.02,0.2,0.0); L.add(bk); const gl=prSprite(0xd08aff,0.4,0.6); gl.position.copy(bk.position); L.add(gl);
-    return {L,bk,c1,c2,gl,up:(P,t,u)=>{ const o=1-smooth(0.3,0.8,u); P.c1.rotation.y=-o*1.2; P.c2.rotation.y=Math.PI+o*1.2; P.bk.position.y=0.2+0.03*Math.sin(t*3); P.gl.material.opacity=0.6*o; }}; },
-  // Zap!: the wand, shooting a glowing bolt
-  wandZap:()=>{ const W=PROPS.wand(), S=prShots(4,()=>{ const g=new T.Group(); g.add(prSprite(0xd08aff,0.45),prSprite(0xffffff,0.2)); return g; }); W.root=S.root; W.sh=S.sh; W.cd=0; const up0=W.up;
-    W.up=(P,t,u,c,dt)=>{ up0(P,t); P.R.updateMatrix(); const fire=u>0.35&&u<0.45; P.cd-=dt;
-      if(fire&&P.cd<=0){ P.cd=0.5; const d=P.sh.find(x=>x.life<=0); if(d){ const m=P.R.matrix; d.m.position.copy(new V(GRIP[0],GRIP[1],0.35).applyMatrix4(m)); d.v.copy(new V(0,0,1).transformDirection(m)).multiplyScalar(10); d.life=0.6; d.m.visible=true; } }
-      for(const d of P.sh) if(d.life>0){ d.life-=dt; d.m.position.addScaledVector(d.v,dt); d.m.scale.setScalar(1+Math.sin(t*40)*0.2); if(d.life<=0) d.m.visible=false; } }; return W; },
-  // Freestyle: goggles, a snorkel, and a trail of bubbles
-  snorkel:()=>{ const head=new T.Group(), st=prM(0x2f8cff,{shininess:60}), ln=prM(0x5cf0ff,{transparent:true,opacity:0.5,shininess:200,specular:0xffffff});
-    head.add(prMesh(prG('gst',()=>new T.CylinderGeometry(0.152,0.152,0.03,28,1,true)),prM(0x1d1d24,{side:T.DoubleSide}),0,0.08,0));
-    for(const x of[-0.055,0.055]){ head.add(prMesh(CYL(0.045,0.045,0.03,20),st,x,0.08,0.14,Math.PI/2),prMesh(CYL(0.038,0.038,0.032,20),ln,x,0.08,0.145,Math.PI/2)); }
-    head.add(prMesh(CYL(0.014,0.014,0.38,12),prShiny(0xffd23f),0.13,0.15,0.05),prMesh(TOR(0.03,0.014,14),prShiny(0xffd23f),0.1,-0.04,0.06),prMesh(CYL(0.02,0.016,0.04,12),prShiny(0xff3fa4),0.13,0.35,0.05));
-    const root=new T.Group(), S=prShots(10,()=>prMesh(SPH(0.03,12),prM(0xc8f8ff,{transparent:true,opacity:0.45,shininess:200}))); root.add(S.root);
-    return {head,root,sh:S.sh,cd:0,up:(P,t,u,c,dt)=>{ P.cd-=dt; if(P.cd<=0){ P.cd=0.12; const d=P.sh.find(x=>x.life<=0); if(d){ d.m.position.set((Math.random()-0.5)*0.4,0.6+Math.random()*0.5,0.3+Math.random()*0.3); d.v.set(0,0.6,0.4); d.life=1.2; d.m.visible=true; } }
-      for(const d of P.sh) if(d.life>0){ d.life-=dt; d.m.position.addScaledVector(d.v,dt); if(d.life<=0) d.m.visible=false; } }}; },
-  // En Garde: a knight's round shield and the glowing sword
-  knight:()=>{ const SW=PROPS.sword(), L=new T.Group(), sh=new T.Group(), bl=prShiny(0x2f5ac8), gd=prShiny(0xffd23f,{shininess:140});
-    sh.add(prMesh(CYL(0.26,0.26,0.03,32),bl,0,0,0,0,0,Math.PI/2),prMesh(TOR(0.26,0.022,32),gd,0,0,0,0,Math.PI/2),prMesh(SPH(0.06,16),gd,0.02,0,0),prMesh(BOX(0.035,0.42,0.06),gd,0.016,0,0),prMesh(BOX(0.035,0.06,0.42),gd,0.016,0,0));
-    sh.children[2].scale.x=0.6; sh.position.set(0.09,0.08,0); L.add(sh); L.userData.grip=1.4; SW.L=L; return SW; },
-  // Fancy Stroll: a top hat and a twirling cane
-  gentleman:()=>{ const R=prHeld(1.2), x=GRIP[0], y=GRIP[1], cn=new T.Group(); cn.add(prMesh(CYL(0.014,0.014,0.85,12),prShiny(0x1d1d24),0,-0.4,0),prMesh(SPH(0.03,16),prShiny(0xffd23f),0,0.04,0),prMesh(CYL(0.016,0.016,0.03,12),prShiny(0xd8dee8),0,-0.83,0));
-    cn.position.set(x,y,0); cn.rotation.x=Math.PI/2; const piv=new T.Group(); piv.add(cn); R.add(piv);
-    const head=new T.Group(), bk=prM(0x1d1d24,{shininess:60}); head.add(prMesh(CYL(0.24,0.24,0.015,32),bk,0,0.15,0),prMesh(CYL(0.13,0.14,0.26,28),bk,0,0.29,0),prMesh(CYL(0.142,0.142,0.05,28),prM(0xc0182a,{shininess:30}),0,0.19,0),prMesh(CYL(0.13,0.13,0.005,28),prShiny(0x2a2a34),0,0.42,0));
-    head.rotation.z=0.12; return {R,head,piv,up:(P,t)=>{ P.piv.rotation.z=0; }}; },
-  // Stroll: a heart balloon on a string, bobbing above
-  balloon:()=>{ const R=prHeld(1.3), x=GRIP[0], y=GRIP[1], b=new T.Group(); R.add(b); b.position.set(x,y,0);
-    const hb=new T.Mesh(prHeartGeo(),prM(0xff3a6a,{shininess:140,specular:0xffffff})); hb.scale.setScalar(4); hb.position.set(0,0,0.9); hb.rotation.x=-Math.PI/2; b.add(hb);
-    b.add(prMesh(CYL(0.003,0.003,0.7,4),prMatte(0xffffff),0,0,0.45,Math.PI/2)); return {R,b,hb,up:(P,t)=>{ P.hb.rotation.y=0.3*Math.sin(t*1.5); P.b.rotation.x=0.15*Math.sin(t*1.9); P.b.rotation.y=0.15*Math.sin(t*1.3); }}; },
-});
 function prOnto(o,bone,g,upright?){ _prI.copy(g.matrixWorld).invert(); _prM.multiplyMatrices(_prI,bone.matrixWorld); _prM.decompose(_prP,_prQ,_prS); o.position.copy(_prP); if(upright) o.quaternion.identity(); else o.quaternion.copy(_prQ); }
 function propMake(c,E){ const f=PROPS[E.prop]; if(!f) return null; const P=f(); P.k=E.prop; P.t=0;
   for(const s of ['root','R','L','head']) if(P[s]){ P[s].scale.setScalar(0.001); c.g.add(P[s]); }
@@ -2743,7 +2564,7 @@ function emProps(e,c,B,dt){ const P=c.prop, em=e.emote; if(!P||!em) return; c.g.
   P.t=em.t; if(P.up) P.up(P,em.t,u,c,dt||1/60,B,c.g);
 }
 // [v1.65] the wheel has pages (scroll while it is open): the hand-keyed emotes, then the CC0 pack moves (only the ones whose clip loaded)
-const EM_PAGES=[['wave','floss','pump','robot','disco','dab','salute','flip','jacks','guitar','bow','clap','shrug','heart'],PM_EMOTES,PM_EMOTES2,PM_EMOTES3,KEY_EMOTES2,UA_EMOTES,UA_EMOTES2,UA_EMOTES3,UA_EMOTES4];
+const EM_PAGES=[['wave','floss','pump','robot','disco','dab','salute','flip','jacks','guitar','bow','clap','shrug','heart'],PM_EMOTES,PM_EMOTES2,PM_EMOTES3,KEY_EMOTES2];
 let EM_ORDER=EM_PAGES[0];
 try{ const v=localStorage.getItem('stormIslandEmote'); if(v&&EMOTES[v]) EM.last=v; }catch(e){}
 // keyed paths: K=[[u,a,b,..],..]. loop: a closed Catmull-Rom ring through the keys; otherwise open, held at both ends
@@ -3080,7 +2901,7 @@ function hurt(t,amt,src,info){
   t.hp-=left; t.anim.hit=Math.min(1,(t.anim.hit||0)+0.35+amt/50);
   if(src===player&&t!==player){ player.dmgDealt+=amt; MS.hits++; if(info.head) MS.heads++; showDmg(info.point||t.pos.clone().add(new V(0,1.4,0)),amt,info.head?'head':(sh>0?'shield':'')); hitMarker(info.head); if(!info.soft||sh>0&&t.shield<=0) sfx(sh>0&&t.shield<=0?'shieldBreak':info.head?'head':(sh>0?'shield':'hit')); }
   if(t===player){ hurtFlash=Math.min(1,hurtFlash+0.3+amt/90); sfx('hurt'); }
-  if(amt>=12&&t.alive&&!t.gc&&!t.emote&&t.ch&&t.pos.distanceTo(camera.position)<45) gcPlay(t,'PM_Bonk',{w:0.55,fin:0.04,fout:0.18,body:false,tag:'hit'}); // [v1.72] a flinch from the pack
+  if(amt>=12&&t.alive&&!t.gc&&!t.emote&&t.ch&&t.pos.distanceTo(camera.position)<45) gcPlay(t,gcU('UAL_Hit_Chest','PM_Bonk'),{w:0.55,fin:0.04,fout:0.18,body:false,tag:'hit'}); // [v1.72] a flinch from the pack
   if(!t.isPlayer&&src&&src!==t&&src.alive){ t.healT=0; if(t.enemy!==src){ t.enemy=src; t.seenAt=matchTime-0.2; } t.lastSeen=src.pos.clone(); t.lastSeenT=matchTime; }
   if(t.hp<=0&&t===player&&t.pwLives>0){ t.pwLives--; t.hp=30; buff(t,'ghost',1.5); pwBlast(chest(t),{r:7,dmg:20,fire:true}); banner('Back again','',1.5); return; } // Phoenix Feather and Pixel Pick extra lives
   if(t.hp<=0){ if(t.frozen>0) info.frozen=true; eliminate(t,src,info.weapon,info); }
@@ -6533,7 +6354,7 @@ function brMove(e,dt){
   e.onGround=on; e.swimming=on&&e.br==='ground'&&brHeight(p.x,p.z)<BR_SEA-1.0; // [v1.63] deep water: swim (the sea floor there is the flat BR_SEA-0.9)
   if(on&&e.br!=='ground'){ const fall=-Math.min(e.vel.y,0); if(e.br==='fall') brCrash(e,fall); else brDust(e.pos,0.8); e.brNoGlide=false; e.br='ground'; e.zgFloat=false; e.zgTx=0; if(e.ch&&e.ch.glider) e.ch.glider.visible=false;
     e.anim.land=clamp(Math.max(fall,8)/20,0.3,1); if(e===player){ sfx('land',null,{v:12,surf:'rock'}); camShake=Math.max(camShake,0.3); } }
-  if(e.onGround&&!was&&e.br==='ground'&&(e.brFall||0)>9){ e.anim.land=clamp(e.brFall/20,0.3,1); if(e===player) sfx('land',null,{v:e.brFall,surf:'rock'}); }
+  if(e.onGround&&!was&&e.br==='ground'&&(e.brFall||0)>9){ e.anim.land=clamp(e.brFall/20,0.3,1); if(e===player) sfx('land',null,{v:e.brFall,surf:'rock'});  if(!e.gc&&e.brFall>12) gcPlay(e,'UAL_Jump_Land',{w:0.85,fin:0.05,fout:0.2,tag:'land'}); }
   e.brFall=e.onGround?0:Math.max(0,-e.vel.y);
 }
 // the glider snaps on a wall: the pieces fly off and you drop, no second glider, toward a crash landing
@@ -6623,6 +6444,8 @@ function brSpawn(e,i){ e.br='jet'; e.pos.copy(BR.jet.from); e.vel.set(0,0,0); e.
 // ---- gameplay clips: a pack move (packmoves.js, CC0 Quaternius) played on the body during play: the dodge roll, sitting by a
 // campfire, kneeling at a workbench, casting at a shrine, driving, treading water, a flinch. Like emClip, but gameplay owns it.
 //   gcPlay(e,'PM_Roll',{speed,loop,t0,t1,w,body,tag}); body:false leaves the arms to the gun
+// [v1.75] the zip moves (ualmoves.js) drive stations and controls when they loaded; the older pack clip otherwise
+const gcU=(k,f)=>SOLDIER&&SOLDIER.clips[k]?k:f;
 function gcPlay(e,clip,o?){ const cl=SOLDIER&&SOLDIER.clips[clip]; if(!cl||!e.ch||!e.alive) return false; o=o||{};
   const t0=o.t0||0, t1=o.t1||cl.duration, sp=o.speed||1;
   e.gc={k:clip,t:0,t0,t1,speed:sp,loop:!!o.loop,dur:o.dur||(t1-t0)/sp,w:0,max:o.w==null?1:o.w,fin:o.fin||0.15,fout:o.fout||0.2,out:false,body:o.body!==false,tag:o.tag||'',low:!!o.low}; return true; }
@@ -6642,8 +6465,8 @@ function gcClip(e,c,X){ const G=e.gc, dt=X.dt;
 // moves that start by themselves: treading water when you stop swimming, a crouched idle
 function gcAuto(e,X){ if(!X.near&&!e.gc) return;
   const sw=e.swimming&&X.speed<0.7, cr=e.crouch&&e.onGround&&X.speed<0.3&&!(e.slideT>0);
-  if(sw){ if(!e.gc) gcPlay(e,'PM_Float',{loop:true,fin:0.45,fout:0.3,tag:'float'}); } else gcStop(e,'float');
-  if(cr){ if(!e.gc) gcPlay(e,'PM_Campfire',{loop:true,body:false,fin:0.3,fout:0.2,tag:'crouch',low:true}); } else gcStop(e,'crouch'); }
+  if(sw){ if(!e.gc) gcPlay(e,gcU('UAL_Swim_Idle_Loop','PM_Float'),{loop:true,fin:0.45,fout:0.3,tag:'float'}); } else gcStop(e,'float');
+  if(cr){ if(!e.gc) gcPlay(e,gcU('UAL_Crouch_Idle_Loop','PM_Campfire'),{loop:true,body:false,fin:0.3,fout:0.2,tag:'crouch',low:true}); } else gcStop(e,'crouch'); }
 // is the body busy with something that puts the weapon away?
 const gcBusy=e=>!!(e.gc&&e.gc.body||e.pk||e.prone||e.ride||e.sit||e.chan);
 
@@ -6717,7 +6540,7 @@ function pkRoll(p,force?){ if(p.roll||p.pk||p.prone||p.ride||p.sit||!pkWalking(p
   const gs=PKU(); let mx=(keys.KeyD?1:0)-(keys.KeyA?1:0), mz=(keys.KeyW?1:0)-(keys.KeyS?1:0); if(gs<0) mx=-mx; if(!mx&&!mz||force) { mx=0; mz=1; }
   const fx=-Math.sin(p.yaw), fz=-Math.cos(p.yaw), rx=Math.cos(p.yaw), rz=-Math.sin(p.yaw); let x=fx*mz+rx*mx, z=fz*mz+rz*mx; const l=Math.hypot(x,z)||1; x/=l; z/=l;
   p.roll={t:0,dur:0.74,x,z}; p.faceYaw=Math.atan2(-x,-z); p.rollCd=matchTime+1.4; p.slideT=0; if(p.emote) stopEmote(p,true);
-  gcPlay(p,'PM_Roll',{speed:1.95,fin:0.07,fout:0.18,tag:'roll'}); if(p===player) sfx('whoosh',null,{}); return true; }
+  gcPlay(p,gcU('UAL_Roll','PM_Roll'),{speed:gcU('UAL_Roll','')?1.3:1.95,fin:0.07,fout:0.18,tag:'roll'}); if(p===player) sfx('whoosh',null,{}); return true; }
 // the player's parkour, called before the normal movement; true when a move has the body this frame
 function pkPlayer(p,dt,mz){
   if(p.pk){ if(pkMove(p,dt,mz,p.wantJump&&p.pk.kind==='climb')){ p.wantJump=false; p.slideT=0; p.sprinting=false; p.crouch=false; return true; } }
@@ -6803,7 +6626,7 @@ function bldPlace(){ const p=player; if(!BLD.on||BLD.cd>0||!p.alive) return; con
   const tex=m.material.map=BLD.mat.map; void tex; BLD.list.push(P); while(BLD.list.length>BLD.max) bldRemove(BLD.list[0],true);
   const s0=m.scale.clone(); effects.push({t:0,dur:0.22,obj:null,upd:(ef,k)=>{ const q=1-Math.pow(1-k,3); m.scale.copy(s0).multiplyScalar(0.55+0.45*q+0.08*Math.sin(Math.PI*k)); }});
   pBurst(5,14,m.position,5,0xc2945c,0.06); pBurst(4,6,m.position,5,0x5cf0ff,0.05); sfx('chop',m.position.clone(),{mat:'stone'});
-  if(!p.gc&&Math.hypot(p.vel.x,p.vel.z)<1) gcPlay(p,'PM_Button',{t0:0.45,t1:1.25,speed:2,w:0.8,tag:'use'}); }
+  if(!p.gc&&Math.hypot(p.vel.x,p.vel.z)<1) (gcU('UAL_Interact','')?gcPlay(p,'UAL_Interact',{speed:1.6,w:0.8,tag:'use'}):gcPlay(p,'PM_Button',{t0:0.45,t1:1.25,speed:2,w:0.8,tag:'use'})); }
 function bldHurt(P,dmg){ if(!P.build||P.hp<=0) return; P.hp-=dmg; const m=P.obj; m.material.color.setScalar(0.55+0.45*Math.max(0,P.hp/P.maxHp)); if(P.hp<=0) bldRemove(P,true); }
 function bldRemove(P,fx?){ const i=BLD.list.indexOf(P); if(i>=0) BLD.list.splice(i,1); const m=P.obj; world.remove(m); m.material.dispose();
   const j=structMeshes.indexOf(m); if(j>=0) structMeshes.splice(j,1); if(P.box) colliders.delete(P.box); const r=BLD.ramps.indexOf(P); if(r>=0) BLD.ramps.splice(r,1); targetsDirty=true;
@@ -6912,12 +6735,12 @@ function stNear(){ const p=player; if(!p||!p.alive) return null; if(p.ride) retu
 function stUse(){ const p=player, N=stNear(); if(!N) return false; const s=N.s; if(BLD.on) bldToggle(false); if(p.emote) stopEmote(p,true); if(p.prone) p.prone=false;
   if(p.ride){ stKartOut(p); return true; }
   if(s.kind==='kart'){ if(MODE==='br'&&p.br!=='ground') return false; s.rider=p; p.ride=s; s.sp=0; p.pos.copy(s.g.position); if(s.gs<0||PKU()<0) p.pos.y-=2; p.vel.set(0,0,0); p.pk=null; p.roll=null; p.faceYaw=null;
-    gcPlay(p,'PM_Joyride',{loop:true,fin:0.2,tag:'ride'}); sfx('propel'); toast('W drive · click for a boost · E hop out'); return true; }
+    gcPlay(p,gcU('UAL_Driving_Loop','PM_Joyride'),{loop:true,fin:0.2,tag:'ride'}); sfx('propel'); toast('W drive · click for a boost · E hop out'); return true; }
   if(s.kind==='fire'){ if(MODE==='br'&&!p.onGround) return false; let b=null, bd=1e9; for(const [lx,lz] of s.seats){ const w=stAt(s,lx,0,lz), d=Math.hypot(w.x-p.pos.x,w.z-p.pos.z); if(d<bd){ bd=d; b=w; } }
     p.sit={s,hp:p.hp+p.shield,t:0}; p.pos.x=b.x; p.pos.z=b.z; if(MODE!=='br') p.pos.y=0.3; p.vel.set(0,0,0); p.faceYaw=Math.atan2(-(s.x-b.x),-(s.z-b.z)); p.pk=null; p.roll=null;
-    gcPlay(p,'PM_Chair',{loop:true,fin:0.35,tag:'sit'}); sfx('pickup',null,{item:{kind:'cons'}}); return true; }
+    gcPlay(p,gcU('UAL_Sitting_Idle_Loop','PM_Chair'),{loop:true,fin:0.35,tag:'sit'}); sfx('pickup',null,{item:{kind:'cons'}}); return true; }
   const bench=s.kind==='bench'; p.chan={s,t:0,dur:bench?2.6:1.9,label:bench?'Bolting on armour':'Casting',hp:p.hp+p.shield}; p.faceYaw=Math.atan2(-(s.x-p.pos.x),-(s.z-p.pos.z)); p.vel.x=p.vel.z=0;
-  gcPlay(p,bench?'PM_Tinker':'PM_Spark',bench?{t0:0.5,t1:3.4,tag:'chan'}:{t0:0,t1:2.2,speed:1.1,tag:'chan'}); return true; }
+  (gcU('UAL_Fixing_Kneeling','')?gcPlay(p,bench?'UAL_Fixing_Kneeling':'UAL_Spell_Simple_Idle_Loop',{loop:true,dur:bench?3:2.2,tag:'chan'}):gcPlay(p,bench?'PM_Tinker':'PM_Spark',bench?{t0:0.5,t1:3.4,tag:'chan'}:{t0:0,t1:2.2,speed:1.1,tag:'chan'})); return true; }
 function stKartOut(p){ const s=p.ride; if(!s) return; s.rider=null; p.ride=null; s.sp=0; gcStop(p,'ride'); p.vel.multiplyScalar(0.3); const rx=Math.cos(p.yaw), rz=-Math.sin(p.yaw); if(pkFree(p.pos.x+rx*1.5,pkFeet(p,PKU()),p.pos.z+rz*1.5,PKU(),p.radius)){ p.pos.x+=rx*1.5; p.pos.z+=rz*1.5; } }
 function stStand(p){ if(p.sit){ p.sit=null; p.faceYaw=null; gcStop(p,'sit'); } if(p.chan){ p.chan=null; p.faceYaw=null; gcStop(p,'chan'); } }
 // sitting, channelling and driving take over the player's movement; true when they did
