@@ -5037,6 +5037,7 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
       },
       robot: {
         n: "Robot",
+        robot: 1,
         loop: 1,
         bpm: 100,
         beats: 4,
@@ -6659,7 +6660,27 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
         c.emSpin = false;
       }
       const S = emScale(B), mv = smooth(0.6, 2.5, e.zgFloat ? e.vel.length() : Math.hypot(e.vel.x, e.vel.z)), Wl = W * (1 - mv);
-      const hp = emCh(E.hips, uq, loop2, _eH, 5), ch = emCh(E.chest, uq, loop2, _eK, 3), hd = emCh(E.head, uq, loop2, _eG, 3);
+      const lg = E.robot ? 0 : EM_PAGES[0].indexOf(em.k) >= 0 ? 1 : 0, lag = (d) => loop2 ? ((uq - d) % 1 + 1) % 1 : clamp(uq - d, 0, 1);
+      const hp = emCh(E.hips, uq, loop2, _eH, 5), ch = emCh(E.chest, lg ? lag(0.035) : uq, loop2, _eK, 3), hd = emCh(E.head, lg ? lag(0.07) : uq, loop2, _eG, 3);
+      if (lg) {
+        if (loop2) {
+          const bp = u * E.beats * TAU, bt = 0.5 + 0.5 * Math.cos(bp);
+          hp[1] -= 0.03 * (1 - bt);
+          hp[3] += 0.045 * Math.sin(bp * 0.5);
+          ch[0] += 0.05 * (1 - bt);
+          ch[1] -= 0.035 * Math.sin(bp * 0.5 - 0.6);
+          hd[0] += 0.08 * Math.sin(bp - 0.9);
+          hd[1] += 0.03 * Math.sin(bp * 0.5 - 1.2);
+        } else {
+          const wind = Math.sin(Math.PI * clamp(u / 0.12, 0, 1)), settle = u > 0.85 ? Math.sin(Math.PI * clamp((u - 0.85) / 0.15, 0, 1)) : 0;
+          hp[1] -= 0.035 * wind + 0.02 * settle;
+          ch[0] += 0.08 * wind - 0.05 * settle;
+          hd[0] -= 0.06 * wind + 0.04 * settle;
+        }
+        const br = Math.sin(t * 1.7);
+        ch[0] += 0.015 * br;
+        hd[0] -= 0.01 * br;
+      }
       c.model.position.x = hp[0] * Wl;
       c.model.position.y += hp[1] * Wl;
       c.model.updateMatrixWorld(true);

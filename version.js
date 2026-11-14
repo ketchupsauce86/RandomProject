@@ -2,13 +2,13 @@
 window.GAME_VERSION={
  "version": "1.76.0",
  "date": "2026-11-14",
- "build": "d952530",
+ "build": "13f0657",
  "season": "Glitched",
  "notes": [
   {
    "v": "1.76.0",
    "date": "2026-11-14",
-   "title": "Moves list in the Controls menu"
+   "title": "Starter emotes reanimated; zip moves in Controls"
   },
   {
    "v": "1.75.0",

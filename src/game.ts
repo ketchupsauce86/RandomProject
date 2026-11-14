@@ -2114,7 +2114,7 @@ const EMOTES:any={
     hips:[[0,0,0.01,0,0,0],[0.25,0,-0.06,0,0,0],[0.5,0,0.01,0,0,0],[0.75,0,-0.06,0,0,0]],
     chest:[[0,0.12,0.12,0.15],[0.25,-0.05,0,0],[0.5,0.12,-0.12,-0.15],[0.75,-0.05,0,0]],
     head:[[0,0.2,0,0],[0.25,-0.05,0,0],[0.5,0.2,0,0],[0.75,-0.05,0,0]], hand:{R:{c:1.35},L:{c:1.35}}},
-  robot:{n:'Robot',loop:1,bpm:100,beats:4,step:8,
+  robot:{n:'Robot',robot:1,loop:1,bpm:100,beats:4,step:8,
     R:[[0,0.30,0.14,0.10],[0.25,0.10,0.02,0.34],[0.5,0.30,-0.06,0.22],[0.75,0.06,0.12,0.30]],
     L:[[0,-0.10,0.02,0.34],[0.25,-0.30,0.14,0.10],[0.5,-0.06,0.12,0.30],[0.75,-0.30,-0.06,0.22]],
     hips:[[0,0,-0.03,0,0,0],[0.125,0,0,0,0,0],[0.25,0,-0.03,0,0,0],[0.375,0,0,0,0,0],[0.5,0,-0.03,0,0,0],[0.625,0,0,0,0,0],[0.75,0,-0.03,0,0,0],[0.875,0,0,0,0,0]],
@@ -2621,7 +2621,15 @@ function emotePose(e,X){ const em=e.emote, E=em&&em.E; if(!E) return;
   else if(c.emSpin){ c.spin.quaternion.identity(); c.emSpin=false; }
   const S=emScale(B), mv=smooth(0.6,2.5,e.zgFloat?e.vel.length():Math.hypot(e.vel.x,e.vel.z)), Wl=W*(1-mv);
   // hips: slide and turn the pelvis, then the spine and head take the net pose (each bone adds a share of what is left to do)
-  const hp=emCh(E.hips,uq,loop,_eH,5), ch=emCh(E.chest,uq,loop,_eK,3), hd=emCh(E.head,uq,loop,_eG,3);
+  // [v1.76] the starter emotes, reanimated: overlapping action (the chest trails the hips and the head trails the chest),
+  // a groove in the knees and hips on every beat, a dip to wind up and an overshoot to settle, and breathing
+  const lg=E.robot?0:EM_PAGES[0].indexOf(em.k)>=0?1:0, lag=(d)=>loop?((uq-d)%1+1)%1:clamp(uq-d,0,1);
+  const hp=emCh(E.hips,uq,loop,_eH,5), ch=emCh(E.chest,lg?lag(0.035):uq,loop,_eK,3), hd=emCh(E.head,lg?lag(0.07):uq,loop,_eG,3);
+  if(lg){ if(loop){ const bp=u*E.beats*TAU, bt=0.5+0.5*Math.cos(bp);
+      hp[1]-=0.03*(1-bt); hp[3]+=0.045*Math.sin(bp*0.5); ch[0]+=0.05*(1-bt); ch[1]-=0.035*Math.sin(bp*0.5-0.6); hd[0]+=0.08*Math.sin(bp-0.9); hd[1]+=0.03*Math.sin(bp*0.5-1.2); }
+    else { const wind=Math.sin(Math.PI*clamp(u/0.12,0,1)), settle=u>0.85?Math.sin(Math.PI*clamp((u-0.85)/0.15,0,1)):0;
+      hp[1]-=0.035*wind+0.02*settle; ch[0]+=0.08*wind-0.05*settle; hd[0]-=0.06*wind+0.04*settle; }
+    const br=Math.sin(t*1.7); ch[0]+=0.015*br; hd[0]-=0.01*br; }
   c.model.position.x=hp[0]*Wl; c.model.position.y+=hp[1]*Wl; c.model.updateMatrixWorld(true);
   const hy=hp[2]*Wl, hr=hp[3]*Wl, hpi=hp[4]*Wl;
   rotateBoneWorld(B.Hips,up,hy); rotateBoneWorld(B.Hips,fw,hr); rotateBoneWorld(B.Hips,r,hpi);
