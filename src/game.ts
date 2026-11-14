@@ -2277,6 +2277,10 @@ Object.assign(EMOTES,{
 const PM_EMOTES=['pmGroove','pmBox','pmSpark','pmRoll','pmChair','pmMime','pmTorch','pmChatter','pmTinker','pmDead','pmJoy','pmRun','pmHang'];
 const PM_EMOTES3=['pmLove','pmJog','pmMovie','pmGhost','pmWater','pmWalkies','pmSleuth','pmTurbo','pmPinata','pmSnowball','pmSnowman','pmCrate','kiss','laugh'];
 const PM_EMOTES2=['pmSword','pmSquirt','pmGift','pmButton','pmPogo','pmThrone','pmFloat','pmBonk','pmFire','pmCarpet','pmCrystal','pmBubble','pmYoyo'];
+// [v1.75] the pack clips carry no finger keys, so the hands would hang wide open: close them a little always, and into
+// real fists for punches, sprints and the like (a held prop still closes its own hand round its grip afterwards)
+function clipFist(E){ if(E.fist!=null) return E.fist; const k=E.clip||''; if(!/^(UAL|PM|HM)_/.test(k)) return 0;
+  return /Punch|Box|Jab|Cross/.test(k)?1.5:/Sprint|Jog|Run|Push|Driving|Climb/.test(k)?1:0.4; }
 // ---- [v1.67] emote props: things the pack emotes hold, stand on or float round. EMOTES[k].prop names a builder in
 // PROPS; it runs when the emote starts and returns P = {root (body frame: feet at y 0, facing -z, right +x), R / L (moved
 // onto that hand every frame), head (moved onto the head, upright), up(P,t,u,c) to animate}. emClip makes and drops
@@ -2288,9 +2292,9 @@ const prM=(col,o?)=>{ const k=col+JSON.stringify(o||{}); return PRC.m[k]||(PRC.m
 const prGlow=(col,op?)=>{ const k='glow'+col+(op||1); return PRC.m[k]||(PRC.m[k]=new T.SpriteMaterial({map:glowTex,color:col,blending:T.AdditiveBlending,depthWrite:false,transparent:true,opacity:op||1,fog:false})); };
 function prMesh(geo,mat,x?,y?,z?,rx?,ry?,rz?){ const m=new T.Mesh(geo,mat); m.position.set(x||0,y||0,z||0); m.rotation.set(rx||0,ry||0,rz||0); return m; }
 const BOX=(w,h,d)=>prG('b'+w+'_'+h+'_'+d,()=>new T.BoxGeometry(w,h,d));
-const CYL=(r0,r1,h,n?)=>prG('c'+r0+'_'+r1+'_'+h+'_'+(n||12),()=>new T.CylinderGeometry(r0,r1,h,n||12));
-const SPH=(r,n?)=>prG('s'+r+'_'+(n||12),()=>new T.SphereGeometry(r,n||12,Math.max(6,(n||12)>>1)));
-const TOR=(R,r,n?)=>prG('t'+R+'_'+r,()=>new T.TorusGeometry(R,r,8,n||24));
+const CYL=(r0,r1,h,n?)=>prG('c'+r0+'_'+r1+'_'+h+'_'+(n||12),()=>new T.CylinderGeometry(r0,r1,h,Math.max(20,n||20)));
+const SPH=(r,n?)=>prG('s'+r+'_'+(n||12),()=>new T.SphereGeometry(r,Math.max(20,n||20),Math.max(14,(n||20)>>1)));
+const TOR=(R,r,n?)=>prG('t'+R+'_'+r,()=>new T.TorusGeometry(R,r,12,Math.max(32,n||32)));
 function prSprite(col,s,op?){ const sp=new T.Sprite(prGlow(col,op)); sp.scale.setScalar(s); return sp; }
 // a word or two on a canvas, as a sprite (speech bubbles, the RIP stone)
 function prText(lines,o?){ o=o||{}; const W=o.w||256, H=o.h||128;
@@ -2604,7 +2608,7 @@ function emPlant(B,fw,up,tw){ for(let i=0;i<2;i++){ const sd=i?'Right':'Left'; B
   solveIK(B[sd+'UpLeg'],B[sd+'Leg'],B[sd+'Foot'],_eFeet[i],_eB); if(tw) rotateBoneWorld(B[sd+'Foot'],up,tw); } }
 // the arm layer while emoting, and the whole-body pose (hips, spine, head, planted feet). X needs c, B, g, rightB, upB, fwdB (+pitch)
 function emotePose(e,X){ const em=e.emote, E=em&&em.E; if(!E) return;
-  if(E.clip){ if(X.c.emSpin){ X.c.spin.quaternion.identity(); X.c.emSpin=false; } emProps(e,X.c,X.B,X.dt); return; } // [v1.65] the clip moves the whole body (emClip)
+  if(E.clip){ if(X.c.emSpin){ X.c.spin.quaternion.identity(); X.c.emSpin=false; } const fc=clipFist(E)*smooth(0,1,em.w); if(fc>0.01){ prCurl(X.B,'Right',fc); prCurl(X.B,'Left',fc); } emProps(e,X.c,X.B,X.dt); return; } // [v1.65] the clip moves the whole body (emClip)
   const {c,B}=X, W=smooth(0,1,em.w), t=em.t, loop=!!E.loop;
   const u=loop?((t*E.bpm/(60*E.beats))%1):Math.min(1,t/E.dur), uq=E.step?(Math.floor(u*E.step)+smooth(0,0.22,(u*E.step)%1))/E.step:u;
   const r=_eR.copy(X.rightB), up=_eU.copy(X.upB), fw=_eF.copy(X.fwdB);
@@ -2897,7 +2901,7 @@ function hurt(t,amt,src,info){
   t.hp-=left; t.anim.hit=Math.min(1,(t.anim.hit||0)+0.35+amt/50);
   if(src===player&&t!==player){ player.dmgDealt+=amt; MS.hits++; if(info.head) MS.heads++; showDmg(info.point||t.pos.clone().add(new V(0,1.4,0)),amt,info.head?'head':(sh>0?'shield':'')); hitMarker(info.head); if(!info.soft||sh>0&&t.shield<=0) sfx(sh>0&&t.shield<=0?'shieldBreak':info.head?'head':(sh>0?'shield':'hit')); }
   if(t===player){ hurtFlash=Math.min(1,hurtFlash+0.3+amt/90); sfx('hurt'); }
-  if(amt>=12&&t.alive&&!t.gc&&!t.emote&&t.ch&&t.pos.distanceTo(camera.position)<45) gcPlay(t,'PM_Bonk',{w:0.55,fin:0.04,fout:0.18,body:false,tag:'hit'}); // [v1.72] a flinch from the pack
+  if(amt>=12&&t.alive&&!t.gc&&!t.emote&&t.ch&&t.pos.distanceTo(camera.position)<45) gcPlay(t,gcU('UAL_Hit_Chest','PM_Bonk'),{w:0.55,fin:0.04,fout:0.18,body:false,tag:'hit'}); // [v1.72] a flinch from the pack
   if(!t.isPlayer&&src&&src!==t&&src.alive){ t.healT=0; if(t.enemy!==src){ t.enemy=src; t.seenAt=matchTime-0.2; } t.lastSeen=src.pos.clone(); t.lastSeenT=matchTime; }
   if(t.hp<=0&&t===player&&t.pwLives>0){ t.pwLives--; t.hp=30; buff(t,'ghost',1.5); pwBlast(chest(t),{r:7,dmg:20,fire:true}); banner('Back again','',1.5); return; } // Phoenix Feather and Pixel Pick extra lives
   if(t.hp<=0){ if(t.frozen>0) info.frozen=true; eliminate(t,src,info.weapon,info); }
@@ -6350,7 +6354,7 @@ function brMove(e,dt){
   e.onGround=on; e.swimming=on&&e.br==='ground'&&brHeight(p.x,p.z)<BR_SEA-1.0; // [v1.63] deep water: swim (the sea floor there is the flat BR_SEA-0.9)
   if(on&&e.br!=='ground'){ const fall=-Math.min(e.vel.y,0); if(e.br==='fall') brCrash(e,fall); else brDust(e.pos,0.8); e.brNoGlide=false; e.br='ground'; e.zgFloat=false; e.zgTx=0; if(e.ch&&e.ch.glider) e.ch.glider.visible=false;
     e.anim.land=clamp(Math.max(fall,8)/20,0.3,1); if(e===player){ sfx('land',null,{v:12,surf:'rock'}); camShake=Math.max(camShake,0.3); } }
-  if(e.onGround&&!was&&e.br==='ground'&&(e.brFall||0)>9){ e.anim.land=clamp(e.brFall/20,0.3,1); if(e===player) sfx('land',null,{v:e.brFall,surf:'rock'}); }
+  if(e.onGround&&!was&&e.br==='ground'&&(e.brFall||0)>9){ e.anim.land=clamp(e.brFall/20,0.3,1); if(e===player) sfx('land',null,{v:e.brFall,surf:'rock'});  if(!e.gc&&e.brFall>12) gcPlay(e,'UAL_Jump_Land',{w:0.85,fin:0.05,fout:0.2,tag:'land'}); }
   e.brFall=e.onGround?0:Math.max(0,-e.vel.y);
 }
 // the glider snaps on a wall: the pieces fly off and you drop, no second glider, toward a crash landing
@@ -6440,6 +6444,8 @@ function brSpawn(e,i){ e.br='jet'; e.pos.copy(BR.jet.from); e.vel.set(0,0,0); e.
 // ---- gameplay clips: a pack move (packmoves.js, CC0 Quaternius) played on the body during play: the dodge roll, sitting by a
 // campfire, kneeling at a workbench, casting at a shrine, driving, treading water, a flinch. Like emClip, but gameplay owns it.
 //   gcPlay(e,'PM_Roll',{speed,loop,t0,t1,w,body,tag}); body:false leaves the arms to the gun
+// [v1.75] the zip moves (ualmoves.js) drive stations and controls when they loaded; the older pack clip otherwise
+const gcU=(k,f)=>SOLDIER&&SOLDIER.clips[k]?k:f;
 function gcPlay(e,clip,o?){ const cl=SOLDIER&&SOLDIER.clips[clip]; if(!cl||!e.ch||!e.alive) return false; o=o||{};
   const t0=o.t0||0, t1=o.t1||cl.duration, sp=o.speed||1;
   e.gc={k:clip,t:0,t0,t1,speed:sp,loop:!!o.loop,dur:o.dur||(t1-t0)/sp,w:0,max:o.w==null?1:o.w,fin:o.fin||0.15,fout:o.fout||0.2,out:false,body:o.body!==false,tag:o.tag||'',low:!!o.low}; return true; }
@@ -6459,8 +6465,8 @@ function gcClip(e,c,X){ const G=e.gc, dt=X.dt;
 // moves that start by themselves: treading water when you stop swimming, a crouched idle
 function gcAuto(e,X){ if(!X.near&&!e.gc) return;
   const sw=e.swimming&&X.speed<0.7, cr=e.crouch&&e.onGround&&X.speed<0.3&&!(e.slideT>0);
-  if(sw){ if(!e.gc) gcPlay(e,'PM_Float',{loop:true,fin:0.45,fout:0.3,tag:'float'}); } else gcStop(e,'float');
-  if(cr){ if(!e.gc) gcPlay(e,'PM_Campfire',{loop:true,body:false,fin:0.3,fout:0.2,tag:'crouch',low:true}); } else gcStop(e,'crouch'); }
+  if(sw){ if(!e.gc) gcPlay(e,gcU('UAL_Swim_Idle_Loop','PM_Float'),{loop:true,fin:0.45,fout:0.3,tag:'float'}); } else gcStop(e,'float');
+  if(cr){ if(!e.gc) gcPlay(e,gcU('UAL_Crouch_Idle_Loop','PM_Campfire'),{loop:true,body:false,fin:0.3,fout:0.2,tag:'crouch',low:true}); } else gcStop(e,'crouch'); }
 // is the body busy with something that puts the weapon away?
 const gcBusy=e=>!!(e.gc&&e.gc.body||e.pk||e.prone||e.ride||e.sit||e.chan);
 
@@ -6534,7 +6540,7 @@ function pkRoll(p,force?){ if(p.roll||p.pk||p.prone||p.ride||p.sit||!pkWalking(p
   const gs=PKU(); let mx=(keys.KeyD?1:0)-(keys.KeyA?1:0), mz=(keys.KeyW?1:0)-(keys.KeyS?1:0); if(gs<0) mx=-mx; if(!mx&&!mz||force) { mx=0; mz=1; }
   const fx=-Math.sin(p.yaw), fz=-Math.cos(p.yaw), rx=Math.cos(p.yaw), rz=-Math.sin(p.yaw); let x=fx*mz+rx*mx, z=fz*mz+rz*mx; const l=Math.hypot(x,z)||1; x/=l; z/=l;
   p.roll={t:0,dur:0.74,x,z}; p.faceYaw=Math.atan2(-x,-z); p.rollCd=matchTime+1.4; p.slideT=0; if(p.emote) stopEmote(p,true);
-  gcPlay(p,'PM_Roll',{speed:1.95,fin:0.07,fout:0.18,tag:'roll'}); if(p===player) sfx('whoosh',null,{}); return true; }
+  gcPlay(p,gcU('UAL_Roll','PM_Roll'),{speed:gcU('UAL_Roll','')?1.3:1.95,fin:0.07,fout:0.18,tag:'roll'}); if(p===player) sfx('whoosh',null,{}); return true; }
 // the player's parkour, called before the normal movement; true when a move has the body this frame
 function pkPlayer(p,dt,mz){
   if(p.pk){ if(pkMove(p,dt,mz,p.wantJump&&p.pk.kind==='climb')){ p.wantJump=false; p.slideT=0; p.sprinting=false; p.crouch=false; return true; } }
@@ -6620,7 +6626,7 @@ function bldPlace(){ const p=player; if(!BLD.on||BLD.cd>0||!p.alive) return; con
   const tex=m.material.map=BLD.mat.map; void tex; BLD.list.push(P); while(BLD.list.length>BLD.max) bldRemove(BLD.list[0],true);
   const s0=m.scale.clone(); effects.push({t:0,dur:0.22,obj:null,upd:(ef,k)=>{ const q=1-Math.pow(1-k,3); m.scale.copy(s0).multiplyScalar(0.55+0.45*q+0.08*Math.sin(Math.PI*k)); }});
   pBurst(5,14,m.position,5,0xc2945c,0.06); pBurst(4,6,m.position,5,0x5cf0ff,0.05); sfx('chop',m.position.clone(),{mat:'stone'});
-  if(!p.gc&&Math.hypot(p.vel.x,p.vel.z)<1) gcPlay(p,'PM_Button',{t0:0.45,t1:1.25,speed:2,w:0.8,tag:'use'}); }
+  if(!p.gc&&Math.hypot(p.vel.x,p.vel.z)<1) (gcU('UAL_Interact','')?gcPlay(p,'UAL_Interact',{speed:1.6,w:0.8,tag:'use'}):gcPlay(p,'PM_Button',{t0:0.45,t1:1.25,speed:2,w:0.8,tag:'use'})); }
 function bldHurt(P,dmg){ if(!P.build||P.hp<=0) return; P.hp-=dmg; const m=P.obj; m.material.color.setScalar(0.55+0.45*Math.max(0,P.hp/P.maxHp)); if(P.hp<=0) bldRemove(P,true); }
 function bldRemove(P,fx?){ const i=BLD.list.indexOf(P); if(i>=0) BLD.list.splice(i,1); const m=P.obj; world.remove(m); m.material.dispose();
   const j=structMeshes.indexOf(m); if(j>=0) structMeshes.splice(j,1); if(P.box) colliders.delete(P.box); const r=BLD.ramps.indexOf(P); if(r>=0) BLD.ramps.splice(r,1); targetsDirty=true;
@@ -6729,12 +6735,12 @@ function stNear(){ const p=player; if(!p||!p.alive) return null; if(p.ride) retu
 function stUse(){ const p=player, N=stNear(); if(!N) return false; const s=N.s; if(BLD.on) bldToggle(false); if(p.emote) stopEmote(p,true); if(p.prone) p.prone=false;
   if(p.ride){ stKartOut(p); return true; }
   if(s.kind==='kart'){ if(MODE==='br'&&p.br!=='ground') return false; s.rider=p; p.ride=s; s.sp=0; p.pos.copy(s.g.position); if(s.gs<0||PKU()<0) p.pos.y-=2; p.vel.set(0,0,0); p.pk=null; p.roll=null; p.faceYaw=null;
-    gcPlay(p,'PM_Joyride',{loop:true,fin:0.2,tag:'ride'}); sfx('propel'); toast('W drive · click for a boost · E hop out'); return true; }
+    gcPlay(p,gcU('UAL_Driving_Loop','PM_Joyride'),{loop:true,fin:0.2,tag:'ride'}); sfx('propel'); toast('W drive · click for a boost · E hop out'); return true; }
   if(s.kind==='fire'){ if(MODE==='br'&&!p.onGround) return false; let b=null, bd=1e9; for(const [lx,lz] of s.seats){ const w=stAt(s,lx,0,lz), d=Math.hypot(w.x-p.pos.x,w.z-p.pos.z); if(d<bd){ bd=d; b=w; } }
     p.sit={s,hp:p.hp+p.shield,t:0}; p.pos.x=b.x; p.pos.z=b.z; if(MODE!=='br') p.pos.y=0.3; p.vel.set(0,0,0); p.faceYaw=Math.atan2(-(s.x-b.x),-(s.z-b.z)); p.pk=null; p.roll=null;
-    gcPlay(p,'PM_Chair',{loop:true,fin:0.35,tag:'sit'}); sfx('pickup',null,{item:{kind:'cons'}}); return true; }
+    gcPlay(p,gcU('UAL_Sitting_Idle_Loop','PM_Chair'),{loop:true,fin:0.35,tag:'sit'}); sfx('pickup',null,{item:{kind:'cons'}}); return true; }
   const bench=s.kind==='bench'; p.chan={s,t:0,dur:bench?2.6:1.9,label:bench?'Bolting on armour':'Casting',hp:p.hp+p.shield}; p.faceYaw=Math.atan2(-(s.x-p.pos.x),-(s.z-p.pos.z)); p.vel.x=p.vel.z=0;
-  gcPlay(p,bench?'PM_Tinker':'PM_Spark',bench?{t0:0.5,t1:3.4,tag:'chan'}:{t0:0,t1:2.2,speed:1.1,tag:'chan'}); return true; }
+  (gcU('UAL_Fixing_Kneeling','')?gcPlay(p,bench?'UAL_Fixing_Kneeling':'UAL_Spell_Simple_Idle_Loop',{loop:true,dur:bench?3:2.2,tag:'chan'}):gcPlay(p,bench?'PM_Tinker':'PM_Spark',bench?{t0:0.5,t1:3.4,tag:'chan'}:{t0:0,t1:2.2,speed:1.1,tag:'chan'})); return true; }
 function stKartOut(p){ const s=p.ride; if(!s) return; s.rider=null; p.ride=null; s.sp=0; gcStop(p,'ride'); p.vel.multiplyScalar(0.3); const rx=Math.cos(p.yaw), rz=-Math.sin(p.yaw); if(pkFree(p.pos.x+rx*1.5,pkFeet(p,PKU()),p.pos.z+rz*1.5,PKU(),p.radius)){ p.pos.x+=rx*1.5; p.pos.z+=rz*1.5; } }
 function stStand(p){ if(p.sit){ p.sit=null; p.faceYaw=null; gcStop(p,'sit'); } if(p.chan){ p.chan=null; p.faceYaw=null; gcStop(p,'chan'); } }
 // sitting, channelling and driving take over the player's movement; true when they did

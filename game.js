@@ -5377,6 +5377,12 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
     const PM_EMOTES = ["pmGroove", "pmBox", "pmSpark", "pmRoll", "pmChair", "pmMime", "pmTorch", "pmChatter", "pmTinker", "pmDead", "pmJoy", "pmRun", "pmHang"];
     const PM_EMOTES3 = ["pmLove", "pmJog", "pmMovie", "pmGhost", "pmWater", "pmWalkies", "pmSleuth", "pmTurbo", "pmPinata", "pmSnowball", "pmSnowman", "pmCrate", "kiss", "laugh"];
     const PM_EMOTES2 = ["pmSword", "pmSquirt", "pmGift", "pmButton", "pmPogo", "pmThrone", "pmFloat", "pmBonk", "pmFire", "pmCarpet", "pmCrystal", "pmBubble", "pmYoyo"];
+    function clipFist(E) {
+      if (E.fist != null) return E.fist;
+      const k = E.clip || "";
+      if (!/^(UAL|PM|HM)_/.test(k)) return 0;
+      return /Punch|Box|Jab|Cross/.test(k) ? 1.5 : /Sprint|Jog|Run|Push|Driving|Climb/.test(k) ? 1 : 0.4;
+    }
     const PRC = { g: {}, m: {} };
     const prG = (k, f) => PRC.g[k] || (PRC.g[k] = f());
     const prM = (col, o) => {
@@ -5394,9 +5400,9 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
       return m;
     }
     const BOX = (w, h, d) => prG("b" + w + "_" + h + "_" + d, () => new T.BoxGeometry(w, h, d));
-    const CYL = (r0, r1, h, n) => prG("c" + r0 + "_" + r1 + "_" + h + "_" + (n || 12), () => new T.CylinderGeometry(r0, r1, h, n || 12));
-    const SPH = (r, n) => prG("s" + r + "_" + (n || 12), () => new T.SphereGeometry(r, n || 12, Math.max(6, (n || 12) >> 1)));
-    const TOR = (R, r, n) => prG("t" + R + "_" + r, () => new T.TorusGeometry(R, r, 8, n || 24));
+    const CYL = (r0, r1, h, n) => prG("c" + r0 + "_" + r1 + "_" + h + "_" + (n || 12), () => new T.CylinderGeometry(r0, r1, h, Math.max(20, n || 20)));
+    const SPH = (r, n) => prG("s" + r + "_" + (n || 12), () => new T.SphereGeometry(r, Math.max(20, n || 20), Math.max(14, (n || 20) >> 1)));
+    const TOR = (R, r, n) => prG("t" + R + "_" + r, () => new T.TorusGeometry(R, r, 12, Math.max(32, n || 32)));
     function prSprite(col, s, op) {
       const sp = new T.Sprite(prGlow(col, op));
       sp.scale.setScalar(s);
@@ -6621,6 +6627,11 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
           X.c.spin.quaternion.identity();
           X.c.emSpin = false;
         }
+        const fc = clipFist(E) * smooth(0, 1, em.w);
+        if (fc > 0.01) {
+          prCurl(X.B, "Right", fc);
+          prCurl(X.B, "Left", fc);
+        }
         emProps(e, X.c, X.B, X.dt);
         return;
       }
@@ -7421,7 +7432,7 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
         hurtFlash = Math.min(1, hurtFlash + 0.3 + amt / 90);
         sfx("hurt");
       }
-      if (amt >= 12 && t.alive && !t.gc && !t.emote && t.ch && t.pos.distanceTo(camera.position) < 45) gcPlay(t, "PM_Bonk", { w: 0.55, fin: 0.04, fout: 0.18, body: false, tag: "hit" });
+      if (amt >= 12 && t.alive && !t.gc && !t.emote && t.ch && t.pos.distanceTo(camera.position) < 45) gcPlay(t, gcU("UAL_Hit_Chest", "PM_Bonk"), { w: 0.55, fin: 0.04, fout: 0.18, body: false, tag: "hit" });
       if (!t.isPlayer && src && src !== t && src.alive) {
         t.healT = 0;
         if (t.enemy !== src) {
@@ -17287,6 +17298,7 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
       if (e.onGround && !was && e.br === "ground" && (e.brFall || 0) > 9) {
         e.anim.land = clamp(e.brFall / 20, 0.3, 1);
         if (e === player) sfx("land", null, { v: e.brFall, surf: "rock" });
+        if (!e.gc && e.brFall > 12) gcPlay(e, "UAL_Jump_Land", { w: 0.85, fin: 0.05, fout: 0.2, tag: "land" });
       }
       e.brFall = e.onGround ? 0 : Math.max(0, -e.vel.y);
     }
@@ -17615,6 +17627,7 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
         e.wake = 1e9;
       }
     }
+    const gcU = (k, f) => SOLDIER && SOLDIER.clips[k] ? k : f;
     function gcPlay(e, clip, o) {
       const cl = SOLDIER && SOLDIER.clips[clip];
       if (!cl || !e.ch || !e.alive) return false;
@@ -17665,10 +17678,10 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
       if (!X.near && !e.gc) return;
       const sw = e.swimming && X.speed < 0.7, cr = e.crouch && e.onGround && X.speed < 0.3 && !(e.slideT > 0);
       if (sw) {
-        if (!e.gc) gcPlay(e, "PM_Float", { loop: true, fin: 0.45, fout: 0.3, tag: "float" });
+        if (!e.gc) gcPlay(e, gcU("UAL_Swim_Idle_Loop", "PM_Float"), { loop: true, fin: 0.45, fout: 0.3, tag: "float" });
       } else gcStop(e, "float");
       if (cr) {
-        if (!e.gc) gcPlay(e, "PM_Campfire", { loop: true, body: false, fin: 0.3, fout: 0.2, tag: "crouch", low: true });
+        if (!e.gc) gcPlay(e, gcU("UAL_Crouch_Idle_Loop", "PM_Campfire"), { loop: true, body: false, fin: 0.3, fout: 0.2, tag: "crouch", low: true });
       } else gcStop(e, "crouch");
     }
     const gcBusy = (e) => !!(e.gc && e.gc.body || e.pk || e.prone || e.ride || e.sit || e.chan);
@@ -17874,7 +17887,7 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
       p.rollCd = matchTime + 1.4;
       p.slideT = 0;
       if (p.emote) stopEmote(p, true);
-      gcPlay(p, "PM_Roll", { speed: 1.95, fin: 0.07, fout: 0.18, tag: "roll" });
+      gcPlay(p, gcU("UAL_Roll", "PM_Roll"), { speed: gcU("UAL_Roll", "") ? 1.3 : 1.95, fin: 0.07, fout: 0.18, tag: "roll" });
       if (p === player) sfx("whoosh", null, {});
       return true;
     }
@@ -18140,7 +18153,7 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
       pBurst(5, 14, m.position, 5, 12751964, 0.06);
       pBurst(4, 6, m.position, 5, 6091007, 0.05);
       sfx("chop", m.position.clone(), { mat: "stone" });
-      if (!p.gc && Math.hypot(p.vel.x, p.vel.z) < 1) gcPlay(p, "PM_Button", { t0: 0.45, t1: 1.25, speed: 2, w: 0.8, tag: "use" });
+      if (!p.gc && Math.hypot(p.vel.x, p.vel.z) < 1) gcU("UAL_Interact", "") ? gcPlay(p, "UAL_Interact", { speed: 1.6, w: 0.8, tag: "use" }) : gcPlay(p, "PM_Button", { t0: 0.45, t1: 1.25, speed: 2, w: 0.8, tag: "use" });
     }
     function bldHurt(P, dmg) {
       if (!P.build || P.hp <= 0) return;
@@ -18546,7 +18559,7 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
         p.pk = null;
         p.roll = null;
         p.faceYaw = null;
-        gcPlay(p, "PM_Joyride", { loop: true, fin: 0.2, tag: "ride" });
+        gcPlay(p, gcU("UAL_Driving_Loop", "PM_Joyride"), { loop: true, fin: 0.2, tag: "ride" });
         sfx("propel");
         toast("W drive \xB7 click for a boost \xB7 E hop out");
         return true;
@@ -18569,7 +18582,7 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
         p.faceYaw = Math.atan2(-(s.x - b.x), -(s.z - b.z));
         p.pk = null;
         p.roll = null;
-        gcPlay(p, "PM_Chair", { loop: true, fin: 0.35, tag: "sit" });
+        gcPlay(p, gcU("UAL_Sitting_Idle_Loop", "PM_Chair"), { loop: true, fin: 0.35, tag: "sit" });
         sfx("pickup", null, { item: { kind: "cons" } });
         return true;
       }
@@ -18577,7 +18590,7 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
       p.chan = { s, t: 0, dur: bench ? 2.6 : 1.9, label: bench ? "Bolting on armour" : "Casting", hp: p.hp + p.shield };
       p.faceYaw = Math.atan2(-(s.x - p.pos.x), -(s.z - p.pos.z));
       p.vel.x = p.vel.z = 0;
-      gcPlay(p, bench ? "PM_Tinker" : "PM_Spark", bench ? { t0: 0.5, t1: 3.4, tag: "chan" } : { t0: 0, t1: 2.2, speed: 1.1, tag: "chan" });
+      gcU("UAL_Fixing_Kneeling", "") ? gcPlay(p, bench ? "UAL_Fixing_Kneeling" : "UAL_Spell_Simple_Idle_Loop", { loop: true, dur: bench ? 3 : 2.2, tag: "chan" }) : gcPlay(p, bench ? "PM_Tinker" : "PM_Spark", bench ? { t0: 0.5, t1: 3.4, tag: "chan" } : { t0: 0, t1: 2.2, speed: 1.1, tag: "chan" });
       return true;
     }
     function stKartOut(p) {
