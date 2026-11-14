@@ -2446,13 +2446,25 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
         SOLDIER.clips[n] = new T.AnimationClip(n, C.dur, tr);
         SOLDIER.clips[n].loop = C.loop;
       }
-      for (const [n, src, str] of [["Idle", "UAL_Idle_Loop", 0], ["Jog", "UAL_Jog_Fwd_Loop", 4.2]]) {
+      for (const [n, src, str] of [["Idle", "UAL_Idle_Loop", 0], ["Jog", "UAL_Jog_Fwd_Loop", 6.4]]) {
         const cl = SOLDIER.clips[src];
         if (cl) {
           const k = cl.clone();
           k.name = "HM_" + n;
           k.stride = str;
           SOLDIER.clips["HM_" + n] = k;
+          if (n === "Jog") {
+            for (const t of k.tracks) if (/Hips\.position$/.test(t.name)) {
+              const v = t.values;
+              let lo = 1e9, hi = -1e9;
+              for (let i = 2; i < v.length; i += 3) {
+                lo = Math.min(lo, v[i]);
+                hi = Math.max(hi, v[i]);
+              }
+              const pv = lo + (hi - lo) * 0.25;
+              for (let i = 2; i < v.length; i += 3) v[i] = pv + (v[i] - pv) * 0.6;
+            }
+          }
         }
       }
     }
@@ -4639,13 +4651,12 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
     function animTorso(e, X) {
       const { A, B, near, upB, right, speed, side, fwd, back, aS, cr, held, s, pitch, pE } = X;
       if (!near) lcCacheApply(e, X);
-      const twist = speed > 1.2 ? -clamp(Math.atan2(side * (e.zgRoll > 1.5 ? -1 : 1), Math.abs(fwd)) * back, -1.15, 1.15) : 0;
+      const twist = speed > 1.2 ? -clamp(Math.atan2(side * (e.zgRoll > 1.5 ? -1 : 1), Math.abs(fwd)) * back, -0.85, 0.85) : 0;
       D(A, "twist", twist, aS);
       if (near) {
         rotateBoneWorld(B.Hips, upB, A.twist);
-        rotateBoneWorld(B.Spine, upB, -A.twist * 0.4);
-        rotateBoneWorld(B.Spine1, upB, -A.twist * 0.3);
-        rotateBoneWorld(B.Spine2, upB, -A.twist * 0.3);
+        rotateBoneWorld(B.Spine, upB, -A.twist * 0.5);
+        rotateBoneWorld(B.Spine1, upB, -A.twist * 0.5);
       }
       if (near) {
         const ls = A.landS || 0;
