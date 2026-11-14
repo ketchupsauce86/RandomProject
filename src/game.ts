@@ -798,7 +798,10 @@ function ualMoveClips(){ const H=(window as any).UAL_MOVES; if(!H||!H.clips) ret
     SOLDIER.clips[n]=new T.AnimationClip(n,C.dur,tr); (SOLDIER.clips[n] as any).loop=C.loop; }
   // [v1.77] full Quaternius: standing and jogging are the zip's Idle and Jog (the soldier's own Idle and Run step aside).
   // stride: soldier units a loop, so a jog's cadence is natural at about 5 m/s
-  for(const [n,src,str] of [['Idle','UAL_Idle_Loop',0],['Jog','UAL_Jog_Fwd_Loop',4.2]] as any){ const cl=SOLDIER.clips[src]; if(cl){ const k=cl.clone(); k.name='HM_'+n; (k as any).stride=str; SOLDIER.clips['HM_'+n]=k; } } }
+  for(const [n,src,str] of [['Idle','UAL_Idle_Loop',0],['Jog','UAL_Jog_Fwd_Loop',6.4]] as any){ const cl=SOLDIER.clips[src]; if(cl){ const k=cl.clone(); k.name='HM_'+n; (k as any).stride=str; SOLDIER.clips['HM_'+n]=k;
+    // [v1.77.1] the zip's jog hops 28 cm a step, which read as the body jumbling about at game speed: keep 60% of the
+    // bounce (about the height where the feet meet the ground), so it bobs like the sprint does
+    if(n==='Jog') for(const t of k.tracks) if(/Hips\.position$/.test(t.name)){ const v=t.values; let lo=1e9,hi=-1e9; for(let i=2;i<v.length;i+=3){ lo=Math.min(lo,v[i]); hi=Math.max(hi,v[i]); } const pv=lo+(hi-lo)*0.25; for(let i=2;i<v.length;i+=3) v[i]=pv+(v[i]-pv)*0.6; } } } }
 // a clip emote: its clip takes over from whatever the mixer was blending, by the emote's weight (less while moving).
 // The action is made the first time a character plays that move (so 100 bots do not carry every dance around) and stopped after.
 function emClip(e,c){ const em=e&&e.emote, E=em&&em.E, k=E&&E.clip&&SOLDIER.clips[E.clip]?E.clip:null;
@@ -1883,8 +1886,8 @@ function animTorso(e,X){ const {A,B,near,upB,right,speed,side,fwd,back,aS,cr,hel
   if(!near) lcCacheApply(e,X);
   // hips turn toward the way you travel (strafe right: hips right), legs keep running "forward" for the clip.
   // side is along world-yaw right; in the body frame it flips on the ceiling (the body is rolled over)
-  const twist=speed>1.2?-clamp(Math.atan2(side*(e.zgRoll>1.5?-1:1),Math.abs(fwd))*back,-1.15,1.15):0; D(A,'twist',twist,aS); // ([v1.77] a full sideways jog: the hips turn most of the way)
-  if(near){ rotateBoneWorld(B.Hips,upB,A.twist); rotateBoneWorld(B.Spine,upB,-A.twist*0.4); rotateBoneWorld(B.Spine1,upB,-A.twist*0.3); rotateBoneWorld(B.Spine2,upB,-A.twist*0.3); }
+  const twist=speed>1.2?-clamp(Math.atan2(side*(e.zgRoll>1.5?-1:1),Math.abs(fwd))*back,-0.85,0.85):0; D(A,'twist',twist,aS);
+  if(near){ rotateBoneWorld(B.Hips,upB,A.twist); rotateBoneWorld(B.Spine,upB,-A.twist*0.5); rotateBoneWorld(B.Spine1,upB,-A.twist*0.5); }
   if(near){ const ls=A.landS||0; // landing: fold forward into the compression (and lift the chest on the rebound), shoulders sag with the weight
     const spL=X.hmOn&&e.onGround?0:A.sprint; // (the Blender sprint and slide bring their own hunch)
     const lean=-0.28*cr-(held?0.06:0)*Math.min(1,s/4)-0.34*spL-0.3*ls; rotateBoneWorld(B.Spine,right,lean); if(spL>0.01||ls>0.01) rotateBoneWorld(B.Neck,right,0.2*spL+0.18*Math.max(0,ls)); // lean into a sprint, eyes up
