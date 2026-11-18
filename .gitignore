@@ -1,1 +1,3 @@
 node_modules/
+tools/anim_pipeline/out/sheets/
+__pycache__/
