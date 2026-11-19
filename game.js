@@ -2394,7 +2394,7 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
         }
       }
     }
-    const HM_NAMES = ["Walk", "Sprint", "Crouch", "Slide", "Swim", "Idle", "Jog"];
+    const HM_NAMES = ["Walk", "Sprint", "Crouch", "Slide", "Swim", "Idle", "Jog", "JogB", "JogL", "JogR"];
     function heroMoveClips() {
       const H = window.HERO_MOVES;
       if (!H || !H.clips) return;
@@ -2433,27 +2433,34 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
       }
     }
     function ualMoveClips() {
-      const H = window.UAL_MOVES;
-      if (!H || !H.clips) return;
-      for (const n in H.clips) {
-        const C = H.clips[n], times = [];
-        for (let i = 0; i < C.n; i++) times.push(i / H.fps);
-        const tr = [];
-        for (const k in C.tracks) {
-          const v = C.tracks[k], i = k.lastIndexOf("."), nm = T.PropertyBinding.sanitizeNodeName(k.slice(0, i)) + k.slice(i);
-          tr.push(k.endsWith(".position") ? new T.VectorKeyframeTrack(nm, times, v) : new T.QuaternionKeyframeTrack(nm, times, v));
+      for (const H of [window.UAL_MOVES, window.INV_MOVES]) if (H && H.clips)
+        for (const n in H.clips) {
+          const C = H.clips[n], times = [];
+          for (let i = 0; i < C.n; i++) times.push(i / H.fps);
+          const tr = [];
+          for (const k in C.tracks) {
+            const v = C.tracks[k], i = k.lastIndexOf("."), nm = T.PropertyBinding.sanitizeNodeName(k.slice(0, i)) + k.slice(i);
+            tr.push(k.endsWith(".position") ? new T.VectorKeyframeTrack(nm, times, v) : new T.QuaternionKeyframeTrack(nm, times, v));
+          }
+          SOLDIER.clips[n] = new T.AnimationClip(n, C.dur, tr);
+          SOLDIER.clips[n].loop = C.loop;
         }
-        SOLDIER.clips[n] = new T.AnimationClip(n, C.dur, tr);
-        SOLDIER.clips[n].loop = C.loop;
+      const hu = SOLDIER.clips.INV_Hurdle;
+      if (hu) {
+        for (const t of hu.tracks) if (/Hips\.position$/.test(t.name)) {
+          const v = t.values, z0 = v[1];
+          for (let i = 1; i < v.length; i += 3) v[i] = z0;
+        }
       }
-      for (const [n, src, str] of [["Idle", "UAL_Idle_Loop", 0], ["Jog", "UAL_Jog_Fwd_Loop", 6.4]]) {
+      const inv = !!SOLDIER.clips.INV_Jog_Fwd;
+      for (const [n, src, str] of [["Idle", "UAL_Idle_Loop", 0], ["Jog", inv ? "INV_Jog_Fwd" : "UAL_Jog_Fwd_Loop", 6.4], ["JogB", "INV_Jog_Bwd", 6.4], ["JogL", "INV_Jog_Left", 5.44], ["JogR", "INV_Jog_Right", 5.44]]) {
         const cl = SOLDIER.clips[src];
         if (cl) {
           const k = cl.clone();
           k.name = "HM_" + n;
           k.stride = str;
           SOLDIER.clips["HM_" + n] = k;
-          if (n === "Jog") {
+          if (n === "Jog" && !inv) {
             for (const t of k.tracks) if (/Hips\.position$/.test(t.name)) {
               const v = t.values;
               let lo = 1e9, hi = -1e9;
@@ -4318,7 +4325,14 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
         D(W, iK, wIdle * f, aS);
         D(W, "Walk", 0, aS);
         D(W, "HM_Walk", wWalk * f, aS);
-        D(W, jK, wRun * (1 - spr) * f, aS);
+        const dj = c.act.HM_JogB && c.act.HM_JogL && c.act.HM_JogR, jw = wRun * (1 - spr) * f;
+        if (dj) {
+          const sd = X.side || 0, fw = fwd, m = Math.hypot(fw, sd) || 1, cf = fw / m, cs = sd / m, tw = Math.abs(cf) + Math.abs(cs) || 1;
+          D(W, jK, jw * Math.max(0, cf) / tw, aS);
+          D(W, "HM_JogB", jw * Math.max(0, -cf) / tw, aS);
+          D(W, "HM_JogR", jw * Math.max(0, cs) / tw, aS);
+          D(W, "HM_JogL", jw * Math.max(0, -cs) / tw, aS);
+        } else D(W, jK, jw, aS);
         D(W, "HM_Sprint", wRun * spr * f, aS);
         D(W, "TPose", wT, aS);
         W.HM_Crouch = cw;
@@ -4330,14 +4344,14 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
         const P = A.hmPh || (A.hmPh = {}), scW = c.g.scale.y * c.model.scale.y, sp = e.onGround ? speed : 0;
         A.hmT = (A.hmT == null ? hashE(e, 21) * 50 : A.hmT) + dt;
         X.hmTempo = 1 + 0.035 * Math.sin(A.hmT * 0.83) + 0.02 * Math.sin(A.hmT * 2.1 + 1.7);
-        X.hmMove = (W.HM_Walk || 0) + (W.HM_Jog || 0) + (W.HM_Sprint || 0) + (W.HM_Crouch || 0) + (W.HM_Slide || 0);
+        X.hmMove = (W.HM_Walk || 0) + (W.HM_Jog || 0) + (W.HM_JogB || 0) + (W.HM_JogL || 0) + (W.HM_JogR || 0) + (W.HM_Sprint || 0) + (W.HM_Crouch || 0) + (W.HM_Slide || 0);
         X.hmT = A.hmT;
         for (const n of HM_NAMES) {
           const ac = c.act["HM_" + n];
           if (!ac) continue;
           const cl = ac.getClip(), nat = 1 / cl.duration, str2 = cl.stride * scW;
           const rate2 = (n === "Slide" ? nat : str2 > 1e-3 ? clamp(sp / str2, n === "Swim" ? nat * 0.7 : 0, nat * (n === "Sprint" ? 2 : 2.5)) : nat) * X.hmTempo;
-          P[n] = (((P[n] == null ? hashE(e, 11 + HM_NAMES.indexOf(n)) : P[n]) + (n === "Walk" || n === "Crouch" || n === "Jog" ? back : 1) * rate2 * dt) % 1 + 1) % 1;
+          P[n] = (((P[n] == null ? hashE(e, 11 + HM_NAMES.indexOf(n)) : P[n]) + (n === "Walk" || n === "Crouch" || n === "Jog" && !c.act.HM_JogB ? back : 1) * rate2 * dt) % 1 + 1) % 1;
           ac.time = P[n] * cl.duration;
         }
       } else {
@@ -4651,7 +4665,8 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
     function animTorso(e, X) {
       const { A, B, near, upB, right, speed, side, fwd, back, aS, cr, held, s, pitch, pE } = X;
       if (!near) lcCacheApply(e, X);
-      const twist = speed > 1.2 ? -clamp(Math.atan2(side * (e.zgRoll > 1.5 ? -1 : 1), Math.abs(fwd)) * back, -0.85, 0.85) : 0;
+      const dirJ = (X.c.w.HM_JogB || 0) + (X.c.w.HM_JogL || 0) + (X.c.w.HM_JogR || 0) + (X.c.act.HM_JogB ? X.c.w.HM_Jog || 0 : 0);
+      const twist = speed > 1.2 ? -clamp(Math.atan2(side * (e.zgRoll > 1.5 ? -1 : 1), Math.abs(fwd)) * back, -0.85, 0.85) * Math.max(0, 1 - dirJ) : 0;
       D(A, "twist", twist, aS);
       if (near) {
         rotateBoneWorld(B.Hips, upB, A.twist);
@@ -17861,6 +17876,10 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
             sp: Math.max(sp, 6.5),
             hand: new V(e.pos.x + fx * (S.t0 + 0.3) + fz * 0.24, S.top, e.pos.z + fz * (S.t0 + 0.3) - fx * 0.24)
           };
+          {
+            const hc = SOLDIER && SOLDIER.clips.INV_Hurdle;
+            if (hc) gcPlay(e, "INV_Hurdle", { speed: hc.duration / e.pk.dur, fin: 0.06, fout: 0.1, tag: "vault" });
+          }
           if (e === player) sfx("whoosh", null, {});
           return true;
         }
@@ -18092,6 +18111,7 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
       if (!K || !X.near) return;
       if (K.kind === "vault") {
         const k = Math.min(1, K.t / K.dur), s = Math.sin(Math.PI * k);
+        if (e.gc && e.gc.tag === "vault") return;
         pkTurn(c, X, X.fwdB, 0.5 * s, 0.95);
         pkTurn(c, X, X.rightB, -0.3 * s, 0.95);
         const R = X.rightB, U = X.upB, F2 = X.fwdB;

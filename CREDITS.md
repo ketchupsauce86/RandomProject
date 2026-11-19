@@ -29,3 +29,5 @@ A few CC0 sound recordings by **Kenney** (https://kenney.nl). See `sounds/CREDIT
 ## Character model and its clips (`soldier.js`)
 
 The Soldier model and its Idle, Walk, Run and T-Pose clips come from the three.js examples (animations from Mixamo).
+
+- Directional jogs, hurdle and the other `INV_` moves (invmoves.js): original, made by Kash with the bpy pipeline in tools/anim_pipeline.

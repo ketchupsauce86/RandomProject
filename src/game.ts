@@ -774,7 +774,7 @@ function solveIK(A,B,C,target,pole){
 }
 // [v1.63] the hero moves (moves.js, from tools/retarget_moves.py): Walk, Sprint, Crouch (walking crouched) and Swim from the
 // CC0 Quaternius pack since v1.65, and Kash's Slide made in Blender, as extra clips 'HM_<name>' next to the soldier's own. Each carries its stride (soldier units per loop).
-const HM_NAMES=['Walk','Sprint','Crouch','Slide','Swim','Idle','Jog']; // ([v1.77] Idle and Jog come from the zip too: ualMoveClips)
+const HM_NAMES=['Walk','Sprint','Crouch','Slide','Swim','Idle','Jog','JogB','JogL','JogR']; // ([v1.77] Idle and Jog come from the zip too: ualMoveClips)
 function heroMoveClips(){ const H=window.HERO_MOVES; if(!H||!H.clips) return;
   for(const n of HM_NAMES){ const C=H.clips[n]; if(!C) continue; const times=[]; for(let i=0;i<C.n;i++) times.push(i/H.fps);
     // the loader strips ':' from node names (mixamorig:Hips -> mixamorigHips), so the tracks must too or they bind to the model root
@@ -791,17 +791,21 @@ function packMoveClips(){ ualMoveClips(); const H=window.PACK_MOVES; if(!H||!H.c
     SOLDIER.clips['PM_'+n]=new T.AnimationClip('PM_'+n,C.dur,tr); }
   for(const k in EMOTES){ const E=EMOTES[k], cl=E.clip&&SOLDIER.clips[E.clip]; if(cl&&!E.loop) E.dur=cl.duration*(E.speed?1/E.speed:1)+(E.hold||0); } }
 // [v1.74] every animation in the Quaternius zip on its own (ualmoves.js), as clips 'UAL_<name>' for the Emote Lab
-function ualMoveClips(){ const H=(window as any).UAL_MOVES; if(!H||!H.clips) return;
+function ualMoveClips(){ for(const H of [(window as any).UAL_MOVES,(window as any).INV_MOVES]) if(H&&H.clips)
   for(const n in H.clips){ const C=H.clips[n], times=[]; for(let i=0;i<C.n;i++) times.push(i/H.fps);
     const tr=[]; for(const k in C.tracks){ const v=C.tracks[k], i=k.lastIndexOf('.'), nm=T.PropertyBinding.sanitizeNodeName(k.slice(0,i))+k.slice(i);
       tr.push(k.endsWith('.position')?new T.VectorKeyframeTrack(nm,times,v):new T.QuaternionKeyframeTrack(nm,times,v)); }
     SOLDIER.clips[n]=new T.AnimationClip(n,C.dur,tr); (SOLDIER.clips[n] as any).loop=C.loop; }
+  // [v1.80] Kash's own pipeline moves (invmoves.js): the hurdle's hips stay level, since the vault itself carries the body over
+  const hu=SOLDIER.clips.INV_Hurdle; if(hu) for(const t of hu.tracks) if(/Hips\.position$/.test(t.name)){ const v=t.values, z0=v[1]; for(let i=1;i<v.length;i+=3) v[i]=z0; }
   // [v1.77] full Quaternius: standing and jogging are the zip's Idle and Jog (the soldier's own Idle and Run step aside).
   // stride: soldier units a loop, so a jog's cadence is natural at about 5 m/s
-  for(const [n,src,str] of [['Idle','UAL_Idle_Loop',0],['Jog','UAL_Jog_Fwd_Loop',6.4]] as any){ const cl=SOLDIER.clips[src]; if(cl){ const k=cl.clone(); k.name='HM_'+n; (k as any).stride=str; SOLDIER.clips['HM_'+n]=k;
+  // [v1.80] the jog in all four directions is Kash's pipeline jog (forward, back, left, right) when invmoves.js loaded
+  const inv=!!SOLDIER.clips.INV_Jog_Fwd;
+  for(const [n,src,str] of [['Idle','UAL_Idle_Loop',0],['Jog',inv?'INV_Jog_Fwd':'UAL_Jog_Fwd_Loop',6.4],['JogB','INV_Jog_Bwd',6.4],['JogL','INV_Jog_Left',5.44],['JogR','INV_Jog_Right',5.44]] as any){ const cl=SOLDIER.clips[src]; if(cl){ const k=cl.clone(); k.name='HM_'+n; (k as any).stride=str; SOLDIER.clips['HM_'+n]=k;
     // [v1.77.1] the zip's jog hops 28 cm a step, which read as the body jumbling about at game speed: keep 60% of the
     // bounce (about the height where the feet meet the ground), so it bobs like the sprint does
-    if(n==='Jog') for(const t of k.tracks) if(/Hips\.position$/.test(t.name)){ const v=t.values; let lo=1e9,hi=-1e9; for(let i=2;i<v.length;i+=3){ lo=Math.min(lo,v[i]); hi=Math.max(hi,v[i]); } const pv=lo+(hi-lo)*0.25; for(let i=2;i<v.length;i+=3) v[i]=pv+(v[i]-pv)*0.6; } } } }
+    if(n==='Jog'&&!inv) for(const t of k.tracks) if(/Hips\.position$/.test(t.name)){ const v=t.values; let lo=1e9,hi=-1e9; for(let i=2;i<v.length;i+=3){ lo=Math.min(lo,v[i]); hi=Math.max(hi,v[i]); } const pv=lo+(hi-lo)*0.25; for(let i=2;i<v.length;i+=3) v[i]=pv+(v[i]-pv)*0.6; } } } }
 // a clip emote: its clip takes over from whatever the mixer was blending, by the emote's weight (less while moving).
 // The action is made the first time a character plays that move (so 100 bots do not carry every dance around) and stopped after.
 function emClip(e,c){ const em=e&&e.emote, E=em&&em.E, k=E&&E.clip&&SOLDIER.clips[E.clip]?E.clip:null;
@@ -1700,17 +1704,21 @@ function animClips(e,X){ const {c,A,fwd,speed,aS,dt}=X;
     D(A,'hmSpr',e.sprinting&&e.onGround?1:A.sprint,aS); const spr=A.hmSpr; // (holding sprint is the Blender sprint even a touch under top speed)
     X.hmCr=Math.min(1,mv*(1-sl-sw)+sl+sw); X.hmOn=true;
     const iK=c.act.HM_Idle?'HM_Idle':'Idle', jK=c.act.HM_Jog?'HM_Jog':'Run'; if(iK!=='Idle') W.Idle=0; if(jK!=='Run') W.Run=0;
-    D(W,iK,wIdle*f,aS); D(W,'Walk',0,aS); D(W,'HM_Walk',wWalk*f,aS); D(W,jK,wRun*(1-spr)*f,aS); D(W,'HM_Sprint',wRun*spr*f,aS); D(W,'TPose',wT,aS);
+    D(W,iK,wIdle*f,aS); D(W,'Walk',0,aS); D(W,'HM_Walk',wWalk*f,aS); const dj=c.act.HM_JogB&&c.act.HM_JogL&&c.act.HM_JogR, jw=wRun*(1-spr)*f;
+    if(dj){ // [v1.80] which way the jog goes: forward, back, left or right, blended by the direction you travel in
+      const sd=X.side||0, fw=fwd, m=Math.hypot(fw,sd)||1, cf=fw/m, cs=sd/m, tw=Math.abs(cf)+Math.abs(cs)||1;
+      D(W,jK,jw*Math.max(0,cf)/tw,aS); D(W,'HM_JogB',jw*Math.max(0,-cf)/tw,aS); D(W,'HM_JogR',jw*Math.max(0,cs)/tw,aS); D(W,'HM_JogL',jw*Math.max(0,-cs)/tw,aS);
+    } else D(W,jK,jw,aS); D(W,'HM_Sprint',wRun*spr*f,aS); D(W,'TPose',wT,aS);
     W.HM_Crouch=cw; W.HM_Slide=sl; W.HM_Swim=sw;
     let tot=0; for(const n in W) tot+=W[n]; if(tot>1) for(const n in W) W[n]/=tot; // (the eased weights can overlap a hard switch)
     // each move runs on its own phase, paced by the ground covered over its stride (kept within a natural range so
     // the legs neither freeze nor blur); the slide and a swimmer treading water just play at their own speed
     const P=A.hmPh||(A.hmPh={}), scW=c.g.scale.y*c.model.scale.y, sp=e.onGround?speed:0;
     A.hmT=(A.hmT==null?hashE(e,21)*50:A.hmT)+dt; X.hmTempo=1+0.035*Math.sin(A.hmT*0.83)+0.02*Math.sin(A.hmT*2.1+1.7); // a stride is never quite the last one
-    X.hmMove=(W.HM_Walk||0)+(W.HM_Jog||0)+(W.HM_Sprint||0)+(W.HM_Crouch||0)+(W.HM_Slide||0); X.hmT=A.hmT;
+    X.hmMove=(W.HM_Walk||0)+(W.HM_Jog||0)+(W.HM_JogB||0)+(W.HM_JogL||0)+(W.HM_JogR||0)+(W.HM_Sprint||0)+(W.HM_Crouch||0)+(W.HM_Slide||0); X.hmT=A.hmT;
     for(const n of HM_NAMES){ const ac=c.act['HM_'+n]; if(!ac) continue; const cl=ac.getClip(), nat=1/cl.duration, str=(cl as any).stride*scW;
       const rate=(n==='Slide'?nat:str>1e-3?clamp(sp/str,n==='Swim'?nat*0.7:0,nat*(n==='Sprint'?2:2.5)):nat)*X.hmTempo;
-      P[n]=(((P[n]==null?hashE(e,11+HM_NAMES.indexOf(n)):P[n])+(n==='Walk'||n==='Crouch'||n==='Jog'?back:1)*rate*dt)%1+1)%1; ac.time=P[n]*cl.duration; }
+      P[n]=(((P[n]==null?hashE(e,11+HM_NAMES.indexOf(n)):P[n])+(n==='Walk'||n==='Crouch'||(n==='Jog'&&!c.act.HM_JogB)?back:1)*rate*dt)%1+1)%1; ac.time=P[n]*cl.duration; }
   } else { D(W,'Idle',wIdle,aS); D(W,'Walk',wWalk,aS); D(W,'Run',wRun,aS); D(W,'TPose',wT,aS); }
   for(const n in c.act) c.act[n].setEffectiveWeight(W[n]);
   // stride for the target blend (the weights lag a little; a full stride keeps the cadence natural while they catch up)
@@ -1886,7 +1894,8 @@ function animTorso(e,X){ const {A,B,near,upB,right,speed,side,fwd,back,aS,cr,hel
   if(!near) lcCacheApply(e,X);
   // hips turn toward the way you travel (strafe right: hips right), legs keep running "forward" for the clip.
   // side is along world-yaw right; in the body frame it flips on the ceiling (the body is rolled over)
-  const twist=speed>1.2?-clamp(Math.atan2(side*(e.zgRoll>1.5?-1:1),Math.abs(fwd))*back,-0.85,0.85):0; D(A,'twist',twist,aS);
+  const dirJ=(X.c.w.HM_JogB||0)+(X.c.w.HM_JogL||0)+(X.c.w.HM_JogR||0)+(X.c.act.HM_JogB?X.c.w.HM_Jog||0:0); // (the four-way jog turns itself)
+  const twist=speed>1.2?-clamp(Math.atan2(side*(e.zgRoll>1.5?-1:1),Math.abs(fwd))*back,-0.85,0.85)*Math.max(0,1-dirJ):0; D(A,'twist',twist,aS);
   if(near){ rotateBoneWorld(B.Hips,upB,A.twist); rotateBoneWorld(B.Spine,upB,-A.twist*0.5); rotateBoneWorld(B.Spine1,upB,-A.twist*0.5); }
   if(near){ const ls=A.landS||0; // landing: fold forward into the compression (and lift the chest on the rebound), shoulders sag with the weight
     const spL=X.hmOn&&e.onGround?0:A.sprint; // (the Blender sprint and slide bring their own hunch)
@@ -6539,6 +6548,7 @@ function pkTry(e,fx,fz,jump){ if(e.pk||!pkWalking(e)) return false; const gs=PKU
       const toF=MODE==='br'?Math.max(F,brFloor(x,z)):F;
       e.pk={kind:'vault',t:0,dur:clamp(0.36+thick*0.07+S.hh*0.08,0.4,0.72),from:e.pos.clone(),to:new V(x,e.pos.y+(toF-F),z),hh:S.hh,fx,fz,gs,sp:Math.max(sp,6.5),
         hand:new V(e.pos.x+fx*(S.t0+0.3)+fz*0.24,S.top,e.pos.z+fz*(S.t0+0.3)-fx*0.24)};
+      { const hc=SOLDIER&&SOLDIER.clips.INV_Hurdle; if(hc) gcPlay(e,'INV_Hurdle',{speed:hc.duration/e.pk.dur,fin:0.06,fout:0.1,tag:'vault'}); } // [v1.80] Kash's hurdle
       if(e===player) sfx('whoosh',null,{}); return true; } }
   if((jump||!e.onGround)&&S.hh>0.9&&S.hh<=3.4&&S.t0<0.9){ // a ledge within reach: grab it and pull up
     const d=S.t0+r+0.3, x=e.pos.x+fx*d, z=e.pos.z+fz*d;
@@ -6610,6 +6620,7 @@ function animParkour(e,X){ const {c,A,B,dt}=X, K=e.pk; if(A.prone==null){ A.pron
   if(e.ride&&X.near){ c.g.position.addScaledVector(X.upB,0.12); c.g.updateMatrixWorld(true); }
   if(!K||!X.near) return;
   if(K.kind==='vault'){ const k=Math.min(1,K.t/K.dur), s=Math.sin(Math.PI*k);
+    if(e.gc&&e.gc.tag==='vault') return; // (the hurdle clip does the whole move)
     pkTurn(c,X,X.fwdB,0.5*s,0.95); pkTurn(c,X,X.rightB,-0.3*s,0.95);
     const R=X.rightB, U=X.upB, F=X.fwdB;
     bend(X,'Left',1.15*s,-1.35*s); bend(X,'Right',0.95*s,-1.2*s); rotateBoneWorld(B.LeftUpLeg,F,0.5*s); rotateBoneWorld(B.RightUpLeg,F,0.5*s); // both legs swing through to one side
