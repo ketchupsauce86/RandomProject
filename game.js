@@ -2394,7 +2394,7 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
         }
       }
     }
-    const HM_NAMES = ["Walk", "Sprint", "Crouch", "Slide", "Swim", "Idle", "Jog", "JogB", "JogL", "JogR"];
+    const HM_NAMES = ["Walk", "Sprint", "Crouch", "Slide", "Swim"];
     function heroMoveClips() {
       const H = window.HERO_MOVES;
       if (!H || !H.clips) return;
@@ -2433,46 +2433,18 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
       }
     }
     function ualMoveClips() {
-      for (const H of [window.UAL_MOVES, window.INV_MOVES]) if (H && H.clips)
-        for (const n in H.clips) {
-          const C = H.clips[n], times = [];
-          for (let i = 0; i < C.n; i++) times.push(i / H.fps);
-          const tr = [];
-          for (const k in C.tracks) {
-            const v = C.tracks[k], i = k.lastIndexOf("."), nm = T.PropertyBinding.sanitizeNodeName(k.slice(0, i)) + k.slice(i);
-            tr.push(k.endsWith(".position") ? new T.VectorKeyframeTrack(nm, times, v) : new T.QuaternionKeyframeTrack(nm, times, v));
-          }
-          SOLDIER.clips[n] = new T.AnimationClip(n, C.dur, tr);
-          SOLDIER.clips[n].loop = C.loop;
+      const H = window.UAL_MOVES;
+      if (!H || !H.clips) return;
+      for (const n in H.clips) {
+        const C = H.clips[n], times = [];
+        for (let i = 0; i < C.n; i++) times.push(i / H.fps);
+        const tr = [];
+        for (const k in C.tracks) {
+          const v = C.tracks[k], i = k.lastIndexOf("."), nm = T.PropertyBinding.sanitizeNodeName(k.slice(0, i)) + k.slice(i);
+          tr.push(k.endsWith(".position") ? new T.VectorKeyframeTrack(nm, times, v) : new T.QuaternionKeyframeTrack(nm, times, v));
         }
-      const hu = SOLDIER.clips.INV_Hurdle;
-      if (hu) {
-        for (const t of hu.tracks) if (/Hips\.position$/.test(t.name)) {
-          const v = t.values, z0 = v[1];
-          for (let i = 1; i < v.length; i += 3) v[i] = z0;
-        }
-      }
-      const inv = !!SOLDIER.clips.INV_Jog_Fwd;
-      for (const [n, src, str] of [["Idle", "UAL_Idle_Loop", 0], ["Jog", inv ? "INV_Jog_Fwd" : "UAL_Jog_Fwd_Loop", 6.4], ["JogB", "INV_Jog_Bwd", 6.4], ["JogL", "INV_Jog_Left", 5.44], ["JogR", "INV_Jog_Right", 5.44]]) {
-        const cl = SOLDIER.clips[src];
-        if (cl) {
-          const k = cl.clone();
-          k.name = "HM_" + n;
-          k.stride = str;
-          SOLDIER.clips["HM_" + n] = k;
-          if (n === "Jog" && !inv) {
-            for (const t of k.tracks) if (/Hips\.position$/.test(t.name)) {
-              const v = t.values;
-              let lo = 1e9, hi = -1e9;
-              for (let i = 2; i < v.length; i += 3) {
-                lo = Math.min(lo, v[i]);
-                hi = Math.max(hi, v[i]);
-              }
-              const pv = lo + (hi - lo) * 0.25;
-              for (let i = 2; i < v.length; i += 3) v[i] = pv + (v[i] - pv) * 0.6;
-            }
-          }
-        }
+        SOLDIER.clips[n] = new T.AnimationClip(n, C.dur, tr);
+        SOLDIER.clips[n].loop = C.loop;
       }
     }
     function emClip(e, c) {
@@ -3056,12 +3028,6 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
         act["HM_" + n] = a;
         w["HM_" + n] = 0;
         hm = true;
-      }
-      if (act.HM_Idle) {
-        w.HM_Idle = 1;
-        w.Idle = 0;
-        act.HM_Idle.setEffectiveWeight(1);
-        act.Idle.setEffectiveWeight(0);
       }
       const gunMount = new T.Group();
       gunMount.scale.setScalar(GUN_S);
@@ -3700,23 +3666,6 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
       W.Idle = 1 - d.spread;
       W.Walk = W.Run = 0;
       for (const k in W) if (k.startsWith("HM_")) W[k] = 0;
-      if (SOLDIER.clips.UAL_Death01) {
-        if (c.gcA) {
-          c.gcA.stop();
-          c.gcA = null;
-          c.gcK = null;
-        }
-        if (c.pmA) c.pmA.setEffectiveWeight(0);
-        if (!c.deathA) {
-          c.deathA = c.mixer.clipAction(SOLDIER.clips.UAL_Death01);
-          c.deathA.reset();
-          c.deathA.play();
-          c.deathA.setEffectiveTimeScale(0);
-        }
-        c.deathA.time = Math.min(0.75, 0.25 + d.t * 0.8);
-        c.deathA.setEffectiveWeight(W.Idle);
-        W.Idle = 0;
-      }
       for (const k in c.act) c.act[k].setEffectiveWeight(W[k]);
       if (d.kind !== "ice") c.mixer.update(d.t < 0.3 ? dt * 0.3 : 0);
       const s = d.stuck ? Math.exp(-d.stuck.t * 7) * Math.sin(Math.min(1, d.stuck.t * 12) * Math.PI) : 0, bt = smooth(d.shatterAt - 0.3, d.shatterAt, d.t), fl = 1 + bt * (0.045 * Math.sin(d.t * TAU * 15) - 0.05);
@@ -4069,10 +4018,6 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
         return;
       }
       c.lcDead = false;
-      if (c.deathA) {
-        c.deathA.stop();
-        c.deathA = null;
-      }
       if (lockedUp(e)) {
         c.flash.visible = false;
         placeAboutMiddle(e, g);
@@ -4195,11 +4140,6 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
         const G = c.glider;
         A.brGl = Math.min(1, (A.brGl || 0) + X.dt * 3);
         G.scale.setScalar(Math.max(0.01, backOut(A.brGl)));
-        {
-          const m = B.LeftArm.getWorldPosition(_ba).add(B.RightArm.getWorldPosition(_bb)).multiplyScalar(0.5);
-          c.g.worldToLocal(m);
-          G.position.set(m.x, m.y + 0.5 + 1.15, m.z - 0.2 - 0.1);
-        }
         const turn = A.brTurn || 0;
         G.rotation.z = lerp(G.rotation.z, clamp(-turn * 0.45, -0.5, 0.5), 1 - Math.exp(-5 * X.dt));
         G.rotation.x = 0.05 * Math.sin(t * 2.3);
@@ -4209,11 +4149,7 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
           solveIK(B[sd + "Arm"], B[sd + "ForeArm"], B[sd + "Hand"], hand.clone(), _brP.copy(sh).addScaledVector(r, s2 * 0.6).addScaledVector(fw, -0.2));
           poseHand(B, sd, up.clone().addScaledVector(fw, 0.2), fw.clone().negate(), 1.1);
           const sw = Math.sin(t * 2.1 + s2 * 0.6) * 0.08, kick = Math.sin(t * 3.4 + s2 * 1.7) * 0.06;
-          if (e.gc && e.gc.tag === "glide") {
-            rotateBoneWorld(B[sd + "UpLeg"], r, -(sw + kick) * 1.6 * (X.gcW || 0));
-            rotateBoneWorld(B[sd + "UpLeg"], fw, -turn * 0.25 * (X.gcW || 0));
-            rotateBoneWorld(B[sd + "Leg"], r, (0.25 + kick * 2) * (X.gcW || 0));
-          } else limb(sd, "leg", 0.13 + 0.04 * s2 * turn, -0.82 - kick * 0.3, -0.08 + sw + kick, [0.15, 0, 1]);
+          limb(sd, "leg", 0.13 + 0.04 * s2 * turn, -0.82 - kick * 0.3, -0.08 + sw + kick, [0.15, 0, 1]);
         }
         for (const n of ["Spine1", "Spine2"]) rotateBoneWorld(B[n], fw, -turn * 0.12);
         rotateBoneWorld(B.Head, up, clamp(-turn * 0.3, -0.4, 0.4));
@@ -4319,20 +4255,10 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
         const spr = A.hmSpr;
         X.hmCr = Math.min(1, mv * (1 - sl - sw) + sl + sw);
         X.hmOn = true;
-        const iK = c.act.HM_Idle ? "HM_Idle" : "Idle", jK = c.act.HM_Jog ? "HM_Jog" : "Run";
-        if (iK !== "Idle") W.Idle = 0;
-        if (jK !== "Run") W.Run = 0;
-        D(W, iK, wIdle * f, aS);
+        D(W, "Idle", wIdle * f, aS);
         D(W, "Walk", 0, aS);
         D(W, "HM_Walk", wWalk * f, aS);
-        const dj = c.act.HM_JogB && c.act.HM_JogL && c.act.HM_JogR, jw = wRun * (1 - spr) * f;
-        if (dj) {
-          const sd = X.side || 0, fw = fwd, m = Math.hypot(fw, sd) || 1, cf = fw / m, cs = sd / m, tw = Math.abs(cf) + Math.abs(cs) || 1;
-          D(W, jK, jw * Math.max(0, cf) / tw, aS);
-          D(W, "HM_JogB", jw * Math.max(0, -cf) / tw, aS);
-          D(W, "HM_JogR", jw * Math.max(0, cs) / tw, aS);
-          D(W, "HM_JogL", jw * Math.max(0, -cs) / tw, aS);
-        } else D(W, jK, jw, aS);
+        D(W, "Run", wRun * (1 - spr) * f, aS);
         D(W, "HM_Sprint", wRun * spr * f, aS);
         D(W, "TPose", wT, aS);
         W.HM_Crouch = cw;
@@ -4344,14 +4270,14 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
         const P = A.hmPh || (A.hmPh = {}), scW = c.g.scale.y * c.model.scale.y, sp = e.onGround ? speed : 0;
         A.hmT = (A.hmT == null ? hashE(e, 21) * 50 : A.hmT) + dt;
         X.hmTempo = 1 + 0.035 * Math.sin(A.hmT * 0.83) + 0.02 * Math.sin(A.hmT * 2.1 + 1.7);
-        X.hmMove = (W.HM_Walk || 0) + (W.HM_Jog || 0) + (W.HM_JogB || 0) + (W.HM_JogL || 0) + (W.HM_JogR || 0) + (W.HM_Sprint || 0) + (W.HM_Crouch || 0) + (W.HM_Slide || 0);
+        X.hmMove = (W.HM_Walk || 0) + (W.HM_Sprint || 0) + (W.HM_Crouch || 0) + (W.HM_Slide || 0);
         X.hmT = A.hmT;
         for (const n of HM_NAMES) {
           const ac = c.act["HM_" + n];
           if (!ac) continue;
           const cl = ac.getClip(), nat = 1 / cl.duration, str2 = cl.stride * scW;
           const rate2 = (n === "Slide" ? nat : str2 > 1e-3 ? clamp(sp / str2, n === "Swim" ? nat * 0.7 : 0, nat * (n === "Sprint" ? 2 : 2.5)) : nat) * X.hmTempo;
-          P[n] = (((P[n] == null ? hashE(e, 11 + HM_NAMES.indexOf(n)) : P[n]) + (n === "Walk" || n === "Crouch" || n === "Jog" && !c.act.HM_JogB ? back : 1) * rate2 * dt) % 1 + 1) % 1;
+          P[n] = (((P[n] == null ? hashE(e, 11 + HM_NAMES.indexOf(n)) : P[n]) + (n === "Walk" || n === "Crouch" ? back : 1) * rate2 * dt) % 1 + 1) % 1;
           ac.time = P[n] * cl.duration;
         }
       } else {
@@ -4576,15 +4502,14 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
     }
     function animLegPose(e, X) {
       const { A, B, rightB, fwdB, held, pickaxe, cr, dt } = X;
-      const AIR = A.air * (1 - (e.gc && (e.gc.tag === "air" || e.gc.tag === "land") ? X.gcW || 0 : 0));
-      if (AIR > 0.02) {
-        const up = clamp((ZG.state === "ceil" ? -1 : 1) * e.vel.y / 10.5, -1, 1), tk = smooth(-0.5, 0.6, up) * AIR, rch = 1 - 0.55 * smooth(-0.3, -0.9, up);
+      if (A.air > 0.02) {
+        const up = clamp((ZG.state === "ceil" ? -1 : 1) * e.vel.y / 10.5, -1, 1), tk = smooth(-0.5, 0.6, up) * A.air, rch = 1 - 0.55 * smooth(-0.3, -0.9, up);
         if (!e.onGround) {
-          bend(X, "Left", (0.35 * AIR + 0.95 * tk) * rch, -(0.35 * AIR + 1.35 * tk) * rch);
-          bend(X, "Right", (0.12 * AIR + 0.5 * tk) * rch, -(0.55 * AIR + 0.95 * tk) * rch);
+          bend(X, "Left", (0.35 * A.air + 0.95 * tk) * rch, -(0.35 * A.air + 1.35 * tk) * rch);
+          bend(X, "Right", (0.12 * A.air + 0.5 * tk) * rch, -(0.55 * A.air + 0.95 * tk) * rch);
         }
         if (!held && !(pickaxe && e.swingT > 0)) {
-          const lift = tk * 1.9 + AIR * 0.25, out = Math.max(0, AIR - tk) * 0.85;
+          const lift = tk * 1.9 + A.air * 0.25, out = Math.max(0, A.air - tk) * 0.85;
           rotateBoneWorld(B.LeftArm, rightB, lift);
           rotateBoneWorld(B.RightArm, rightB, lift);
           rotateBoneWorld(B.LeftArm, fwdB, out);
@@ -4665,8 +4590,7 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
     function animTorso(e, X) {
       const { A, B, near, upB, right, speed, side, fwd, back, aS, cr, held, s, pitch, pE } = X;
       if (!near) lcCacheApply(e, X);
-      const dirJ = (X.c.w.HM_JogB || 0) + (X.c.w.HM_JogL || 0) + (X.c.w.HM_JogR || 0) + (X.c.act.HM_JogB ? X.c.w.HM_Jog || 0 : 0);
-      const twist = speed > 1.2 ? -clamp(Math.atan2(side * (e.zgRoll > 1.5 ? -1 : 1), Math.abs(fwd)) * back, -0.85, 0.85) * Math.max(0, 1 - dirJ) : 0;
+      const twist = speed > 1.2 ? -clamp(Math.atan2(side * (e.zgRoll > 1.5 ? -1 : 1), Math.abs(fwd)) * back, -0.85, 0.85) : 0;
       D(A, "twist", twist, aS);
       if (near) {
         rotateBoneWorld(B.Hips, upB, A.twist);
@@ -5113,7 +5037,6 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
       },
       robot: {
         n: "Robot",
-        robot: 1,
         loop: 1,
         bpm: 100,
         beats: 4,
@@ -6736,27 +6659,7 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
         c.emSpin = false;
       }
       const S = emScale(B), mv = smooth(0.6, 2.5, e.zgFloat ? e.vel.length() : Math.hypot(e.vel.x, e.vel.z)), Wl = W * (1 - mv);
-      const lg = E.robot ? 0 : EM_PAGES[0].indexOf(em.k) >= 0 ? 1 : 0, lag = (d) => loop2 ? ((uq - d) % 1 + 1) % 1 : clamp(uq - d, 0, 1);
-      const hp = emCh(E.hips, uq, loop2, _eH, 5), ch = emCh(E.chest, lg ? lag(0.035) : uq, loop2, _eK, 3), hd = emCh(E.head, lg ? lag(0.07) : uq, loop2, _eG, 3);
-      if (lg) {
-        if (loop2) {
-          const bp = u * E.beats * TAU, bt = 0.5 + 0.5 * Math.cos(bp);
-          hp[1] -= 0.03 * (1 - bt);
-          hp[3] += 0.045 * Math.sin(bp * 0.5);
-          ch[0] += 0.05 * (1 - bt);
-          ch[1] -= 0.035 * Math.sin(bp * 0.5 - 0.6);
-          hd[0] += 0.08 * Math.sin(bp - 0.9);
-          hd[1] += 0.03 * Math.sin(bp * 0.5 - 1.2);
-        } else {
-          const wind = Math.sin(Math.PI * clamp(u / 0.12, 0, 1)), settle = u > 0.85 ? Math.sin(Math.PI * clamp((u - 0.85) / 0.15, 0, 1)) : 0;
-          hp[1] -= 0.035 * wind + 0.02 * settle;
-          ch[0] += 0.08 * wind - 0.05 * settle;
-          hd[0] -= 0.06 * wind + 0.04 * settle;
-        }
-        const br = Math.sin(t * 1.7);
-        ch[0] += 0.015 * br;
-        hd[0] -= 0.01 * br;
-      }
+      const hp = emCh(E.hips, uq, loop2, _eH, 5), ch = emCh(E.chest, uq, loop2, _eK, 3), hd = emCh(E.head, uq, loop2, _eG, 3);
       c.model.position.x = hp[0] * Wl;
       c.model.position.y += hp[1] * Wl;
       c.model.updateMatrixWorld(true);
@@ -7529,7 +7432,7 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
         hurtFlash = Math.min(1, hurtFlash + 0.3 + amt / 90);
         sfx("hurt");
       }
-      if (amt >= 12 && t.alive && !t.gc && !t.emote && t.ch && t.pos.distanceTo(camera.position) < 45) gcPlay(t, gcU(info && info.head ? "UAL_Hit_Head" : "UAL_Hit_Chest", "PM_Bonk"), { w: 0.55, fin: 0.04, fout: 0.18, body: false, tag: "hit" });
+      if (amt >= 12 && t.alive && !t.gc && !t.emote && t.ch && t.pos.distanceTo(camera.position) < 45) gcPlay(t, gcU("UAL_Hit_Chest", "PM_Bonk"), { w: 0.55, fin: 0.04, fout: 0.18, body: false, tag: "hit" });
       if (!t.isPlayer && src && src !== t && src.alive) {
         t.healT = 0;
         if (t.enemy !== src) {
@@ -17395,6 +17298,7 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
       if (e.onGround && !was && e.br === "ground" && (e.brFall || 0) > 9) {
         e.anim.land = clamp(e.brFall / 20, 0.3, 1);
         if (e === player) sfx("land", null, { v: e.brFall, surf: "rock" });
+        if (!e.gc && e.brFall > 12) gcPlay(e, "UAL_Jump_Land", { w: 0.85, fin: 0.05, fout: 0.2, tag: "land" });
       }
       e.brFall = e.onGround ? 0 : Math.max(0, -e.vel.y);
     }
@@ -17779,24 +17683,6 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
       if (cr) {
         if (!e.gc) gcPlay(e, gcU("UAL_Crouch_Idle_Loop", "PM_Campfire"), { loop: true, body: false, fin: 0.3, fout: 0.2, tag: "crouch", low: true });
       } else gcStop(e, "crouch");
-      const A = X.A, air = !e.onGround && !e.zgFloat && !e.swimming && !e.pk && !e.roll && !e.ride && e.br !== "fall" && e.br !== "glide" && e.br !== "jet" && !e.brCrash;
-      A.airT = air ? (A.airT || 0) + X.dt : 0;
-      if (air && A.airT > 0.1) {
-        if (!e.gc) gcPlay(e, "UAL_Jump_Loop", { loop: true, body: false, fin: 0.2, fout: 0.14, tag: "air" });
-        if (e.gc && e.gc.tag === "air") A.airC = (A.airC || 0) + X.dt;
-      } else {
-        if (e.gc && e.gc.tag === "air") {
-          const w = 0.85 * (1 - smooth(1.5, 5.5, X.speed));
-          if (e.onGround && (A.airC || 0) > 0.35 && w > 0.15) {
-            e.gc = null;
-            gcPlay(e, "UAL_Jump_Land", { t0: 0.1, t1: 0.9, speed: 1.7, w, body: false, fin: 0.07, fout: 0.22, tag: "land" });
-          } else gcStop(e, "air");
-        }
-        A.airC = 0;
-      }
-      if (e.br === "glide") {
-        if (!e.gc) gcPlay(e, "UAL_Jump_Loop", { loop: true, body: false, speed: 0.6, fin: 0.3, fout: 0.2, tag: "glide" });
-      } else gcStop(e, "glide");
     }
     const gcBusy = (e) => !!(e.gc && e.gc.body || e.pk || e.prone || e.ride || e.sit || e.chan);
     const PKU = () => MODE !== "br" && ZG.state === "ceil" ? -1 : 1;
@@ -17876,10 +17762,6 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
             sp: Math.max(sp, 6.5),
             hand: new V(e.pos.x + fx * (S.t0 + 0.3) + fz * 0.24, S.top, e.pos.z + fz * (S.t0 + 0.3) - fx * 0.24)
           };
-          {
-            const hc = SOLDIER && SOLDIER.clips.INV_Hurdle;
-            if (hc) gcPlay(e, "INV_Hurdle", { speed: hc.duration / e.pk.dur, fin: 0.06, fout: 0.1, tag: "vault" });
-          }
           if (e === player) sfx("whoosh", null, {});
           return true;
         }
@@ -18111,7 +17993,6 @@ void main(){ vec2 d=gl_PointCoord-0.5; float r=length(d)*2.0; if(r>1.0) discard;
       if (!K || !X.near) return;
       if (K.kind === "vault") {
         const k = Math.min(1, K.t / K.dur), s = Math.sin(Math.PI * k);
-        if (e.gc && e.gc.tag === "vault") return;
         pkTurn(c, X, X.fwdB, 0.5 * s, 0.95);
         pkTurn(c, X, X.rightB, -0.3 * s, 0.95);
         const R = X.rightB, U = X.upB, F2 = X.fwdB;

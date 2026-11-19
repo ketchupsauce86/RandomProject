@@ -774,7 +774,7 @@ function solveIK(A,B,C,target,pole){
 }
 // [v1.63] the hero moves (moves.js, from tools/retarget_moves.py): Walk, Sprint, Crouch (walking crouched) and Swim from the
 // CC0 Quaternius pack since v1.65, and Kash's Slide made in Blender, as extra clips 'HM_<name>' next to the soldier's own. Each carries its stride (soldier units per loop).
-const HM_NAMES=['Walk','Sprint','Crouch','Slide','Swim','Idle','Jog','JogB','JogL','JogR']; // ([v1.77] Idle and Jog come from the zip too: ualMoveClips)
+const HM_NAMES=['Walk','Sprint','Crouch','Slide','Swim'];
 function heroMoveClips(){ const H=window.HERO_MOVES; if(!H||!H.clips) return;
   for(const n of HM_NAMES){ const C=H.clips[n]; if(!C) continue; const times=[]; for(let i=0;i<C.n;i++) times.push(i/H.fps);
     // the loader strips ':' from node names (mixamorig:Hips -> mixamorigHips), so the tracks must too or they bind to the model root
@@ -791,21 +791,11 @@ function packMoveClips(){ ualMoveClips(); const H=window.PACK_MOVES; if(!H||!H.c
     SOLDIER.clips['PM_'+n]=new T.AnimationClip('PM_'+n,C.dur,tr); }
   for(const k in EMOTES){ const E=EMOTES[k], cl=E.clip&&SOLDIER.clips[E.clip]; if(cl&&!E.loop) E.dur=cl.duration*(E.speed?1/E.speed:1)+(E.hold||0); } }
 // [v1.74] every animation in the Quaternius zip on its own (ualmoves.js), as clips 'UAL_<name>' for the Emote Lab
-function ualMoveClips(){ for(const H of [(window as any).UAL_MOVES,(window as any).INV_MOVES]) if(H&&H.clips)
+function ualMoveClips(){ const H=(window as any).UAL_MOVES; if(!H||!H.clips) return;
   for(const n in H.clips){ const C=H.clips[n], times=[]; for(let i=0;i<C.n;i++) times.push(i/H.fps);
     const tr=[]; for(const k in C.tracks){ const v=C.tracks[k], i=k.lastIndexOf('.'), nm=T.PropertyBinding.sanitizeNodeName(k.slice(0,i))+k.slice(i);
       tr.push(k.endsWith('.position')?new T.VectorKeyframeTrack(nm,times,v):new T.QuaternionKeyframeTrack(nm,times,v)); }
-    SOLDIER.clips[n]=new T.AnimationClip(n,C.dur,tr); (SOLDIER.clips[n] as any).loop=C.loop; }
-  // [v1.80] Kash's own pipeline moves (invmoves.js): the hurdle's hips stay level, since the vault itself carries the body over
-  const hu=SOLDIER.clips.INV_Hurdle; if(hu) for(const t of hu.tracks) if(/Hips\.position$/.test(t.name)){ const v=t.values, z0=v[1]; for(let i=1;i<v.length;i+=3) v[i]=z0; }
-  // [v1.77] full Quaternius: standing and jogging are the zip's Idle and Jog (the soldier's own Idle and Run step aside).
-  // stride: soldier units a loop, so a jog's cadence is natural at about 5 m/s
-  // [v1.80] the jog in all four directions is Kash's pipeline jog (forward, back, left, right) when invmoves.js loaded
-  const inv=!!SOLDIER.clips.INV_Jog_Fwd;
-  for(const [n,src,str] of [['Idle','UAL_Idle_Loop',0],['Jog',inv?'INV_Jog_Fwd':'UAL_Jog_Fwd_Loop',6.4],['JogB','INV_Jog_Bwd',6.4],['JogL','INV_Jog_Left',5.44],['JogR','INV_Jog_Right',5.44]] as any){ const cl=SOLDIER.clips[src]; if(cl){ const k=cl.clone(); k.name='HM_'+n; (k as any).stride=str; SOLDIER.clips['HM_'+n]=k;
-    // [v1.77.1] the zip's jog hops 28 cm a step, which read as the body jumbling about at game speed: keep 60% of the
-    // bounce (about the height where the feet meet the ground), so it bobs like the sprint does
-    if(n==='Jog'&&!inv) for(const t of k.tracks) if(/Hips\.position$/.test(t.name)){ const v=t.values; let lo=1e9,hi=-1e9; for(let i=2;i<v.length;i+=3){ lo=Math.min(lo,v[i]); hi=Math.max(hi,v[i]); } const pv=lo+(hi-lo)*0.25; for(let i=2;i<v.length;i+=3) v[i]=pv+(v[i]-pv)*0.6; } } } }
+    SOLDIER.clips[n]=new T.AnimationClip(n,C.dur,tr); (SOLDIER.clips[n] as any).loop=C.loop; } }
 // a clip emote: its clip takes over from whatever the mixer was blending, by the emote's weight (less while moving).
 // The action is made the first time a character plays that move (so 100 bots do not carry every dance around) and stopped after.
 function emClip(e,c){ const em=e&&e.emote, E=em&&em.E, k=E&&E.clip&&SOLDIER.clips[E.clip]?E.clip:null;
@@ -1125,7 +1115,6 @@ function makeCharacterGLB(){
   for(const n of ['Idle','Walk','Run','TPose']){ const a=mixer.clipAction(SOLDIER.clips[n]); a.play(); a.setEffectiveWeight(n==='Idle'?1:0); a.time=Math.random()*a.getClip().duration; act[n]=a; }
   const w:any={Idle:1,Walk:0,Run:0,TPose:0}; let hm=false;
   for(const n of HM_NAMES){ const cl=SOLDIER.clips['HM_'+n]; if(!cl) continue; const a=mixer.clipAction(cl); a.play(); a.setEffectiveWeight(0); a.setEffectiveTimeScale(0); act['HM_'+n]=a; w['HM_'+n]=0; hm=true; }
-  if((act as any).HM_Idle){ w.HM_Idle=1; w.Idle=0; (act as any).HM_Idle.setEffectiveWeight(1); (act as any).Idle.setEffectiveWeight(0); }
   const gunMount=new T.Group(); gunMount.scale.setScalar(GUN_S); g.add(gunMount);
   const pickG=new T.Group(); const handle=new T.Mesh(GEO.handle,colorMat(0x6b4a2a)); handle.position.y=0.35; const ph=new T.Mesh(GEO.pickHead,colorMat(0xb8c4d6)); ph.position.set(0,0.78,0); pickG.add(handle,ph); pickG.visible=false; g.add(pickG);
   // [v1.49] a cartoon ink line round the armour: the body again, inside out and pushed out along its normals
@@ -1402,12 +1391,7 @@ function deathPose(e,g,c,dt){
   d.spread=d.kind==='ice'?0:Math.min(d.kind==='shot'||d.kind==='burn'?0.45:1,d.spread+dt*(d.stuck?8:3));
   // blown up or burned: the body smoulders until it breaks apart
   if((d.kind==='explosion'||d.kind==='burn')&&g.visible){ d.fx+=dt; if(d.fx>0.06){ d.fx=0; flame(_dv.copy(d.c).add(new V(rnd(-0.4,0.4),rnd(-0.7,0.7),rnd(-0.4,0.4))),rnd(0.5,0.9),rnd(0.35,0.6),new V(rnd(-0.5,0.5),rnd(1,2.5),rnd(-0.5,0.5))); } }
-  const W=c.w; W.TPose=d.spread; W.Idle=(1-d.spread); W.Walk=W.Run=0; for(const k in W) if(k.startsWith('HM_')) W[k]=0;
-  if(SOLDIER.clips.UAL_Death01){ // [v1.77] the limp body is the zip's knocked-out pose
-    if(c.gcA){ c.gcA.stop(); c.gcA=null; c.gcK=null; } if(c.pmA) c.pmA.setEffectiveWeight(0);
-    if(!c.deathA){ c.deathA=c.mixer.clipAction(SOLDIER.clips.UAL_Death01); c.deathA.reset(); c.deathA.play(); c.deathA.setEffectiveTimeScale(0); }
-    c.deathA.time=Math.min(0.75,0.25+d.t*0.8); c.deathA.setEffectiveWeight(W.Idle); W.Idle=0; }
-  for(const k in c.act) c.act[k].setEffectiveWeight(W[k]);
+  const W=c.w; W.TPose=d.spread; W.Idle=(1-d.spread); W.Walk=W.Run=0; for(const k in W) if(k.startsWith('HM_')) W[k]=0; for(const k in c.act) c.act[k].setEffectiveWeight(W[k]);
   if(d.kind!=='ice') c.mixer.update(d.t<0.3?dt*0.3:0); // frozen bodies keep exactly the pose they froze in (no mixer: the bones stay put)
   // squash against the wall right after the hit, and a beat before the shatter: the body shivers and burns white
   const s=d.stuck?Math.exp(-d.stuck.t*7)*Math.sin(Math.min(1,d.stuck.t*12)*Math.PI):0, bt=smooth(d.shatterAt-0.3,d.shatterAt,d.t), fl=1+bt*(0.045*Math.sin(d.t*TAU*15)-0.05);
@@ -1568,7 +1552,7 @@ function animateGLB(e,dt){
   const c=e.ch, g=c.g; g.position.copy(e.pos); g.rotation.y=e.emote?e.emote.yaw:e.faceYaw!=null?e.faceYaw:e.yaw; g.scale.setScalar((e.titanS||1)*(e.tinyT>0?0.45:1));
   const a=1-Math.exp(-14*dt), aS=1-Math.exp(-7*dt);
   if(!e.alive){ c.flash.visible=false; deathPose(e,g,c,dt); return; }
-  c.lcDead=false; if(c.deathA){ c.deathA.stop(); c.deathA=null; }
+  c.lcDead=false;
   if(lockedUp(e)){ c.flash.visible=false; placeAboutMiddle(e,g); c.lcLock=true;
     if(e.stun>0&&!(e.frozen>0)){ const j=0.045*Math.min(1,e.stun*2); g.position.x+=rnd(-j,j); g.position.y+=rnd(-j,j); g.position.z+=rnd(-j,j); } return; }
   if(c.lcLock){ c.lcLock=false; if(c.blHave){ c.blPrev.set(c.blLast); c.blDtL=0; } poseSnap(c,0.3); } // thawed or shaken off the stun: ease out of the held pose (it was still)
@@ -1630,15 +1614,12 @@ function animBR(e,X){ if(MODE!=='br'||!X.near) return; const c=e.ch, B=c.bones, 
     for(const sd of ['Left','Right']) poseHand(B,sd,B[sd+'Hand'].getWorldPosition(_ba).sub(B[sd+'ForeArm'].getWorldPosition(_bb)),up.clone().negate().addScaledVector(fw,1),0.15); return; }
   if(e.br==='glide'&&c.glider){ const G=c.glider; // both hands on the bar, legs dangling and swinging with the turns
     A.brGl=Math.min(1,(A.brGl||0)+X.dt*3); G.scale.setScalar(Math.max(0.01,backOut(A.brGl)));
-    { const m=B.LeftArm.getWorldPosition(_ba).add(B.RightArm.getWorldPosition(_bb)).multiplyScalar(0.5); c.g.worldToLocal(m); // [v1.77] the bar sits just above the shoulders, wherever the body hangs, so the hands really hold it
-      G.position.set(m.x,m.y+0.5+1.15,m.z-0.2-0.1); }
     const turn=A.brTurn||0; G.rotation.z=lerp(G.rotation.z,clamp(-turn*0.45,-0.5,0.5),1-Math.exp(-5*X.dt)); G.rotation.x=0.05*Math.sin(t*2.3); G.updateMatrixWorld(true);
     for(const sd of ['Left','Right']){ const s2=sd==='Right'?1:-1, hand=G.localToWorld(_bb.set(-s2*0.36,-1.12,0.22)), sh=B[sd+'Arm'].getWorldPosition(_ba);
       solveIK(B[sd+'Arm'],B[sd+'ForeArm'],B[sd+'Hand'],hand.clone(),_brP.copy(sh).addScaledVector(r,s2*0.6).addScaledVector(fw,-0.2));
       poseHand(B,sd,up.clone().addScaledVector(fw,0.2),fw.clone().negate(),1.1);
       const sw=Math.sin(t*2.1+s2*0.6)*0.08, kick=Math.sin(t*3.4+s2*1.7)*0.06;
-      if(e.gc&&e.gc.tag==='glide'){ rotateBoneWorld(B[sd+'UpLeg'],r,-(sw+kick)*1.6*(X.gcW||0)); rotateBoneWorld(B[sd+'UpLeg'],fw,-turn*0.25*(X.gcW||0)); rotateBoneWorld(B[sd+'Leg'],r,(0.25+kick*2)*(X.gcW||0)); } // [v1.77] the zip's hang, swinging with the wind and the turns
-      else limb(sd,'leg',0.13+0.04*s2*turn,-0.82-kick*0.3,-0.08+sw+kick,[0.15,0,1]); }
+      limb(sd,'leg',0.13+0.04*s2*turn,-0.82-kick*0.3,-0.08+sw+kick,[0.15,0,1]); }
     for(const n of ['Spine1','Spine2']) rotateBoneWorld(B[n],fw,-turn*0.12);
     rotateBoneWorld(B.Head,up,clamp(-turn*0.3,-0.4,0.4)); }
 }
@@ -1703,22 +1684,17 @@ function animClips(e,X){ const {c,A,fwd,speed,aS,dt}=X;
     const mv=smooth(0.3,1.5,s), sl=A.slide||0, sw=(A.swim||0)*(1-sl), cw=A.crouch*mv*(1-sl-sw), f=Math.max(0,1-sl-sw-cw);
     D(A,'hmSpr',e.sprinting&&e.onGround?1:A.sprint,aS); const spr=A.hmSpr; // (holding sprint is the Blender sprint even a touch under top speed)
     X.hmCr=Math.min(1,mv*(1-sl-sw)+sl+sw); X.hmOn=true;
-    const iK=c.act.HM_Idle?'HM_Idle':'Idle', jK=c.act.HM_Jog?'HM_Jog':'Run'; if(iK!=='Idle') W.Idle=0; if(jK!=='Run') W.Run=0;
-    D(W,iK,wIdle*f,aS); D(W,'Walk',0,aS); D(W,'HM_Walk',wWalk*f,aS); const dj=c.act.HM_JogB&&c.act.HM_JogL&&c.act.HM_JogR, jw=wRun*(1-spr)*f;
-    if(dj){ // [v1.80] which way the jog goes: forward, back, left or right, blended by the direction you travel in
-      const sd=X.side||0, fw=fwd, m=Math.hypot(fw,sd)||1, cf=fw/m, cs=sd/m, tw=Math.abs(cf)+Math.abs(cs)||1;
-      D(W,jK,jw*Math.max(0,cf)/tw,aS); D(W,'HM_JogB',jw*Math.max(0,-cf)/tw,aS); D(W,'HM_JogR',jw*Math.max(0,cs)/tw,aS); D(W,'HM_JogL',jw*Math.max(0,-cs)/tw,aS);
-    } else D(W,jK,jw,aS); D(W,'HM_Sprint',wRun*spr*f,aS); D(W,'TPose',wT,aS);
+    D(W,'Idle',wIdle*f,aS); D(W,'Walk',0,aS); D(W,'HM_Walk',wWalk*f,aS); D(W,'Run',wRun*(1-spr)*f,aS); D(W,'HM_Sprint',wRun*spr*f,aS); D(W,'TPose',wT,aS);
     W.HM_Crouch=cw; W.HM_Slide=sl; W.HM_Swim=sw;
     let tot=0; for(const n in W) tot+=W[n]; if(tot>1) for(const n in W) W[n]/=tot; // (the eased weights can overlap a hard switch)
     // each move runs on its own phase, paced by the ground covered over its stride (kept within a natural range so
     // the legs neither freeze nor blur); the slide and a swimmer treading water just play at their own speed
     const P=A.hmPh||(A.hmPh={}), scW=c.g.scale.y*c.model.scale.y, sp=e.onGround?speed:0;
     A.hmT=(A.hmT==null?hashE(e,21)*50:A.hmT)+dt; X.hmTempo=1+0.035*Math.sin(A.hmT*0.83)+0.02*Math.sin(A.hmT*2.1+1.7); // a stride is never quite the last one
-    X.hmMove=(W.HM_Walk||0)+(W.HM_Jog||0)+(W.HM_JogB||0)+(W.HM_JogL||0)+(W.HM_JogR||0)+(W.HM_Sprint||0)+(W.HM_Crouch||0)+(W.HM_Slide||0); X.hmT=A.hmT;
+    X.hmMove=(W.HM_Walk||0)+(W.HM_Sprint||0)+(W.HM_Crouch||0)+(W.HM_Slide||0); X.hmT=A.hmT;
     for(const n of HM_NAMES){ const ac=c.act['HM_'+n]; if(!ac) continue; const cl=ac.getClip(), nat=1/cl.duration, str=(cl as any).stride*scW;
       const rate=(n==='Slide'?nat:str>1e-3?clamp(sp/str,n==='Swim'?nat*0.7:0,nat*(n==='Sprint'?2:2.5)):nat)*X.hmTempo;
-      P[n]=(((P[n]==null?hashE(e,11+HM_NAMES.indexOf(n)):P[n])+(n==='Walk'||n==='Crouch'||(n==='Jog'&&!c.act.HM_JogB)?back:1)*rate*dt)%1+1)%1; ac.time=P[n]*cl.duration; }
+      P[n]=(((P[n]==null?hashE(e,11+HM_NAMES.indexOf(n)):P[n])+(n==='Walk'||n==='Crouch'?back:1)*rate*dt)%1+1)%1; ac.time=P[n]*cl.duration; }
   } else { D(W,'Idle',wIdle,aS); D(W,'Walk',wWalk,aS); D(W,'Run',wRun,aS); D(W,'TPose',wT,aS); }
   for(const n in c.act) c.act[n].setEffectiveWeight(W[n]);
   // stride for the target blend (the weights lag a little; a full stride keeps the cadence natural while they catch up)
@@ -1846,13 +1822,12 @@ function animZGLegs(e,X){ const {A,B,rightB,upB,fwdB,dt}=X; const tI0=A.zgI||0;
 }
 // [S1] jump and sprint legs (near only; animZGLegs goes first)
 function animLegPose(e,X){ const {A,B,rightB,fwdB,held,pickaxe,cr,dt}=X;
-  const AIR=A.air*(1-(e.gc&&(e.gc.tag==='air'||e.gc.tag==='land')?X.gcW||0:0)); // ([v1.77] the zip's jump clip has the body while it plays)
-  if(AIR>0.02){
+  if(A.air>0.02){
     // jump: knees tuck on the way up, legs reach down for the landing, arms swing up then out for balance.
     // "Up" is away from the surface: on the ceiling that is world -y (the jump is vel.y=-10.5)
-    const up=clamp((ZG.state==='ceil'?-1:1)*e.vel.y/10.5,-1,1), tk=smooth(-0.5,0.6,up)*AIR, rch=1-0.55*smooth(-0.3,-0.9,up); // falling fast: legs straighten to reach
-    if(!e.onGround){ bend(X,'Left',(0.35*AIR+0.95*tk)*rch,-(0.35*AIR+1.35*tk)*rch); bend(X,'Right',(0.12*AIR+0.5*tk)*rch,-(0.55*AIR+0.95*tk)*rch); } // touched down: the foot IK has the legs
-    if(!held&&!(pickaxe&&e.swingT>0)){ const lift=tk*1.9+AIR*0.25, out=Math.max(0,AIR-tk)*0.85; // the arms settle as A.air runs out
+    const up=clamp((ZG.state==='ceil'?-1:1)*e.vel.y/10.5,-1,1), tk=smooth(-0.5,0.6,up)*A.air, rch=1-0.55*smooth(-0.3,-0.9,up); // falling fast: legs straighten to reach
+    if(!e.onGround){ bend(X,'Left',(0.35*A.air+0.95*tk)*rch,-(0.35*A.air+1.35*tk)*rch); bend(X,'Right',(0.12*A.air+0.5*tk)*rch,-(0.55*A.air+0.95*tk)*rch); } // touched down: the foot IK has the legs
+    if(!held&&!(pickaxe&&e.swingT>0)){ const lift=tk*1.9+A.air*0.25, out=Math.max(0,A.air-tk)*0.85; // the arms settle as A.air runs out
       rotateBoneWorld(B.LeftArm,rightB,lift); rotateBoneWorld(B.RightArm,rightB,lift); rotateBoneWorld(B.LeftArm,fwdB,out); rotateBoneWorld(B.RightArm,fwdB,-out); }
   }
   if(e.onGround&&A.sprint>0.02&&!X.hmOn){
@@ -1894,8 +1869,7 @@ function animTorso(e,X){ const {A,B,near,upB,right,speed,side,fwd,back,aS,cr,hel
   if(!near) lcCacheApply(e,X);
   // hips turn toward the way you travel (strafe right: hips right), legs keep running "forward" for the clip.
   // side is along world-yaw right; in the body frame it flips on the ceiling (the body is rolled over)
-  const dirJ=(X.c.w.HM_JogB||0)+(X.c.w.HM_JogL||0)+(X.c.w.HM_JogR||0)+(X.c.act.HM_JogB?X.c.w.HM_Jog||0:0); // (the four-way jog turns itself)
-  const twist=speed>1.2?-clamp(Math.atan2(side*(e.zgRoll>1.5?-1:1),Math.abs(fwd))*back,-0.85,0.85)*Math.max(0,1-dirJ):0; D(A,'twist',twist,aS);
+  const twist=speed>1.2?-clamp(Math.atan2(side*(e.zgRoll>1.5?-1:1),Math.abs(fwd))*back,-0.85,0.85):0; D(A,'twist',twist,aS);
   if(near){ rotateBoneWorld(B.Hips,upB,A.twist); rotateBoneWorld(B.Spine,upB,-A.twist*0.5); rotateBoneWorld(B.Spine1,upB,-A.twist*0.5); }
   if(near){ const ls=A.landS||0; // landing: fold forward into the compression (and lift the chest on the rebound), shoulders sag with the weight
     const spL=X.hmOn&&e.onGround?0:A.sprint; // (the Blender sprint and slide bring their own hunch)
@@ -2140,7 +2114,7 @@ const EMOTES:any={
     hips:[[0,0,0.01,0,0,0],[0.25,0,-0.06,0,0,0],[0.5,0,0.01,0,0,0],[0.75,0,-0.06,0,0,0]],
     chest:[[0,0.12,0.12,0.15],[0.25,-0.05,0,0],[0.5,0.12,-0.12,-0.15],[0.75,-0.05,0,0]],
     head:[[0,0.2,0,0],[0.25,-0.05,0,0],[0.5,0.2,0,0],[0.75,-0.05,0,0]], hand:{R:{c:1.35},L:{c:1.35}}},
-  robot:{n:'Robot',robot:1,loop:1,bpm:100,beats:4,step:8,
+  robot:{n:'Robot',loop:1,bpm:100,beats:4,step:8,
     R:[[0,0.30,0.14,0.10],[0.25,0.10,0.02,0.34],[0.5,0.30,-0.06,0.22],[0.75,0.06,0.12,0.30]],
     L:[[0,-0.10,0.02,0.34],[0.25,-0.30,0.14,0.10],[0.5,-0.06,0.12,0.30],[0.75,-0.30,-0.06,0.22]],
     hips:[[0,0,-0.03,0,0,0],[0.125,0,0,0,0,0],[0.25,0,-0.03,0,0,0],[0.375,0,0,0,0,0],[0.5,0,-0.03,0,0,0],[0.625,0,0,0,0,0],[0.75,0,-0.03,0,0,0],[0.875,0,0,0,0,0]],
@@ -2647,15 +2621,7 @@ function emotePose(e,X){ const em=e.emote, E=em&&em.E; if(!E) return;
   else if(c.emSpin){ c.spin.quaternion.identity(); c.emSpin=false; }
   const S=emScale(B), mv=smooth(0.6,2.5,e.zgFloat?e.vel.length():Math.hypot(e.vel.x,e.vel.z)), Wl=W*(1-mv);
   // hips: slide and turn the pelvis, then the spine and head take the net pose (each bone adds a share of what is left to do)
-  // [v1.76] the starter emotes, reanimated: overlapping action (the chest trails the hips and the head trails the chest),
-  // a groove in the knees and hips on every beat, a dip to wind up and an overshoot to settle, and breathing
-  const lg=E.robot?0:EM_PAGES[0].indexOf(em.k)>=0?1:0, lag=(d)=>loop?((uq-d)%1+1)%1:clamp(uq-d,0,1);
-  const hp=emCh(E.hips,uq,loop,_eH,5), ch=emCh(E.chest,lg?lag(0.035):uq,loop,_eK,3), hd=emCh(E.head,lg?lag(0.07):uq,loop,_eG,3);
-  if(lg){ if(loop){ const bp=u*E.beats*TAU, bt=0.5+0.5*Math.cos(bp);
-      hp[1]-=0.03*(1-bt); hp[3]+=0.045*Math.sin(bp*0.5); ch[0]+=0.05*(1-bt); ch[1]-=0.035*Math.sin(bp*0.5-0.6); hd[0]+=0.08*Math.sin(bp-0.9); hd[1]+=0.03*Math.sin(bp*0.5-1.2); }
-    else { const wind=Math.sin(Math.PI*clamp(u/0.12,0,1)), settle=u>0.85?Math.sin(Math.PI*clamp((u-0.85)/0.15,0,1)):0;
-      hp[1]-=0.035*wind+0.02*settle; ch[0]+=0.08*wind-0.05*settle; hd[0]-=0.06*wind+0.04*settle; }
-    const br=Math.sin(t*1.7); ch[0]+=0.015*br; hd[0]-=0.01*br; }
+  const hp=emCh(E.hips,uq,loop,_eH,5), ch=emCh(E.chest,uq,loop,_eK,3), hd=emCh(E.head,uq,loop,_eG,3);
   c.model.position.x=hp[0]*Wl; c.model.position.y+=hp[1]*Wl; c.model.updateMatrixWorld(true);
   const hy=hp[2]*Wl, hr=hp[3]*Wl, hpi=hp[4]*Wl;
   rotateBoneWorld(B.Hips,up,hy); rotateBoneWorld(B.Hips,fw,hr); rotateBoneWorld(B.Hips,r,hpi);
@@ -2935,7 +2901,7 @@ function hurt(t,amt,src,info){
   t.hp-=left; t.anim.hit=Math.min(1,(t.anim.hit||0)+0.35+amt/50);
   if(src===player&&t!==player){ player.dmgDealt+=amt; MS.hits++; if(info.head) MS.heads++; showDmg(info.point||t.pos.clone().add(new V(0,1.4,0)),amt,info.head?'head':(sh>0?'shield':'')); hitMarker(info.head); if(!info.soft||sh>0&&t.shield<=0) sfx(sh>0&&t.shield<=0?'shieldBreak':info.head?'head':(sh>0?'shield':'hit')); }
   if(t===player){ hurtFlash=Math.min(1,hurtFlash+0.3+amt/90); sfx('hurt'); }
-  if(amt>=12&&t.alive&&!t.gc&&!t.emote&&t.ch&&t.pos.distanceTo(camera.position)<45) gcPlay(t,gcU(info&&info.head?'UAL_Hit_Head':'UAL_Hit_Chest','PM_Bonk'),{w:0.55,fin:0.04,fout:0.18,body:false,tag:'hit'}); // [v1.72] a flinch from the pack
+  if(amt>=12&&t.alive&&!t.gc&&!t.emote&&t.ch&&t.pos.distanceTo(camera.position)<45) gcPlay(t,gcU('UAL_Hit_Chest','PM_Bonk'),{w:0.55,fin:0.04,fout:0.18,body:false,tag:'hit'}); // [v1.72] a flinch from the pack
   if(!t.isPlayer&&src&&src!==t&&src.alive){ t.healT=0; if(t.enemy!==src){ t.enemy=src; t.seenAt=matchTime-0.2; } t.lastSeen=src.pos.clone(); t.lastSeenT=matchTime; }
   if(t.hp<=0&&t===player&&t.pwLives>0){ t.pwLives--; t.hp=30; buff(t,'ghost',1.5); pwBlast(chest(t),{r:7,dmg:20,fire:true}); banner('Back again','',1.5); return; } // Phoenix Feather and Pixel Pick extra lives
   if(t.hp<=0){ if(t.frozen>0) info.frozen=true; eliminate(t,src,info.weapon,info); }
@@ -6388,7 +6354,7 @@ function brMove(e,dt){
   e.onGround=on; e.swimming=on&&e.br==='ground'&&brHeight(p.x,p.z)<BR_SEA-1.0; // [v1.63] deep water: swim (the sea floor there is the flat BR_SEA-0.9)
   if(on&&e.br!=='ground'){ const fall=-Math.min(e.vel.y,0); if(e.br==='fall') brCrash(e,fall); else brDust(e.pos,0.8); e.brNoGlide=false; e.br='ground'; e.zgFloat=false; e.zgTx=0; if(e.ch&&e.ch.glider) e.ch.glider.visible=false;
     e.anim.land=clamp(Math.max(fall,8)/20,0.3,1); if(e===player){ sfx('land',null,{v:12,surf:'rock'}); camShake=Math.max(camShake,0.3); } }
-  if(e.onGround&&!was&&e.br==='ground'&&(e.brFall||0)>9){ e.anim.land=clamp(e.brFall/20,0.3,1); if(e===player) sfx('land',null,{v:e.brFall,surf:'rock'});  }
+  if(e.onGround&&!was&&e.br==='ground'&&(e.brFall||0)>9){ e.anim.land=clamp(e.brFall/20,0.3,1); if(e===player) sfx('land',null,{v:e.brFall,surf:'rock'});  if(!e.gc&&e.brFall>12) gcPlay(e,'UAL_Jump_Land',{w:0.85,fin:0.05,fout:0.2,tag:'land'}); }
   e.brFall=e.onGround?0:Math.max(0,-e.vel.y);
 }
 // the glider snaps on a wall: the pieces fly off and you drop, no second glider, toward a crash landing
@@ -6500,14 +6466,7 @@ function gcClip(e,c,X){ const G=e.gc, dt=X.dt;
 function gcAuto(e,X){ if(!X.near&&!e.gc) return;
   const sw=e.swimming&&X.speed<0.7, cr=e.crouch&&e.onGround&&X.speed<0.3&&!(e.slideT>0);
   if(sw){ if(!e.gc) gcPlay(e,gcU('UAL_Swim_Idle_Loop','PM_Float'),{loop:true,fin:0.45,fout:0.3,tag:'float'}); } else gcStop(e,'float');
-  if(cr){ if(!e.gc) gcPlay(e,gcU('UAL_Crouch_Idle_Loop','PM_Campfire'),{loop:true,body:false,fin:0.3,fout:0.2,tag:'crouch',low:true}); } else gcStop(e,'crouch');
-  // [v1.77] jumping and falling: the zip's Jump loop in the air, its landing when you touch down (lighter the faster you run on)
-  const A=X.A, air=!e.onGround&&!e.zgFloat&&!e.swimming&&!e.pk&&!e.roll&&!e.ride&&e.br!=='fall'&&e.br!=='glide'&&e.br!=='jet'&&!e.brCrash;
-  A.airT=air?(A.airT||0)+X.dt:0;
-  if(air&&A.airT>0.1){ if(!e.gc) gcPlay(e,'UAL_Jump_Loop',{loop:true,body:false,fin:0.2,fout:0.14,tag:'air'}); if(e.gc&&e.gc.tag==='air') A.airC=(A.airC||0)+X.dt; }
-  else { if(e.gc&&e.gc.tag==='air'){ const w=0.85*(1-smooth(1.5,5.5,X.speed)); if(e.onGround&&(A.airC||0)>0.35&&w>0.15){ e.gc=null; gcPlay(e,'UAL_Jump_Land',{t0:0.1,t1:0.9,speed:1.7,w,body:false,fin:0.07,fout:0.22,tag:'land'}); } else gcStop(e,'air'); } A.airC=0; }
-  // the glider: hang from the bar in the zip's falling pose (animBR puts the hands on the bar and sways the legs)
-  if(e.br==='glide'){ if(!e.gc) gcPlay(e,'UAL_Jump_Loop',{loop:true,body:false,speed:0.6,fin:0.3,fout:0.2,tag:'glide'}); } else gcStop(e,'glide'); }
+  if(cr){ if(!e.gc) gcPlay(e,gcU('UAL_Crouch_Idle_Loop','PM_Campfire'),{loop:true,body:false,fin:0.3,fout:0.2,tag:'crouch',low:true}); } else gcStop(e,'crouch'); }
 // is the body busy with something that puts the weapon away?
 const gcBusy=e=>!!(e.gc&&e.gc.body||e.pk||e.prone||e.ride||e.sit||e.chan);
 
@@ -6548,7 +6507,6 @@ function pkTry(e,fx,fz,jump){ if(e.pk||!pkWalking(e)) return false; const gs=PKU
       const toF=MODE==='br'?Math.max(F,brFloor(x,z)):F;
       e.pk={kind:'vault',t:0,dur:clamp(0.36+thick*0.07+S.hh*0.08,0.4,0.72),from:e.pos.clone(),to:new V(x,e.pos.y+(toF-F),z),hh:S.hh,fx,fz,gs,sp:Math.max(sp,6.5),
         hand:new V(e.pos.x+fx*(S.t0+0.3)+fz*0.24,S.top,e.pos.z+fz*(S.t0+0.3)-fx*0.24)};
-      { const hc=SOLDIER&&SOLDIER.clips.INV_Hurdle; if(hc) gcPlay(e,'INV_Hurdle',{speed:hc.duration/e.pk.dur,fin:0.06,fout:0.1,tag:'vault'}); } // [v1.80] Kash's hurdle
       if(e===player) sfx('whoosh',null,{}); return true; } }
   if((jump||!e.onGround)&&S.hh>0.9&&S.hh<=3.4&&S.t0<0.9){ // a ledge within reach: grab it and pull up
     const d=S.t0+r+0.3, x=e.pos.x+fx*d, z=e.pos.z+fz*d;
@@ -6620,7 +6578,6 @@ function animParkour(e,X){ const {c,A,B,dt}=X, K=e.pk; if(A.prone==null){ A.pron
   if(e.ride&&X.near){ c.g.position.addScaledVector(X.upB,0.12); c.g.updateMatrixWorld(true); }
   if(!K||!X.near) return;
   if(K.kind==='vault'){ const k=Math.min(1,K.t/K.dur), s=Math.sin(Math.PI*k);
-    if(e.gc&&e.gc.tag==='vault') return; // (the hurdle clip does the whole move)
     pkTurn(c,X,X.fwdB,0.5*s,0.95); pkTurn(c,X,X.rightB,-0.3*s,0.95);
     const R=X.rightB, U=X.upB, F=X.fwdB;
     bend(X,'Left',1.15*s,-1.35*s); bend(X,'Right',0.95*s,-1.2*s); rotateBoneWorld(B.LeftUpLeg,F,0.5*s); rotateBoneWorld(B.RightUpLeg,F,0.5*s); // both legs swing through to one side

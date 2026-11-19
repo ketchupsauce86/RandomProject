@@ -239,8 +239,3 @@ if __name__ == '__main__':
         main('pack_ual_export.json.gz', 'ualmoves.js', 'UAL_MOVES', only_mapped=True,
              head='All 43 animations of the Quaternius Universal Animation Library (Standard, CC0; see CREDITS.md),\n'
                   '   retargeted onto the soldier rig by tools/retarget_moves.py.')
-    # Kash's own pipeline moves (tools/anim_pipeline, built in Blender with bpy): directional jogs, climb, hurdle and more
-    if os.path.exists(f'{ROOT}/tools/inverted_moves_export.json.gz'):
-        main('inverted_moves_export.json.gz', 'invmoves.js', 'INV_MOVES', only_mapped=True,
-             head='Original moves from the Inverted animation pipeline (tools/anim_pipeline, made with Blender bpy),\n'
-                  '   retargeted onto the soldier rig by tools/retarget_moves.py.')
